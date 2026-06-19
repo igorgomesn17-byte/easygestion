@@ -111,4 +111,31 @@ const limiteLogin = rateLimit({
   message: { erro: 'Muitas tentativas de login. Aguarde 15 minutos.' },
 });
 
-module.exports = { hashSenha, verificarSenha, exigirLogin, injetarTenant, exigirPapel, apenasAdmin, limiteGlobal, limiteLogin, ehPublica };
+// Admin password: muito estrito
+const limiteAdminPassword = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 3,                      // 3 tentativas / 15min por IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { erro: 'Muitas tentativas de admin. Aguarde 15 minutos.' },
+});
+
+// Forgot password: previne email enumeration
+const limiteForgotPassword = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,                      // 5 pedidos / hora por IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { erro: 'Muitos pedidos de redefinição. Tente novamente mais tarde.' },
+});
+
+// Reset senha: evita brute force no token
+const limiteResetSenha = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,                     // 10 tentativas / 15min por IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { erro: 'Muitas tentativas de reset. Aguarde 15 minutos.' },
+});
+
+module.exports = { hashSenha, verificarSenha, exigirLogin, injetarTenant, exigirPapel, apenasAdmin, limiteGlobal, limiteLogin, limiteAdminPassword, limiteForgotPassword, limiteResetSenha, ehPublica };

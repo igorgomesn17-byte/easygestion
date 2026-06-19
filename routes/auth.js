@@ -5,7 +5,7 @@
 const express = require('express');
 const router = express.Router();
 const { db, getConfig } = require('../db/database');
-const { hashSenha, verificarSenha } = require('../middleware/seguranca');
+const { hashSenha, verificarSenha, limiteForgotPassword, limiteResetSenha } = require('../middleware/seguranca');
 const jwt = require('jsonwebtoken');
 const { enviarEmail, templateResetSenha } = require('../lib/email');
 
@@ -93,7 +93,7 @@ router.post('/registro', (req, res) => {
   }
   const nomeLoja = sanitizar(nome_loja);
   const nomeResponsavel = sanitizar(nome_responsavel);
-  const telefone = sanitizar(telefone);
+  const telefoneLimpo = sanitizar(telefone);
 
   if (***REMOVED***nomeLoja) {
     return res.status(400).json({ erro: 'Nome da loja é obrigatório' });
@@ -101,10 +101,10 @@ router.post('/registro', (req, res) => {
   if (***REMOVED***nomeResponsavel) {
     return res.status(400).json({ erro: 'Nome do responsável é obrigatório' });
   }
-  if (***REMOVED***telefone) {
+  if (***REMOVED***telefoneLimpo) {
     return res.status(400).json({ erro: 'Telefone é obrigatório' });
   }
-  if (***REMOVED***/^\d{10,11}$/.test(telefone.replace(/\D/g, ''))) {
+  if (***REMOVED***/^\d{10,11}$/.test(telefoneLimpo.replace(/\D/g, ''))) {
     return res.status(400).json({ erro: 'Telefone deve ter 10 ou 11 dígitos' });
   }
 
@@ -120,7 +120,7 @@ router.post('/registro', (req, res) => {
       const infoTenant = db.prepare(`
         INSERT INTO tenants (nome_loja, email, senha_hash, nome_responsavel, telefone, plano)
         VALUES (?, ?, ?, ?, ?, 'basico')
-      `).run(nomeLoja, email.trim(), hashSenha(senha), nomeResponsavel, telefone);
+      `).run(nomeLoja, email.trim(), hashSenha(senha), nomeResponsavel, telefoneLimpo);
       const tenantId = infoTenant.lastInsertRowid;
 
       // (2) Criar usuário admin do tenant
@@ -171,7 +171,7 @@ router.get('/me', (req, res) => {
 
 // POST /api/auth/forgot-password { email }
 // Envia email com link para redefinir senha
-router.post('/forgot-password', async (req, res) => {
+router.post('/forgot-password', limiteForgotPassword, async (req, res) => {
   const { email } = req.body;
   if (***REMOVED***email || ***REMOVED***email.includes('@')) {
     return res.status(400).json({ erro: 'Email inválido' });
@@ -207,7 +207,7 @@ router.post('/forgot-password', async (req, res) => {
 
 // POST /api/auth/reset-senha { token, nova_senha }
 // Reseta a senha com token válido
-router.post('/reset-senha', (req, res) => {
+router.post('/reset-senha', limiteResetSenha, (req, res) => {
   const { token, nova_senha } = req.body;
   if (***REMOVED***token || ***REMOVED***nova_senha || nova_senha.length < 6) {
     return res.status(400).json({ erro: 'Dados inválidos' });
