@@ -56,12 +56,12 @@ NODE_ENV=staging
 PORT=3000
 SESSION_SECRET=seu-secret-aleatorio-muito-seguro-min-32-chars-aqui-use-uma-string-longa
 
-SENDGRID_API_KEY=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
+SENDGRID_API_KEY=SG.xxx...
 LOJA_EMAIL=noreply@easygestao.com
 LOJA_NOME=EasyGestão
 
-AWS_ACCESS_KEY_ID=AKIAQJP5WPAFTCCEXW7Z
-AWS_SECRET_ACCESS_KEY=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
+AWS_ACCESS_KEY_ID=AKIA...
+AWS_SECRET_ACCESS_KEY=xxx...
 AWS_S3_BUCKET=easygestao-backups
 AWS_REGION=sa-east-1
 
