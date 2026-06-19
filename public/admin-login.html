@@ -1,0 +1,165 @@
+<***REMOVED***DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login — Admin EasyGestão</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #1B5E3F 0%, #0d3a24 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .container {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+      width: 90%;
+      max-width: 400px;
+      padding: 40px;
+    }
+
+    .logo {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .logo h1 {
+      font-size: 28px;
+      color: #1B5E3F;
+      margin-bottom: 10px;
+    }
+
+    .logo p {
+      font-size: 14px;
+      color: #999;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #1B5E3F;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: #1B5E3F;
+      box-shadow: 0 0 0 3px rgba(27, 94, 63, 0.1);
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      background: #1B5E3F;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      text-transform: uppercase;
+    }
+
+    button:hover {
+      background: #0d3a24;
+    }
+
+    .error {
+      color: #d9534f;
+      font-size: 12px;
+      margin-bottom: 15px;
+      padding: 10px;
+      background: #f8d7da;
+      border-radius: 4px;
+      display: none;
+    }
+
+    .error.show {
+      display: block;
+    }
+
+    .info {
+      font-size: 12px;
+      color: #999;
+      text-align: center;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">
+      <h1>🔐 EasyGestão</h1>
+      <p>Painel Administrativo</p>
+    </div>
+
+    <div class="error" id="erro"></div>
+
+    <div class="form-group">
+      <label>Senha de Admin</label>
+      <input type="password" id="senha" placeholder="Digite a senha" autofocus>
+    </div>
+
+    <button onclick="login()">Acessar</button>
+
+    <div class="info">Sistema seguro. Apenas para administradores.</div>
+  </div>
+
+  <script>
+    function login() {
+      const senha = document.getElementById('senha').value;
+      const erro = document.getElementById('erro');
+
+      if (***REMOVED***senha) {
+        erro.textContent = 'Digite a senha***REMOVED***';
+        erro.classList.add('show');
+        return;
+      }
+
+      if (senha === 'teste123') {
+        // Correto
+        sessionStorage.setItem('admin_auth', 'true');
+        window.location.href = '/admin';
+      } else {
+        erro.textContent = 'Senha incorreta***REMOVED***';
+        erro.classList.add('show');
+      }
+    }
+
+    // Enter para submeter
+    document.getElementById('senha').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') login();
+    });
+
+    // Se já está logado, vai pro dashboard
+    if (sessionStorage.getItem('admin_auth') === 'true') {
+      window.location.href = '/admin';
+    }
+  </script>
+</body>
+</html>

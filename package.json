@@ -1,0 +1,31 @@
+{
+  "name": "dre-express",
+  "version": "0.1.0",
+  "description": "DRE Express - SaaS para lojistas de moda (PDV + Financeiro + NFC-e)",
+  "main": "server.js",
+  "engines": {
+    "node": ">=22.5"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env server.js",
+    "backup": "node scripts/backup.js",
+    "backup-s3": "node scripts/backup-s3.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1073.0",
+    "@sendgrid/mail": "^8.1.6",
+    "bwip-js": "^4.5.1",
+    "cors": "^2.8.6",
+    "express": "^4.21.2",
+    "express-rate-limit": "^8.5.2",
+    "express-session": "^1.19.0",
+    "google-auth-library": "^10.7.0",
+    "googleapis": "^173.0.0",
+    "helmet": "^8.2.0",
+    "jsonwebtoken": "^9.0.3",
+    "node-cron": "^4.4.1",
+    "sqlite3": "^5.1.6"
+  },
+  "author": "DS Store",
+  "license": "UNLICENSED"
+}

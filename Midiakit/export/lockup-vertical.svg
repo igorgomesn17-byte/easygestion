@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 240" width="360" height="240">
+<defs></defs>
+<g transform="translate(120 8) scale(1.0)">
+  <g transform="rotate(-24 24 62)"><path d="M11 56 a7 7 0 0 1 7 -7 H34 a6 6 0 0 1 6 6 V71 a6 6 0 0 1 -6 6 H18 a7 7 0 0 1 -7 -7 Z" fill="#c39a36"></path><circle cx="21" cy="59" r="3.4" fill="#f6f2e7"></circle></g>
+  <path d="M45 46 V36 a15 15 0 0 1 30 0 V46" fill="none" stroke="#1c4a35" stroke-width="7.5" stroke-linecap="round"></path>
+  <path d="M31 45 H89 L83.5 93 a8 8 0 0 1 -8 7 H43.5 a8 8 0 0 1 -8 -7 Z" fill="#1c4a35"></path>
+  <g fill="#f6f2e7"><rect x="45" y="74" width="9" height="14" rx="2.5"></rect><rect x="56" y="66" width="9" height="22" rx="2.5"></rect><rect x="67" y="58" width="9" height="30" rx="2.5"></rect></g></g>
+<text x="180" y="205" text-anchor="middle" font-family="PJS,sans-serif" font-weight="800" font-size="52" letter-spacing="-1.6"><tspan fill="#1c4a35">Easy</tspan><tspan fill="#c39a36">Gestão</tspan></text>
+</svg>

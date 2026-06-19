@@ -1,0 +1,157 @@
+<***REMOVED***DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clientes • DS Store</title>
+  <link rel="stylesheet" href="css/ds.css">
+</head>
+<body>
+  <div class="conteudo">
+    <div class="flex-entre">
+      <div><h1>Clientes</h1><p class="subtitulo">Cadastro e histórico de vendas</p></div>
+      <button class="btn" onclick="abrir()">+ Novo cliente</button>
+    </div>
+    <div class="card"><input type="search" id="busca" placeholder="🔎 Buscar por nome ou telefone..." oninput="carregar()"></div>
+    <div id="lista"></div>
+  </div>
+
+  <div class="modal-fundo" id="modal">
+    <div class="modal">
+      <button class="modal-fechar" onclick="fechar()">&times;</button>
+      <h2 id="titulo">Novo cliente</h2>
+      <input type="hidden" id="cid">
+      <div class="campo"><label>Nome *</label><input type="text" id="nome"></div>
+      <div class="campo"><label>WhatsApp</label><input type="text" id="tel" placeholder="(73) 9...."></div>
+      <div class="linha">
+        <div class="campo"><label>Cidade</label><input type="text" id="cidade"></div>
+        <div class="campo"><label>Aniversário (DD/MM)</label><input type="text" id="aniv" placeholder="15/03"></div>
+      </div>
+      <div class="campo">
+        <label>Como conheceu a DS?</label>
+        <select id="origem"><option value="">— selecione —</option></select>
+      </div>
+      <div id="acoesCliente" style="display:none; gap:8px; margin-bottom:10px; flex-wrap:wrap;"></div>
+      <button class="btn btn-bloco" onclick="salvar()">Salvar</button>
+      <div id="historico"></div>
+    </div>
+  </div>
+
+  <script src="js/comum.js"></script>
+  <script>
+    montarLayout('clientes');
+    mascaraAniversario(document.getElementById('aniv'));
+
+    async function carregar() {
+      const b = document.getElementById('busca').value;
+      const lista = await api('/clientes?busca=' + encodeURIComponent(b));
+      const div = document.getElementById('lista');
+      if (lista.length === 0) { div.innerHTML = '<div class="vazio">Nenhum cliente cadastrado ainda.</div>'; return; }
+      // ordena por total gasto desc
+      lista.sort((a,b)=>b.total_gasto-a.total_gasto);
+      div.innerHTML = lista.map(c => `
+        <div class="card">
+          <div class="flex-entre">
+            <div>
+              <strong style="font-size:1.05rem;">${esc(c.nome)}</strong>
+              ${c.total_gasto > 1000 ? '<span class="badge badge-dourado">⭐ VIP</span>' : ''}
+              <div class="texto-cinza" style="font-size:0.85rem;">
+                ${esc(c.telefone)||'sem telefone'} ${c.cidade?'• '+esc(c.cidade):''}</div>
+            </div>
+            <div class="direita">
+              <div style="font-weight:700;">${moeda(c.total_gasto)}</div>
+              <div class="texto-cinza" style="font-size:0.8rem;">${c.num_compras} compra(s)</div>
+            </div>
+          </div>
+          <div class="mt"><button class="btn btn-fino btn-escuro" onclick="ver(${c.id})">Ver histórico</button></div>
+        </div>`).join('');
+    }
+
+    let editId = null;
+    // popula o select "Como conheceu a DS?" a partir do config (origens)
+    async function carregarOrigens(){
+      try {
+        const cfg = await api('/config');
+        let ops = [];
+        try { ops = JSON.parse(cfg.origens || '[]'); } catch(e) {}
+        if (***REMOVED***ops.length) ops = ['Passou na loja','Instagram','Indicação','Google','WhatsApp','Outro'];
+        document.getElementById('origem').innerHTML =
+          '<option value="">— selecione —</option>' + ops.map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('');
+      } catch(e) {}
+    }
+    carregarOrigens();
+
+    function abrir() {
+      editId = null;
+      document.getElementById('titulo').textContent = 'Novo cliente';
+      ['nome','tel','cidade','aniv'].forEach(i=>document.getElementById(i).value='');
+      document.getElementById('origem').selectedIndex = 0;
+      document.getElementById('acoesCliente').style.display = 'none';
+      document.getElementById('historico').innerHTML = '';
+      document.getElementById('modal').classList.add('aberto');
+    }
+    function fechar(){ document.getElementById('modal').classList.remove('aberto'); }
+
+    async function ver(id) {
+      const c = await api('/clientes/'+id);
+      editId = id;
+      document.getElementById('titulo').textContent = c.nome;
+      document.getElementById('cid').value = c.id;
+      document.getElementById('nome').value = c.nome;
+      document.getElementById('tel').value = c.telefone||'';
+      document.getElementById('cidade').value = c.cidade||'';
+      document.getElementById('aniv').value = c.aniversario||'';
+      document.getElementById('origem').value = c.origem||'';
+      // ações de cliente (arquivar) — só na edição
+      const acoes = document.getElementById('acoesCliente');
+      acoes.style.display = 'flex';
+      acoes.innerHTML = `
+        <button class="btn btn-fino ${c.arquivado?'':'btn-escuro'}" onclick="toggleArquivar(${c.id}, ${c.arquivado?0:1})">
+          ${c.arquivado ? '📂 Reativar cliente' : '🗄️ Arquivar'}</button>
+        <button class="btn btn-fino" style="background:#C0392B;color:#fff;" onclick="excluirCliente(${c.id})">🗑️ Excluir</button>`;
+      const h = c.compras||[];
+      document.getElementById('historico').innerHTML = `<h2>Histórico (${h.length})</h2>` + (h.length===0
+        ? '<p class="texto-cinza">Nenhuma compra ainda.</p>'
+        : h.map(x=>`
+          <div class="card" style="box-shadow:none; border:1px solid #EEE; margin-bottom:8px;">
+            <div class="flex-entre">
+              <strong>${x.data_hora.slice(0,10).split('-').reverse().join('/')}</strong>
+              <span class="dinheiro">${moeda(x.total)}</span>
+            </div>
+            <div class="texto-cinza" style="font-size:0.82rem;">
+              ${rotuloPagamento(x.forma_pagamento)} • ${rotuloOrigem(x.origem||'loja')}</div>
+            ${(x.itens||[]).length ? `<div class="mt" style="font-size:0.88rem;">${x.itens.map(i=>
+              `• ${i.qtd}x ${esc(i.descricao)}`).join('<br>')}</div>` : ''}
+          </div>`).join(''));
+      document.getElementById('modal').classList.add('aberto');
+    }
+
+    async function salvar() {
+      const nome = document.getElementById('nome').value.trim();
+      if (***REMOVED***nome){ toast('Informe o nome','erro'); return; }
+      const body = { nome, telefone:document.getElementById('tel').value,
+        cidade:document.getElementById('cidade').value, aniversario:document.getElementById('aniv').value,
+        origem:document.getElementById('origem').value };
+      if (editId) await api('/clientes/'+editId, { method:'PUT', body });
+      else await api('/clientes', { method:'POST', body });
+      toast('Cliente salvo','sucesso'); fechar(); carregar();
+    }
+
+    async function toggleArquivar(id, valor){
+      await api('/clientes/'+id+'/arquivar', { method:'PATCH', body:{ arquivado: valor } });
+      toast(valor ? 'Cliente arquivado' : 'Cliente reativado','sucesso');
+      fechar(); carregar();
+    }
+    async function excluirCliente(id){
+      if (***REMOVED***confirm('Excluir este cliente?')) return;
+      try {
+        await api('/clientes/'+id, { method:'DELETE' });
+        toast('Cliente excluído','sucesso'); fechar(); carregar();
+      } catch(e) { toast(e.message,'erro'); }
+    }
+
+    document.getElementById('modal').addEventListener('click', e=>{ if(e.target.id==='modal') fechar(); });
+    carregar();
+  </script>
+</body>
+</html>

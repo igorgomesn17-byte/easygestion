@@ -1,0 +1,37 @@
+========================================================
+       EASYGESTION - INSTALADOR
+========================================================
+
+PRE-REQUISITO:
+
+Você precisa ter Node.js instalado
+Instale em: https://nodejs.org (versão 18+)
+Reinicie o PC após instalar
+
+========================================================
+
+COMO INSTALAR - 2 PASSOS:
+
+PASSO 1: Instalar
+   Clique DIREITO em: INSTALAR-SIMPLES.bat
+   Escolha: "Executar como administrador"
+   Deixe rodar (3-5 minutos)
+
+PASSO 2: Usar
+   Atalho vai aparecer na Desktop
+   Clique DUPLO no atalho para abrir
+
+========================================================
+
+QUANDO ABRIR O SISTEMA:
+
+Na tela que aparece:
+   1. Cola o código que receber
+   2. Clica em "Ativar Licença"
+   3. PRONTO***REMOVED*** 30 dias de acesso
+
+========================================================
+
+PRONTO***REMOVED***
+
+Instalação automática e segura.

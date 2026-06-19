@@ -1,0 +1,230 @@
+<***REMOVED***DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Esqueci Minha Senha — EasyGestão</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    body {
+      background: linear-gradient(135deg, #1a6f5e 0%, #0d3d35 100%);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+      width: 100%;
+      max-width: 420px;
+      padding: 40px;
+    }
+    .logo {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    .logo svg {
+      max-width: 200px;
+      height: auto;
+      margin-bottom: 16px;
+    }
+    .logo h1 {
+      color: #1a6f5e;
+      font-size: 28px;
+      margin: 0 0 8px 0;
+      font-weight: 700;
+      display: none;
+    }
+    .logo p {
+      color: #666;
+      margin: 0;
+      font-size: 14px;
+      display: none;
+    }
+    .form-group {
+      margin-bottom: 24px;
+    }
+    label {
+      display: block;
+      margin-bottom: 8px;
+      color: #333;
+      font-weight: 500;
+      font-size: 14px;
+    }
+    input[type="email"] {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+      box-sizing: border-box;
+      transition: border-color 0.2s;
+    }
+    input[type="email"]:focus {
+      outline: none;
+      border-color: #1a6f5e;
+      box-shadow: 0 0 0 3px rgba(26, 111, 94, 0.1);
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      background: #1a6f5e;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    button:hover {
+      background: #0d3d35;
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    .message {
+      margin-top: 20px;
+      padding: 12px;
+      border-radius: 6px;
+      display: none;
+      font-size: 14px;
+    }
+    .message.success {
+      background: #e8f5e9;
+      color: #2e7d32;
+      border: 1px solid #4caf50;
+      display: block;
+    }
+    .message.error {
+      background: #ffebee;
+      color: #c62828;
+      border: 1px solid #f44336;
+      display: block;
+    }
+    .back-link {
+      text-align: center;
+      margin-top: 20px;
+    }
+    .back-link a {
+      color: #1a6f5e;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .back-link a:hover {
+      text-decoration: underline;
+    }
+    .info-box {
+      background: #f5f5f5;
+      padding: 16px;
+      border-radius: 6px;
+      margin-bottom: 24px;
+      color: #666;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 850 230" style="max-width:200px;height:auto;display:block;margin:0 auto">
+        <g transform="translate(24 43) scale(1.2000)">
+          <g transform="rotate(-24 24 62)"><path d="M11 56 a7 7 0 0 1 7 -7 H34 a6 6 0 0 1 6 6 V71 a6 6 0 0 1 -6 6 H18 a7 7 0 0 1 -7 -7 Z M21 55.6 a3.4 3.4 0 1 0 0 6.8 a3.4 3.4 0 1 0 0 -6.8 Z" fill="#c39a36" fill-rule="evenodd"></path></g>
+          <path d="M45 46 V36 a15 15 0 0 1 30 0 V46" fill="none" stroke="#1c4a35" stroke-width="7.5" stroke-linecap="round"></path>
+          <path d="M31 45 H89 L83.5 93 a8 8 0 0 1 -8 7 H43.5 a8 8 0 0 1 -8 -7 Z M47.5 74 H51.5 A2.5 2.5 0 0 1 54 76.5 V85.5 A2.5 2.5 0 0 1 51.5 88 H47.5 A2.5 2.5 0 0 1 45 85.5 V76.5 A2.5 2.5 0 0 1 47.5 74 Z M58.5 66 H62.5 A2.5 2.5 0 0 1 65 68.5 V85.5 A2.5 2.5 0 0 1 62.5 88 H58.5 A2.5 2.5 0 0 1 56 85.5 V68.5 A2.5 2.5 0 0 1 58.5 66 Z M69.5 58 H73.5 A2.5 2.5 0 0 1 76 60.5 V85.5 A2.5 2.5 0 0 1 73.5 88 H69.5 A2.5 2.5 0 0 1 67 85.5 V60.5 A2.5 2.5 0 0 1 69.5 58 Z" fill="#1c4a35" fill-rule="evenodd"></path>
+        </g>
+        <text x="186" y="123" font-family="'Plus Jakarta Sans',sans-serif" font-weight="800" font-size="96" letter-spacing="-3" fill="#1c4a35">Easy<tspan fill="#c39a36">Gestão</tspan></text>
+      </svg>
+      <h1>EasyGestão</h1>
+      <p>Recuperar Acesso</p>
+    </div>
+
+    <div class="info-box">
+      Digite seu email cadastrado e enviaremos um link para redefinir sua senha. O link expira em 1 hora.
+    </div>
+
+    <form id="formReset">
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input
+          type="email"
+          id="email"
+          name="email"
+          placeholder="seu@email.com"
+          required
+          autocomplete="email"
+        >
+      </div>
+
+      <button type="submit" id="btnSubmit">Enviar Link de Recuperação</button>
+
+      <div id="message" class="message"></div>
+    </form>
+
+    <div class="back-link">
+      <a href="/login.html">Voltar ao login</a>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById('formReset');
+    const emailInput = document.getElementById('email');
+    const btnSubmit = document.getElementById('btnSubmit');
+    const message = document.getElementById('message');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const email = emailInput.value.trim();
+      if (***REMOVED***email) {
+        showMessage('Por favor, digite seu email', 'error');
+        return;
+      }
+
+      btnSubmit.disabled = true;
+      btnSubmit.textContent = 'Enviando...';
+      message.textContent = '';
+      message.className = 'message';
+
+      try {
+        const res = await fetch('/api/auth/forgot-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.ok) {
+          showMessage('✓ Link de recuperação enviado para seu email***REMOVED*** Verifique sua caixa de entrada.', 'success');
+          emailInput.value = '';
+          setTimeout(() => {
+            window.location.href = '/login.html';
+          }, 3000);
+        } else {
+          showMessage(data.erro || data.mensagem || 'Erro ao enviar email', 'error');
+        }
+      } catch (err) {
+        console.error(err);
+        showMessage('Erro ao conectar com o servidor', 'error');
+      } finally {
+        btnSubmit.disabled = false;
+        btnSubmit.textContent = 'Enviar Link de Recuperação';
+      }
+    });
+
+    function showMessage(text, type) {
+      message.textContent = text;
+      message.className = `message ${type}`;
+    }
+  </script>
+</body>
+</html>

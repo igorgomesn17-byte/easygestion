@@ -1,0 +1,550 @@
+<***REMOVED***DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Configurações</title>
+  <link rel="stylesheet" href="css/ds.css">
+</head>
+<body>
+  <div class="conteudo">
+    <h1>Configurações</h1>
+    <p class="subtitulo">Metas, precificação, taxas e impostos</p>
+
+    <div class="card">
+      <h2 style="margin-top:0;">🎨 Identidade da sua marca</h2>
+      <p class="texto-cinza" style="font-size:0.82rem; margin-top:-6px;">A cara do sistema é sua: coloque a logo e a cor da sua loja. Elas aparecem no topo do sistema, no login e na vitrine.</p>
+      <div class="linha">
+        <div class="campo" style="flex:1;">
+          <label>Logo da loja</label>
+          <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
+            <div id="logoPreview" style="width:84px; height:84px; border:1px solid var(--linha-forte); border-radius:10px; display:flex; align-items:center; justify-content:center; overflow:hidden; background:var(--surface-2);">
+              <span class="texto-cinza" style="font-size:0.72rem; text-align:center;">sem logo</span>
+            </div>
+            <div>
+              <input type="file" id="logoFile" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="enviarLogo(this)">
+              <button type="button" class="btn btn-fino" onclick="document.getElementById('logoFile').click()">Enviar logo</button>
+              <button type="button" class="btn btn-fino btn-fantasma" id="btnRemoverLogo" onclick="removerLogo()" style="display:none;">Remover</button>
+              <p class="texto-cinza" style="font-size:0.76rem; margin:6px 0 0;">PNG, JPG ou WEBP, até 2MB. Fundo transparente (PNG) fica melhor.</p>
+            </div>
+          </div>
+        </div>
+        <div class="campo" style="max-width:200px;">
+          <label>Cor da marca</label>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <input type="color" id="marca_cor" value="#2e7d32" style="width:54px; height:42px; padding:2px; cursor:pointer;" oninput="previewCor(this.value)">
+            <input type="text" id="marca_cor_hex" placeholder="#2e7d32" style="flex:1;" oninput="sincCorHex(this.value)">
+          </div>
+          <p class="texto-cinza" style="font-size:0.76rem; margin:6px 0 0;">Pinta o topo, os botões e os destaques.</p>
+        </div>
+      </div>
+      <div style="margin-top:16px;">
+        <button type="button" class="btn btn-fantasma" onclick="restaurarPadrao()">↺ Restaurar padrão EasyGestão</button>
+        <p class="texto-cinza" style="font-size:0.76rem; margin:6px 0 0;">Volta para a logo e cor original do sistema.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 style="margin-top:0;">🏪 Dados da loja (aparecem no cupom)</h2>
+      <div class="campo"><label>Nome</label><input type="text" id="loja_nome"></div>
+      <div class="campo"><label>Endereço</label><input type="text" id="loja_endereco"></div>
+      <div class="linha">
+        <div class="campo"><label>Telefone</label><input type="text" id="loja_telefone"></div>
+        <div class="campo"><label>Instagram</label><input type="text" id="loja_instagram"></div>
+      </div>
+    </div>
+
+
+    <div class="card">
+      <h2 style="margin-top:0;">🖨️ Impressão / PDV</h2>
+      <div class="campo">
+        <label><input type="checkbox" id="cupom_auto_imprimir" style="width:auto; margin-right:8px;"> Imprimir o cupom automaticamente ao finalizar a venda</label>
+      </div>
+      <div class="campo">
+        <label>Mensagem de rodapé do cupom</label>
+        <input type="text" id="cupom_mensagem_rodape" placeholder="Obrigada por comprar conosco***REMOVED***">
+      </div>
+      <div class="campo">
+        <label>Política de troca (aparece no rodapé do cupom)</label>
+        <input type="text" id="cupom_politica_troca" placeholder="TROCAS EM ATÉ 7 DIAS com a peça e este cupom">
+      </div>
+      <p class="texto-cinza" style="font-size:0.8rem;">Quando impressão automática está ligada, o cupom imprime sozinho assim que a venda é finalizada. Pra sair sem a janela de confirmação do navegador, abra o Chrome em modo de impressão direta (ver guia de configuração).</p>
+    </div>
+
+
+    <div class="card">
+      <h2 style="margin-top:0;">🏢 Dados cadastrais / fiscais</h2>
+      <p class="texto-cinza" style="font-size:0.82rem; margin-top:-6px;">Usados no cupom e nos relatórios. Necessários quando ligar a emissão de nota fiscal.</p>
+      <div class="campo"><label>Razão social</label><input type="text" id="loja_razao_social" placeholder="Nome empresarial registrado"></div>
+      <div class="linha">
+        <div class="campo"><label>Nome fantasia</label><input type="text" id="loja_nome_fantasia"></div>
+        <div class="campo"><label>CNPJ</label><input type="text" id="loja_cnpj" placeholder="00.000.000/0000-00"></div>
+      </div>
+      <div class="linha">
+        <div class="campo"><label>Inscrição Estadual (IE)</label><input type="text" id="loja_ie"></div>
+        <div class="campo"><label>Regime tributário</label><input type="text" id="loja_regime"></div>
+      </div>
+      <div class="linha">
+        <div class="campo"><label>CEP</label><input type="text" id="loja_cep" placeholder="45600-000"></div>
+        <div class="campo"><label>Cidade</label><input type="text" id="loja_cidade"></div>
+        <div class="campo" style="max-width:90px;"><label>UF</label><input type="text" id="loja_uf" maxlength="2"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 style="margin-top:0;">🗂️ Categorias de produtos</h2>
+      <p class="texto-cinza" style="font-size:0.82rem; margin-top:-6px;">Adicione ou remova as categorias que você usa para organizar seus produtos.</p>
+      <div id="listaCategorias" style="display:grid; grid-template-columns:1fr auto; gap:8px; margin-bottom:12px;">
+      </div>
+      <div style="display:flex; gap:8px;">
+        <input type="text" id="novaCategoriaInput" placeholder="Ex: cinto, sapato, jaqueta..." style="flex:1;">
+        <button class="btn btn-fino btn-verde" onclick="adicionarCategoria()">+ Adicionar</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 style="margin-top:0;">📦 Coleções de produtos</h2>
+      <p class="texto-cinza" style="font-size:0.82rem; margin-top:-6px;">Crie coleções para agrupar seus produtos por linha, estação ou tema.</p>
+      <div id="listaColecoes" style="display:grid; grid-template-columns:1fr auto; gap:8px; margin-bottom:12px;">
+      </div>
+      <div style="display:flex; gap:8px;">
+        <input type="text" id="novaColecaoInput" placeholder="Ex: Verão 2025, Black Friday, Festa..." style="flex:1;">
+        <button class="btn btn-fino btn-verde" onclick="adicionarColecao()">+ Adicionar</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 style="margin-top:0;">🔐 Certificado A1 (Assinatura digital)</h2>
+      <p class="texto-cinza" style="font-size:0.82rem; margin-top:-6px;">Necessário para emitir NFC-e. O arquivo fica seguro no servidor (criptografado). Sua senha é usada só aqui e não é salva.</p>
+      <div id="certStatus" class="texto-cinza" style="font-size:0.85rem; margin-bottom:10px;">Verificando…</div>
+      <div class="linha">
+        <div class="campo" style="flex:1;">
+          <label>Certificado A1 (.pfx)</label>
+          <input type="file" id="certFile" accept=".pfx" onchange="previewCert(this)">
+          <p class="texto-cinza" style="font-size:0.76rem; margin:6px 0 0;">Arquivo com extensão .pfx ou .p12</p>
+        </div>
+        <div class="campo">
+          <label>Senha do certificado</label>
+          <input type="password" id="certSenha" placeholder="●●●●●●">
+        </div>
+      </div>
+      <button class="btn btn-fino" onclick="testarCertificado()">🔍 Testar certificado</button>
+      <button class="btn btn-fino btn-vermelho" id="btnRemoverCert" onclick="removerCertificado()" style="display:none; margin-left:6px;">Remover</button>
+    </div>
+
+    <div class="card">
+      <h2 style="margin-top:0;">🧾 Nota Fiscal (NFC-e)</h2>
+      <p class="texto-cinza" style="font-size:0.82rem; margin-top:-6px;">Emissão de cupom fiscal eletrônico via Focus NFe. O token (segredo) fica no servidor (.env), não aqui.</p>
+      <div id="nfceStatus" class="texto-cinza" style="font-size:0.85rem; margin-bottom:10px;">Verificando integração…</div>
+      <label style="display:flex; align-items:center; gap:8px; cursor:pointer; margin-bottom:12px;">
+        <input type="checkbox" id="nfce_ativo"> <span>Emitir NFC-e nas vendas</span>
+      </label>
+      <div class="linha">
+        <div class="campo"><label>Ambiente</label>
+          <select id="nfce_ambiente">
+            <option value="homologacao">Homologação (teste — notas sem valor fiscal)</option>
+            <option value="producao">Produção (notas reais)</option>
+          </select>
+        </div>
+        <div class="campo"><label>Série da NFC-e</label><input type="text" id="nfce_serie" placeholder="2"></div>
+        <div class="campo"><label>ID do CSC</label><input type="text" id="nfce_csc_id" placeholder="1"></div>
+      </div>
+      <details style="margin-top:8px;">
+        <summary style="cursor:pointer; color:var(--dourado-escuro,#8a6d3b); font-size:0.88rem;">Padrões fiscais das peças (avançado)</summary>
+        <p class="texto-cinza" style="font-size:0.8rem;">Usados quando a peça não tem valor próprio. O contador confirma esses códigos.</p>
+        <div class="linha">
+          <div class="campo"><label>NCM padrão</label><input type="text" id="nfce_ncm_padrao" placeholder="61099000"></div>
+          <div class="campo"><label>CFOP padrão</label><input type="text" id="nfce_cfop_padrao" placeholder="5102"></div>
+          <div class="campo"><label>CSOSN padrão</label><input type="text" id="nfce_csosn_padrao" placeholder="102"></div>
+        </div>
+        <div class="linha">
+          <div class="campo"><label>Origem da mercadoria</label><input type="text" id="nfce_origem_padrao" placeholder="0"></div>
+          <div class="campo"><label>Unidade</label><input type="text" id="nfce_unidade_padrao" placeholder="UN"></div>
+          <div class="campo"><label>Código IBGE do município</label><input type="text" id="loja_codigo_municipio" placeholder="2914802"></div>
+        </div>
+      </details>
+    </div>
+
+
+    <div class="card">
+      <h2 style="margin-top:0;">🎯 Metas de venda</h2>
+      <div class="linha">
+        <div class="campo"><label>Meta do mês (R$)</label><input type="number" id="meta_mensal" step="0.01"></div>
+      </div>
+      <p class="texto-cinza" style="font-size:0.82rem;">💡 A <strong>meta do dia</strong> é calculada sozinha: meta do mês ÷ dias de funcionamento (segunda a sábado) do mês.</p>
+    </div>
+
+    <div class="card">
+      <h2 style="margin-top:0;">💰 Precificação</h2>
+      <div class="linha">
+        <div class="campo"><label>Markup (multiplicador do custo)</label><input type="number" id="markup" step="0.1"></div>
+        <div class="campo"><label>Embalagem por peça (R$)</label><input type="number" id="embalagem_unit" step="0.01"></div>
+        <div class="campo"><label>Frete por peça (R$)</label><input type="number" id="frete_unit" step="0.01"></div>
+      </div>
+      <div class="texto-cinza" style="font-size:0.82rem;">O preço sugerido = custo × markup, arredondado pra terminar em 9,90.</div>
+    </div>
+
+    <div class="card">
+      <h2 style="margin-top:0;">🧾 Imposto e comissão</h2>
+      <div class="linha">
+        <div class="campo"><label>Regime fiscal</label>
+          <select id="regime_fiscal">
+            <option value="mei">MEI (Microempreendedor Individual — boleto fixo mensal)</option>
+            <option value="simples">Simples Nacional (alíquota sobre faturamento)</option>
+          </select>
+        </div>
+      </div>
+      <div class="linha">
+        <div class="campo"><label>Alíquota Simples Nacional (%)</label><input type="number" id="imposto_simples" step="0.01" placeholder="ex: 7.30"></div>
+        <div class="campo"><label>Comissão padrão (%)</label><input type="number" id="comissao_padrao" step="0.1"></div>
+      </div>
+      <p class="texto-cinza" style="font-size:0.82rem;"><strong>MEI:</strong> Boleto mensal registrado como despesa com categoria "mei". <strong>Simples:</strong> Digite a alíquota do seu regime (ela varia por estado e atividade).</p>
+    </div>
+
+    <div class="card">
+      <h2 style="margin-top:0;">💳 Taxas da maquininha (%)</h2>
+      <div class="linha">
+        <div class="campo"><label>Pix</label><input type="number" id="taxa_pix" step="0.01"></div>
+        <div class="campo"><label>Débito</label><input type="number" id="taxa_debito" step="0.01"></div>
+        <div class="campo"><label>Crédito à vista</label><input type="number" id="taxa_credito_vista" step="0.01"></div>
+      </div>
+      <div class="linha">
+        <div class="campo"><label>2x</label><input type="number" id="taxa_credito_2x" step="0.01"></div>
+        <div class="campo"><label>3x</label><input type="number" id="taxa_credito_3x" step="0.01"></div>
+        <div class="campo"><label>4x</label><input type="number" id="taxa_credito_4x" step="0.01"></div>
+        <div class="campo"><label>5x</label><input type="number" id="taxa_credito_5x" step="0.01"></div>
+        <div class="campo"><label>6x</label><input type="number" id="taxa_credito_6x" step="0.01"></div>
+      </div>
+      <div class="campo">
+        <label>Até quantas parcelas a loja absorve a taxa?</label>
+        <input type="number" id="parcelas_loja_absorve" min="0" max="6" style="max-width:120px;">
+        <span class="texto-cinza" style="font-size:0.82rem;">Acima disso, a taxa é repassada ao cliente.</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 style="margin-top:0;">🏦 Maquininha / Prazos de recebimento</h2>
+      <p class="texto-cinza" style="font-size:0.82rem; margin-top:-6px;">Configuram quando as vendas aparecem no Fluxo de Caixa (quando o dinheiro cai na conta):</p>
+      <div class="linha">
+        <div class="campo"><label>💳 Débito</label><input type="number" id="prazo_debito_dias" min="1" step="1" style="max-width:80px;"></div>
+        <div class="campo"><label>Tipo</label>
+          <select id="prazo_debito_tipo" style="max-width:140px;">
+            <option value="uteis">dias úteis</option>
+            <option value="corridos">dias corridos</option>
+          </select>
+        </div>
+      </div>
+      <div class="linha">
+        <div class="campo"><label>💳 Crédito à vista</label><input type="number" id="prazo_credito_vista_dias" min="1" step="1" style="max-width:80px;"></div>
+        <div class="campo"><label>Tipo</label>
+          <select id="prazo_credito_vista_tipo" style="max-width:140px;">
+            <option value="corridos">dias corridos</option>
+            <option value="uteis">dias úteis</option>
+          </select>
+        </div>
+      </div>
+      <div class="linha">
+        <div class="campo"><label>💳 Crédito parcelado</label><input type="number" id="prazo_credito_parc_dias" min="1" step="1" style="max-width:80px;"></div>
+        <div class="campo"><label>Tipo</label>
+          <select id="prazo_credito_parc_tipo" style="max-width:140px;">
+            <option value="corridos">dias corridos</option>
+            <option value="uteis">dias úteis</option>
+          </select>
+        </div>
+      </div>
+      <p class="texto-cinza" style="font-size:0.82rem;">
+        <strong>Dias úteis:</strong> pula finais de semana (seg-sex). <strong>Dias corridos:</strong> seg-dom sem pausa.<br>
+        Ex: se débito é 1 dia útil e venda é sex, recebe segunda. Se é 1 dia corrido, recebe sábado.
+      </p>
+    </div>
+
+    <button class="btn btn-bloco btn-verde" onclick="salvar()">💾 Salvar configurações</button>
+  </div>
+
+  <script src="js/comum.js"></script>
+  <script>
+    montarLayout('config');
+
+    const CAMPOS = ['loja_nome','loja_endereco','loja_telefone','loja_instagram',
+      'loja_razao_social','loja_nome_fantasia','loja_cnpj','loja_ie','loja_regime','loja_cep','loja_cidade','loja_uf',
+      'meta_mensal','markup','embalagem_unit','frete_unit','regime_fiscal','imposto_simples',
+      'comissao_padrao','taxa_pix','taxa_debito','taxa_credito_vista','taxa_credito_2x','taxa_credito_3x',
+      'taxa_credito_4x','taxa_credito_5x','taxa_credito_6x','parcelas_loja_absorve','marca_cor',
+      'nfce_ambiente','nfce_serie','nfce_csc_id','nfce_ncm_padrao','nfce_cfop_padrao','nfce_csosn_padrao',
+      'nfce_origem_padrao','nfce_unidade_padrao','loja_codigo_municipio',
+      'prazo_debito_dias','prazo_debito_tipo','prazo_credito_vista_dias','prazo_credito_vista_tipo','prazo_credito_parc_dias','prazo_credito_parc_tipo',
+      'cupom_mensagem_rodape','cupom_politica_troca'];
+    const CAMPOS_TEXTO = ['loja_nome','loja_endereco','loja_telefone','loja_instagram',
+      'loja_razao_social','loja_nome_fantasia','loja_cnpj','loja_ie','loja_regime','loja_cep','loja_cidade','loja_uf',
+      'marca_cor','regime_fiscal','prazo_debito_tipo','prazo_credito_vista_tipo','prazo_credito_parc_tipo',
+      'nfce_ambiente','nfce_serie','nfce_csc_id','nfce_ncm_padrao','nfce_cfop_padrao','nfce_csosn_padrao',
+      'nfce_origem_padrao','nfce_unidade_padrao','loja_codigo_municipio',
+      'cupom_mensagem_rodape','cupom_politica_troca'];
+
+    async function carregar() {
+      const cfg = await api('/config');
+      CAMPOS.forEach(c => { if (document.getElementById(c) && cfg[c] ***REMOVED***= null) document.getElementById(c).value = cfg[c]; });
+      // identidade visual: sincroniza o campo hex da cor e o preview da logo
+      const cor = cfg.marca_cor || '#2e7d32';
+      document.getElementById('marca_cor').value = cor;
+      document.getElementById('marca_cor_hex').value = cor;
+      mostrarLogo(cfg.loja_logo || '');
+      document.getElementById('cupom_auto_imprimir').checked = (cfg.cupom_auto_imprimir ***REMOVED***== '0');
+      document.getElementById('nfce_ativo').checked = (cfg.nfce_ativo === '1');
+      await carregarCategorias_config();
+      await carregarColecoes_config();
+      checarNfce();
+    }
+
+    // ---------- Identidade visual: logo + cor ----------
+    function mostrarLogo(caminho) {
+      const box = document.getElementById('logoPreview');
+      const btnRem = document.getElementById('btnRemoverLogo');
+      if (caminho) {
+        box.innerHTML = `<img src="${esc(caminho)}?t=${Date.now()}" style="width:100%; height:100%; object-fit:contain;">`;
+        btnRem.style.display = '';
+      } else {
+        box.innerHTML = '<span class="texto-cinza" style="font-size:0.72rem; text-align:center;">sem logo</span>';
+        btnRem.style.display = 'none';
+      }
+    }
+    async function enviarLogo(input) {
+      const file = input.files && input.files[0];
+      if (***REMOVED***file) return;
+      if (file.size > 2 * 1024 * 1024) { toast('A imagem precisa ter até 2MB','erro'); input.value=''; return; }
+      const dataUrl = await new Promise((res, rej) => {
+        const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file);
+      });
+      try {
+        const resp = await api('/config/logo', { method:'POST', body:{ logo: dataUrl } });
+        mostrarLogo(resp.loja_logo);
+        toast('Logo atualizada***REMOVED*** 🎨','sucesso');
+      } catch (e) { toast(e.message,'erro'); }
+      input.value = '';
+    }
+    async function removerLogo() {
+      if (***REMOVED***confirm('Remover a logo? Volta a mostrar o nome da loja em texto.')) return;
+      try { await api('/config/logo', { method:'DELETE' }); mostrarLogo(''); toast('Logo removida'); }
+      catch (e) { toast(e.message,'erro'); }
+    }
+    // sincroniza os dois campos de cor (o seletor e o hex digitado) + preview ao vivo
+    function previewCor(v) {
+      document.getElementById('marca_cor_hex').value = v;
+      document.documentElement.style.setProperty('--marca', v);
+    }
+    function sincCorHex(v) {
+      if (/^#[0-9a-fA-F]{6}$/.test(v)) {
+        document.getElementById('marca_cor').value = v;
+        document.documentElement.style.setProperty('--marca', v);
+      }
+    }
+
+    async function restaurarPadrao() {
+      if (***REMOVED***confirm('Restaurar logo e cor padrão do EasyGestão?')) return;
+      try {
+        await api('/config/logo', { method: 'DELETE' });
+        await api('/config', { method: 'POST', body: { marca_cor: '#1b4a38' } });
+        invalidarCacheMarca();
+        document.getElementById('marca_cor').value = '#1b4a38';
+        document.getElementById('marca_cor_hex').value = '#1b4a38';
+        previewCor('#1b4a38');
+        mostrarLogo('');
+        toast('Padrão restaurado***REMOVED*** Recarregue para ver a mudança na sidebar.', 'sucesso');
+      } catch (e) { toast(e.message, 'erro'); }
+    }
+
+    // ---------- Categorias de produtos ----------
+    let categorias = [];
+    async function carregarCategorias_config() {
+      const cfg = await api('/config');
+      try { categorias = JSON.parse(cfg.categorias || '[]'); } catch(e) { categorias = []; }
+      if (***REMOVED***categorias.length) categorias = ['vestido','blusa','calca','short','saia','conjunto','macacao','alfaiataria','acessorio','outro'];
+      renderizarCategorias();
+    }
+    function renderizarCategorias() {
+      const div = document.getElementById('listaCategorias');
+      div.innerHTML = categorias.map(c => `
+        <div class="chip-tam" style="background:#f9fbfa; border:1px solid #e0e8e5; border-radius:6px; padding:8px 12px; display:flex; justify-content:space-between; align-items:center;">
+          <span>${esc(c)}</span>
+          <button class="btn btn-fino btn-vermelho" onclick="removerCategoria('${esc(c)}')" style="padding:4px 8px; font-size:0.75rem;">✕</button>
+        </div>`).join('');
+    }
+    async function adicionarCategoria() {
+      const input = document.getElementById('novaCategoriaInput');
+      const nova = input.value.trim().toLowerCase();
+      if (***REMOVED***nova) { toast('Digite uma categoria', 'erro'); return; }
+      if (categorias.includes(nova)) { toast('Categoria já existe', 'erro'); return; }
+      categorias.push(nova);
+      await api('/config', { method:'POST', body: { categorias: JSON.stringify(categorias) } });
+      input.value = '';
+      renderizarCategorias();
+      toast('Categoria adicionada***REMOVED*** 🎯', 'sucesso');
+      invalidarCacheColecoes(); // invalida cache pra atualizar selects
+    }
+    async function removerCategoria(cat) {
+      if (***REMOVED***confirm(`Remover categoria "${cat}"?`)) return;
+      categorias = categorias.filter(c => c ***REMOVED***== cat);
+      await api('/config', { method:'POST', body: { categorias: JSON.stringify(categorias) } });
+      renderizarCategorias();
+      toast('Categoria removida', 'sucesso');
+      invalidarCacheColecoes();
+    }
+
+    // ---------- Coleções de produtos ----------
+    let colecoes = [];
+    async function carregarColecoes_config() {
+      const cfg = await api('/config');
+      try { colecoes = JSON.parse(cfg.colecoes || '[]'); } catch(e) { colecoes = []; }
+      renderizarColecoes();
+    }
+    function renderizarColecoes() {
+      const div = document.getElementById('listaColecoes');
+      div.innerHTML = colecoes.length === 0 ? '<div class="texto-cinza">Nenhuma coleção cadastrada</div>' :
+        colecoes.map(c => `
+        <div class="chip-tam" style="background:#f9fbfa; border:1px solid #e0e8e5; border-radius:6px; padding:8px 12px; display:flex; justify-content:space-between; align-items:center;">
+          <span>${esc(c)}</span>
+          <button class="btn btn-fino btn-vermelho" onclick="removerColecao('${esc(c)}')" style="padding:4px 8px; font-size:0.75rem;">✕</button>
+        </div>`).join('');
+    }
+    async function adicionarColecao() {
+      const input = document.getElementById('novaColecaoInput');
+      const nova = input.value.trim();
+      if (***REMOVED***nova) { toast('Digite uma coleção', 'erro'); return; }
+      if (colecoes.includes(nova)) { toast('Coleção já existe', 'erro'); return; }
+      colecoes.push(nova);
+      await api('/config', { method:'POST', body: { colecoes: JSON.stringify(colecoes) } });
+      input.value = '';
+      renderizarColecoes();
+      toast('Coleção adicionada***REMOVED*** 📦', 'sucesso');
+      invalidarCacheColecoes();
+    }
+    async function removerColecao(col) {
+      if (***REMOVED***confirm(`Remover coleção "${col}"?`)) return;
+      colecoes = colecoes.filter(c => c ***REMOVED***== col);
+      await api('/config', { method:'POST', body: { colecoes: JSON.stringify(colecoes) } });
+      renderizarColecoes();
+      toast('Coleção removida', 'sucesso');
+      invalidarCacheColecoes();
+    }
+
+    async function salvar() {
+      const body = {};
+      CAMPOS.forEach(c => {
+        const el = document.getElementById(c); if (***REMOVED***el) return;
+        body[c] = CAMPOS_TEXTO.includes(c) ? el.value : (el.value || '0');
+      });
+      body.cupom_auto_imprimir = document.getElementById('cupom_auto_imprimir').checked ? '1' : '0';
+      body.nfce_ativo = document.getElementById('nfce_ativo').checked ? '1' : '0';
+      await api('/config', { method:'POST', body });
+      toast('Configurações salvas***REMOVED***','sucesso');
+      checarNfce();
+    }
+
+    // Mostra se o servidor tem o token do ambiente escolhido (sem expor o token)
+    async function checarNfce() {
+      const el = document.getElementById('nfceStatus');
+      if (***REMOVED***el) return;
+      let s;
+      try { s = await api('/nfce/config'); } catch (e) { el.innerHTML = '⚠️ Não foi possível verificar a integração.'; return; }
+      const amb = (document.getElementById('nfce_ambiente').value) || s.ambiente;
+      const temToken = amb === 'producao' ? s.tem_token_producao : s.tem_token_homologacao;
+      if (temToken) {
+        el.innerHTML = `✅ Token de <strong>${amb === 'producao' ? 'produção' : 'homologação'}</strong> configurado no servidor. Pronto pra emitir.`;
+        el.style.color = 'var(--verde,#2e7d32)';
+      } else {
+        el.innerHTML = `⚠️ Falta o token de <strong>${amb === 'producao' ? 'produção' : 'homologação'}</strong> no servidor (.env: ${amb === 'producao' ? 'FOCUS_TOKEN_PRODUCAO' : 'FOCUS_TOKEN_HOMOLOGACAO'}). A emissão não vai funcionar até preencher.`;
+        el.style.color = 'var(--vermelho,#c62828)';
+      }
+    }
+    document.getElementById('nfce_ambiente').addEventListener('change', checarNfce);
+
+    // ---------- Certificado A1 ----------
+    async function checarCertificado() {
+      const el = document.getElementById('certStatus');
+      try {
+        const s = await api('/nfce/config');
+        if (s.certificado_instalado) {
+          el.innerHTML = `✅ Certificado instalado e válido. Vencimento: ${s.certificado_vencimento || 'não informado'}`;
+          el.style.color = 'var(--verde,#2e7d32)';
+          document.getElementById('btnRemoverCert').style.display = '';
+        } else {
+          el.innerHTML = '⚠️ Nenhum certificado instalado ainda.';
+          el.style.color = 'var(--dourado,#8a6d3b)';
+          document.getElementById('btnRemoverCert').style.display = 'none';
+        }
+      } catch (e) {
+        el.innerHTML = '⚠️ Não foi possível verificar o certificado.';
+        el.style.color = 'var(--cinza,#666)';
+      }
+    }
+
+    function previewCert(input) {
+      const file = input.files && input.files[0];
+      if (***REMOVED***file) return;
+      if (***REMOVED***file.name.endsWith('.pfx') && ***REMOVED***file.name.endsWith('.p12')) {
+        toast('Envie um arquivo .pfx ou .p12','erro');
+        input.value = '';
+        return;
+      }
+      const el = document.getElementById('certStatus');
+      el.innerHTML = `📁 Arquivo selecionado: <strong>${file.name}</strong> (${(file.size / 1024).toFixed(0)}KB)`;
+      el.style.color = 'var(--azul,#1976d2)';
+    }
+
+    async function testarCertificado() {
+      const file = document.getElementById('certFile').files && document.getElementById('certFile').files[0];
+      const senha = document.getElementById('certSenha').value;
+
+      if (***REMOVED***file) { toast('Selecione um arquivo .pfx primeiro','erro'); return; }
+      if (***REMOVED***senha) { toast('Informe a senha do certificado','erro'); return; }
+
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const el = document.getElementById('certStatus');
+          el.innerHTML = '⏳ Testando certificado…';
+
+          const dataUrl = e.target.result;
+          const resp = await api('/config/certificado-a1', {
+            method: 'POST',
+            body: { certificado: dataUrl, senha }
+          });
+
+          if (resp.ok) {
+            el.innerHTML = `✅ Certificado válido***REMOVED*** Vencimento: ${resp.vencimento || 'OK'}`;
+            el.style.color = 'var(--verde,#2e7d32)';
+            toast('Certificado salvo com segurança***REMOVED*** 🔐','sucesso');
+            document.getElementById('btnRemoverCert').style.display = '';
+            document.getElementById('certFile').value = '';
+            document.getElementById('certSenha').value = '';
+          } else {
+            el.innerHTML = `❌ ${resp.erro || 'Erro ao validar certificado'}`;
+            el.style.color = 'var(--vermelho,#c62828)';
+            toast('Erro: ' + (resp.erro || 'Certificado inválido ou senha incorreta'),'erro');
+          }
+        } catch (err) {
+          document.getElementById('certStatus').innerHTML = `❌ Erro: ${err.message}`;
+          document.getElementById('certStatus').style.color = 'var(--vermelho,#c62828)';
+          toast('Erro ao testar: ' + err.message,'erro');
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+
+    async function removerCertificado() {
+      if (***REMOVED***confirm('Remover o certificado? Você não conseguirá emitir NFC-e até instalar um novo.')) return;
+      try {
+        await api('/config/certificado-a1', { method: 'DELETE' });
+        toast('Certificado removido');
+        document.getElementById('btnRemoverCert').style.display = 'none';
+        checarCertificado();
+      } catch (e) {
+        toast('Erro ao remover: ' + e.message,'erro');
+      }
+    }
+
+    carregar();
+    checarCertificado();
+  </script>
+</body>
+</html>

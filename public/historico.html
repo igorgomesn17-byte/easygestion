@@ -1,0 +1,137 @@
+<***REMOVED***DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Histórico de Vendas • DS Store</title>
+  <link rel="stylesheet" href="css/ds.css">
+</head>
+<body>
+  <div class="conteudo">
+    <div class="flex-entre">
+      <div><h1>Histórico de vendas</h1><p class="subtitulo">Todas as vendas realizadas</p></div>
+    </div>
+
+    <div class="card">
+      <div class="linha" style="gap:8px; flex-wrap:wrap;">
+        <input type="date" id="filtroDE" onchange="carregar()">
+        <input type="date" id="filtroATE" onchange="carregar()">
+        <input type="search" id="busca" placeholder="🔎 Buscar por cliente..." oninput="render()">
+        <button class="btn" onclick="exportar()">⬇ Exportar CSV</button>
+      </div>
+    </div>
+
+    <div id="lista"></div>
+  </div>
+
+  <***REMOVED***-- Modal detalhe venda -->
+  <div class="modal-fundo" id="modalVenda">
+    <div class="modal">
+      <button class="modal-fechar" onclick="fecharModal()">&times;</button>
+      <h2 id="vendaTitulo">Venda #123</h2>
+      <div id="vendaDetalhes"></div>
+    </div>
+  </div>
+
+  <script src="js/comum.js"></script>
+  <script>
+    montarLayout('historico');
+    let dados = [];
+
+    async function carregar() {
+      const de = document.getElementById('filtroDE').value;
+      const ate = document.getElementById('filtroATE').value;
+      let url = '/vendas';
+      if (de || ate) {
+        url += '?';
+        if (de) url += 'de=' + de;
+        if (de && ate) url += '&';
+        if (ate) url += 'ate=' + ate;
+      }
+      dados = await api(url);
+      render();
+    }
+
+    function render() {
+      const b = document.getElementById('busca').value.toLowerCase();
+      const arr = dados.filter(v => ***REMOVED***b || (v.cliente_nome && v.cliente_nome.toLowerCase().includes(b)));
+      const div = document.getElementById('lista');
+      if (arr.length === 0) { div.innerHTML = '<div class="vazio">Nenhuma venda encontrada.</div>'; return; }
+      div.innerHTML = arr.map(v => `
+        <div class="card" style="cursor:pointer; transition:background 0.2s;" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='var(--surface)'" onclick="verDetalhes(${v.id})">
+          <div class="flex-entre">
+            <div>
+              <strong>#${v.id}</strong> ${v.cliente_nome ? '• ' + esc(v.cliente_nome) : '• Cliente não cadastrado'}
+              <div class="texto-cinza" style="font-size:0.85rem;">
+                ${v.data_hora.slice(0,10).split('-').reverse().join('/')} às ${v.data_hora.slice(11,16)}</div>
+            </div>
+            <div class="direita">
+              <div style="font-weight:700;">${moeda(v.total)}</div>
+              <div class="texto-cinza" style="font-size:0.8rem;">${v.num_itens} item(ns)</div>
+            </div>
+          </div>
+        </div>`).join('');
+    }
+
+    let vendaAtualId = null;
+    async function verDetalhes(id) {
+      vendaAtualId = id;
+      const v = await api('/vendas/' + id);
+      document.getElementById('vendaTitulo').textContent = `Venda #${v.id}`;
+      const itens = v.itens ? v.itens.map(i => `<div class="linha" style="padding:8px 0; border-bottom:1px solid #EEE;">
+        <div>${i.qtd}x ${esc(i.descricao)}</div>
+        <strong>${moeda(i.preco_unitario)}</strong>
+      </div>`).join('') : '';
+      document.getElementById('vendaDetalhes').innerHTML = `
+        <div class="card" style="box-shadow:none; border:none; padding:0; margin-bottom:12px;">
+          <strong>Cliente:</strong> ${v.cliente_nome ? esc(v.cliente_nome) : 'não cadastrado'}
+          <div class="mt"><strong>Data:</strong> ${v.data_hora.slice(0,10).split('-').reverse().join('/')} ${v.data_hora.slice(11,16)}</div>
+          <div class="mt"><strong>Forma de pagamento:</strong> ${rotuloPagamento(v.forma_pagamento)}</div>
+          ${v.itens && v.itens.length ? `<div class="mt"><strong>Itens:</strong></div><div>${itens}</div>` : ''}
+          <div class="mt" style="padding-top:12px; border-top:1px solid #EEE;">
+            <div class="flex-entre"><span>Subtotal:</span><strong>${moeda(v.subtotal || v.total)}</strong></div>
+            ${v.desconto > 0 ? `<div class="flex-entre texto-verde"><span>Desconto:</span><strong>-${moeda(v.desconto)}</strong></div>` : ''}
+            <div class="flex-entre" style="font-size:1.1rem; font-weight:700; padding-top:8px;">
+              <span>Total:</span><strong>${moeda(v.total)}</strong></div>
+          </div>
+        </div>
+        <div class="linha" style="gap:8px;">
+          <button class="btn btn-fino btn-azul" onclick="emitirNfce(${v.id})">📄 Emitir NFC-e</button>
+          <button class="btn btn-fino" style="background:#E74C3C; color:#fff;" onclick="abrirTroca(${v.id})">🔄 Registrar troca</button>
+        </div>
+      `;
+      document.getElementById('modalVenda').classList.add('aberto');
+    }
+
+    function fecharModal() {
+      document.getElementById('modalVenda').classList.remove('aberto');
+    }
+
+    async function emitirNfce(vendaId) {
+      try {
+        const r = await api('/nfce/emitir/' + vendaId, { method:'POST', body:{} });
+        toast('NFC-e emitida com sucesso','sucesso');
+        fecharModal();
+      } catch(e) { toast(e.message,'erro'); }
+    }
+
+    function abrirTroca(vendaId) {
+      fecharModal();
+      window.location.href = 'trocas.html?venda=' + vendaId;
+    }
+
+    function exportar() {
+      if (***REMOVED***dados.length) { toast('Nada para exportar','erro'); return; }
+      const linhas = dados.map(v => ({
+        ID: v.id, Cliente: v.cliente_nome||'', Data: v.data_hora.slice(0,10),
+        Hora: v.data_hora.slice(11,16), Pagamento: v.forma_pagamento,
+        Subtotal: v.subtotal||v.total, Desconto: v.desconto||0, Total: v.total
+      }));
+      exportarCSV('historico-vendas-' + hojeLocalStr(), linhas);
+    }
+
+    document.getElementById('modalVenda').addEventListener('click', e => { if(e.target.id==='modalVenda') fecharModal(); });
+    carregar();
+  </script>
+</body>
+</html>

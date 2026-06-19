@@ -1,0 +1,117 @@
+// ============================================================
+// API de CLIENTES (cadastro, historico, busca, arquivar, indicação)
+// ============================================================
+const express = require('express');
+const router = express.Router();
+const { db } = require('../db/database');
+
+// Guard de papel: o VENDEDOR (PDV) só pode buscar (GET) e cadastrar (POST /) cliente.
+// Editar, excluir, arquivar, opt-out e rankings são de admin + relacionamento.
+router.use((req, res, next) => {
+  const papel = req.session && req.session.papel;
+  if (papel ***REMOVED***== 'vendedor') return next(); // admin e relacionamento: acesso pleno
+  const ehBusca = req.method === 'GET';
+  const ehCadastro = req.method === 'POST' && (req.path === '/' || req.path === '');
+  if (ehBusca || ehCadastro) return next();
+  return res.status(403).json({ erro: 'Sem permissão para esta área' });
+});
+
+// GET /api/clientes?busca=&arquivados=1
+router.get('/', (req, res) => {
+  const { busca, arquivados } = req.query;
+  let sql = 'SELECT * FROM clientes WHERE 1=1';
+  const params = [];
+  // por padrão esconde arquivados; ?arquivados=1 mostra também
+  if (arquivados ***REMOVED***== '1') sql += ' AND arquivado = 0';
+  if (busca) { sql += ' AND (nome LIKE ? OR telefone LIKE ?)'; params.push(`%${busca}%`, `%${busca}%`); }
+  sql += ' ORDER BY nome';
+  res.json(db.prepare(sql).all(...params));
+});
+
+// GET /api/clientes/ranking-indicacoes -> quem mais indica (top)
+router.get('/ranking-indicacoes', (req, res) => {
+  const rows = db.prepare(`
+    SELECT c.id, c.nome, c.telefone, COUNT(i.id) AS indicou
+    FROM clientes c JOIN clientes i ON i.indicada_por = c.id
+    GROUP BY c.id ORDER BY indicou DESC, c.nome LIMIT 20
+  `).all();
+  res.json(rows);
+});
+
+// GET /api/clientes/:id -> dados + historico de compras + quem ela indicou
+router.get('/:id', (req, res) => {
+  const c = db.prepare('SELECT * FROM clientes WHERE id = ?').get(req.params.id);
+  if (***REMOVED***c) return res.status(404).json({ erro: 'Cliente nao encontrado' });
+  c.compras = db.prepare(`
+    SELECT id, data_hora, total, forma_pagamento, origem FROM vendas WHERE cliente_id = ? ORDER BY data_hora DESC
+  `).all(c.id);
+  const getItens = db.prepare('SELECT descricao, qtd, preco_unit FROM venda_itens WHERE venda_id = ?');
+  for (const compra of c.compras) compra.itens = getItens.all(compra.id);
+  // quem indicou esta cliente (nome) e quantas ela já indicou
+  if (c.indicada_por) {
+    const ind = db.prepare('SELECT nome FROM clientes WHERE id = ?').get(c.indicada_por);
+    c.indicada_por_nome = ind ? ind.nome : null;
+  }
+  c.indicou = db.prepare('SELECT COUNT(*) AS n FROM clientes WHERE indicada_por = ?').get(c.id).n;
+  res.json(c);
+});
+
+// POST /api/clientes
+// Anti-duplicado: se já existe cliente com o MESMO telefone (comparando só dígitos),
+// não cria de novo — devolve o existente com a flag `ja_existia` pro PDV já selecioná-lo.
+router.post('/', (req, res) => {
+  const { nome, telefone, cidade, aniversario, origem, indicada_por } = req.body;
+  if (***REMOVED***nome) return res.status(400).json({ erro: 'Nome obrigatorio' });
+
+  const telDigitos = String(telefone || '').replace(/\D/g, '');
+  if (telDigitos.length >= 8) {
+    // procura cliente (não arquivado) com o mesmo telefone, ignorando formatação
+    const existente = db.prepare(
+      `SELECT * FROM clientes WHERE arquivado = 0 AND REPLACE(REPLACE(REPLACE(REPLACE(telefone,'(',''),')',''),'-',''),' ','') LIKE ?`
+    ).get('%' + telDigitos + '%');
+    if (existente) {
+      return res.json({ id: existente.id, nome: existente.nome, telefone: existente.telefone, ja_existia: true });
+    }
+  }
+
+  const info = db.prepare('INSERT INTO clientes (nome, telefone, cidade, aniversario, origem, indicada_por) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(nome, telefone || null, cidade || null, aniversario || null, origem || null, indicada_por || null);
+  res.status(201).json({ id: info.lastInsertRowid, nome, ja_existia: false });
+});
+
+// PUT /api/clientes/:id
+router.put('/:id', (req, res) => {
+  const { nome, telefone, cidade, aniversario, origem, indicada_por } = req.body;
+  db.prepare('UPDATE clientes SET nome=?, telefone=?, cidade=?, aniversario=?, origem=?, indicada_por=? WHERE id=?')
+    .run(nome, telefone || null, cidade || null, aniversario || null, origem || null, indicada_por || null, req.params.id);
+  res.json({ ok: true });
+});
+
+// PATCH /api/clientes/:id/arquivar   body: { arquivado: 0|1 }
+router.patch('/:id/arquivar', (req, res) => {
+  const v = req.body.arquivado ? 1 : 0;
+  db.prepare('UPDATE clientes SET arquivado = ? WHERE id = ?').run(v, req.params.id);
+  res.json({ ok: true, arquivado: v });
+});
+
+// PATCH /api/clientes/:id/nao-perturbe   body: { nao_perturbe: 0|1 }
+router.patch('/:id/nao-perturbe', (req, res) => {
+  const v = req.body.nao_perturbe ? 1 : 0;
+  db.prepare('UPDATE clientes SET nao_perturbe = ? WHERE id = ?').run(v, req.params.id);
+  res.json({ ok: true, nao_perturbe: v });
+});
+
+// DELETE /api/clientes/:id  -> só permite excluir quem NÃO tem compras (senão, arquivar)
+router.delete('/:id', (req, res) => {
+  const id = req.params.id;
+  const temVenda = db.prepare('SELECT COUNT(*) AS n FROM vendas WHERE cliente_id = ?').get(id).n;
+  if (temVenda > 0) {
+    return res.status(400).json({ erro: `Este cliente tem ${temVenda} compra(s) no histórico. Em vez de excluir (que apagaria o vínculo das vendas), arquive o cliente.` });
+  }
+  // limpa indicações que apontavam pra ele (não quebra os indicados)
+  db.prepare('UPDATE clientes SET indicada_por = NULL WHERE indicada_por = ?').run(id);
+  db.prepare('DELETE FROM clientes WHERE id = ?').run(id);
+  res.json({ ok: true });
+});
+
+module.exports = router;

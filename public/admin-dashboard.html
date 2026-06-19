@@ -1,0 +1,614 @@
+<***REMOVED***DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin — EasyGestão</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: #f5f5f5;
+      color: #333;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    header {
+      background: linear-gradient(135deg, #1B5E3F 0%, #0d3a24 100%);
+      padding: 20px;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(27, 94, 63, 0.2);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    header h1 {
+      font-size: 24px;
+      color: white;
+    }
+
+    header img {
+      max-height: 40px;
+      margin-right: 15px;
+    }
+
+    .btn-logout {
+      background: transparent;
+      color: #C9A961;
+      padding: 10px 20px;
+      border: 2px solid #C9A961;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.3s ease;
+    }
+
+    .btn-logout:hover {
+      background: #C9A961;
+      color: #1B5E3F;
+    }
+
+    /* Dashboard cards */
+    .dashboard {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .card {
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .card h3 {
+      font-size: 14px;
+      color: #999;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .card .value {
+      font-size: 32px;
+      font-weight: bold;
+      color: #1a1a1a;
+    }
+
+    .card.accent {
+      border-left: 4px solid #1B5E3F;
+    }
+
+    .card.warning {
+      border-left: 4px solid #C9A961;
+    }
+
+    .card.danger {
+      border-left: 4px solid #d9534f;
+    }
+
+    /* Tabela de clientes */
+    .section {
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+
+    .section h2 {
+      font-size: 18px;
+      margin-bottom: 15px;
+      border-bottom: 2px solid #1B5E3F;
+      padding-bottom: 10px;
+      color: #1B5E3F;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th {
+      text-align: left;
+      padding: 12px;
+      background: #f9f9f9;
+      font-weight: 600;
+      font-size: 13px;
+      color: #666;
+      border-bottom: 1px solid #e0e0e0;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    td {
+      padding: 12px;
+      border-bottom: 1px solid #f0f0f0;
+      font-size: 14px;
+    }
+
+    tbody tr:hover {
+      background: #f9f9f9;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .status-ativo {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .status-bloqueado {
+      background: #f8d7da;
+      color: #721c24;
+    }
+
+    .status-pendente {
+      background: #fff3cd;
+      color: #856404;
+    }
+
+    .btn-small {
+      background: #1B5E3F;
+      color: white;
+      padding: 6px 12px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      margin-right: 5px;
+      transition: all 0.3s ease;
+    }
+
+    .btn-small:hover {
+      background: #0d3a24;
+      box-shadow: 0 2px 8px rgba(27, 94, 63, 0.3);
+    }
+
+    .btn-small.danger {
+      background: #d9534f;
+    }
+
+    .btn-small.danger:hover {
+      background: #c9302c;
+      box-shadow: 0 2px 8px rgba(217, 83, 79, 0.3);
+    }
+
+    /* Loading e erros */
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #999;
+    }
+
+    .error {
+      background: #f8d7da;
+      color: #721c24;
+      padding: 15px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+      border-left: 4px solid #e74c3c;
+    }
+
+    .spinner {
+      border: 4px solid #f0f0f0;
+      border-top: 4px solid #3498db;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal.show {
+      display: flex;
+    }
+
+    .modal-content {
+      background: #fff;
+      padding: 30px;
+      border-radius: 8px;
+      max-width: 600px;
+      width: 90%;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    }
+
+    .modal-content h3 {
+      margin-bottom: 15px;
+      font-size: 20px;
+    }
+
+    .modal-content p {
+      margin-bottom: 10px;
+      color: #666;
+    }
+
+    .modal-actions {
+      margin-top: 20px;
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .btn-primary {
+      background: #1B5E3F;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #0d3a24;
+    }
+
+    .btn-secondary {
+      background: #bbb;
+      color: white;
+    }
+
+    .btn-secondary:hover {
+      background: #999;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <***REMOVED***-- Header -->
+    <header>
+      <div style="display: flex; align-items: center;">
+        <img src="/img/marca/favicon.png" alt="Logo" style="height: 40px; margin-right: 15px;">
+        <h1>Admin — EasyGestão</h1>
+      </div>
+      <button class="btn-logout" onclick="logout()">Sair</button>
+    </header>
+
+    <***REMOVED***-- Dashboard de Financeiro -->
+    <div class="dashboard" id="dashboard">
+      <div class="card">
+        <h3>Clientes Ativos</h3>
+        <div class="value" id="val-clientes-ativos">—</div>
+      </div>
+      <div class="card">
+        <h3>Total de Clientes</h3>
+        <div class="value" id="val-total-clientes">—</div>
+      </div>
+      <div class="card accent">
+        <h3>MRR (Receita Mensal)</h3>
+        <div class="value" id="val-mrr">—</div>
+      </div>
+      <div class="card accent">
+        <h3>ARR (Receita Anual)</h3>
+        <div class="value" id="val-arr">—</div>
+      </div>
+      <div class="card">
+        <h3>Recebido</h3>
+        <div class="value" id="val-recebido">—</div>
+      </div>
+      <div class="card warning">
+        <h3>Pendente</h3>
+        <div class="value" id="val-pendente">—</div>
+      </div>
+      <div class="card danger">
+        <h3>Vencido</h3>
+        <div class="value" id="val-vencido">—</div>
+      </div>
+    </div>
+
+    <***REMOVED***-- Tabela de Clientes -->
+    <div class="section">
+      <h2>Clientes</h2>
+      <div id="tabela-clientes">
+        <div class="loading">
+          <div class="spinner"></div>
+          <p>Carregando clientes...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <***REMOVED***-- Modal de Detalhes -->
+  <div class="modal" id="modal-detalhes">
+    <div class="modal-content">
+      <h3>Detalhes do Cliente</h3>
+      <div id="modal-body">
+        <***REMOVED***-- Preenchido por JS -->
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="fecharModal()">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = '/api/admin';
+
+    // Verificar autenticação
+    function verificarAutenticacao() {
+      if (sessionStorage.getItem('admin_auth') ***REMOVED***== 'true') {
+        window.location.href = '/admin-login.html';
+        return false;
+      }
+      return true;
+    }
+
+    // Fetch simples
+    function fetchAdmin(endpoint, options = {}) {
+      if (***REMOVED***verificarAutenticacao()) return Promise.reject('Não autenticado');
+      return fetch(API_URL + endpoint, { ...options });
+    }
+
+    // Formatar moeda
+    function formatarMoeda(valor) {
+      if (typeof valor ***REMOVED***== 'number') return '—';
+      return new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
+      }).format(valor);
+    }
+
+    // Formatar data
+    function formatarData(data) {
+      if (***REMOVED***data) return '—';
+      return new Date(data).toLocaleDateString('pt-BR');
+    }
+
+    // Carregar dashboard
+    async function carregarDashboard() {
+      try {
+        const res = await fetchAdmin('/financeiro');
+        if (***REMOVED***res.ok) throw new Error('Erro ao carregar');
+
+        const { financeiro } = await res.json();
+
+        document.getElementById('val-clientes-ativos').textContent = financeiro.clientes_ativos;
+        document.getElementById('val-total-clientes').textContent = financeiro.total_clientes;
+        document.getElementById('val-mrr').textContent = formatarMoeda(financeiro.mrr);
+        document.getElementById('val-arr').textContent = formatarMoeda(financeiro.arr);
+        document.getElementById('val-recebido').textContent = formatarMoeda(financeiro.total_recebido);
+        document.getElementById('val-pendente').textContent = formatarMoeda(financeiro.total_pendente);
+        document.getElementById('val-vencido').textContent = formatarMoeda(financeiro.total_vencido);
+      } catch (err) {
+        console.error('Erro:', err);
+      }
+    }
+
+    // Carregar tabela de clientes
+    async function carregarClientes() {
+      try {
+        const res = await fetchAdmin('/clientes');
+        if (***REMOVED***res.ok) throw new Error('Erro ao carregar');
+
+        const { clientes } = await res.json();
+
+        let html = `
+          <table>
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>Email</th>
+                <th>Status</th>
+                <th>Data Cadastro</th>
+                <th>Usuários</th>
+                <th>Última Venda</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+        `;
+
+        clientes.forEach(cliente => {
+          const statusClass = `status-${cliente.status}`;
+          html += `
+            <tr>
+              <td>${cliente.nome || '—'}</td>
+              <td>${cliente.email || '—'}</td>
+              <td><span class="status-badge ${statusClass}">${cliente.status}</span></td>
+              <td>${formatarData(cliente.data_criacao)}</td>
+              <td>${cliente.num_usuarios || 0}</td>
+              <td>${formatarData(cliente.ultima_venda)}</td>
+              <td>
+                <button class="btn-small" onclick="verDetalhes(${cliente.id})">Detalhes</button>
+                ${cliente.status === 'bloqueado'
+                  ? `<button class="btn-small" onclick="desbloquearCliente(${cliente.id})">Desbloquear</button>`
+                  : `<button class="btn-small danger" onclick="bloquearCliente(${cliente.id})">Bloquear</button>`
+                }
+              </td>
+            </tr>
+          `;
+        });
+
+        html += `
+            </tbody>
+          </table>
+        `;
+
+        document.getElementById('tabela-clientes').innerHTML = html;
+      } catch (err) {
+        console.error('Erro:', err);
+        document.getElementById('tabela-clientes').innerHTML = `
+          <div class="error">Erro ao carregar clientes. Tente novamente.</div>
+        `;
+      }
+    }
+
+    // Ver detalhes de um cliente
+    async function verDetalhes(clienteId) {
+      try {
+        const res = await fetchAdmin(`/clientes/${clienteId}`);
+        if (***REMOVED***res.ok) throw new Error('Erro');
+
+        const { tenant, assinaturas } = await res.json();
+
+        let html = `
+          <p><strong>ID:</strong> ${tenant.id}</p>
+          <p><strong>Nome:</strong> ${tenant.nome_loja || tenant.nome || '—'}</p>
+          <p><strong>Email:</strong> ${tenant.email}</p>
+          <p><strong>Status:</strong> ${tenant.status}</p>
+          <p><strong>Cadastrado:</strong> ${formatarData(tenant.data_cadastro || tenant.data_criacao)}</p>
+          <p><strong>Responsável:</strong> ${tenant.nome_responsavel || '—'}</p>
+          <p><strong>Telefone:</strong> ${tenant.telefone || '—'}</p>
+          <h4 style="margin-top: 20px; margin-bottom: 10px;">Assinaturas</h4>
+        `;
+
+        if (assinaturas.length === 0) {
+          html += '<p>Nenhuma assinatura encontrada.</p>';
+        } else {
+          assinaturas.forEach(a => {
+            html += `
+              <div style="background: #f9f9f9; padding: 10px; margin-bottom: 10px; border-radius: 4px;">
+                <p><strong>Plano:</strong> ${a.plano}</p>
+                <p><strong>Status:</strong> ${a.status}</p>
+                <p><strong>Período:</strong> ${formatarData(a.data_inicio)} até ${formatarData(a.data_fim)}</p>
+                <h5>Cobranças:</h5>
+            `;
+
+            if (a.cobracas.length === 0) {
+              html += '<p style="font-size: 12px;">Nenhuma cobrança.</p>';
+            } else {
+              a.cobracas.forEach(c => {
+                const classeStatus = `status-${c.status}`;
+                html += `
+                  <p style="font-size: 12px; margin: 5px 0;">
+                    ${formatarMoeda(c.valor)} — <span class="status-badge ${classeStatus}">${c.status}</span>
+                    Vence: ${formatarData(c.data_vencimento)}
+                  </p>
+                `;
+              });
+            }
+
+            html += '</div>';
+          });
+        }
+
+        // Adicionar botão de bloquear/desbloquear
+        const btnBloqueio = tenant.status === 'bloqueado'
+          ? `<button class="btn btn-primary" onclick="desbloquearCliente(${tenant.id}); fecharModal();">Desbloquear Cliente</button>`
+          : `<button class="btn btn-primary" onclick="bloquearCliente(${tenant.id}); fecharModal();">Bloquear Cliente</button>`
+
+        // Status 'teste' deve ser tratado como 'ativo' pra fins de bloquear/desbloquear
+
+        html += `<div style="margin-top: 20px;">${btnBloqueio}</div>`;
+
+        document.getElementById('modal-body').innerHTML = html;
+        document.getElementById('modal-detalhes').classList.add('show');
+      } catch (err) {
+        alert('Erro ao carregar detalhes: ' + err.message);
+      }
+    }
+
+    // Bloquear cliente
+    async function bloquearCliente(clienteId) {
+      if (***REMOVED***confirm('Tem certeza que deseja bloquear este cliente?')) return;
+
+      try {
+        const res = await fetchAdmin(`/clientes/${clienteId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'bloqueado' })
+        });
+
+        if (***REMOVED***res.ok) throw new Error('Erro');
+        alert('Cliente bloqueado com sucesso.');
+        carregarClientes();
+        carregarDashboard();
+      } catch (err) {
+        alert('Erro ao bloquear: ' + err.message);
+      }
+    }
+
+    // Desbloquear cliente
+    async function desbloquearCliente(clienteId) {
+      if (***REMOVED***confirm('Tem certeza que deseja desbloquear este cliente?')) return;
+
+      try {
+        const res = await fetchAdmin(`/clientes/${clienteId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'ativo' })
+        });
+
+        if (***REMOVED***res.ok) throw new Error('Erro');
+        alert('Cliente desbloqueado com sucesso.');
+        carregarClientes();
+        carregarDashboard();
+      } catch (err) {
+        alert('Erro ao desbloquear: ' + err.message);
+      }
+    }
+
+    // Fechar modal
+    function fecharModal() {
+      document.getElementById('modal-detalhes').classList.remove('show');
+    }
+
+    // Logout
+    function logout() {
+      sessionStorage.removeItem('admin_auth');
+      window.location.href = '/admin-login.html';
+    }
+
+    // Carregar ao abrir a página
+    document.addEventListener('DOMContentLoaded', () => {
+      // Verificar autenticação
+      if (***REMOVED***verificarAutenticacao()) return;
+
+      carregarDashboard();
+      carregarClientes();
+      // Recarregar a cada 30 segundos
+      setInterval(() => {
+        carregarDashboard();
+        carregarClientes();
+      }, 30000);
+    });
+  </script>
+</body>
+</html>

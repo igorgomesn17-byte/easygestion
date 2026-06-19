@@ -1,0 +1,308 @@
+<***REMOVED***DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fluxo de Caixa • DS Store</title>
+  <link rel="stylesheet" href="css/ds.css">
+</head>
+<body>
+  <div class="conteudo">
+    <div class="flex-entre">
+      <div><h1>Fluxo de Caixa</h1><p class="subtitulo">Quando o dinheiro realmente entra e sai (regime de caixa)</p></div>
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <button class="btn btn-fino" id="btnDiario" onclick="trocarVisao('diario')" style="font-weight:600;">📅 Diário</button>
+        <button class="btn btn-fino btn-fantasma" id="btnSemanal" onclick="trocarVisao('semanal')">📆 Semanal</button>
+        <button class="btn btn-fino btn-fantasma" id="btnMensal" onclick="trocarVisao('mensal')">📊 Mensal</button>
+        <input type="month" id="mes" onchange="carregar()" style="max-width:170px;">
+      </div>
+    </div>
+
+    <***REMOVED***-- VISÃO DIÁRIA -->
+    <div id="secaoDiaria">
+      <***REMOVED***-- Cards de resumo diário -->
+      <div class="cards-grid">
+        <div class="card card-metrica destaque"><div class="valor dinheiro texto-verde" id="recebidoDia">R$ 0</div><div class="rotulo">Recebido hoje</div></div>
+        <div class="card card-metrica"><div class="valor dinheiro texto-vermelho" id="pagoDia">R$ 0</div><div class="rotulo">Pago hoje</div></div>
+        <div class="card card-metrica"><div class="valor dinheiro" id="saldoDia">R$ 0</div><div class="rotulo">Saldo do dia</div></div>
+        <div class="card card-metrica"><div class="valor dinheiro" id="saldoAcumuladoDia">R$ 0</div><div class="rotulo">Saldo acumulado</div></div>
+      </div>
+
+      <***REMOVED***-- Seletor de data para visão diária -->
+      <div class="card">
+        <label>Selecione o dia:</label>
+        <input type="date" id="dataDiaria" onchange="carregarDia()" style="max-width:170px;">
+      </div>
+
+      <***REMOVED***-- Detalhes do dia -->
+      <div class="card">
+        <h2 style="margin-top:0;">📋 Detalhes do dia</h2>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr><th>Tipo</th><th style="text-align:right;">Valor</th></tr>
+            </thead>
+            <tbody id="tabelaDia"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <***REMOVED***-- VISÃO SEMANAL -->
+    <div id="secaoSemanal" style="display:none;">
+      <***REMOVED***-- Seletor de semana -->
+      <div class="card">
+        <label>Escolha a semana:</label>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <button class="btn btn-fino" onclick="semanaAnterior()">← Anterior</button>
+          <input type="date" id="dataSemanal" onchange="carregarSemanal()">
+          <button class="btn btn-fino" onclick="proxSemanal()">Próxima →</button>
+        </div>
+      </div>
+
+      <***REMOVED***-- Resumo semanal -->
+      <div class="cards-grid">
+        <div class="card card-metrica destaque"><div class="valor dinheiro texto-verde" id="recebidoSem">R$ 0</div><div class="rotulo">Recebido na semana</div></div>
+        <div class="card card-metrica"><div class="valor dinheiro texto-vermelho" id="pagoSem">R$ 0</div><div class="rotulo">Pago na semana</div></div>
+        <div class="card card-metrica"><div class="valor dinheiro" id="saldoSem">R$ 0</div><div class="rotulo">Saldo da semana</div></div>
+      </div>
+
+      <***REMOVED***-- Tabela semanal (seg-dom) -->
+      <div class="card">
+        <h2 style="margin-top:0;">📅 Semana (seg-dom)</h2>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th style="text-align:center;">Dia</th>
+                <th style="text-align:right;">Entradas</th>
+                <th style="text-align:right;">Saídas</th>
+                <th style="text-align:right;">Saldo</th>
+              </tr>
+            </thead>
+            <tbody id="tabelaSemanal"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <***REMOVED***-- VISÃO MENSAL -->
+    <div id="secaoMensal" style="display:none;">
+      <***REMOVED***-- Cards de resumo mensal -->
+      <div class="cards-grid">
+        <div class="card card-metrica destaque"><div class="valor dinheiro texto-verde" id="recebido">R$ 0</div><div class="rotulo">Recebido no mês</div></div>
+        <div class="card card-metrica"><div class="valor dinheiro texto-vermelho" id="pago">R$ 0</div><div class="rotulo">Pago em despesas</div></div>
+        <div class="card card-metrica"><div class="valor dinheiro" id="saldo">R$ 0</div><div class="rotulo">Saldo do mês</div></div>
+        <div class="card card-metrica"><div class="valor dinheiro" id="aReceber">R$ 0</div><div class="rotulo">Ainda a receber</div></div>
+      </div>
+
+      <***REMOVED***-- Linha do tempo dia a dia -->
+      <div class="card">
+        <h2 style="margin-top:0;">📅 Linha do tempo do mês</h2>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th style="text-align:center;">Data</th>
+                <th style="text-align:right;">Pix/Dinheiro</th>
+                <th style="text-align:right;">Débito</th>
+                <th style="text-align:right;">Crédito à vista</th>
+                <th style="text-align:right;">Crédito parc.</th>
+                <th style="text-align:right;">Total entradas</th>
+                <th style="text-align:right;">Despesas</th>
+                <th style="text-align:right;">Saldo acumul.</th>
+              </tr>
+            </thead>
+            <tbody id="tabelaLinha"></tbody>
+          </table>
+        </div>
+        <div id="aviso" class="texto-cinza" style="margin-top:10px; font-size:0.82rem;"></div>
+      </div>
+
+      <***REMOVED***-- A receber por forma -->
+      <div class="card">
+        <h2 style="margin-top:0;">⏳ A receber (vendas que ainda não caíram na conta)</h2>
+        <div class="cards-grid">
+          <div class="card card-metrica"><div class="valor dinheiro" id="aRebDeb">R$ 0</div><div class="rotulo">Débito (em dias)</div></div>
+          <div class="card card-metrica"><div class="valor dinheiro" id="aRebCredVista">R$ 0</div><div class="rotulo">Crédito à vista</div></div>
+          <div class="card card-metrica"><div class="valor dinheiro" id="aRebCredParc">R$ 0</div><div class="rotulo">Crédito parcelado</div></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="js/comum.js"></script>
+  <script>
+    montarLayout('financeiro');
+    document.getElementById('mes').value = mesLocalStr();
+    document.getElementById('dataDiaria').value = hojeLocalStr();
+    document.getElementById('dataSemanal').value = hojeLocalStr();
+    let fluxoCaixa = null;
+
+    function trocarVisao(visao) {
+      document.getElementById('secaoDiaria').style.display = visao === 'diario' ? '' : 'none';
+      document.getElementById('secaoSemanal').style.display = visao === 'semanal' ? '' : 'none';
+      document.getElementById('secaoMensal').style.display = visao === 'mensal' ? '' : 'none';
+
+      // Botões
+      const btns = {diario: 'btnDiario', semanal: 'btnSemanal', mensal: 'btnMensal'};
+      for (const [v, btn] of Object.entries(btns)) {
+        const el = document.getElementById(btn);
+        el.style.fontWeight = v === visao ? '600' : 'normal';
+        el.className = v === visao ? 'btn btn-fino' : 'btn btn-fino btn-fantasma';
+      }
+
+      if (visao === 'diario') carregarDia();
+      if (visao === 'semanal') carregarSemanal();
+    }
+
+    function obterSegundaDaSemana(data) {
+      const d = new Date(data + 'T00:00:00');
+      const diaSemana = d.getDay();
+      const diff = d.getDate() - diaSemana + (diaSemana === 0 ? -6 : 1);
+      const segunda = new Date(d.setDate(diff));
+      return segunda.toISOString().split('T')[0];
+    }
+
+    function semanaAnterior() {
+      const dataSemanal = document.getElementById('dataSemanal');
+      const d = new Date(dataSemanal.value + 'T00:00:00');
+      d.setDate(d.getDate() - 7);
+      dataSemanal.value = d.toISOString().split('T')[0];
+      carregarSemanal();
+    }
+
+    function proxSemanal() {
+      const dataSemanal = document.getElementById('dataSemanal');
+      const d = new Date(dataSemanal.value + 'T00:00:00');
+      d.setDate(d.getDate() + 7);
+      dataSemanal.value = d.toISOString().split('T')[0];
+      carregarSemanal();
+    }
+
+    async function carregarSemanal() {
+      if (***REMOVED***fluxoCaixa) return;
+      const dataSemanal = document.getElementById('dataSemanal').value;
+      const segunda = obterSegundaDaSemana(dataSemanal);
+
+      const diasSemana = [];
+      let totalRecebido = 0, totalPago = 0;
+
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(segunda + 'T00:00:00');
+        d.setDate(d.getDate() + i);
+        const dataStr = d.toISOString().split('T')[0];
+        const diaObj = fluxoCaixa.linha_do_tempo.find(x => x.data === dataStr);
+        const entradas = diaObj ? diaObj.entradas : 0;
+        const saidas = diaObj ? diaObj.saidas : 0;
+        totalRecebido += entradas;
+        totalPago += saidas;
+        diasSemana.push({data: dataStr, entradas, saidas, saldo: entradas - saidas, diaSemana: ['dom','seg','ter','qua','qui','sex','sab'][d.getDay()]});
+      }
+
+      document.getElementById('recebidoSem').textContent = moeda(totalRecebido);
+      document.getElementById('pagoSem').textContent = moeda(totalPago);
+      document.getElementById('saldoSem').textContent = moeda(totalRecebido - totalPago);
+
+      const linhas = diasSemana.map(dia => `
+        <tr>
+          <td style="text-align:center;"><strong>${dia.diaSemana} ${dia.data.split('-').reverse().join('/')}</strong></td>
+          <td style="text-align:right; dinheiro">${moeda(dia.entradas)}</td>
+          <td style="text-align:right; dinheiro">${moeda(dia.saidas)}</td>
+          <td style="text-align:right; dinheiro"><strong>${moeda(dia.saldo)}</strong></td>
+        </tr>
+      `).join('');
+
+      document.getElementById('tabelaSemanal').innerHTML = linhas;
+    }
+
+    async function carregarDia() {
+      if (***REMOVED***fluxoCaixa) return;
+      const dia = document.getElementById('dataDiaria').value;
+      const diaObj = fluxoCaixa.linha_do_tempo.find(d => d.data === dia);
+
+      if (***REMOVED***diaObj) {
+        document.getElementById('recebidoDia').textContent = 'R$ 0';
+        document.getElementById('pagoDia').textContent = 'R$ 0';
+        document.getElementById('saldoDia').textContent = 'R$ 0';
+        document.getElementById('saldoAcumuladoDia').textContent = 'R$ 0';
+        document.getElementById('tabelaDia').innerHTML = '<tr><td colspan="2" class="vazio">Nenhum movimento este dia</td></tr>';
+        return;
+      }
+
+      document.getElementById('recebidoDia').textContent = moeda(diaObj.entradas);
+      document.getElementById('pagoDia').textContent = moeda(diaObj.saidas);
+      document.getElementById('saldoDia').textContent = moeda(diaObj.entradas - diaObj.saidas);
+      document.getElementById('saldoAcumuladoDia').textContent = moeda(diaObj.saldo_acumulado);
+
+      const linhas = [
+        ['Pix/Dinheiro', diaObj.detalhes.pix_dinheiro],
+        ['Débito', diaObj.detalhes.debito],
+        ['Crédito à vista', diaObj.detalhes.credito_vista],
+        ['Crédito parcelado', diaObj.detalhes.credito_parcelado],
+        ['<strong>Total entradas</strong>', '<strong>' + moeda(diaObj.entradas) + '</strong>'],
+        ['Despesas', diaObj.saidas],
+        ['<strong>Saldo do dia</strong>', '<strong class="texto-verde">' + moeda(diaObj.entradas - diaObj.saidas) + '</strong>']
+      ];
+      document.getElementById('tabelaDia').innerHTML = linhas
+        .map(([label, valor]) => `<tr><td>${label}</td><td style="text-align:right; dinheiro">${typeof valor === 'number' ? moeda(valor) : valor}</td></tr>`)
+        .join('');
+    }
+
+    async function carregar() {
+      const mes = document.getElementById('mes').value;
+      try {
+        const fc = await api('/financeiro/fluxo-caixa?mes=' + mes);
+        fluxoCaixa = fc;
+
+        // Resumo
+        document.getElementById('recebido').textContent = moeda(fc.resumo.recebido);
+        document.getElementById('pago').textContent = moeda(fc.resumo.pago);
+        document.getElementById('saldo').textContent = moeda(fc.resumo.saldo);
+        const totalAReceber = fc.resumo.aReceber.debito + fc.resumo.aReceber.credito_vista + fc.resumo.aReceber.credito_parcelado;
+        document.getElementById('aReceber').textContent = moeda(totalAReceber);
+
+        // A receber por forma
+        document.getElementById('aRebDeb').textContent = moeda(fc.resumo.aReceber.debito);
+        document.getElementById('aRebCredVista').textContent = moeda(fc.resumo.aReceber.credito_vista);
+        document.getElementById('aRebCredParc').textContent = moeda(fc.resumo.aReceber.credito_parcelado);
+
+        // Linha do tempo
+        const linhas = fc.linha_do_tempo.map(dia => `
+          <tr>
+            <td style="text-align:center;"><strong>${dia.data.split('-').reverse().join('/')}</strong></td>
+            <td style="text-align:right; dinheiro">${moeda(dia.detalhes.pix_dinheiro)}</td>
+            <td style="text-align:right; dinheiro">${moeda(dia.detalhes.debito)}</td>
+            <td style="text-align:right; dinheiro">${moeda(dia.detalhes.credito_vista)}</td>
+            <td style="text-align:right; dinheiro">${moeda(dia.detalhes.credito_parcelado)}</td>
+            <td style="text-align:right; dinheiro"><strong class="texto-verde">${moeda(dia.entradas)}</strong></td>
+            <td style="text-align:right; dinheiro"><strong class="texto-vermelho">${moeda(dia.saidas)}</strong></td>
+            <td style="text-align:right; dinheiro"><strong>${moeda(dia.saldo_acumulado)}</strong></td>
+          </tr>
+        `).join('');
+
+        document.getElementById('tabelaLinha').innerHTML = linhas.length === 0
+          ? '<tr><td colspan="8" class="vazio">Nenhum movimento neste mês</td></tr>'
+          : linhas;
+
+        // Aviso sobre prazos
+        const tipoDebLabel = fc.prazos.debito_tipo === 'uteis' ? 'úteis' : 'corridos';
+        const tipoCredVistLabel = fc.prazos.credito_vista_tipo === 'uteis' ? 'úteis' : 'corridos';
+        const tipoCredParcLabel = fc.prazos.credito_parc_tipo === 'uteis' ? 'úteis' : 'corridos';
+        document.getElementById('aviso').innerHTML = `
+          💡 Prazos: Débito ${fc.prazos.debito_dias} dias <strong>${tipoDebLabel}</strong> | Crédito à vista ${fc.prazos.credito_vista_dias} dias <strong>${tipoCredVistLabel}</strong> | Parcelado ${fc.prazos.credito_parc_dias} dias <strong>${tipoCredParcLabel}</strong>/parc.
+        `;
+
+        // Carrega visão diária
+        carregarDia();
+      } catch (e) {
+        toast('Erro ao carregar fluxo: ' + e.message, 'erro');
+      }
+    }
+
+
+    carregar();
+  </script>
+</body>
+</html>
