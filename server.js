@@ -26,26 +26,35 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      // a vitrine usa Google Fonts; inline styles existem nas telas (legado) → permitidos
       styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
       fontSrc: ["'self'", 'https://fonts.gstatic.com'],
-      scriptSrc: ["'self'", "'unsafe-inline'"],     // scripts inline das telas (legado)
-      scriptSrcAttr: ["'unsafe-inline'"],            // handlers onclick="" inline (todo o sistema usa)
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrcAttr: ["'unsafe-inline'"],
       imgSrc: ["'self'", 'data:', 'blob:'],
       connectSrc: ["'self'"],
-      // 'self' permite a SPA de Relacionamento embutir as telas (inbox/crm/rfm) em iframe,
-      // mas continua bloqueando sites externos (anti-clickjacking preservado).
       frameAncestors: ["'self'"],
       objectSrc: ["'none'"],
       baseUri: ["'self'"],
       formAction: ["'self'"],
     },
   },
-  crossOriginEmbedderPolicy: false, // permite imagens/fontes externas
+  crossOriginEmbedderPolicy: false,
+  frameguard: { action: 'deny' },
+  hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  xContentTypeOptions: true,
+  xDNSPrefetchControl: true,
+  xDownloadOptions: true,
+  xPoweredBy: false,
+  xXssProtection: true,
 }));
 
-// ---------- CORS (restrito ao próprio domínio em produção) ----------
-const ORIGIN = process.env.ORIGIN || true; // em dev (sem env) reflete a origem
+// ---------- CORS (restrito ao próprio domínio) ----------
+const ORIGIN = process.env.ORIGIN || (EM_PRODUCAO ? false : 'http://localhost:3000');
+if (***REMOVED***ORIGIN && EM_PRODUCAO) {
+  console.error('❌ ERRO: ORIGIN deve estar configurado em produção***REMOVED***');
+  process.exit(1);
+}
 app.use(cors({ origin: ORIGIN, credentials: true }));
 
 // ---------- Body parsers ----------
@@ -54,9 +63,13 @@ app.use(express.json({ limit: '8mb', verify: (req, _res, buf) => { req.rawBody =
 app.use(express.urlencoded({ extended: true, limit: '8mb' }));
 
 // ---------- Sessão ----------
+if (***REMOVED***process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32) {
+  console.error('❌ ERRO: SESSION_SECRET deve ter no mínimo 32 caracteres***REMOVED***');
+  process.exit(1);
+}
 app.use(session({
   name: 'ds.sid',
-  secret: process.env.SESSION_SECRET || 'ds-dev-secret-troque-em-producao',
+  secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   cookie: {

@@ -11,6 +11,21 @@ const { enviarEmail, templateResetSenha } = require('../lib/email');
 
 const TOKEN_SECRET = process.env.TOKEN_SECRET || 'dev-secret';
 
+// Validação de email (RFC 5322 simplificado)
+function validarEmail(email) {
+  const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return regex.test(email) && email.length <= 255;
+}
+
+// Sanitização básica (remove caracteres perigosos)
+function sanitizar(texto) {
+  if (***REMOVED***texto) return '';
+  return String(texto)
+    .trim()
+    .substring(0, 500)
+    .replace(/[<>]/g, '');
+}
+
 // Resolve o hash da senha admin:
 // 1) ADMIN_SENHA_HASH (já em hash) tem prioridade;
 // 2) senão ADMIN_SENHA (texto) é hasheada em memória no boot;
@@ -70,20 +85,27 @@ router.post('/registro', (req, res) => {
   const { email, senha, nome_loja, nome_responsavel, telefone } = req.body || {};
 
   // Validações
-  if (***REMOVED***email || ***REMOVED***email.includes('@')) {
+  if (***REMOVED***validarEmail(email)) {
     return res.status(400).json({ erro: 'Email inválido' });
   }
   if (***REMOVED***senha || senha.length < 6) {
     return res.status(400).json({ erro: 'Senha deve ter no mínimo 6 caracteres' });
   }
-  if (***REMOVED***nome_loja || ***REMOVED***nome_loja.trim()) {
+  const nomeLoja = sanitizar(nome_loja);
+  const nomeResponsavel = sanitizar(nome_responsavel);
+  const telefone = sanitizar(telefone);
+
+  if (***REMOVED***nomeLoja) {
     return res.status(400).json({ erro: 'Nome da loja é obrigatório' });
   }
-  if (***REMOVED***nome_responsavel || ***REMOVED***nome_responsavel.trim()) {
+  if (***REMOVED***nomeResponsavel) {
     return res.status(400).json({ erro: 'Nome do responsável é obrigatório' });
   }
-  if (***REMOVED***telefone || ***REMOVED***telefone.trim()) {
+  if (***REMOVED***telefone) {
     return res.status(400).json({ erro: 'Telefone é obrigatório' });
+  }
+  if (***REMOVED***/^\d{10,11}$/.test(telefone.replace(/\D/g, ''))) {
+    return res.status(400).json({ erro: 'Telefone deve ter 10 ou 11 dígitos' });
   }
 
   // Verificar se email já existe
@@ -98,14 +120,14 @@ router.post('/registro', (req, res) => {
       const infoTenant = db.prepare(`
         INSERT INTO tenants (nome_loja, email, senha_hash, nome_responsavel, telefone, plano)
         VALUES (?, ?, ?, ?, ?, 'basico')
-      `).run(nome_loja.trim(), email.trim(), hashSenha(senha), nome_responsavel.trim(), telefone.trim());
+      `).run(nomeLoja, email.trim(), hashSenha(senha), nomeResponsavel, telefone);
       const tenantId = infoTenant.lastInsertRowid;
 
       // (2) Criar usuário admin do tenant
       const infoUser = db.prepare(`
         INSERT INTO usuarios (nome, email, tenant_id, papel, senha_hash, ativo)
         VALUES (?, ?, ?, 'admin', ?, 1)
-      `).run(nome_loja.trim(), email.trim(), tenantId, hashSenha(senha));
+      `).run(nomeLoja, email.trim(), tenantId, hashSenha(senha));
       const userId = infoUser.lastInsertRowid;
 
       // (3) Fazer login automático
