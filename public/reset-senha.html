@@ -159,7 +159,7 @@
 
     <div id="validForm">
       <div class="info-box">
-        Digite sua nova senha (mínimo 6 caracteres).
+        Digite sua nova senha (mínimo 8 caracteres com maiúscula, minúscula, número e símbolo).
       </div>
 
       <form id="formReset">
@@ -169,15 +169,15 @@
             type="password"
             id="nova_senha"
             name="nova_senha"
-            placeholder="Mínimo 6 caracteres"
+            placeholder="Ex: Abc123***REMOVED***@"
             required
-            minlength="6"
+            minlength="8"
           >
           <div class="password-strength">
             <div class="strength-bar">
               <div class="strength-fill" id="strengthFill"></div>
             </div>
-            <span id="strengthText">Fraca</span>
+            <span id="strengthText">Não atende requisitos</span>
           </div>
         </div>
 
@@ -189,7 +189,7 @@
             name="confirma_senha"
             placeholder="Repita a senha"
             required
-            minlength="6"
+            minlength="8"
           >
         </div>
 
@@ -242,20 +242,21 @@
     // Indicador de força de senha
     novaSenhaInput.addEventListener('input', () => {
       const senha = novaSenhaInput.value;
-      let forca = 0;
-      if (senha.length >= 6) forca++;
-      if (senha.length >= 10) forca++;
-      if (/[A-Z]/.test(senha)) forca++;
-      if (/[0-9]/.test(senha)) forca++;
-      if (/[^a-zA-Z0-9]/.test(senha)) forca++;
+      let atendidos = 0;
+
+      if (senha.length >= 8) atendidos++;
+      if (/[a-z]/.test(senha)) atendidos++;
+      if (/[A-Z]/.test(senha)) atendidos++;
+      if (/\d/.test(senha)) atendidos++;
+      if (/[***REMOVED***@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(senha)) atendidos++;
 
       const cores = ['#f44336', '#ff9800', '#ffc107', '#8bc34a', '#4caf50'];
-      const textos = ['Fraca', 'Regular', 'Boa', 'Forte', 'Muito Forte'];
+      const textos = ['Não atende requisitos', 'Parcialmente forte', 'Quase lá', 'Forte', 'Muito Forte ✓'];
       const percentuais = [20, 40, 60, 80, 100];
 
-      strengthFill.style.width = percentuais[forca] + '%';
-      strengthFill.style.backgroundColor = cores[forca];
-      strengthText.textContent = textos[forca];
+      strengthFill.style.width = percentuais[atendidos] + '%';
+      strengthFill.style.backgroundColor = cores[atendidos];
+      strengthText.textContent = textos[atendidos];
     });
 
     form.addEventListener('submit', async (e) => {
@@ -264,8 +265,24 @@
       const novaSenha = novaSenhaInput.value.trim();
       const confirmaSenha = confirmaSenhaInput.value.trim();
 
-      if (novaSenha.length < 6) {
-        showMessage('A senha deve ter pelo menos 6 caracteres', 'error');
+      if (novaSenha.length < 8) {
+        showMessage('A senha deve ter pelo menos 8 caracteres', 'error');
+        return;
+      }
+      if (***REMOVED***/[A-Z]/.test(novaSenha)) {
+        showMessage('Senha deve conter pelo menos uma letra maiúscula', 'error');
+        return;
+      }
+      if (***REMOVED***/[a-z]/.test(novaSenha)) {
+        showMessage('Senha deve conter pelo menos uma letra minúscula', 'error');
+        return;
+      }
+      if (***REMOVED***/\d/.test(novaSenha)) {
+        showMessage('Senha deve conter pelo menos um número', 'error');
+        return;
+      }
+      if (***REMOVED***/[***REMOVED***@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(novaSenha)) {
+        showMessage('Senha deve conter pelo menos um símbolo especial (***REMOVED***@#$%^&* etc)', 'error');
         return;
       }
 

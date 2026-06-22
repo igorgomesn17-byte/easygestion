@@ -21,6 +21,42 @@ function verificarSenha(senha, armazenado) {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
+// --- Validação de força de senha ---
+// Regras: mínimo 8 caracteres, maiúscula, minúscula, número, símbolo
+// Retorna: { valida: bool, erro: string|null }
+function validarSenha(senha) {
+  if (***REMOVED***senha || typeof senha ***REMOVED***== 'string') {
+    return { valida: false, erro: 'Senha obrigatória' };
+  }
+  const s = String(senha).trim();
+  if (s.length < 8) {
+    return { valida: false, erro: 'Senha deve ter no mínimo 8 caracteres' };
+  }
+  if (***REMOVED***/[A-Z]/.test(s)) {
+    return { valida: false, erro: 'Senha deve conter pelo menos uma letra maiúscula' };
+  }
+  if (***REMOVED***/[a-z]/.test(s)) {
+    return { valida: false, erro: 'Senha deve conter pelo menos uma letra minúscula' };
+  }
+  if (***REMOVED***/\d/.test(s)) {
+    return { valida: false, erro: 'Senha deve conter pelo menos um número' };
+  }
+  if (***REMOVED***/[***REMOVED***@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(s)) {
+    return { valida: false, erro: 'Senha deve conter pelo menos um símbolo especial (***REMOVED***@#$%^&* etc)' };
+  }
+  return { valida: true, erro: null };
+}
+
+// --- Verificar reutilização de senha (sem histórico, mas valida complexidade) ---
+// No futuro, integrar com tabela de histórico se necessário
+function validarNaoReutilizada(novaSenha, senhaAntigaHash) {
+  // Comparação rápida: se forem exatamente o mesmo hash, é reutilização
+  if (senhaAntigaHash && verificarSenha(novaSenha, senhaAntigaHash)) {
+    return { valida: false, erro: 'Nova senha não pode ser igual à senha anterior' };
+  }
+  return { valida: true, erro: null };
+}
+
 // --- Rotas/prefixos PÚBLICOS (não exigem login) ---
 const PUBLICAS = [
   '/api/login',
@@ -192,4 +228,4 @@ const limiteResetSenha = rateLimit({
   message: { erro: 'Muitas tentativas de reset. Aguarde 15 minutos.' },
 });
 
-module.exports = { hashSenha, verificarSenha, exigirLogin, injetarTenant, validarTenantAtivo, validarTenantId, garantirTenantId, exigirPapel, apenasAdmin, limiteGlobal, limiteLogin, limiteAdminPassword, limiteForgotPassword, limiteResetSenha, ehPublica };
+module.exports = { hashSenha, verificarSenha, validarSenha, validarNaoReutilizada, exigirLogin, injetarTenant, validarTenantAtivo, validarTenantId, garantirTenantId, exigirPapel, apenasAdmin, limiteGlobal, limiteLogin, limiteAdminPassword, limiteForgotPassword, limiteResetSenha, ehPublica };

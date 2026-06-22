@@ -5,7 +5,7 @@
 const express = require('express');
 const router = express.Router();
 const { db, getConfig } = require('../db/database');
-const { hashSenha, verificarSenha, limiteForgotPassword, limiteResetSenha } = require('../middleware/seguranca');
+const { hashSenha, verificarSenha, validarSenha, validarNaoReutilizada, limiteForgotPassword, limiteResetSenha } = require('../middleware/seguranca');
 const jwt = require('jsonwebtoken');
 const { enviarEmail, templateResetSenha } = require('../lib/email');
 
@@ -101,8 +101,9 @@ router.post('/registro', (req, res) => {
   if (***REMOVED***validarEmail(email)) {
     return res.status(400).json({ erro: 'Email inválido' });
   }
-  if (***REMOVED***senha || senha.length < 6) {
-    return res.status(400).json({ erro: 'Senha deve ter no mínimo 6 caracteres' });
+  const validacaoSenha = validarSenha(senha);
+  if (***REMOVED***validacaoSenha.valida) {
+    return res.status(400).json({ erro: validacaoSenha.erro });
   }
   const nomeLoja = sanitizar(nome_loja);
   const nomeResponsavel = sanitizar(nome_responsavel);
@@ -222,8 +223,12 @@ router.post('/forgot-password', limiteForgotPassword, async (req, res) => {
 // Reseta a senha com token válido
 router.post('/reset-senha', limiteResetSenha, (req, res) => {
   const { token, nova_senha } = req.body;
-  if (***REMOVED***token || ***REMOVED***nova_senha || nova_senha.length < 6) {
-    return res.status(400).json({ erro: 'Dados inválidos' });
+  if (***REMOVED***token) {
+    return res.status(400).json({ erro: 'Token ausente' });
+  }
+  const validacaoSenha = validarSenha(nova_senha);
+  if (***REMOVED***validacaoSenha.valida) {
+    return res.status(400).json({ erro: validacaoSenha.erro });
   }
 
   try {
@@ -265,8 +270,13 @@ router.patch('/me/senha', (req, res) => {
   }
 
   const { senha_atual, senha_nova } = req.body;
-  if (***REMOVED***senha_atual || ***REMOVED***senha_nova || senha_nova.length < 6) {
-    return res.status(400).json({ erro: 'Entrada inválida' });
+  if (***REMOVED***senha_atual) {
+    return res.status(400).json({ erro: 'Senha atual é obrigatória' });
+  }
+
+  const validacaoSenha = validarSenha(senha_nova);
+  if (***REMOVED***validacaoSenha.valida) {
+    return res.status(400).json({ erro: validacaoSenha.erro });
   }
 
   // Procura usuário
@@ -277,6 +287,12 @@ router.patch('/me/senha', (req, res) => {
   // Valida senha atual
   if (***REMOVED***verificarSenha(senha_atual, user.senha_hash)) {
     return res.status(403).json({ erro: 'Senha atual incorreta' });
+  }
+
+  // Valida que a nova senha é diferente da antiga
+  const naoReutilizada = validarNaoReutilizada(senha_nova, user.senha_hash);
+  if (***REMOVED***naoReutilizada.valida) {
+    return res.status(400).json({ erro: naoReutilizada.erro });
   }
 
   // Atualiza

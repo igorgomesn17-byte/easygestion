@@ -14,7 +14,7 @@
 
 const readline = require('readline');
 const { db } = require('../db/database');
-const { hashSenha } = require('../middleware/seguranca');
+const { hashSenha, validarSenha } = require('../middleware/seguranca');
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -61,8 +61,9 @@ async function main() {
       return;
     }
 
-    if (senha.length < 8) {
-      console.log('\n✗ Senha deve ter pelo menos 8 caracteres***REMOVED***\n');
+    const validacao = validarSenha(senha);
+    if (***REMOVED***validacao.valida) {
+      console.log(`\n✗ ${validacao.erro}\n`);
       rl.close();
       return;
     }

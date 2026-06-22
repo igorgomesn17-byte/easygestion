@@ -256,13 +256,13 @@
 
       <***REMOVED***-- Senha -->
       <div class="form-group">
-        <label for="senha">Senha</label>
+        <label for="senha">Senha (Mínimo 8 caracteres com maiúscula, minúscula, número e símbolo)</label>
         <input
           type="password"
           id="senha"
           name="senha"
-          placeholder="Mínimo 6 caracteres"
-          minlength="6"
+          placeholder="Ex: Abc123***REMOVED***@"
+          minlength="8"
           required
         >
         <div class="strength-meter">
@@ -279,7 +279,7 @@
           id="confirma_senha"
           name="confirma_senha"
           placeholder="Repita a senha"
-          minlength="6"
+          minlength="8"
           required
         >
       </div>
@@ -317,26 +317,24 @@
     // Indicador de força de senha
     document.getElementById('senha').addEventListener('input', (e) => {
       const senha = e.target.value;
-      let forca = 0;
-      let cor = '#ddd';
-      let texto = '';
+      let atendidos = 0;
 
-      if (senha.length >= 6) forca = 1;
-      if (senha.length >= 8) forca = 2;
-      if (/[a-z]/.test(senha) && /[A-Z]/.test(senha)) forca = 3;
-      if (/[0-9]/.test(senha)) forca = 4;
-      if (/[***REMOVED***@#$%^&*]/.test(senha)) forca = 5;
+      if (senha.length >= 8) atendidos++;
+      if (/[a-z]/.test(senha)) atendidos++;
+      if (/[A-Z]/.test(senha)) atendidos++;
+      if (/\d/.test(senha)) atendidos++;
+      if (/[***REMOVED***@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(senha)) atendidos++;
 
       const forcas = [
         { pct: 0, cor: '#ddd', texto: '' },
-        { pct: 20, cor: '#f44336', texto: 'Fraca' },
-        { pct: 40, cor: '#ff9800', texto: 'Média' },
-        { pct: 60, cor: '#ffc107', texto: 'Boa' },
+        { pct: 20, cor: '#f44336', texto: 'Não atende requisitos' },
+        { pct: 40, cor: '#ff9800', texto: 'Parcialmente forte' },
+        { pct: 60, cor: '#ffc107', texto: 'Quase lá' },
         { pct: 80, cor: '#8bc34a', texto: 'Forte' },
-        { pct: 100, cor: '#4caf50', texto: 'Muito Forte' }
+        { pct: 100, cor: '#4caf50', texto: 'Muito Forte ✓' }
       ];
 
-      const f = forcas[forca];
+      const f = forcas[atendidos];
       document.getElementById('strengthBar').style.width = f.pct + '%';
       document.getElementById('strengthBar').style.backgroundColor = f.cor;
       document.getElementById('strengthText').textContent = f.texto;
@@ -359,8 +357,24 @@
         mostrarMensagem('Email inválido', 'error');
         return;
       }
-      if (senha.length < 6) {
-        mostrarMensagem('Senha deve ter no mínimo 6 caracteres', 'error');
+      if (senha.length < 8) {
+        mostrarMensagem('Senha deve ter no mínimo 8 caracteres', 'error');
+        return;
+      }
+      if (***REMOVED***/[A-Z]/.test(senha)) {
+        mostrarMensagem('Senha deve conter pelo menos uma letra maiúscula', 'error');
+        return;
+      }
+      if (***REMOVED***/[a-z]/.test(senha)) {
+        mostrarMensagem('Senha deve conter pelo menos uma letra minúscula', 'error');
+        return;
+      }
+      if (***REMOVED***/\d/.test(senha)) {
+        mostrarMensagem('Senha deve conter pelo menos um número', 'error');
+        return;
+      }
+      if (***REMOVED***/[***REMOVED***@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(senha)) {
+        mostrarMensagem('Senha deve conter pelo menos um símbolo especial (***REMOVED***@#$%^&* etc)', 'error');
         return;
       }
       if (senha ***REMOVED***== confirma_senha) {

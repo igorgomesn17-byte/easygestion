@@ -160,13 +160,13 @@
         </div>
 
         <div class="form-group">
-          <label for="senha_nova">Nova Senha</label>
+          <label for="senha_nova">Nova Senha (Mínimo 8 caracteres com maiúscula, minúscula, número e símbolo)</label>
           <input
             type="password"
             id="senha_nova"
             name="senha_nova"
-            placeholder="Mínimo 6 caracteres"
-            minlength="6"
+            placeholder="Ex: Abc123***REMOVED***@"
+            minlength="8"
             required
           >
         </div>
@@ -178,7 +178,7 @@
             id="confirma_senha"
             name="confirma_senha"
             placeholder="Repita a senha"
-            minlength="6"
+            minlength="8"
             required
           >
         </div>
@@ -236,8 +236,24 @@
       const senhaNova = document.getElementById('senha_nova').value.trim();
       const confirmaSenha = document.getElementById('confirma_senha').value.trim();
 
-      if (senhaNova.length < 6) {
-        showMessage('A nova senha deve ter no mínimo 6 caracteres', 'error', 'mensagemSenha');
+      if (senhaNova.length < 8) {
+        showMessage('A nova senha deve ter no mínimo 8 caracteres', 'error', 'mensagemSenha');
+        return;
+      }
+      if (***REMOVED***/[A-Z]/.test(senhaNova)) {
+        showMessage('Senha deve conter pelo menos uma letra maiúscula', 'error', 'mensagemSenha');
+        return;
+      }
+      if (***REMOVED***/[a-z]/.test(senhaNova)) {
+        showMessage('Senha deve conter pelo menos uma letra minúscula', 'error', 'mensagemSenha');
+        return;
+      }
+      if (***REMOVED***/\d/.test(senhaNova)) {
+        showMessage('Senha deve conter pelo menos um número', 'error', 'mensagemSenha');
+        return;
+      }
+      if (***REMOVED***/[***REMOVED***@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(senhaNova)) {
+        showMessage('Senha deve conter pelo menos um símbolo especial (***REMOVED***@#$%^&* etc)', 'error', 'mensagemSenha');
         return;
       }
 
