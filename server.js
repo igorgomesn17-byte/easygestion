@@ -21,6 +21,34 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const EM_PRODUCAO = process.env.NODE_ENV === 'production';
 
+// ============================================================
+// ✅ VALIDAÇÃO DE BOOT: Verificar configurações obrigatórias
+// ============================================================
+console.log(`\n🚀 Iniciando EasyGestão em modo ${EM_PRODUCAO ? 'PRODUÇÃO' : 'DESENVOLVIMENTO'}...\n`);
+
+// 1. ADMIN_SENHA_HASH obrigatório em produção
+if (EM_PRODUCAO && ***REMOVED***process.env.ADMIN_SENHA_HASH && ***REMOVED***process.env.ADMIN_SENHA) {
+  console.error(`
+❌ ERRO CRÍTICO: Senha do admin não está configurada***REMOVED***
+
+Em produção, você DEVE definir uma das variáveis de ambiente:
+  • ADMIN_SENHA_HASH  (recomendado: já em hash scrypt)
+  • ADMIN_SENHA       (alternativo: será hasheada ao boot)
+
+Exemplo com ADMIN_SENHA_HASH (seguro):
+  export ADMIN_SENHA_HASH="scrypt\$<salt>\$<hash>"
+
+Exemplo com ADMIN_SENHA (simples):
+  export ADMIN_SENHA="SuaSenhaForte123***REMOVED***@#"
+
+NÃO use o fallback de desenvolvimento (dsstore) em produção***REMOVED***
+`);
+  process.exit(1);
+}
+
+// 2. SESSION_SECRET obrigatório (validado depois)
+// 3. ORIGIN obrigatório em produção (validado depois)
+
 app.set('trust proxy', 1); // atrás do proxy do Render/Cloudflare (IP real p/ rate limit)
 
 // ---------- Segurança: headers (Helmet + CSP) ----------

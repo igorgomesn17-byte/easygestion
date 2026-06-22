@@ -54,20 +54,32 @@ router.post('/login', limiteAdminPassword, (req, res) => {
       'SELECT id, tenant_id, nome, email, senha_hash, papel FROM usuarios WHERE nome = ? AND papel = ? AND ativo = 1'
     ).get(nome, 'admin');
 
-    // 2️⃣ Se não encontrou, tentar ADMIN_SENHA_HASH do .env (compatibilidade)
+    // 2️⃣ Se não encontrou na tabela, tentar ADMIN_SENHA_HASH do .env (compatibilidade)
     let eh_admin_env = false;
+    let senha_valida = false;
+
     if (***REMOVED***usuario) {
       const hashAdmin = process.env.ADMIN_SENHA_HASH || null;
       if (hashAdmin && verificarSenha(String(senha), hashAdmin)) {
         eh_admin_env = true;
-      } else {
-        return res.status(401).json({ erro: 'Usuário ou senha incorretos.' });
+        senha_valida = true;
+      }
+    } else {
+      // 3️⃣ Se encontrou usuário na tabela, validar senha
+      if (verificarSenha(String(senha), usuario.senha_hash)) {
+        senha_valida = true;
       }
     }
 
-    // 3️⃣ Se encontrou usuário na tabela, validar senha
-    if (usuario && ***REMOVED***verificarSenha(String(senha), usuario.senha_hash)) {
-      return res.status(401).json({ erro: 'Usuário ou senha incorretos.' });
+    // ❌ Se senha inválida, retornar erro
+    if (***REMOVED***senha_valida) {
+      // Log detalhado (sem expor senha)
+      const motivo = ***REMOVED***usuario ? 'usuário não encontrado' : 'senha incorreta';
+      console.warn(`[ADMIN] Login falhou: ${nome} (${motivo}) • IP: ${req.ip} • ${new Date().toISOString()}`);
+      return res.status(401).json({
+        erro: 'Usuário ou senha incorretos.',
+        dica: usuario ? 'Verifique a senha.' : 'Usuário admin não existe. Use o script: node scripts/criar-admin.js'
+      });
     }
 
     // ✅ Autenticação bem-sucedida: criar sessão
@@ -79,11 +91,21 @@ router.post('/login', limiteAdminPassword, (req, res) => {
     req.session.tenant_id = usuario?.tenant_id || 1; // admin sempre é tenant 1
     req.session.login_em = new Date().toISOString();
 
-    console.log(`[ADMIN] Login bem-sucedido: ${nome} (${eh_admin_env ? 'env' : 'db'})`);
-    res.json({ sucesso: true, mensagem: 'Logado como administrador', usuario: nome });
+    const origem = eh_admin_env ? 'env (ADMIN_SENHA_HASH)' : 'database';
+    console.log(`[ADMIN] ✅ Login bem-sucedido: ${nome} (${origem}) • IP: ${req.ip} • ${new Date().toISOString()}`);
+
+    res.json({
+      sucesso: true,
+      mensagem: 'Logado como administrador',
+      usuario: nome,
+      origen: eh_admin_env ? 'env' : 'db'
+    });
   } catch (err) {
-    console.error('[ADMIN] Erro ao fazer login:', err);
-    return res.status(500).json({ erro: 'Erro ao processar login' });
+    console.error('[ADMIN] ❌ Erro ao fazer login:', err.message);
+    return res.status(500).json({
+      erro: 'Erro ao processar login',
+      detalhe: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
   }
 });
 
@@ -349,6 +371,134 @@ router.get('/auditoria/:id', exigirAdminBackoffice, (req, res) => {
   } catch (err) {
     console.error('[ADMIN] Erro ao buscar registro de auditoria:', err);
     return res.status(500).json({ erro: 'Erro ao buscar registro' });
+  }
+});
+
+// --- GET /alertas → lista de clientes em risco (observabilidade de churn) ---
+// Retorna: clientes com: atraso de pagamento, inatividade, nunca usaram, erros de integração
+router.get('/alertas', exigirAdminBackoffice, (req, res) => {
+  try {
+    const alertas = db.prepare(`
+      SELECT
+        a.id,
+        a.tenant_id,
+        t.nome_loja,
+        t.email,
+        a.tipo,
+        a.dias_sem_atividade,
+        a.valor_em_risco,
+        a.dias_atraso,
+        a.mensagem,
+        a.criado_em,
+        a.resolvido_em
+      FROM alertas_clientes a
+      JOIN tenants t ON t.id = a.tenant_id
+      WHERE a.resolvido_em IS NULL
+      ORDER BY
+        CASE a.tipo
+          WHEN 'atraso_pagamento' THEN 1
+          WHEN 'inativo' THEN 2
+          WHEN 'nunca_usou' THEN 3
+          ELSE 4
+        END,
+        a.criado_em DESC
+    `).all();
+
+    // Contar alertas por tipo
+    const sumario = {
+      total: alertas.length,
+      atraso_pagamento: alertas.filter(a => a.tipo === 'atraso_pagamento').length,
+      inativo: alertas.filter(a => a.tipo === 'inativo').length,
+      nunca_usou: alertas.filter(a => a.tipo === 'nunca_usou').length,
+      valor_em_risco: alertas.reduce((sum, a) => sum + (a.valor_em_risco || 0), 0)
+    };
+
+    res.json({ alertas, sumario });
+  } catch (err) {
+    console.error('[ADMIN] Erro ao buscar alertas:', err);
+    return res.status(500).json({ erro: 'Erro ao buscar alertas' });
+  }
+});
+
+// --- POST /alertas/resolver/:id → marcar alerta como resolvido ---
+router.post('/alertas/resolver/:id', exigirAdminBackoffice, (req, res) => {
+  try {
+    const alertaId = parseInt(req.params.id, 10);
+    const result = db.prepare(
+      'UPDATE alertas_clientes SET resolvido_em = datetime(\'now\', \'localtime\') WHERE id = ?'
+    ).run(alertaId);
+
+    if (result.changes === 0) {
+      return res.status(404).json({ erro: 'Alerta não encontrado' });
+    }
+
+    res.json({ sucesso: true, mensagem: 'Alerta resolvido' });
+  } catch (err) {
+    console.error('[ADMIN] Erro ao resolver alerta:', err);
+    return res.status(500).json({ erro: 'Erro ao resolver alerta' });
+  }
+});
+
+// --- GET /backup-status → status dos backups e health check ---
+router.get('/backup-status', exigirAdminBackoffice, (req, res) => {
+  try {
+    // Últimos 10 backups
+    const backups = db.prepare(`
+      SELECT
+        id,
+        data_backup,
+        arquivo_s3,
+        tamanho_bytes,
+        status,
+        mensagem,
+        tempo_exec_ms
+      FROM backup_logs
+      ORDER BY criado_em DESC
+      LIMIT 10
+    `).all();
+
+    // Verificar health (último bem-sucedido)
+    const ultimoBom = db.prepare(`
+      SELECT
+        data_backup,
+        arquivo_s3,
+        tamanho_bytes,
+        tempo_exec_ms
+      FROM backup_logs
+      WHERE status = 'sucesso'
+      ORDER BY criado_em DESC
+      LIMIT 1
+    `).get();
+
+    // Dias desde último backup bem-sucedido
+    let diasDesdeUltimo = null;
+    let alertaCritico = false;
+
+    if (ultimoBom) {
+      const ultimaData = new Date(ultimoBom.data_backup);
+      const agora = new Date();
+      diasDesdeUltimo = Math.floor((agora - ultimaData) / (1000 * 60 * 60 * 24));
+      alertaCritico = diasDesdeUltimo > 1; // Crítico se > 24h
+    } else {
+      alertaCritico = true; // Crítico se nunca teve sucesso
+    }
+
+    res.json({
+      sucesso: true,
+      saude: {
+        status: alertaCritico ? 'critico' : 'ok',
+        diasDesdeUltimo,
+        ultimoBackupBem: ultimoBom ? ultimoBom.data_backup : null,
+        tamanhoUltimo: ultimoBom ? ultimoBom.tamanho_bytes : null,
+      },
+      backups: backups.map(b => ({
+        ...b,
+        tamanhoMB: b.tamanho_bytes ? (b.tamanho_bytes / 1024 / 1024).toFixed(2) : null,
+      })),
+    });
+  } catch (err) {
+    console.error('[ADMIN] Erro ao obter status de backups:', err);
+    return res.status(500).json({ erro: 'Erro ao obter status de backups' });
   }
 });
 
