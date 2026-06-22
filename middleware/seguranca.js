@@ -111,10 +111,10 @@ const limiteLogin = rateLimit({
   message: { erro: 'Muitas tentativas de login. Aguarde 15 minutos.' },
 });
 
-// Admin password: muito estrito
+// Admin password: estrito contra brute force
 const limiteAdminPassword = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 3,                      // 3 tentativas / 15min por IP
+  max: 5,                      // 5 tentativas / 15min por IP
   standardHeaders: true,
   legacyHeaders: false,
   message: { erro: 'Muitas tentativas de admin. Aguarde 15 minutos.' },

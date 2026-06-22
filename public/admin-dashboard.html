@@ -371,19 +371,17 @@
   <script>
     const API_URL = '/api/admin';
 
-    // Verificar autenticação
-    function verificarAutenticacao() {
-      if (sessionStorage.getItem('admin_auth') ***REMOVED***== 'true') {
-        window.location.href = '/admin-login.html';
-        return false;
-      }
-      return true;
-    }
-
-    // Fetch simples
+    // Fetch com credenciais (session cookie)
     function fetchAdmin(endpoint, options = {}) {
-      if (***REMOVED***verificarAutenticacao()) return Promise.reject('Não autenticado');
-      return fetch(API_URL + endpoint, { ...options });
+      const headers = {
+        'Content-Type': 'application/json',
+        ...options.headers
+      };
+      return fetch(API_URL + endpoint, {
+        credentials: 'include',
+        ...options,
+        headers
+      });
     }
 
     // Formatar moeda
@@ -590,17 +588,22 @@
       document.getElementById('modal-detalhes').classList.remove('show');
     }
 
-    // Logout
-    function logout() {
-      sessionStorage.removeItem('admin_auth');
+    // Logout seguro
+    async function logout() {
+      try {
+        await fetch(API_URL + '/logout', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } catch (err) {
+        console.error('Erro ao fazer logout:', err);
+      }
       window.location.href = '/admin-login.html';
     }
 
     // Carregar ao abrir a página
     document.addEventListener('DOMContentLoaded', () => {
-      // Verificar autenticação
-      if (***REMOVED***verificarAutenticacao()) return;
-
       carregarDashboard();
       carregarClientes();
       // Recarregar a cada 30 segundos

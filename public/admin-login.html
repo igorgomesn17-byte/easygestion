@@ -125,41 +125,66 @@
       <input type="password" id="senha" placeholder="Digite a senha" autofocus>
     </div>
 
-    <button onclick="login()">Acessar</button>
+    <button id="btn-login" onclick="login()">Acessar</button>
 
     <div class="info">Sistema seguro. Apenas para administradores.</div>
   </div>
 
   <script>
-    function login() {
-      const senha = document.getElementById('senha').value;
-      const erro = document.getElementById('erro');
+    const senhaInput = document.getElementById('senha');
+    const botao = document.getElementById('btn-login');
+    const erroDiv = document.getElementById('erro');
+
+    async function login() {
+      const senha = senhaInput.value;
 
       if (***REMOVED***senha) {
-        erro.textContent = 'Digite a senha***REMOVED***';
-        erro.classList.add('show');
+        erroDiv.textContent = 'Digite a senha***REMOVED***';
+        erroDiv.classList.add('show');
         return;
       }
 
-      if (senha === 'teste123') {
-        // Correto
-        sessionStorage.setItem('admin_auth', 'true');
+      botao.disabled = true;
+      botao.textContent = 'Autenticando...';
+      erroDiv.classList.remove('show');
+
+      try {
+        const res = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ senha })
+        });
+
+        const data = await res.json();
+
+        if (***REMOVED***res.ok) {
+          erroDiv.textContent = data.erro || 'Erro ao autenticar.';
+          erroDiv.classList.add('show');
+          botao.disabled = false;
+          botao.textContent = 'Acessar';
+          return;
+        }
+
+        // ✅ Sucesso: redireciona pro dashboard
         window.location.href = '/admin';
-      } else {
-        erro.textContent = 'Senha incorreta***REMOVED***';
-        erro.classList.add('show');
+      } catch (err) {
+        erroDiv.textContent = 'Erro de conexão. Tente novamente.';
+        erroDiv.classList.add('show');
+        botao.disabled = false;
+        botao.textContent = 'Acessar';
       }
     }
 
     // Enter para submeter
-    document.getElementById('senha').addEventListener('keypress', (e) => {
+    senhaInput.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') login();
     });
 
-    // Se já está logado, vai pro dashboard
-    if (sessionStorage.getItem('admin_auth') === 'true') {
-      window.location.href = '/admin';
-    }
+    // Limpar erro ao digitar
+    senhaInput.addEventListener('input', () => {
+      erroDiv.classList.remove('show');
+    });
   </script>
 </body>
 </html>

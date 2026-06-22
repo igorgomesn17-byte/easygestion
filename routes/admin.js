@@ -14,31 +14,47 @@ const router = express.Router();
 const { limiteAdminPassword, verificarSenha } = require('../middleware/seguranca');
 
 // --- Middleware: só o admin (você) acessa ---
-// Se tiver ADMIN_SENHA_HASH no .env, exige password (via header, nunca via query***REMOVED***)
-// Senão, assume que req.session.logado e papel=admin
+// Exige: req.session.admin_autenticado === true (definido em POST /api/admin/login)
 function exigirAdminBackoffice(req, res, next) {
-  const hashAdmin = process.env.ADMIN_SENHA_HASH || null;
-
-  // Se tem hash configurado, exigir validação via header
-  if (hashAdmin) {
-    const senha = req.headers['x-admin-password'] || null;
-    if (***REMOVED***senha || ***REMOVED***verificarSenha(senha, hashAdmin)) {
-      return res.status(403).json({ erro: 'Acesso negado. Credenciais de admin incorretas.' });
-    }
+  if (req.session?.admin_autenticado === true) {
     return next();
   }
-
-  // Senão, exigir que seja um usuário logado com papel admin
-  if (***REMOVED***req.session?.logado || req.session?.papel ***REMOVED***== 'admin') {
-    return res.status(403).json({ erro: 'Acesso negado. Admin requerido.' });
-  }
-
-  next();
+  return res.status(403).json({ erro: 'Acesso negado. Faça login primeiro.' });
 }
 
-// --- GET / → dashboard HTML (validação é no navegador via sessionStorage) ---
+// --- GET / → dashboard HTML (validação é feita pelos fetch's das APIs, não aqui) ---
 router.get('/', exigirAdminBackoffice, (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'admin-dashboard.html'));
+});
+
+// --- POST /login → autentica admin via senha (cria sessão segura) ---
+router.post('/login', limiteAdminPassword, (req, res) => {
+  const { senha } = req.body;
+  const hashAdmin = process.env.ADMIN_SENHA_HASH || null;
+
+  if (***REMOVED***hashAdmin) {
+    return res.status(400).json({ erro: 'Admin não configurado neste servidor.' });
+  }
+
+  if (***REMOVED***senha) {
+    return res.status(400).json({ erro: 'Senha obrigatória.' });
+  }
+
+  if (***REMOVED***verificarSenha(String(senha), hashAdmin)) {
+    return res.status(401).json({ erro: 'Senha incorreta.' });
+  }
+
+  // ✅ Autenticação bem-sucedida: marca a sessão como admin autenticado
+  req.session.admin_autenticado = true;
+  req.session.admin_login_em = new Date().toISOString();
+
+  res.json({ sucesso: true, mensagem: 'Logado como admin' });
+});
+
+// --- POST /logout → encerra sessão admin ---
+router.post('/logout', (req, res) => {
+  req.session.admin_autenticado = false;
+  res.json({ sucesso: true, mensagem: 'Deslogado' });
 });
 
 // --- GET /clientes → lista de clientes (tenants) ---

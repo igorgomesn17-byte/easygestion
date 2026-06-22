@@ -88,17 +88,18 @@ app.use('/api/login', limiteLogin);              // brute force
 app.use('/api', require('./routes/auth'));        // /login /logout /me (auth decide)
 app.get('/api/loja-publica', configRouter.lojaPublica);
 
+// ✅ Admin login PÚBLICO (mas com rate limit agressivo)
+// POST /api/admin/login → autentica admin via senha
+// POST /api/admin/logout → encerra sessão admin
+// GET /admin → redireciona pra login se não está autenticado
+app.use('/api/admin', require('./routes/admin')); // POST /login, POST /logout SEM autenticação
+app.use('/admin', require('./routes/admin'));     // GET / com autenticação de session
 
 // ---------- Middleware de autenticação (protege o resto) ----------
 app.use('/api', exigirLogin);
 
 // ---------- Middleware de tenant (injeta req.tenantId em rotas protegidas) ----------
 app.use('/api', injetarTenant);
-
-// ---------- Backoffice administrativo (SaaS) ----------
-// Acesso: via senha ADMIN_PASSWORD no .env OU usuário logado com papel admin
-app.use('/admin', require('./routes/admin'));     // GET /admin → dashboard HTML
-app.use('/api/admin', require('./routes/admin')); // APIs do admin
 
 // ---------- Rotas da API (protegidas) ----------
 app.use('/api/produtos',   require('./routes/produtos'));   // admin + vendedor (busca)
