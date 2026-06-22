@@ -1,0 +1,470 @@
+<***REMOVED***DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Log de Auditoria — LGPD</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    body {
+      background: #f9fbfa;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 20px;
+      color: #2d3436;
+    }
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    h1 {
+      color: #1a6f5e;
+      margin-bottom: 24px;
+      font-size: 28px;
+    }
+    .card {
+      background: white;
+      border-radius: 8px;
+      padding: 24px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      margin-bottom: 24px;
+    }
+    .filtros {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    input, select {
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    button {
+      padding: 10px 20px;
+      background: #1a6f5e;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: background-color 0.2s;
+    }
+    button:hover {
+      background: #0d3d35;
+    }
+    button.secondary {
+      background: #f0f0f0;
+      color: #333;
+    }
+    button.secondary:hover {
+      background: #e0e0e0;
+    }
+    .table-responsive {
+      overflow-x: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th {
+      background: #f5f5f5;
+      padding: 12px;
+      text-align: left;
+      font-weight: 600;
+      border-bottom: 2px solid #ddd;
+      font-size: 13px;
+      text-transform: uppercase;
+      color: #666;
+    }
+    td {
+      padding: 12px;
+      border-bottom: 1px solid #eee;
+      font-size: 14px;
+    }
+    tr:hover {
+      background: #f9fbfa;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .badge.delete {
+      background: #ffebee;
+      color: #c62828;
+    }
+    .badge.patch {
+      background: #fff3e0;
+      color: #e65100;
+    }
+    .badge.post {
+      background: #e8f5e9;
+      color: #2e7d32;
+    }
+    .status-200 { color: #2e7d32; }
+    .status-400 { color: #f57c00; }
+    .status-403 { color: #c62828; }
+    .status-500 { color: #c62828; }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .stat-card {
+      background: #f5f5f5;
+      padding: 16px;
+      border-radius: 6px;
+      border-left: 4px solid #1a6f5e;
+    }
+    .stat-card h3 {
+      margin: 0 0 8px 0;
+      color: #666;
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+    .stat-card .value {
+      font-size: 24px;
+      font-weight: 700;
+      color: #1a6f5e;
+    }
+    .pagination {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 24px;
+      align-items: center;
+    }
+    .pagination button {
+      padding: 8px 12px;
+      font-size: 12px;
+    }
+    .pagination .info {
+      color: #666;
+      font-size: 13px;
+    }
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #999;
+    }
+    .error {
+      background: #ffebee;
+      color: #c62828;
+      padding: 16px;
+      border-radius: 6px;
+      margin-bottom: 16px;
+      border-left: 4px solid #c62828;
+    }
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal.show {
+      display: flex;
+    }
+    .modal-content {
+      background: white;
+      border-radius: 8px;
+      padding: 24px;
+      max-width: 700px;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    .modal-close {
+      float: right;
+      font-size: 24px;
+      cursor: pointer;
+      color: #999;
+    }
+    .json-viewer {
+      background: #f5f5f5;
+      padding: 12px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+      word-break: break-all;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📋 Log de Auditoria (LGPD)</h1>
+
+    <***REMOVED***-- Resumo/Stats -->
+    <div id="statsCard" class="card" style="display: none;">
+      <h2>Estatísticas (últimos 30 dias)</h2>
+      <div class="stats" id="statsGrid"></div>
+    </div>
+
+    <***REMOVED***-- Filtros -->
+    <div class="card">
+      <h2>Filtros</h2>
+      <div class="filtros">
+        <div>
+          <label>Recurso:</label>
+          <select id="filtroRecurso">
+            <option value="">Todos</option>
+            <option value="cliente">Cliente</option>
+            <option value="venda">Venda</option>
+            <option value="usuario">Usuário</option>
+            <option value="produto">Produto</option>
+            <option value="config">Configuração</option>
+            <option value="tenant">Tenant</option>
+          </select>
+        </div>
+        <div>
+          <label>Dias:</label>
+          <select id="filtroDias">
+            <option value="7">Últimos 7 dias</option>
+            <option value="30" selected>Últimos 30 dias</option>
+            <option value="90">Últimos 90 dias</option>
+            <option value="365">Último ano</option>
+          </select>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: flex-end;">
+          <button onclick="carregarLogs()" class="secondary">Filtrar</button>
+          <button onclick="exportarCSV()" class="secondary">📥 Exportar CSV</button>
+        </div>
+      </div>
+    </div>
+
+    <***REMOVED***-- Logs -->
+    <div class="card">
+      <h2>Histórico</h2>
+      <div id="loading" class="loading" style="display: none;">⏳ Carregando...</div>
+      <div id="error" class="error" style="display: none;"></div>
+      <div class="table-responsive" id="tableContainer">
+        <table>
+          <thead>
+            <tr>
+              <th>Data/Hora</th>
+              <th>Ação</th>
+              <th>Recurso</th>
+              <th>Usuário</th>
+              <th>IP</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+      <div class="pagination" id="pagination"></div>
+    </div>
+  </div>
+
+  <***REMOVED***-- Modal de Detalhes -->
+  <div id="modal" class="modal">
+    <div class="modal-content">
+      <span class="modal-close" onclick="fecharModal()">&times;</span>
+      <h2>Detalhes da Ação</h2>
+      <div id="modalBody"></div>
+    </div>
+  </div>
+
+  <script>
+    let paginaAtual = 0;
+    const ITENS_POR_PAGINA = 50;
+
+    async function carregarLogs(pagina = 0) {
+      paginaAtual = pagina;
+      const recurso = document.getElementById('filtroRecurso').value;
+      const dias = document.getElementById('filtroDias').value;
+
+      document.getElementById('loading').style.display = 'block';
+      document.getElementById('error').style.display = 'none';
+
+      try {
+        const params = new URLSearchParams({
+          dias,
+          limite: ITENS_POR_PAGINA,
+          offset: pagina * ITENS_POR_PAGINA,
+        });
+        if (recurso) params.append('recurso', recurso);
+
+        const res = await fetch(`/api/auditoria?${params}`);
+        const data = await res.json();
+
+        if (***REMOVED***res.ok) throw new Error(data.erro || 'Erro ao carregar logs');
+
+        renderizarTabela(data.logs);
+        renderizarPaginacao(data.total);
+
+        // Carregar e mostrar estatísticas na primeira página
+        if (pagina === 0) {
+          await carregarStats(dias);
+        }
+      } catch (err) {
+        console.error(err);
+        document.getElementById('error').textContent = `❌ ${err.message}`;
+        document.getElementById('error').style.display = 'block';
+      } finally {
+        document.getElementById('loading').style.display = 'none';
+      }
+    }
+
+    async function carregarStats(dias) {
+      try {
+        const res = await fetch(`/api/auditoria/resumo/stats?dias=${dias}`);
+        const data = await res.json();
+
+        const html = `
+          <div class="stat-card">
+            <h3>Ações por Tipo</h3>
+            <div class="value">${data.por_acao.length}</div>
+          </div>
+          <div class="stat-card">
+            <h3>Recursos Modificados</h3>
+            <div class="value">${data.por_recurso.length}</div>
+          </div>
+          <div class="stat-card">
+            <h3>Usuários Ativos</h3>
+            <div class="value">${data.top_usuarios.length}</div>
+          </div>
+          <div class="stat-card">
+            <h3>IPs Únicos</h3>
+            <div class="value">${data.top_ips.length}</div>
+          </div>
+        `;
+        document.getElementById('statsGrid').innerHTML = html;
+        document.getElementById('statsCard').style.display = 'block';
+      } catch (err) {
+        console.error('Erro ao carregar stats:', err);
+      }
+    }
+
+    function renderizarTabela(logs) {
+      const tbody = document.getElementById('tbody');
+      if (logs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #999;">Nenhum log encontrado</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = logs.map(log => {
+        const data = new Date(log.criado_em).toLocaleString('pt-BR');
+        const acao = log.acao.split('_')[0];
+        const statusClass = `status-${log.status_http}`;
+        return `
+          <tr>
+            <td>${data}</td>
+            <td><span class="badge ${acao.toLowerCase()}">${acao}</span></td>
+            <td>${log.recurso}</td>
+            <td>${log.usuario_nome || '(admin-env)'}</td>
+            <td><code>${log.ip}</code></td>
+            <td class="${statusClass}">${log.status_http}</td>
+            <td><button onclick="abrirDetalhes(${log.id})" class="secondary">Ver</button></td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function renderizarPaginacao(total) {
+      const paginas = Math.ceil(total / ITENS_POR_PAGINA);
+      const container = document.getElementById('pagination');
+
+      if (paginas <= 1) {
+        container.innerHTML = '';
+        return;
+      }
+
+      let html = `<span class="info">Página ${paginaAtual + 1} de ${paginas}</span>`;
+
+      if (paginaAtual > 0) {
+        html += `<button onclick="carregarLogs(${paginaAtual - 1})" class="secondary">← Anterior</button>`;
+      }
+
+      if (paginaAtual < paginas - 1) {
+        html += `<button onclick="carregarLogs(${paginaAtual + 1})" class="secondary">Próxima →</button>`;
+      }
+
+      container.innerHTML = html;
+    }
+
+    async function abrirDetalhes(id) {
+      try {
+        const res = await fetch(`/api/auditoria/${id}`);
+        const log = await res.json();
+
+        const antesTxt = log.antes ? JSON.stringify(log.antes, null, 2) : '(sem mudanças registradas)';
+        const depoisTxt = log.depois ? JSON.stringify(log.depois, null, 2) : '(sem dados)';
+
+        document.getElementById('modalBody').innerHTML = `
+          <p><strong>ID:</strong> ${log.id}</p>
+          <p><strong>Data:</strong> ${new Date(log.criado_em).toLocaleString('pt-BR')}</p>
+          <p><strong>Ação:</strong> ${log.acao}</p>
+          <p><strong>Usuário:</strong> ${log.usuario_nome || '(admin-env)'}</p>
+          <p><strong>IP:</strong> <code>${log.ip}</code></p>
+          <p><strong>Status:</strong> ${log.status_http}</p>
+
+          <h3>Estado ANTES:</h3>
+          <div class="json-viewer">${antesTxt}</div>
+
+          <h3>Estado DEPOIS:</h3>
+          <div class="json-viewer">${depoisTxt}</div>
+        `;
+
+        document.getElementById('modal').classList.add('show');
+      } catch (err) {
+        alert('Erro ao carregar detalhes: ' + err.message);
+      }
+    }
+
+    function fecharModal() {
+      document.getElementById('modal').classList.remove('show');
+    }
+
+    function exportarCSV() {
+      const recurso = document.getElementById('filtroRecurso').value;
+      const dias = document.getElementById('filtroDias').value;
+
+      let url = `/api/auditoria?dias=${dias}&limite=99999`;
+      if (recurso) url += `&recurso=${recurso}`;
+
+      // Abrir em nova aba para download
+      fetch(url)
+        .then(r => r.json())
+        .then(data => {
+          const csv = [
+            ['ID', 'Data', 'Ação', 'Recurso', 'Recurso ID', 'Usuário', 'IP', 'Status'].join(','),
+            ...data.logs.map(l => [
+              l.id,
+              l.criado_em,
+              l.acao,
+              l.recurso,
+              l.recurso_id || '',
+              `"${l.usuario_nome || '(admin-env)'}"`,
+              l.ip,
+              l.status_http,
+            ].join(','))
+          ].join('\n');
+
+          const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+          const link = document.createElement('a');
+          link.href = URL.createObjectURL(blob);
+          link.download = `auditoria-${new Date().toISOString().split('T')[0]}.csv`;
+          link.click();
+        })
+        .catch(err => alert('Erro ao exportar: ' + err.message));
+    }
+
+    // Carregar na inicialização
+    document.addEventListener('DOMContentLoaded', carregarLogs);
+  </script>
+</body>
+</html>

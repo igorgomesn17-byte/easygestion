@@ -15,6 +15,7 @@ const { middlewareAuditoria } = require('./middleware/auditoria');
 const pdvOuAdmin = exigirPapel('admin', 'vendedor');
 const configRouter = require('./routes/config');
 const { iniciar_backup_scheduler } = require('./lib/backup-scheduler');
+const { iniciar_alertas_scheduler } = require('./lib/alertas-scheduler');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -84,9 +85,6 @@ app.use(session({
 // ---------- Rate limit global ----------
 app.use('/api', limiteGlobal);
 
-// ---------- Middleware de Auditoria (registra todas as ações admin) ----------
-app.use('/api/admin', middlewareAuditoria);
-
 // ---------- Rotas PÚBLICAS (sem login) ----------
 app.use('/api/login', limiteLogin);              // brute force
 app.use('/api', require('./routes/auth'));        // /login /logout /me (auth decide)
@@ -112,6 +110,13 @@ app.use('/api', garantirTenantId);
 // ✅ Validar se tenant foi bloqueado (impede acesso se status = 'bloqueado')
 app.use('/api', validarTenantAtivo);
 
+// ---------- Middleware de Auditoria (registra mudanças em todas as rotas protegidas) ----------
+// LGPD: rastreabilidade de quem fez o quê, quando e onde
+app.use('/api', middlewareAuditoria);
+
+// ---------- Rotas de Onboarding (antes das rotas normais) ----------
+app.use('/api/onboarding', require('./routes/onboarding'));
+
 // ---------- Rotas da API (protegidas) ----------
 app.use('/api/produtos',   require('./routes/produtos'));   // admin + vendedor (busca)
 app.use('/api/clientes',   require('./routes/clientes'));   // admin + vendedor (busca/cria)
@@ -130,6 +135,7 @@ app.use('/api/nfce',          apenasAdmin, require('./routes/nfce'));      // NF
 app.use('/api/dashboard',     apenasAdmin, require('./routes/dashboard'));
 app.use('/api/backup',        apenasAdmin, require('./routes/backup'));
 app.use('/api/usuarios',      apenasAdmin, require('./routes/usuarios'));
+app.use('/api/auditoria',     apenasAdmin, require('./routes/auditoria'));  // LGPD: logs de ações
 app.use('/api/assinaturas',   require('./routes/assinaturas'));  // cliente pode ver sua, admin vê todas
 
 // ---------- Arquivos estáticos (telas + fotos no disco persistente) ----------
@@ -180,6 +186,7 @@ app.listen(PORT, '0.0.0.0', () => {
   if (***REMOVED***EM_PRODUCAO) console.log(`   No celular:   http://${ip}:${PORT}`);
   console.log('========================================\n');
 
-  // Iniciar agendador de backup automático
+  // Iniciar agendadores automáticos
   iniciar_backup_scheduler();
+  iniciar_alertas_scheduler();
 });

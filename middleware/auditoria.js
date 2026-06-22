@@ -1,53 +1,81 @@
 // ============================================================
-// Middleware de Auditoria — registra TODAS as ações admin
+// Middleware de Auditoria — registra TODAS as ações
 // OBRIGATÓRIO PARA LGPD/GDPR: rastreabilidade de quem acessou dados pessoais
 // ============================================================
 const { db } = require('../db/database');
 
-// Recursos que DEVEM ser auditados (DELETE ou PATCH significativo)
-const RECURSOS_AUDITADOS = new Set([
-  'cliente',      // tenant ou cliente de tenant
-  'usuario',      // criação/edição/deleção de usuários
-  'config',       // mudança de configuração (pode afetar múltiplos clientes)
-  'produto',      // criação/deleção/edição de produto
-  'venda',        // exclusão de venda (caso de fraude)
-  'tenants',      // bloqueio/desbloqueio/deleção de tenants
+// Rotas que DEVEM ser auditadas (DELETE, PATCH, POST que cria recurso)
+const ROTAS_AUDITADAS = new Map([
+  // Format: [método + caminho_padrão] → { recurso, capturar_antes }
+  ['DELETE:/api/clientes/:id', { recurso: 'cliente', capturar_antes: true }],
+  ['PATCH:/api/clientes/:id', { recurso: 'cliente', capturar_antes: true }],
+  ['POST:/api/clientes', { recurso: 'cliente', capturar_antes: false }],
+
+  ['DELETE:/api/vendas/:id', { recurso: 'venda', capturar_antes: true }],
+  ['PATCH:/api/vendas/:id', { recurso: 'venda', capturar_antes: true }],
+  ['POST:/api/vendas', { recurso: 'venda', capturar_antes: false }],
+
+  ['DELETE:/api/usuarios/:id', { recurso: 'usuario', capturar_antes: true }],
+  ['PATCH:/api/usuarios/:id', { recurso: 'usuario', capturar_antes: true }],
+  ['PATCH:/api/usuarios/:id/ativo', { recurso: 'usuario', capturar_antes: true }],
+  ['PATCH:/api/usuarios/:id/senha', { recurso: 'usuario', capturar_antes: false }], // não auditar senha
+  ['POST:/api/usuarios', { recurso: 'usuario', capturar_antes: false }],
+  ['PATCH:/api/auth/me/senha', { recurso: 'usuario', capturar_antes: false }], // não auditar mudança de senha pessoal
+
+  ['DELETE:/api/produtos/:id', { recurso: 'produto', capturar_antes: true }],
+  ['PATCH:/api/produtos/:id', { recurso: 'produto', capturar_antes: true }],
+  ['POST:/api/produtos', { recurso: 'produto', capturar_antes: false }],
+
+  ['PATCH:/api/config/:chave', { recurso: 'config', capturar_antes: true }],
+
+  ['PATCH:/api/admin/tenants/:id/bloquear', { recurso: 'tenant', capturar_antes: false }],
+  ['PATCH:/api/admin/tenants/:id/desbloquear', { recurso: 'tenant', capturar_antes: false }],
+  ['DELETE:/api/admin/tenants/:id', { recurso: 'tenant', capturar_antes: true }],
 ]);
 
 // Middleware: intercepta requisições e registra auditoria APÓS resposta
 function middlewareAuditoria(req, res, next) {
-  // Salvar referência original do send/json
-  const originalSend = res.send;
+  const { method, path } = req;
+  const config = encontrarConfigRota(method, path);
+
+  // Se não é rota auditada, passa adiante
+  if (***REMOVED***config) return next();
+
+  // Se é DELETE ou PATCH, capturar estado "antes"
+  let estadoAntes = null;
+  if ((method === 'DELETE' || method === 'PATCH') && config.capturar_antes) {
+    const id = extrairIdDaRota(path);
+    estadoAntes = buscarEstadoAntes(config.recurso, id);
+  }
+
+  // Salvar referência original do json/send
   const originalJson = res.json;
   let responseBody = null;
-
-  // Interceptar resposta
-  res.send = function(data) {
-    responseBody = data;
-    return originalSend.call(this, data);
-  };
 
   res.json = function(data) {
     responseBody = data;
     return originalJson.call(this, data);
   };
 
-  // Após o handler executar, registrar auditoria
+  // Após resposta, registrar auditoria
   res.on('finish', () => {
-    const { method, path, body, session, ip, headers } = req;
     const status = res.statusCode;
+    const id = extrairIdDaRota(path);
+    const ip = getIp(req);
 
-    // Se é uma ação que deve ser auditada
-    if (deveAuditar(method, path)) {
+    // Só registrar se sucesso (2xx)
+    if (status >= 200 && status < 300) {
       registrarAuditoria({
-        usuario_id: session?.usuario_id || null,
-        usuario_nome: session?.nome || 'admin-env',
+        usuario_id: req.session?.usuario_id || null,
+        usuario_nome: req.session?.usuario || req.session?.nome || null,
         tenant_id: req.tenantId || null,
-        metodo: method,
-        caminho: path,
-        corpo: body,
+        acao: `${method}_${config.recurso}`,
+        recurso: config.recurso,
+        recurso_id: id,
+        antes: estadoAntes,
+        depois: responseBody,
+        ip,
         status,
-        ip: getIp(req, headers),
       }).catch(err => console.error('[AUDITORIA] Erro ao registrar:', err));
     }
   });
@@ -55,76 +83,112 @@ function middlewareAuditoria(req, res, next) {
   next();
 }
 
-// Lógica: detecta se uma requisição deve ser auditada
-function deveAuditar(metodo, caminho) {
-  // Apenas DELETE, PATCH (modificações), POST em rotas de admin
-  const metodoCritico = ['DELETE', 'PATCH'].includes(metodo);
-  if (***REMOVED***metodoCritico) return false;
+// Encontra config da rota em ROTAS_AUDITADAS
+function encontrarConfigRota(metodo, caminho) {
+  // Normalizar caminho removendo IDs
+  let padrao = `${metodo}:${caminho}`;
 
-  // Apenas admin/* routes
-  if (***REMOVED***caminho.startsWith('/api/admin')) return false;
+  // Tentar match exato primeiro
+  if (ROTAS_AUDITADAS.has(padrao)) {
+    return ROTAS_AUDITADAS.get(padrao);
+  }
 
-  return true;
-}
-
-// Registra um evento de auditoria no banco
-async function registrarAuditoria({
-  usuario_id,
-  usuario_nome,
-  tenant_id,
-  metodo,
-  caminho,
-  corpo,
-  status,
-  ip,
-}) {
-  // Parse do caminho para extrair ação e recurso
-  // Exemplos:
-  //   DELETE /api/admin/clientes/5 → acao=DELETE, recurso=cliente, id=5
-  //   PATCH  /api/admin/clientes/5 → acao=PATCH, recurso=cliente, id=5
-
-  const partes = caminho.split('/');
-  let recurso = null;
-  let recursoId = null;
-  let acao = metodo;
-
-  if (partes[3]) { // /api/admin/{recurso}
-    recurso = partes[3]; // 'clientes', 'usuarios', etc
-    if (partes[4]) {
-      recursoId = parseInt(partes[4], 10);
+  // Tentar match com wildcard (:id, :chave)
+  for (const [chave, config] of ROTAS_AUDITADAS) {
+    const regex = chave
+      .replace(/:[a-z_]+/g, '[^/]+') // /api/clientes/123 → /api/clientes/[^/]+
+      .replace(/\//g, '\\/')
+      .replace(/\?/g, '\\?');
+    if (new RegExp(`^${regex}$`).test(padrao)) {
+      return config;
     }
   }
 
-  // Registrar no banco
+  return null;
+}
+
+// Extrai ID numérico da rota
+function extrairIdDaRota(caminho) {
+  const partes = caminho.split('/');
+  const ultimo = partes[partes.length - 1];
+  return /^\d+$/.test(ultimo) ? parseInt(ultimo, 10) : null;
+}
+
+// Busca estado ANTES de uma mudança (para comparação no audit trail)
+function buscarEstadoAntes(recurso, id) {
+  if (***REMOVED***id) return null;
+
+  try {
+    let sql, result;
+
+    switch (recurso) {
+      case 'cliente':
+        result = db.prepare('SELECT * FROM clientes WHERE id = ?').get(id);
+        break;
+      case 'venda':
+        result = db.prepare('SELECT * FROM vendas WHERE id = ?').get(id);
+        break;
+      case 'usuario':
+        result = db.prepare('SELECT id, tenant_id, nome, email, papel, ativo FROM usuarios WHERE id = ?').get(id);
+        break;
+      case 'produto':
+        result = db.prepare('SELECT * FROM produtos WHERE id = ?').get(id);
+        break;
+      case 'tenant':
+        result = db.prepare('SELECT id, nome_loja, status FROM tenants WHERE id = ?').get(id);
+        break;
+      default:
+        return null;
+    }
+
+    return result || null;
+  } catch (err) {
+    console.error(`[AUDITORIA] Erro ao buscar estado anterior (${recurso}):`, err);
+    return null;
+  }
+}
+
+// Registra um evento de auditoria no banco
+function registrarAuditoria({
+  usuario_id,
+  usuario_nome,
+  tenant_id,
+  acao,
+  recurso,
+  recurso_id,
+  antes,
+  depois,
+  ip,
+  status,
+}) {
   try {
     db.prepare(`
       INSERT INTO auditoria (
         usuario_id, usuario_nome, tenant_id,
         acao, recurso, recurso_id,
         antes, depois,
-        ip, status_http
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ip, status_http, criado_em
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))
     `).run(
       usuario_id,
       usuario_nome,
       tenant_id,
       acao,
       recurso,
-      recursoId,
-      null, // antes (populado por trigger ou hook específico)
-      JSON.stringify(corpo || {}), // depois
+      recurso_id,
+      antes ? JSON.stringify(antes) : null,
+      depois ? JSON.stringify(depois) : null,
       ip,
       status,
     );
   } catch (err) {
     console.error('[AUDITORIA] Erro ao inserir:', err);
-    // NÃO rejeitar a requisição principal por erro de auditoria
-    // Apenas alertar e continuar
   }
 }
 
 // Extrair IP real (atrás de proxy)
-function getIp(req, headers) {
+function getIp(req) {
+  const headers = req.headers || {};
   return (
     headers['x-forwarded-for']?.split(',')[0].trim() ||
     headers['cf-connecting-ip'] ||
@@ -133,7 +197,7 @@ function getIp(req, headers) {
   );
 }
 
-// Função auxiliar: registrar auditoria de forma síncrona dentro de um handler
+// Função auxiliar: registrar auditoria manualmente dentro de um handler
 function auditarAcao(req, {
   acao,      // 'DELETE_cliente', 'PATCH_tenant', etc
   recurso,   // 'cliente', 'tenant', 'usuario'
@@ -142,29 +206,18 @@ function auditarAcao(req, {
   depois = null,
   status = 200,
 }) {
-  try {
-    db.prepare(`
-      INSERT INTO auditoria (
-        usuario_id, usuario_nome, tenant_id,
-        acao, recurso, recurso_id,
-        antes, depois,
-        ip, status_http
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      req.session?.usuario_id || null,
-      req.session?.nome || 'admin-env',
-      req.tenantId || null,
-      acao,
-      recurso,
-      recurso_id,
-      antes ? JSON.stringify(antes) : null,
-      depois ? JSON.stringify(depois) : null,
-      req.ip || '0.0.0.0',
-      status,
-    );
-  } catch (err) {
-    console.error('[AUDITORIA] Erro ao registrar ação:', err);
-  }
+  registrarAuditoria({
+    usuario_id: req.session?.usuario_id || null,
+    usuario_nome: req.session?.usuario || null,
+    tenant_id: req.tenantId || null,
+    acao,
+    recurso,
+    recurso_id,
+    antes,
+    depois,
+    ip: getIp(req),
+    status,
+  });
 }
 
 // Função: recuperar histórico de auditoria de um recurso específico
