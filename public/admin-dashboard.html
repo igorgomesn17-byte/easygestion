@@ -459,6 +459,7 @@
                   ? `<button class="btn-small" onclick="desbloquearCliente(${cliente.id})">Desbloquear</button>`
                   : `<button class="btn-small danger" onclick="bloquearCliente(${cliente.id})">Bloquear</button>`
                 }
+                <button class="btn-small" style="background: #c9302c;" onclick="deletarCliente(${cliente.id})">Deletar</button>
               </td>
             </tr>
           `;
@@ -527,14 +528,15 @@
           });
         }
 
-        // Adicionar botão de bloquear/desbloquear
+        // Adicionar botão de bloquear/desbloquear e deletar
         const btnBloqueio = tenant.status === 'bloqueado'
           ? `<button class="btn btn-primary" onclick="desbloquearCliente(${tenant.id}); fecharModal();">Desbloquear Cliente</button>`
           : `<button class="btn btn-primary" onclick="bloquearCliente(${tenant.id}); fecharModal();">Bloquear Cliente</button>`
 
-        // Status 'teste' deve ser tratado como 'ativo' pra fins de bloquear/desbloquear
-
-        html += `<div style="margin-top: 20px;">${btnBloqueio}</div>`;
+        html += `<div style="margin-top: 20px;">
+          ${btnBloqueio}
+          <button class="btn" style="background: #c9302c; color: white; margin-left: 10px;" onclick="deletarCliente(${tenant.id}); fecharModal();">Deletar Cliente</button>
+        </div>`;
 
         document.getElementById('modal-body').innerHTML = html;
         document.getElementById('modal-detalhes').classList.add('show');
@@ -580,6 +582,26 @@
         carregarDashboard();
       } catch (err) {
         alert('Erro ao desbloquear: ' + err.message);
+      }
+    }
+
+    // Deletar cliente
+    async function deletarCliente(clienteId) {
+      if (***REMOVED***confirm('⚠️ ATENÇÃO: Tem certeza que deseja DELETAR este cliente? Esta ação é IRREVERSÍVEL e apagará todos os dados.')) return;
+      if (***REMOVED***confirm('Tem certeza mesmo? Todos os dados do cliente serão perdidos permanentemente.')) return;
+
+      try {
+        const res = await fetchAdmin(`/clientes/${clienteId}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (***REMOVED***res.ok) throw new Error('Erro');
+        alert('Cliente deletado permanentemente.');
+        carregarClientes();
+        carregarDashboard();
+      } catch (err) {
+        alert('Erro ao deletar: ' + err.message);
       }
     }
 

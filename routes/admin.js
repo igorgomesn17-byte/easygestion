@@ -127,6 +127,42 @@ router.patch('/clientes/:id', exigirAdminBackoffice, (req, res) => {
   }
 });
 
+// --- DELETE /clientes/:id → deletar cliente (hard delete com cascata) ---
+router.delete('/clientes/:id', exigirAdminBackoffice, (req, res) => {
+  const clienteId = req.params.id;
+
+  try {
+    const tenant = db.prepare('SELECT id FROM tenants WHERE id = ?').get(clienteId);
+    if (***REMOVED***tenant) {
+      return res.status(404).json({ erro: 'Cliente não encontrado' });
+    }
+
+    // Deletar tudo relacionado ao tenant (cascata)
+    db.transaction(() => {
+      // Deletar dados do tenant
+      db.prepare('DELETE FROM tokens_verificacao WHERE usuario_id IN (SELECT id FROM usuarios WHERE tenant_id = ?)').run(clienteId);
+      db.prepare('DELETE FROM usuarios WHERE tenant_id = ?').run(clienteId);
+      db.prepare('DELETE FROM cobracas WHERE assinatura_id IN (SELECT id FROM assinaturas WHERE tenant_id = ?)').run(clienteId);
+      db.prepare('DELETE FROM assinaturas WHERE tenant_id = ?').run(clienteId);
+      db.prepare('DELETE FROM clientes WHERE tenant_id = ?').run(clienteId);
+      db.prepare('DELETE FROM produtos WHERE tenant_id = ?').run(clienteId);
+      db.prepare('DELETE FROM vendas WHERE tenant_id = ?').run(clienteId);
+      db.prepare('DELETE FROM trocas WHERE tenant_id = ?').run(clienteId);
+      db.prepare('DELETE FROM despesas WHERE tenant_id = ?').run(clienteId);
+      db.prepare('DELETE FROM config WHERE tenant_id = ?').run(clienteId);
+
+      // Por fim, deletar o tenant
+      db.prepare('DELETE FROM tenants WHERE id = ?').run(clienteId);
+    })();
+
+    console.log(`[ADMIN] Cliente deletado: ${clienteId}`);
+    res.json({ sucesso: true, mensagem: 'Cliente deletado permanentemente' });
+  } catch (err) {
+    console.error('[ADMIN] Erro ao deletar cliente:', err);
+    return res.status(500).json({ erro: 'Erro ao deletar cliente' });
+  }
+});
+
 // --- GET /financeiro → resumo de faturamento ---
 // Retorna: MRR (receita mensal recorrente), ARR, total cobrado, pendente, etc
 router.get('/financeiro', exigirAdminBackoffice, (req, res) => {
