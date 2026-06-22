@@ -11,9 +11,10 @@ router.get('/resumo', (req, res) => {
     SELECT COALESCE(SUM(v.quantidade * p.custo),0) AS valor_custo,
            COALESCE(SUM(v.quantidade * p.preco_venda),0) AS valor_venda,
            COALESCE(SUM(v.quantidade),0) AS pecas
-    FROM variacoes v JOIN produtos p ON p.id = v.produto_id WHERE p.ativo = 1
-  `).get();
-  const produtos = db.prepare('SELECT COUNT(*) AS n FROM produtos WHERE ativo = 1').get().n;
+    FROM variacoes v JOIN produtos p ON p.id = v.produto_id
+    WHERE p.ativo = 1 AND p.tenant_id = ?
+  `).get(req.tenantId);
+  const produtos = db.prepare('SELECT COUNT(*) AS n FROM produtos WHERE ativo = 1 AND tenant_id = ?').get(req.tenantId).n;
   res.json({ ...e, produtos });
 });
 
@@ -25,9 +26,9 @@ router.get('/', (req, res) => {
            v.id AS variacao_id, v.tamanho, v.quantidade
     FROM produtos p
     JOIN variacoes v ON v.produto_id = p.id
-    WHERE p.ativo = 1
+    WHERE p.ativo = 1 AND p.tenant_id = ?
     ORDER BY p.nome, v.id
-  `).all();
+  `).all(req.tenantId);
   res.json(rows);
 });
 
@@ -37,16 +38,20 @@ router.get('/baixo', (req, res) => {
   const rows = db.prepare(`
     SELECT p.codigo, p.nome, v.tamanho, v.quantidade
     FROM produtos p JOIN variacoes v ON v.produto_id = p.id
-    WHERE p.ativo = 1 AND v.quantidade <= ?
+    WHERE p.ativo = 1 AND p.tenant_id = ? AND v.quantidade <= ?
     ORDER BY v.quantidade ASC, p.nome
-  `).all(min);
+  `).all(req.tenantId, min);
   res.json(rows);
 });
 
 // POST /api/estoque/ajuste  body: { variacao_id, nova_quantidade, motivo }
 router.post('/ajuste', (req, res) => {
   const { variacao_id, nova_quantidade, motivo } = req.body;
-  const v = db.prepare('SELECT quantidade FROM variacoes WHERE id = ?').get(variacao_id);
+  const v = db.prepare(`
+    SELECT v.quantidade FROM variacoes v
+    JOIN produtos p ON p.id = v.produto_id
+    WHERE v.id = ? AND p.tenant_id = ?
+  `).get(variacao_id, req.tenantId);
   if (***REMOVED***v) return res.status(404).json({ erro: 'Variacao nao encontrada' });
   const nova = parseInt(nova_quantidade, 10);
   if (isNaN(nova) || nova < 0) return res.status(400).json({ erro: 'Quantidade invalida' });
@@ -63,7 +68,11 @@ router.post('/ajuste', (req, res) => {
 // POST /api/estoque/entrada  body: { variacao_id, qtd, motivo }  (adiciona ao estoque)
 router.post('/entrada', (req, res) => {
   const { variacao_id, qtd, motivo } = req.body;
-  const v = db.prepare('SELECT quantidade FROM variacoes WHERE id = ?').get(variacao_id);
+  const v = db.prepare(`
+    SELECT v.quantidade FROM variacoes v
+    JOIN produtos p ON p.id = v.produto_id
+    WHERE v.id = ? AND p.tenant_id = ?
+  `).get(variacao_id, req.tenantId);
   if (***REMOVED***v) return res.status(404).json({ erro: 'Variacao nao encontrada' });
   const add = parseInt(qtd, 10);
   if (isNaN(add) || add <= 0) return res.status(400).json({ erro: 'Quantidade invalida' });
@@ -81,9 +90,14 @@ router.post('/adicionar-tamanho', (req, res) => {
   const { produto_id, tamanho, quantidade } = req.body;
   if (***REMOVED***produto_id || ***REMOVED***tamanho) return res.status(400).json({ erro: 'Dados incompletos' });
   const qtd = parseInt(quantidade, 10) || 0;
+
+  const produtoValido = db.prepare('SELECT id FROM produtos WHERE id = ? AND tenant_id = ?')
+    .get(produto_id, req.tenantId);
+  if (***REMOVED***produtoValido) return res.status(403).json({ erro: 'Produto não encontrado ou acesso negado' });
+
   try {
-    const info = db.prepare('INSERT INTO variacoes (produto_id, tamanho, quantidade) VALUES (?, ?, ?)')
-      .run(produto_id, String(tamanho).toUpperCase(), qtd);
+    const info = db.prepare('INSERT INTO variacoes (produto_id, tamanho, quantidade, tenant_id) VALUES (?, ?, ?, ?)')
+      .run(produto_id, String(tamanho).toUpperCase(), qtd, req.tenantId);
     if (qtd > 0) {
       db.prepare("INSERT INTO movimentos_estoque (variacao_id, tipo, qtd, motivo) VALUES (?, 'entrada', ?, 'novo tamanho')")
         .run(info.lastInsertRowid, qtd);
@@ -107,7 +121,7 @@ router.post('/lote', (req, res) => {
   const getVarId = db.prepare(`
     SELECT v.id FROM variacoes v
     JOIN produtos p ON p.id = v.produto_id
-    WHERE p.codigo = ? AND v.tamanho = ? AND p.ativo = 1
+    WHERE p.codigo = ? AND v.tamanho = ? AND p.ativo = 1 AND p.tenant_id = ?
   `);
 
   const tx = db.transaction(() => {
@@ -122,7 +136,7 @@ router.post('/lote', (req, res) => {
       }
 
       // busca a variação
-      const v = getVarId.get(String(codigo).trim(), String(tamanho).trim().toUpperCase());
+      const v = getVarId.get(String(codigo).trim(), String(tamanho).trim().toUpperCase(), req.tenantId);
       if (***REMOVED***v) {
         erros.push({ codigo, tamanho, motivo: 'Código/tamanho não encontrado' });
         continue;

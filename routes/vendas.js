@@ -50,12 +50,12 @@ router.post('/', (req, res) => {
     SELECT v.id AS variacao_id, v.quantidade, v.tamanho, v.produto_id,
            p.nome, p.preco_venda, p.custo
     FROM variacoes v JOIN produtos p ON p.id = v.produto_id
-    WHERE v.id = ?
+    WHERE v.id = ? AND p.tenant_id = ?
   `);
 
   const linhas = [];
   for (const it of itens) {
-    const v = getVar.get(it.variacao_id);
+    const v = getVar.get(it.variacao_id, req.tenantId);
     if (***REMOVED***v) return res.status(400).json({ erro: `Item invalido (id ${it.variacao_id})` });
     const qtd = parseInt(it.qtd, 10) || 1;
     if (v.quantidade < qtd) {

@@ -11,8 +11,8 @@ const { hashSenha, validarSenha, validarNaoReutilizada } = require('../middlewar
 const PAPEIS = ['admin', 'relacionamento', 'vendedor'];
 
 // GET /api/usuarios -> lista (NUNCA retorna senha_hash)
-router.get('/', (_req, res) => {
-  const rows = db.prepare('SELECT id, nome, papel, ativo, criado_em FROM usuarios ORDER BY nome').all();
+router.get('/', (req, res) => {
+  const rows = db.prepare('SELECT id, nome, papel, ativo, criado_em FROM usuarios WHERE tenant_id = ? ORDER BY nome').all(req.tenantId);
   res.json(rows);
 });
 
@@ -28,17 +28,19 @@ router.post('/', (req, res) => {
     return res.status(400).json({ erro: validacaoSenha.erro });
   }
 
-  const existe = db.prepare('SELECT id FROM usuarios WHERE LOWER(nome) = LOWER(?)').get(nome);
+  const existe = db.prepare('SELECT id FROM usuarios WHERE LOWER(nome) = LOWER(?) AND tenant_id = ?').get(nome, req.tenantId);
   if (existe) return res.status(409).json({ erro: 'Já existe um usuário com esse nome' });
 
-  const info = db.prepare('INSERT INTO usuarios (nome, senha_hash, papel) VALUES (?, ?, ?)')
-    .run(nome, hashSenha(senha), papel);
+  const info = db.prepare('INSERT INTO usuarios (nome, senha_hash, papel, tenant_id) VALUES (?, ?, ?, ?)')
+    .run(nome, hashSenha(senha), papel, req.tenantId);
   res.status(201).json({ ok: true, id: info.lastInsertRowid, nome, papel });
 });
 
 // PATCH /api/usuarios/:id/ativo { ativo: 0|1 }
 router.patch('/:id/ativo', (req, res) => {
   const ativo = req.body.ativo ? 1 : 0;
+  const user = db.prepare('SELECT id FROM usuarios WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenantId);
+  if (***REMOVED***user) return res.status(403).json({ erro: 'Usuário não encontrado ou acesso negado' });
   db.prepare('UPDATE usuarios SET ativo = ? WHERE id = ?').run(ativo, req.params.id);
   res.json({ ok: true, ativo });
 });
@@ -52,12 +54,12 @@ router.patch('/:id/senha', (req, res) => {
     return res.status(400).json({ erro: validacaoSenha.erro });
   }
 
-  const user = db.prepare('SELECT senha_hash FROM usuarios WHERE id = ?').get(req.params.id);
-  if (user) {
-    const naoReutilizada = validarNaoReutilizada(senha, user.senha_hash);
-    if (***REMOVED***naoReutilizada.valida) {
-      return res.status(400).json({ erro: naoReutilizada.erro });
-    }
+  const user = db.prepare('SELECT senha_hash FROM usuarios WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenantId);
+  if (***REMOVED***user) return res.status(403).json({ erro: 'Usuário não encontrado ou acesso negado' });
+
+  const naoReutilizada = validarNaoReutilizada(senha, user.senha_hash);
+  if (***REMOVED***naoReutilizada.valida) {
+    return res.status(400).json({ erro: naoReutilizada.erro });
   }
 
   db.prepare('UPDATE usuarios SET senha_hash = ? WHERE id = ?').run(hashSenha(senha), req.params.id);
@@ -66,6 +68,8 @@ router.patch('/:id/senha', (req, res) => {
 
 // DELETE /api/usuarios/:id
 router.delete('/:id', (req, res) => {
+  const user = db.prepare('SELECT id FROM usuarios WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenantId);
+  if (***REMOVED***user) return res.status(403).json({ erro: 'Usuário não encontrado ou acesso negado' });
   db.prepare('DELETE FROM usuarios WHERE id = ?').run(req.params.id);
   res.json({ ok: true });
 });

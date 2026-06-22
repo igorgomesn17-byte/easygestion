@@ -185,12 +185,18 @@ const apenasAdmin = exigirPapel('admin');
 
 // --- Rate limiters ---
 // Global: protege a API toda contra abuso/DDoS leve
+// Chave combina IP + tenant_id para isolamento multi-tenant (um tenant não afeta outros)
 const limiteGlobal = rateLimit({
   windowMs: 15 * 60 * 1000,   // 15 min
-  max: 600,                    // 600 req / 15min por IP (uso normal cabe folgado)
+  max: 600,                    // 600 req / 15min por tenant+IP
   standardHeaders: true,
   legacyHeaders: false,
   message: { erro: 'Muitas requisições. Tente novamente em alguns minutos.' },
+  keyGenerator: (req) => {
+    // Se logado, usar tenant_id como parte da chave; senão, só IP
+    const tenant = req.session?.tenant_id || 'anon';
+    return `${req.ip}-${tenant}`;
+  },
 });
 // Login: estrito contra brute force
 const limiteLogin = rateLimit({
