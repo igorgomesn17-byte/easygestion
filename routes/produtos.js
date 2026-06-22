@@ -7,6 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const { db } = require('../db/database');
 const { sugerirPreco, analisarPreco } = require('../lib/calculos');
+const { limiteUploadPorTenant, limiteUploadFrequencia } = require('../middleware/rate-limit-custoso');
 
 // Guard de papel: GET (busca/consulta) liberado a qualquer logado (PDV usa).
 // Escrita (POST/PUT/DELETE) e precificação com custo (sugerir/analisar) = só admin.
@@ -207,7 +208,7 @@ router.post('/rapido', (req, res) => {
 
 // POST /api/produtos  -> cadastra produto + grade
 // body: { nome, categoria, descricao, cor, custo, preco_venda, foto, fotos:[base64...], grade: [{tamanho, quantidade}] }
-router.post('/', (req, res) => {
+router.post('/', limiteUploadPorTenant, limiteUploadFrequencia, (req, res) => {
   const tenantId = req.tenantId;
   const { nome, categoria, descricao, cor, custo, preco_venda, foto, fotos, grade, colecao } = req.body;
 
@@ -255,7 +256,7 @@ router.post('/', (req, res) => {
 });
 
 // PUT /api/produtos/:id -> edita dados (nao mexe na grade aqui; estoque e via /api/estoque)
-router.put('/:id', (req, res) => {
+router.put('/:id', limiteUploadPorTenant, limiteUploadFrequencia, (req, res) => {
   const tenantId = req.tenantId;
   const { nome, categoria, descricao, cor, custo, preco_venda, foto, fotos, colecao } = req.body;
   const p = db.prepare('SELECT id, codigo, foto FROM produtos WHERE id = ? AND tenant_id = ?').get(req.params.id, tenantId);

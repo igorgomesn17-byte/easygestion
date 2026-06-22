@@ -7,6 +7,13 @@ const router = express.Router();
 const { db, getConfig } = require('../db/database');
 const { hojeLocal } = require('../lib/datas');
 const { exigirPapel } = require('../middleware/seguranca');
+const {
+  limiteCálculoCustoso,
+  cacheRelatorioPorTenant,
+  middlewareRelatorioComCache,
+  middlewareCurvaAbcComCache,
+  invalidarCachesPeriodo,
+} = require('../middleware/rate-limit-custoso');
 
 // GET /api/financeiro/fluxo?mes=YYYY-MM -> resumo de entradas/saidas/saldo do mes
 router.get('/fluxo', exigirPapel('admin'), (req, res) => {
@@ -54,7 +61,7 @@ router.get('/fluxo', exigirPapel('admin'), (req, res) => {
 });
 
 // GET /api/financeiro/dre?mes=YYYY-MM -> Demonstracao de Resultado do mes
-router.get('/dre', exigirPapel('admin'), (req, res) => {
+router.get('/dre', exigirPapel('admin'), limiteCálculoCustoso, middlewareRelatorioComCache, (req, res) => {
   const mes = req.query.mes || hojeLocal().slice(0, 7);
 
   // Busca regime fiscal configurado
@@ -120,7 +127,7 @@ router.get('/dre', exigirPapel('admin'), (req, res) => {
   const margemOperacional = receitaBruta > 0 ? +((resultadoOperacional / receitaBruta) * 100).toFixed(1) : 0;
   const margemFinal = receitaBruta > 0 ? +((resultadoFinal / receitaBruta) * 100).toFixed(1) : 0;
 
-  res.json({
+  const resultado = {
     mes, num_vendas: v.num_vendas,
     receita_bruta: receitaBruta,
     impostos,
@@ -142,12 +149,18 @@ router.get('/dre', exigirPapel('admin'), (req, res) => {
     // compat: 'resultado' continua = operacional (telas antigas não quebram)
     resultado: resultadoOperacional,
     margem_liquida: margemOperacional
-  });
+  };
+
+  // Cachear o resultado (TTL 5 min)
+  const cacheKey = `dre:${mes}`;
+  cacheRelatorioPorTenant.set(req.tenantId, cacheKey, resultado);
+
+  res.json(resultado);
 });
 
 // GET /api/financeiro/curva-abc?de=YYYY-MM-DD&ate=YYYY-MM-DD
 // Classifica produtos por faturamento: A (ate 80% do acumulado), B (80-95%), C (95-100%)
-router.get('/curva-abc', (req, res) => {
+router.get('/curva-abc', limiteCálculoCustoso, middlewareCurvaAbcComCache, (req, res) => {
   const { de, ate } = req.query;
   let sql = `
     SELECT vi.produto_id, COALESCE(p.nome,'(produto removido)') AS nome, p.codigo, p.categoria,
@@ -184,7 +197,15 @@ router.get('/curva-abc', (req, res) => {
   for (const it of itens) { resumo[it.classe].n++; resumo[it.classe].fat += it.faturamento; }
   for (const k of ['A','B','C']) resumo[k].fat = +resumo[k].fat.toFixed(2);
 
-  res.json({ total_faturamento: +totalFat.toFixed(2), itens, resumo });
+  const resultado = { total_faturamento: +totalFat.toFixed(2), itens, resumo };
+
+  // Cachear resultado
+  const de = req.query.de || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const ate = req.query.ate || new Date().toISOString().slice(0, 10);
+  const cacheKey = `curva-abc:${de}:${ate}`;
+  cacheRelatorioPorTenant.set(req.tenantId, cacheKey, resultado);
+
+  res.json(resultado);
 });
 
 // GET /api/financeiro/por-canal?de&ate -> faturamento por origem da venda
