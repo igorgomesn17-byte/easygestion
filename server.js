@@ -119,17 +119,18 @@ app.use('/api/config',     configRouter);                   // GET filtra por pa
 app.use('/api/codigo-barras', require('./routes/codigoBarras'));
 
 // SÓ ADMIN — financeiro, vendas, custos, gestão:
-app.use('/api/estoque',    apenasAdmin, require('./routes/estoque'));
-app.use('/api/vendas',     pdvOuAdmin, require('./routes/vendas'));   // vendedor: só POST (vender)
-app.use('/api/vendedores', pdvOuAdmin, require('./routes/vendedores')); // PDV precisa da lista
-app.use('/api/caixa',      pdvOuAdmin, require('./routes/caixa'));      // vendedor opera o caixa
-app.use('/api/trocas',     apenasAdmin, require('./routes/trocas'));     // trocas e devoluções
-app.use('/api/despesas',   apenasAdmin, require('./routes/despesas'));
-app.use('/api/financeiro', apenasAdmin, require('./routes/financeiro'));
-app.use('/api/nfce',       apenasAdmin, require('./routes/nfce'));      // NFC-e fiscal
-app.use('/api/dashboard',  apenasAdmin, require('./routes/dashboard'));
-app.use('/api/backup',     apenasAdmin, require('./routes/backup'));
-app.use('/api/usuarios',   apenasAdmin, require('./routes/usuarios'));
+app.use('/api/estoque',       apenasAdmin, require('./routes/estoque'));
+app.use('/api/vendas',        pdvOuAdmin, require('./routes/vendas'));   // vendedor: só POST (vender)
+app.use('/api/vendedores',    pdvOuAdmin, require('./routes/vendedores')); // PDV precisa da lista
+app.use('/api/caixa',         pdvOuAdmin, require('./routes/caixa'));      // vendedor opera o caixa
+app.use('/api/trocas',        apenasAdmin, require('./routes/trocas'));     // trocas e devoluções
+app.use('/api/despesas',      apenasAdmin, require('./routes/despesas'));
+app.use('/api/financeiro',    apenasAdmin, require('./routes/financeiro'));
+app.use('/api/nfce',          apenasAdmin, require('./routes/nfce'));      // NFC-e fiscal
+app.use('/api/dashboard',     apenasAdmin, require('./routes/dashboard'));
+app.use('/api/backup',        apenasAdmin, require('./routes/backup'));
+app.use('/api/usuarios',      apenasAdmin, require('./routes/usuarios'));
+app.use('/api/assinaturas',   require('./routes/assinaturas'));  // cliente pode ver sua, admin vê todas
 
 // ---------- Arquivos estáticos (telas + fotos no disco persistente) ----------
 const UPLOADS_DIR = process.env.UPLOADS_DIR || path.join(__dirname, 'public', 'img', 'produtos');

@@ -14,6 +14,7 @@ const { db } = require('../db/database');
 const { exigirPapel } = require('../middleware/seguranca');
 const { auditarAcao, buscarAuditoria } = require('../middleware/auditoria');
 const { enviarEmail, templateContaBloqueada, templateContaReativada } = require('../lib/email');
+const { obterStatusAssinatura } = require('../lib/assinatura');
 const router = express.Router();
 
 const { limiteAdminPassword, verificarSenha, hashSenha } = require('../middleware/seguranca');
@@ -189,12 +190,19 @@ router.patch('/clientes/:id', exigirAdminBackoffice, async (req, res) => {
 
     // ✅ NOTIFICAÇÃO: se mudou pra 'bloqueado', avisar cliente
     if (houveMudanca && statusNovo === 'bloqueado' && antes.email) {
-      const html = templateContaBloqueada(antes.nome_loja, motivo);
+      // Se não foi informado motivo, detectar automaticamente pela assinatura
+      let motivoNotificacao = motivo;
+      if (***REMOVED***motivoNotificacao) {
+        const statusAssinatura = obterStatusAssinatura(clienteId);
+        motivoNotificacao = statusAssinatura.motivo || 'Bloqueio administrativo';
+      }
+
+      const html = templateContaBloqueada(antes.nome_loja, motivoNotificacao);
       enviarEmail(antes.email, '⚠️ Sua conta foi bloqueada', html).catch(err => {
         console.error('[EMAIL] Erro ao notificar bloqueio:', err.message);
         // Não falha a requisição por erro de email
       });
-      console.log(`[NOTIF] Cliente ${antes.nome_loja} (${antes.email}) foi bloqueado`);
+      console.log(`[NOTIF] Cliente ${antes.nome_loja} (${antes.email}) foi bloqueado [${motivoNotificacao}]`);
     }
 
     // ✅ NOTIFICAÇÃO: se mudou pra 'ativo', avisar que foi reativado
