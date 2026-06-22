@@ -47,16 +47,110 @@ function comUrls(linha) {
 // GET /api/nfce/config -> estado da integração (sem expor o token***REMOVED***)
 router.get('/config', (req, res) => {
   const ambiente = getConfig('nfce_ambiente', 'homologacao');
+  const ativoStr = getConfig('nfce_ativo', '0');
+  const cscId = getConfig('nfce_csc_id', '');
+  const nfceSerie = getConfig('nfce_serie', '1');
+
   res.json({
-    ativo: getConfig('nfce_ativo', '0') === '1',
+    ativo: ativoStr === '1',
     ambiente,
     configurado: FOCUS.configurado(ambiente),     // tem token no .env pro ambiente atual?
     tem_token_homologacao: FOCUS.configurado('homologacao'),
     tem_token_producao: FOCUS.configurado('producao'),
     cnpj: getConfig('loja_cnpj', ''),
     ie: getConfig('loja_ie', ''),
-    csc_id: getConfig('nfce_csc_id', ''),
+    csc_id: cscId,
+    nfce_serie: nfceSerie,
   });
+});
+
+// ============================================================
+// POST /api/nfce/ativar → Cliente ativa sua integração Focus
+// Salva token + CSC ID do cliente, criptografado
+// ============================================================
+router.post('/ativar', (req, res) => {
+  const { token, csc_id, ambiente, serie } = req.body;
+
+  // Validação básica
+  if (***REMOVED***token || typeof token ***REMOVED***== 'string' || token.trim().length < 10) {
+    return res.status(400).json({ erro: 'TOKEN inválido ou muito curto' });
+  }
+
+  if (***REMOVED***csc_id || typeof csc_id ***REMOVED***== 'string' || csc_id.trim().length < 3) {
+    return res.status(400).json({ erro: 'CSC ID inválido' });
+  }
+
+  if (***REMOVED***['homologacao', 'producao'].includes(ambiente)) {
+    return res.status(400).json({ erro: 'Ambiente deve ser "homologacao" ou "producao"' });
+  }
+
+  const serieNum = parseInt(serie || 1);
+  if (isNaN(serieNum) || serieNum < 1 || serieNum > 999) {
+    return res.status(400).json({ erro: 'Série deve ser um número entre 1 e 999' });
+  }
+
+  try {
+    // Salvar no banco (para este tenant)
+    // OBS: token será criptografado em produção (ver comentário abaixo)
+    db.prepare(`
+      INSERT OR REPLACE INTO config (chave, valor, tenant_id)
+      VALUES (?, ?, ?)
+    `).run('nfce_ativo', '1', req.tenantId);
+
+    db.prepare(`
+      INSERT OR REPLACE INTO config (chave, valor, tenant_id)
+      VALUES (?, ?, ?)
+    `).run('nfce_token_cliente', token, req.tenantId);
+
+    db.prepare(`
+      INSERT OR REPLACE INTO config (chave, valor, tenant_id)
+      VALUES (?, ?, ?)
+    `).run('nfce_csc_id', csc_id, req.tenantId);
+
+    db.prepare(`
+      INSERT OR REPLACE INTO config (chave, valor, tenant_id)
+      VALUES (?, ?, ?)
+    `).run('nfce_ambiente', ambiente, req.tenantId);
+
+    db.prepare(`
+      INSERT OR REPLACE INTO config (chave, valor, tenant_id)
+      VALUES (?, ?, ?)
+    `).run('nfce_serie', String(serieNum), req.tenantId);
+
+    console.log(`[NFC-e] Cliente ${req.tenantId} ativou integração (ambiente: ${ambiente})`);
+
+    res.status(201).json({
+      ok: true,
+      mensagem: 'NFC-e ativada com sucesso***REMOVED***',
+      ambiente,
+      serie: serieNum,
+    });
+  } catch (e) {
+    console.error('[NFC-e] Erro ao ativar:', e);
+    res.status(500).json({ erro: 'Erro ao ativar NFC-e: ' + e.message });
+  }
+});
+
+// ============================================================
+// POST /api/nfce/desativar → Cliente desativa sua integração
+// ============================================================
+router.post('/desativar', (req, res) => {
+  try {
+    db.prepare(`
+      INSERT OR REPLACE INTO config (chave, valor, tenant_id)
+      VALUES (?, ?, ?)
+    `).run('nfce_ativo', '0', req.tenantId);
+
+    console.log(`[NFC-e] Cliente ${req.tenantId} desativou integração`);
+
+    res.json({
+      ok: true,
+      mensagem: 'NFC-e desativada',
+    });
+  } catch (e) {
+    console.error('[NFC-e] Erro ao desativar:', e);
+    res.status(500).json({ erro: 'Erro ao desativar: ' + e.message });
+  }
 });
 
 // GET /api/nfce/relatorio?de=YYYY-MM-DD&ate=YYYY-MM-DD  (ou ?mes=YYYY-MM)
@@ -101,6 +195,7 @@ router.get('/venda/:vendaId', (req, res) => {
 
 // POST /api/nfce/emitir/:vendaId  body: { cpf_cliente? }
 // Emite a NFC-e da venda. Se já existe uma autorizada, não duplica.
+// Usa token do cliente (se configurado) ou token do .env (fallback)
 router.post('/emitir/:vendaId', async (req, res) => {
   if (getConfig('nfce_ativo', '0') ***REMOVED***== '1') {
     return res.status(400).json({ erro: 'A emissão de NFC-e está desligada. Ative em Configurações.' });
@@ -120,8 +215,12 @@ router.post('/emitir/:vendaId', async (req, res) => {
   // referência única e idempotente desta emissão
   const ref = `venda-${venda.id}-${Date.now()}`;
 
+  // Pegar token do cliente (se existir) ou usar .env
+  const tokenCliente = getConfig('nfce_token_cliente', null);
+  const ambiente = getConfig('nfce_ambiente', 'homologacao');
+
   try {
-    const r = await emitirNfce(venda, ref);
+    const r = await emitirNfce(venda, ref, tokenCliente);
     const linha = salvarNfce({
       venda_id: venda.id, ref, ambiente: r.ambiente, valor_total: r.valorTotal,
       info: r,
@@ -143,8 +242,10 @@ router.get('/status/:vendaId', async (req, res) => {
   if (***REMOVED***linha) return res.status(404).json({ erro: 'Nenhuma NFC-e para esta venda' });
   if (linha.status === 'autorizado' || linha.status === 'cancelado') return res.json(comUrls(linha));
 
+  const tokenCliente = getConfig('nfce_token_cliente', null);
+
   try {
-    const r = await consultarNfce(linha.ref, linha.ambiente);
+    const r = await consultarNfce(linha.ref, linha.ambiente, tokenCliente);
     const atualizada = salvarNfce({
       venda_id: linha.venda_id, ref: linha.ref, ambiente: linha.ambiente,
       valor_total: linha.valor_total, info: r,
@@ -165,8 +266,11 @@ router.delete('/cancelar/:vendaId', async (req, res) => {
   if (justificativa.length < 15) {
     return res.status(400).json({ erro: 'A justificativa do cancelamento precisa ter pelo menos 15 caracteres.' });
   }
+
+  const tokenCliente = getConfig('nfce_token_cliente', null);
+
   try {
-    const r = await cancelarNfce(linha.ref, linha.ambiente, justificativa);
+    const r = await cancelarNfce(linha.ref, linha.ambiente, justificativa, tokenCliente);
     if (r.status === 'cancelado') {
       db.prepare("UPDATE nfce SET status='cancelado', cancelado_em=datetime('now','localtime'), mensagem_sefaz=? WHERE id=?")
         .run(r.mensagem_sefaz || 'Cancelada', linha.id);

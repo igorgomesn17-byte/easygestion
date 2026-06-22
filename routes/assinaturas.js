@@ -1,7 +1,9 @@
 // ============================================================
-// Gerenciamento de Assinaturas (SaaS)
+// Gerenciamento de Assinaturas (SaaS) com Stripe
 // GET  /api/assinaturas/minha        → detalhes da assinatura do cliente
 // GET  /api/assinaturas/pagamentos   → histórico de cobranças
+// POST /api/assinaturas/checkout     → inicia Stripe Checkout
+// GET  /api/assinaturas/portal       → abre Customer Portal (alterar cartão, cancelar)
 // GET  /api/admin/assinaturas        → lista todas (admin)
 // PATCH /api/admin/assinaturas/:id   → atualizar plano (admin)
 // ============================================================
@@ -9,6 +11,7 @@ const express = require('express');
 const { db } = require('../db/database');
 const { exigirPapel, apenasAdmin } = require('../middleware/seguranca');
 const { obterStatusAssinatura, renovarAssinatura, cancelarAssinatura } = require('../lib/assinatura');
+const { criarCheckoutSession, criarPortalSession } = require('../lib/stripe');
 const router = express.Router();
 
 // --- GET /minha → detalhes da assinatura do cliente logado ---
@@ -80,6 +83,57 @@ router.get('/pagamentos', (req, res) => {
   } catch (err) {
     console.error('[ASSINATURA] Erro ao buscar pagamentos:', err);
     return res.status(500).json({ erro: 'Erro ao buscar histórico' });
+  }
+});
+
+// --- POST /checkout → inicia Stripe Checkout Session ---
+router.post('/checkout', (req, res) => {
+  if (***REMOVED***req.session?.logado || ***REMOVED***req.session?.tenant_id) {
+    return res.status(401).json({ erro: 'Não autenticado' });
+  }
+
+  try {
+    const tenantId = req.session.tenant_id;
+    const { plano } = req.body;
+
+    if (***REMOVED***plano || ***REMOVED***['basico', 'crescimento', 'premium'].includes(plano)) {
+      return res.status(400).json({ erro: 'Plano inválido' });
+    }
+
+    criarCheckoutSession(tenantId, plano)
+      .then((session) => {
+        res.json({ checkout_url: session.url });
+      })
+      .catch((err) => {
+        console.error('[ASSINATURA] Erro ao criar checkout:', err.message);
+        res.status(500).json({ erro: 'Erro ao criar checkout' });
+      });
+  } catch (err) {
+    console.error('[ASSINATURA] Erro ao processar checkout:', err);
+    return res.status(500).json({ erro: 'Erro ao processar checkout' });
+  }
+});
+
+// --- GET /portal → abre Stripe Customer Portal (gerenciar cartão, cancelar) ---
+router.get('/portal', (req, res) => {
+  if (***REMOVED***req.session?.logado || ***REMOVED***req.session?.tenant_id) {
+    return res.status(401).json({ erro: 'Não autenticado' });
+  }
+
+  try {
+    const tenantId = req.session.tenant_id;
+
+    criarPortalSession(tenantId)
+      .then((session) => {
+        res.json({ portal_url: session.url });
+      })
+      .catch((err) => {
+        console.error('[ASSINATURA] Erro ao criar portal:', err.message);
+        res.status(500).json({ erro: 'Erro ao abrir portal' });
+      });
+  } catch (err) {
+    console.error('[ASSINATURA] Erro ao processar portal:', err);
+    return res.status(500).json({ erro: 'Erro ao processar portal' });
   }
 });
 

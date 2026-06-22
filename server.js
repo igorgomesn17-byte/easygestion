@@ -16,6 +16,7 @@ const pdvOuAdmin = exigirPapel('admin', 'vendedor');
 const configRouter = require('./routes/config');
 const { iniciar_backup_scheduler } = require('./lib/backup-scheduler');
 const { iniciar_alertas_scheduler } = require('./lib/alertas-scheduler');
+const { iniciar_renovacao_scheduler } = require('./lib/renovacao-scheduler');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -86,6 +87,13 @@ if (***REMOVED***ORIGIN && EM_PRODUCAO) {
   process.exit(1);
 }
 app.use(cors({ origin: ORIGIN, credentials: true }));
+
+// ---------- Webhooks Stripe (ANTES do json parser — precisa do raw body) ----------
+app.use('/api/webhooks/stripe', express.raw({type: 'application/json'}), (req, res, next) => {
+  req.rawBody = req.body.toString('utf8');
+  next();
+});
+app.use('/api/webhooks', require('./routes/webhooks'));
 
 // ---------- Body parsers ----------
 // guarda o corpo cru (raw) p/ validar a assinatura HMAC dos webhooks da Meta
@@ -165,6 +173,7 @@ app.use('/api/backup',        apenasAdmin, require('./routes/backup'));
 app.use('/api/usuarios',      apenasAdmin, require('./routes/usuarios'));
 app.use('/api/auditoria',     apenasAdmin, require('./routes/auditoria'));  // LGPD: logs de ações
 app.use('/api/assinaturas',   require('./routes/assinaturas'));  // cliente pode ver sua, admin vê todas
+app.use('/api/pagamentos',    require('./routes/pagamentos'));   // Stripe checkout + webhook
 
 // ---------- Arquivos estáticos (telas + fotos no disco persistente) ----------
 const UPLOADS_DIR = process.env.UPLOADS_DIR || path.join(__dirname, 'public', 'img', 'produtos');
@@ -217,4 +226,5 @@ app.listen(PORT, '0.0.0.0', () => {
   // Iniciar agendadores automáticos
   iniciar_backup_scheduler();
   iniciar_alertas_scheduler();
+  iniciar_renovacao_scheduler();
 });

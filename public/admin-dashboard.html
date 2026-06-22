@@ -341,6 +341,22 @@
         <h3>Vencido</h3>
         <div class="value" id="val-vencido">—</div>
       </div>
+      <div class="card danger">
+        <h3>⚠️ Alertas de Risco</h3>
+        <div class="value" id="val-alertas-total">—</div>
+        <p style="font-size: 12px; color: #999; margin-top: 8px;" id="alertas-sumario">—</p>
+      </div>
+    </div>
+
+    <***REMOVED***-- Widget de Alertas Ativos -->
+    <div class="section" id="secao-alertas" style="display: none;">
+      <h2>🚨 Alertas Ativos (Risco de Churn)</h2>
+      <div id="tabela-alertas">
+        <div class="loading">
+          <div class="spinner"></div>
+          <p>Carregando alertas...</p>
+        </div>
+      </div>
     </div>
 
     <***REMOVED***-- Tabela de Clientes -->
@@ -416,6 +432,113 @@
         document.getElementById('val-vencido').textContent = formatarMoeda(financeiro.total_vencido);
       } catch (err) {
         console.error('Erro:', err);
+      }
+    }
+
+    // Carregar alertas de risco
+    async function carregarAlertas() {
+      try {
+        const res = await fetchAdmin('/alertas');
+        if (***REMOVED***res.ok) throw new Error('Erro ao carregar');
+
+        const { alertas, sumario } = await res.json();
+
+        // Atualizar card de alertas
+        document.getElementById('val-alertas-total').textContent = sumario.total > 0 ? sumario.total : '✓ 0';
+        const sumarioTexto = sumario.total > 0
+          ? `${sumario.atraso_pagamento} em atraso • ${sumario.inativo} inativos • R$ ${formatarMoeda(sumario.valor_em_risco)}`
+          : 'Sem alertas no momento';
+        document.getElementById('alertas-sumario').textContent = sumarioTexto;
+
+        // Se há alertas, mostrar tabela
+        if (alertas.length > 0) {
+          const secaoAlertas = document.getElementById('secao-alertas');
+          secaoAlertas.style.display = 'block';
+
+          let html = `
+            <table>
+              <thead>
+                <tr>
+                  <th>Cliente</th>
+                  <th>Tipo de Alerta</th>
+                  <th>Detalhes</th>
+                  <th>Valor em Risco</th>
+                  <th>Criado em</th>
+                  <th>Ação</th>
+                </tr>
+              </thead>
+              <tbody>
+          `;
+
+          alertas.forEach(alerta => {
+            let tipoLabel = '';
+            let detalhe = '';
+            let icone = '';
+
+            switch(alerta.tipo) {
+              case 'atraso_pagamento':
+                tipoLabel = 'Atraso de Pagamento';
+                detalhe = `${alerta.dias_atraso} dias vencido`;
+                icone = '💳';
+                break;
+              case 'inativo':
+                tipoLabel = 'Inatividade';
+                detalhe = `${alerta.dias_sem_atividade} dias sem usar`;
+                icone = '⏰';
+                break;
+              case 'nunca_usou':
+                tipoLabel = 'Nunca Usou';
+                detalhe = 'Registrou mas nunca entrou';
+                icone = '👤';
+                break;
+              default:
+                tipoLabel = alerta.tipo;
+                detalhe = alerta.mensagem || '—';
+                icone = '⚠️';
+            }
+
+            html += `
+              <tr style="background: #fff9f0; border-left: 4px solid #d9534f;">
+                <td>
+                  <strong>${alerta.nome_loja}</strong><br>
+                  <span style="font-size: 12px; color: #999;">${alerta.email}</span>
+                </td>
+                <td>${icone} ${tipoLabel}</td>
+                <td>${detalhe}</td>
+                <td><strong>${formatarMoeda(alerta.valor_em_risco)}</strong></td>
+                <td>${formatarData(alerta.criado_em)}</td>
+                <td>
+                  <button class="btn-small" onclick="verDetalhes(${alerta.tenant_id})">Ver</button>
+                  <button class="btn-small" style="background: #5cb85c;" onclick="resolverAlerta(${alerta.id})">✓ Resolvido</button>
+                </td>
+              </tr>
+            `;
+          });
+
+          html += `
+              </tbody>
+            </table>
+          `;
+
+          document.getElementById('tabela-alertas').innerHTML = html;
+        }
+      } catch (err) {
+        console.error('Erro ao carregar alertas:', err);
+      }
+    }
+
+    // Resolver alerta
+    async function resolverAlerta(alertaId) {
+      try {
+        const res = await fetchAdmin(`/alertas/resolver/${alertaId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (***REMOVED***res.ok) throw new Error('Erro');
+        carregarAlertas();
+      } catch (err) {
+        alert('Erro ao resolver alerta: ' + err.message);
       }
     }
 
@@ -627,10 +750,12 @@
     // Carregar ao abrir a página
     document.addEventListener('DOMContentLoaded', () => {
       carregarDashboard();
+      carregarAlertas();
       carregarClientes();
       // Recarregar a cada 30 segundos
       setInterval(() => {
         carregarDashboard();
+        carregarAlertas();
         carregarClientes();
       }, 30000);
     });

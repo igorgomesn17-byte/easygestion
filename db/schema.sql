@@ -560,6 +560,22 @@ CREATE INDEX IF NOT EXISTS idx_followups_data ON conversa_followups(data_alvo, s
 CREATE INDEX IF NOT EXISTS idx_conversa_tags ON conversa_tags(conversa_id);
 
 -- ============================================================
+-- BACKUP_LOGS: rastreia cada tentativa de backup
+-- ============================================================
+CREATE TABLE IF NOT EXISTS backup_logs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  data_backup TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+  arquivo_s3 TEXT,                          -- nome do arquivo no S3 (ex: dsstore-2026-06-22T15-30-45.db)
+  tamanho_bytes INTEGER,                    -- tamanho do backup em bytes
+  status TEXT NOT NULL,                     -- 'sucesso' | 'erro' | 'pendente'
+  mensagem TEXT,                            -- erro detalhado se falhou
+  tempo_exec_ms INTEGER,                    -- quanto tempo levou (em milissegundos)
+  criado_em TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+CREATE INDEX IF NOT EXISTS idx_backup_logs_status ON backup_logs(status);
+CREATE INDEX IF NOT EXISTS idx_backup_logs_data ON backup_logs(criado_em);
+
+-- ============================================================
 -- TENANTS (Clientes SaaS) — NOVA TABELA
 -- ============================================================
 CREATE TABLE IF NOT EXISTS tenants (
@@ -655,3 +671,23 @@ CREATE TABLE IF NOT EXISTS tokens_verificacao (
 
 CREATE INDEX IF NOT EXISTS idx_tokens_expires ON tokens_verificacao(expires_em);
 CREATE INDEX IF NOT EXISTS idx_tokens_usuario ON tokens_verificacao(usuario_id);
+
+-- ============================================================
+-- ALERTAS_CLIENTES (Observabilidade de risco de churn)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS alertas_clientes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  tenant_id INTEGER NOT NULL UNIQUE,
+  tipo TEXT NOT NULL,                      -- 'atraso_pagamento', 'inativo', 'nunca_usou', 'erro_integracao', 'suporte_aberto'
+  dias_sem_atividade INTEGER DEFAULT 0,    -- quantos dias sem login/uso
+  valor_em_risco REAL DEFAULT 0,           -- MRR desse cliente em risco
+  dias_atraso INTEGER DEFAULT 0,           -- dias vencidos
+  mensagem TEXT,                           -- descrição do alerta
+  criado_em TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+  resolvido_em TEXT,                       -- NULL = ativo; preenchido = resolvido
+  FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_alertas_tipo ON alertas_clientes(tipo);
+CREATE INDEX IF NOT EXISTS idx_alertas_ativo ON alertas_clientes(resolvido_em);
+CREATE INDEX IF NOT EXISTS idx_alertas_tenant ON alertas_clientes(tenant_id);

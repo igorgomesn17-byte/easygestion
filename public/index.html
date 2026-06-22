@@ -30,9 +30,184 @@
       text-anchor:middle; dominant-baseline:central;
     }
     .anel-valores { font-size:.86rem; color:var(--tinta-2,#777); text-align:center; }
+
+    /* Modal de Onboarding */
+    .onboarding-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s, visibility 0.3s;
+    }
+
+    .onboarding-modal.show {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .onboarding-content {
+      background: white;
+      border-radius: 16px;
+      padding: 40px;
+      max-width: 500px;
+      width: 90%;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+      text-align: center;
+    }
+
+    .onboarding-content h1 {
+      font-size: 28px;
+      margin-bottom: 15px;
+      color: var(--cor, #1B5E3F);
+    }
+
+    .onboarding-content p {
+      color: #666;
+      margin-bottom: 20px;
+      line-height: 1.6;
+    }
+
+    .onboarding-buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 30px;
+    }
+
+    .onboarding-buttons button {
+      flex: 1;
+      padding: 12px 20px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .btn-skip {
+      background: #f0f0f0;
+      color: #333;
+    }
+
+    .btn-skip:hover {
+      background: #e0e0e0;
+    }
+
+    .btn-start {
+      background: var(--cor, #1B5E3F);
+      color: white;
+    }
+
+    .btn-start:hover {
+      background: #0d3a24;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(27, 94, 63, 0.3);
+    }
+
+    /* Checklist de Onboarding */
+    .onboarding-checklist {
+      background: linear-gradient(135deg, #f5f9f8 0%, #fffbf0 100%);
+      border: 2px solid var(--cor, #1B5E3F);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+      display: none;
+    }
+
+    .onboarding-checklist.show {
+      display: block;
+    }
+
+    .checklist-titulo {
+      font-weight: 700;
+      color: var(--cor, #1B5E3F);
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .checklist-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(27, 94, 63, 0.1);
+    }
+
+    .checklist-item:last-child {
+      border-bottom: none;
+    }
+
+    .checklist-check {
+      width: 24px;
+      height: 24px;
+      border: 2px solid #ddd;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 12px;
+      font-weight: bold;
+      transition: all 0.3s;
+    }
+
+    .checklist-item.done .checklist-check {
+      background: #3FA66A;
+      color: white;
+      border-color: #3FA66A;
+    }
+
+    .checklist-label {
+      flex: 1;
+      text-align: left;
+      color: #333;
+    }
+
+    .checklist-item.done .checklist-label {
+      color: #999;
+      text-decoration: line-through;
+    }
+
+    .checklist-action {
+      padding: 4px 12px;
+      background: var(--cor, #1B5E3F);
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .checklist-action:hover {
+      background: #0d3a24;
+    }
   </style>
 </head>
 <body>
+  <***REMOVED***-- Modal de Onboarding (Bem-vindo) -->
+  <div class="onboarding-modal" id="onboardingWelcome">
+    <div class="onboarding-content">
+      <h1>🎉 Bem-vindo ao EasyGestão***REMOVED***</h1>
+      <p>Que bom ter você aqui***REMOVED*** Vamos começar configurando o essencial para sua loja funcionar?</p>
+      <p style="font-size: 12px; color: #999;">Leva menos de 5 minutos, e você pode pular a qualquer momento.</p>
+      <div class="onboarding-buttons">
+        <button class="btn-skip" onclick="skipOnboarding()">Agora não</button>
+        <button class="btn-start" onclick="startOnboarding()">Vamos lá***REMOVED*** ▶️</button>
+      </div>
+    </div>
+  </div>
+
   <div class="conteudo">
     <div class="flex-entre">
       <div>
@@ -41,6 +216,31 @@
       </div>
       <div style="display:flex; gap:8px; flex-wrap:wrap;">
         <button class="btn btn-escuro" id="btnOlho" onclick="toggleValores()" title="Ocultar/mostrar valores">👁️ Ocultar valores</button>
+      </div>
+    </div>
+
+    <***REMOVED***-- Checklist de Onboarding (aparece quando alguém começa) -->
+    <div class="onboarding-checklist" id="onboardingChecklist">
+      <div class="checklist-titulo">✅ Primeiros Passos</div>
+      <div class="checklist-item" id="check-config">
+        <div class="checklist-check">✓</div>
+        <div class="checklist-label">Configure os dados da sua loja</div>
+        <button class="checklist-action" onclick="irPara('config.html')">Configurar</button>
+      </div>
+      <div class="checklist-item" id="check-demo">
+        <div class="checklist-check">✓</div>
+        <div class="checklist-label">Veja como funciona com dados de exemplo</div>
+        <button class="checklist-action" onclick="carregarDadosDemo()">Carregar Demo</button>
+      </div>
+      <div class="checklist-item" id="check-primeiro-produto">
+        <div class="checklist-check">✓</div>
+        <div class="checklist-label">Cadastre seu primeiro produto</div>
+        <button class="checklist-action" onclick="irPara('estoque.html')">Cadastrar</button>
+      </div>
+      <div class="checklist-item" id="check-primeira-venda">
+        <div class="checklist-check">✓</div>
+        <div class="checklist-label">Faça uma teste (venda fake)</div>
+        <button class="checklist-action" onclick="irPara('pdv.html')">Fazer Venda</button>
       </div>
     </div>
 
@@ -149,6 +349,89 @@
             <span>${i+1}. ${p.nome||'—'}</span><strong>${p.qtd} un</strong></div>`).join('');
     }
     carregar();
+
+    // ========== ONBOARDING LOGIC ==========
+    async function verificarOnboardingCompleto() {
+      try {
+        const resp = await api('/me');
+        return resp.onboarding_completado === 1;
+      } catch (err) {
+        console.log('Erro ao verificar onboarding:', err);
+        return false;
+      }
+    }
+
+    function mostrarModalBemVindo() {
+      const modal = document.getElementById('onboardingWelcome');
+      modal.classList.add('show');
+      localStorage.setItem('onboarding_shown', 'true');
+    }
+
+    function skipOnboarding() {
+      const modal = document.getElementById('onboardingWelcome');
+      modal.classList.remove('show');
+    }
+
+    function startOnboarding() {
+      const modal = document.getElementById('onboardingWelcome');
+      modal.classList.remove('show');
+      document.getElementById('onboardingChecklist').classList.add('show');
+      localStorage.setItem('onboarding_in_progress', 'true');
+    }
+
+    function irPara(url) {
+      window.location.href = url;
+    }
+
+    async function carregarDadosDemo() {
+      if (***REMOVED***confirm('Isso vai carregar 5 produtos de exemplo e 2 clientes fake. Continuar?')) {
+        return;
+      }
+
+      try {
+        const btn = event.target;
+        btn.disabled = true;
+        btn.textContent = '⏳ Carregando...';
+
+        const resp = await fetch('/api/onboarding/demo-data', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (***REMOVED***resp.ok) {
+          throw new Error('Erro ao carregar dados de demo');
+        }
+
+        const data = await resp.json();
+        alert(`✅ Dados de exemplo carregados***REMOVED***\n${data.produtos} produtos + ${data.clientes} clientes`);
+
+        // Marcar como feito
+        document.getElementById('check-demo').classList.add('done');
+        btn.textContent = '✅ Pronto***REMOVED***';
+        btn.disabled = true;
+
+        // Recarregar dashboard
+        carregar();
+      } catch (err) {
+        alert('❌ Erro: ' + err.message);
+        const btn = event.target;
+        btn.disabled = false;
+        btn.textContent = 'Carregar Demo';
+      }
+    }
+
+    // Ao carregar a página, mostrar modal se for primeira vez
+    (async function initOnboarding() {
+      const foiMostrado = localStorage.getItem('onboarding_shown') === 'true';
+      const estaEmProgresso = localStorage.getItem('onboarding_in_progress') === 'true';
+
+      if (***REMOVED***foiMostrado) {
+        setTimeout(() => mostrarModalBemVindo(), 1000);
+      } else if (estaEmProgresso) {
+        document.getElementById('onboardingChecklist').classList.add('show');
+      }
+    })();
   </script>
 </body>
 </html>

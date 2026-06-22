@@ -1,0 +1,393 @@
+<***REMOVED***DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pagamento - EasyGestão</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 500px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      padding: 40px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .header h1 {
+      color: #333;
+      font-size: 28px;
+      margin-bottom: 10px;
+    }
+
+    .header p {
+      color: #999;
+      font-size: 14px;
+    }
+
+    .plan-info {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 30px;
+      border-left: 4px solid #667eea;
+    }
+
+    .plan-info-item {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      font-size: 14px;
+    }
+
+    .plan-info-item:last-child {
+      margin-bottom: 0;
+      font-weight: 600;
+      font-size: 16px;
+      color: #333;
+    }
+
+    .plan-info-label {
+      color: #666;
+    }
+
+    .plan-info-value {
+      color: #333;
+      font-weight: 500;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    button {
+      flex: 1;
+      padding: 14px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .btn-pagar {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    .btn-pagar:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+    }
+
+    .btn-pagar:active {
+      transform: translateY(0);
+    }
+
+    .btn-pagar:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-voltar {
+      background: #f0f0f0;
+      color: #333;
+    }
+
+    .btn-voltar:hover {
+      background: #e0e0e0;
+    }
+
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      margin: 0 auto 15px;
+      border: 4px solid #f0f0f0;
+      border-top: 4px solid #667eea;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .message {
+      display: none;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      font-size: 14px;
+    }
+
+    .message.success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+      display: block;
+    }
+
+    .message.error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+      display: block;
+    }
+
+    .message.info {
+      background: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+      display: block;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid #eee;
+      font-size: 12px;
+      color: #999;
+    }
+
+    .assinatura-status {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+      margin-bottom: 30px;
+    }
+
+    .status-box {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    .status-label {
+      font-size: 12px;
+      color: #999;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .status-value {
+      font-size: 16px;
+      font-weight: 600;
+      color: #333;
+    }
+
+    .status-value.active {
+      color: #28a745;
+    }
+
+    .status-value.expired {
+      color: #dc3545;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-top: 5px;
+    }
+
+    .badge-success {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .badge-danger {
+      background: #f8d7da;
+      color: #721c24;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <div class="header">
+        <h1>💳 Pagamento</h1>
+        <p id="headerDesc">Complete seu pagamento para continuar usando a plataforma</p>
+      </div>
+
+      <div id="message" class="message"></div>
+
+      <div id="planInfo" class="plan-info">
+        <div class="plan-info-item">
+          <span class="plan-info-label">Plano:</span>
+          <span class="plan-info-value" id="planName">—</span>
+        </div>
+        <div class="plan-info-item">
+          <span class="plan-info-label">Valor:</span>
+          <span class="plan-info-value" id="planValue">R$ 0,00</span>
+        </div>
+        <div class="plan-info-item">
+          <span class="plan-info-label">Período:</span>
+          <span class="plan-info-value">30 dias</span>
+        </div>
+      </div>
+
+      <div id="assinaturasStatus" class="assinatura-status"></div>
+
+      <div id="loading" class="loading">
+        <div class="spinner"></div>
+        <p>Processando seu pagamento...</p>
+      </div>
+
+      <div id="formContainer">
+        <div class="button-group">
+          <button class="btn-pagar" id="btnPagar">Pagar com Cartão</button>
+          <button class="btn-voltar" id="btnVoltar">Voltar</button>
+        </div>
+      </div>
+
+      <div class="footer">
+        <p>🔒 Pagamentos processados com segurança por Stripe</p>
+        <p style="margin-top: 8px;">Precisa de ajuda? Contate suporte@easygestion.com</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Obter IDs dos parâmetros da URL
+    const params = new URLSearchParams(window.location.search);
+    const cobrancaId = params.get('cobranca_id');
+    const pagamentoStatus = params.get('pagamento');
+
+    // Elementos do DOM
+    const btnPagar = document.getElementById('btnPagar');
+    const btnVoltar = document.getElementById('btnVoltar');
+    const loading = document.getElementById('loading');
+    const formContainer = document.getElementById('formContainer');
+    const messageEl = document.getElementById('message');
+    const planInfo = document.getElementById('planInfo');
+    const assinaturasStatusEl = document.getElementById('assinaturasStatus');
+
+    // ✅ Mostrar mensagem
+    function mostrarMensagem(tipo, texto) {
+      messageEl.className = `message ${tipo}`;
+      messageEl.textContent = texto;
+      messageEl.style.display = 'block';
+    }
+
+    // ✅ Carregar dados da assinatura ao inicializar
+    async function carregarAssinatura() {
+      try {
+        const resp = await fetch('/api/assinaturas/minha');
+        const dados = resp.json();
+
+        if (dados.assinatura) {
+          document.getElementById('planName').textContent = dados.assinatura.plano;
+          document.getElementById('planValue').textContent = `R$ ${dados.assinatura.valor_mensal.toFixed(2).replace('.', ',')}`;
+
+          // Status
+          const statusEl = document.createElement('div');
+          statusEl.className = 'status-box';
+          statusEl.innerHTML = `
+            <div class="status-label">Status</div>
+            <div class="status-value ${dados.status.bloqueado ? 'expired' : 'active'}">
+              ${dados.status.status.toUpperCase().replace(/_/g, ' ')}
+            </div>
+            ${dados.status.diasRestantes ? `<span class="badge badge-success">${dados.status.diasRestantes} dias</span>` : ''}
+          `;
+          assinaturasStatusEl.appendChild(statusEl);
+        }
+      } catch (err) {
+        console.error('Erro ao carregar assinatura:', err);
+      }
+    }
+
+    // ✅ Verificar status do pagamento após retorno
+    async function verificarStatusPagamento() {
+      if (pagamentoStatus === 'sucesso' && params.get('session_id')) {
+        mostrarMensagem('success', '✅ Pagamento realizado com sucesso***REMOVED*** Você já pode usar a plataforma.');
+        btnPagar.textContent = 'Ir para Dashboard';
+        btnPagar.onclick = () => window.location.href = '/dashboard';
+        return;
+      } else if (pagamentoStatus === 'cancelado') {
+        mostrarMensagem('error', '❌ Pagamento cancelado. Tente novamente.');
+      }
+    }
+
+    // ✅ Clicar em "Pagar"
+    btnPagar.addEventListener('click', async () => {
+      loading.style.display = 'block';
+      formContainer.style.display = 'none';
+      btnPagar.disabled = true;
+
+      try {
+        const body = cobrancaId ? { cobranca_id: cobrancaId } : {};
+
+        const resp = await fetch('/api/pagamentos/checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+
+        const dados = await resp.json();
+
+        if (dados.sucesso && dados.checkoutUrl) {
+          // Redirecionar para Stripe
+          window.location.href = dados.checkoutUrl;
+        } else {
+          throw new Error(dados.erro || 'Erro ao criar sessão');
+        }
+      } catch (err) {
+        console.error('Erro:', err);
+        mostrarMensagem('error', `❌ ${err.message}`);
+        loading.style.display = 'none';
+        formContainer.style.display = 'block';
+        btnPagar.disabled = false;
+      }
+    });
+
+    // ✅ Clicar em "Voltar"
+    btnVoltar.addEventListener('click', () => {
+      window.history.back();
+    });
+
+    // Inicializar
+    carregarAssinatura();
+    verificarStatusPagamento();
+  </script>
+</body>
+</html>

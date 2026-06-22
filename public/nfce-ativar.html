@@ -1,0 +1,618 @@
+<***REMOVED***DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ativar NFC-e — EasyGestão</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #1a6f5e 0%, #0d4a3d 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+      max-width: 600px;
+      width: 100%;
+      padding: 40px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .header h1 {
+      color: #1a6f5e;
+      font-size: 28px;
+      margin-bottom: 10px;
+    }
+
+    .header p {
+      color: #666;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .icon {
+      font-size: 48px;
+      margin-bottom: 15px;
+    }
+
+    .form-group {
+      margin-bottom: 25px;
+    }
+
+    .form-group label {
+      display: block;
+      color: #1a6f5e;
+      font-weight: 600;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      padding: 12px 15px;
+      border: 1.5px solid #e0e0e0;
+      border-radius: 6px;
+      font-size: 14px;
+      font-family: inherit;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: #1a6f5e;
+      box-shadow: 0 0 0 3px rgba(26, 111, 94, 0.1);
+    }
+
+    .help-text {
+      display: block;
+      font-size: 12px;
+      color: #999;
+      margin-top: 6px;
+      line-height: 1.4;
+    }
+
+    .link {
+      color: #1a6f5e;
+      text-decoration: none;
+      font-weight: 600;
+      border-bottom: 1px solid #1a6f5e;
+    }
+
+    .link:hover {
+      opacity: 0.8;
+    }
+
+    .button {
+      width: 100%;
+      padding: 14px 20px;
+      background: linear-gradient(135deg, #1a6f5e 0%, #0d4a3d 100%);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
+      margin-top: 10px;
+    }
+
+    .button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 20px rgba(26, 111, 94, 0.3);
+    }
+
+    .button:active {
+      transform: translateY(0);
+    }
+
+    .button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .button.secondary {
+      background: #f5f5f5;
+      color: #333;
+      border: 1px solid #e0e0e0;
+    }
+
+    .button.secondary:hover {
+      background: #efefef;
+    }
+
+    .alert {
+      padding: 15px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+      display: none;
+    }
+
+    .alert.success {
+      background: #e8f5e9;
+      color: #2e7d32;
+      border: 1px solid #c8e6c9;
+      display: block;
+    }
+
+    .alert.error {
+      background: #ffebee;
+      color: #c62828;
+      border: 1px solid #ffcdd2;
+      display: block;
+    }
+
+    .alert.info {
+      background: #e3f2fd;
+      color: #1565c0;
+      border: 1px solid #bbdefb;
+      display: block;
+    }
+
+    .alert strong {
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    .steps {
+      background: #f9f9f9;
+      border-left: 4px solid #1a6f5e;
+      padding: 15px;
+      margin-bottom: 20px;
+      border-radius: 4px;
+      font-size: 13px;
+      color: #555;
+      line-height: 1.8;
+    }
+
+    .steps strong {
+      color: #1a6f5e;
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    .steps ol {
+      margin-left: 20px;
+      margin-top: 5px;
+    }
+
+    .steps li {
+      margin-bottom: 5px;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-top: 10px;
+    }
+
+    .status-badge.active {
+      background: #e8f5e9;
+      color: #2e7d32;
+    }
+
+    .status-badge.inactive {
+      background: #fff3e0;
+      color: #e65100;
+    }
+
+    .divider {
+      height: 1px;
+      background: #e0e0e0;
+      margin: 25px 0;
+    }
+
+    .button-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .modal.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background: white;
+      border-radius: 12px;
+      padding: 30px;
+      max-width: 500px;
+      width: 90%;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    }
+
+    .modal-content h2 {
+      color: #1a6f5e;
+      margin-bottom: 15px;
+    }
+
+    .modal-content p {
+      color: #666;
+      line-height: 1.6;
+      margin-bottom: 10px;
+      font-size: 14px;
+    }
+
+    .loading {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      background: #1a6f5e;
+      border-radius: 50%;
+      margin-right: 5px;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid #e0e0e0;
+      font-size: 12px;
+      color: #999;
+    }
+
+    .footer a {
+      color: #1a6f5e;
+      text-decoration: none;
+    }
+
+    .footer a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="icon">📋</div>
+      <h1>Ativar Nota Fiscal Eletrônica</h1>
+      <p>Emita NFC-e automaticamente nas suas vendas</p>
+    </div>
+
+    <***REMOVED***-- Alert de Status -->
+    <div id="alertStatus" class="alert"></div>
+
+    <***REMOVED***-- Verificar configuração atual -->
+    <div id="statusAtual"></div>
+
+    <***REMOVED***-- Formulário de Ativação -->
+    <form id="formNfce" style="display: none;">
+      <div class="steps">
+        <strong>📌 Como funciona:</strong>
+        <ol>
+          <li>Você cria uma conta <a href="https://focusnfe.com.br" target="_blank" class="link">na Focus NFe</a> (grátis)</li>
+          <li>Copia o TOKEN e CSC ID do seu painel</li>
+          <li>Cola aqui embaixo</li>
+          <li>Pronto***REMOVED*** NFC-e ativada</li>
+        </ol>
+      </div>
+
+      <div class="form-group">
+        <label for="token">
+          🔑 TOKEN da Conta Focus
+        </label>
+        <input
+          type="password"
+          id="token"
+          name="token"
+          placeholder="Copie aqui (ex: abc123def456...)"
+          required
+        >
+        <span class="help-text">
+          Encontra em: <a href="https://focusnfe.com.br/configuracoes" target="_blank" class="link">focusnfe.com.br → Configurações → API → Token</a>
+        </span>
+      </div>
+
+      <div class="form-group">
+        <label for="csc_id">
+          🆔 CSC ID
+        </label>
+        <input
+          type="text"
+          id="csc_id"
+          name="csc_id"
+          placeholder="Copie aqui (ex: 123456)"
+          required
+        >
+        <span class="help-text">
+          Encontra em: <a href="https://focusnfe.com.br/configuracoes" target="_blank" class="link">focusnfe.com.br → Configurações → CSC → ID</a>
+        </span>
+      </div>
+
+      <div class="form-group">
+        <label for="ambiente">
+          🌍 Qual é o ambiente?
+        </label>
+        <select id="ambiente" name="ambiente" required>
+          <option value="homologacao">
+            ✏️ Teste (Homologação) — notas não têm validade fiscal
+          </option>
+          <option value="producao">
+            ✅ Produção — notas com validade fiscal oficial
+          </option>
+        </select>
+        <span class="help-text">
+          Comece em "Teste" para validar. Depois mude para "Produção".
+        </span>
+      </div>
+
+      <div class="form-group">
+        <label for="serie">
+          🔢 Série da Nota
+        </label>
+        <input
+          type="number"
+          id="serie"
+          name="serie"
+          value="1"
+          min="1"
+          max="999"
+          required
+        >
+        <span class="help-text">
+          Deixa em 1. Muda só se você usa múltiplas séries.
+        </span>
+      </div>
+
+      <button type="submit" class="button">
+        ✅ Ativar NFC-e
+      </button>
+    </form>
+
+    <***REMOVED***-- Estado: Já Ativado -->
+    <div id="estadoAtivado" style="display: none;">
+      <div class="alert success">
+        <strong>✅ NFC-e Ativada***REMOVED***</strong>
+        Você pode emitir notas fiscais automaticamente nas suas vendas.
+      </div>
+
+      <div class="form-group">
+        <label>Status Atual:</label>
+        <div style="padding: 12px; background: #f5f5f5; border-radius: 6px; margin-top: 8px;">
+          <div style="margin-bottom: 8px;">
+            <strong>Ambiente:</strong> <span id="ambienteAtual" style="color: #1a6f5e;"></span>
+          </div>
+          <div style="margin-bottom: 8px;">
+            <strong>Série:</strong> <span id="serieAtual"></span>
+          </div>
+          <div>
+            <strong>CSC ID:</strong> <code id="cscAtual" style="background: white; padding: 2px 6px; border-radius: 3px;"></code>
+          </div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <button type="button" id="btnAlterar" class="button secondary">
+        ✏️ Alterar Configuração
+      </button>
+
+      <button type="button" id="btnDesativar" class="button secondary" style="background: #ffebee; color: #c62828; border-color: #ffcdd2; margin-top: 8px;">
+        🔴 Desativar NFC-e
+      </button>
+    </div>
+
+    <***REMOVED***-- Estado: Carregando -->
+    <div id="estadoCarregando" style="text-align: center; display: none;">
+      <div class="loading"></div>
+      <p style="color: #999; margin-top: 15px;">Verificando configuração...</p>
+    </div>
+
+    <div class="footer">
+      <p>
+        Dúvidas? Veja nosso
+        <a href="#" target="_blank">guia completo de NFC-e</a>
+        ou
+        <a href="https://wa.me/5573999999999" target="_blank">chame no WhatsApp</a>
+      </p>
+      <p style="margin-top: 10px; color: #ccc;">
+        EasyGestão © 2026 • Nota Fiscal integrada com Focus NFe
+      </p>
+    </div>
+  </div>
+
+  <***REMOVED***-- Modal de Confirmação -->
+  <div id="modalConfirm" class="modal">
+    <div class="modal-content">
+      <h2 id="modalTitle">Confirmar</h2>
+      <p id="modalMessage"></p>
+      <div class="button-group">
+        <button id="btnConfirmSim" class="button">Sim, confirmar</button>
+        <button id="btnConfirmNao" class="button secondary">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = '/api/nfce';
+    let configAtual = null;
+
+    // ====== Inicialização ======
+    async function inicializar() {
+      document.getElementById('estadoCarregando').style.display = 'block';
+      try {
+        const res = await fetch(`${API_BASE}/config`);
+        const data = await res.json();
+        configAtual = data;
+
+        if (data.ativo) {
+          mostrarEstadoAtivado(data);
+        } else {
+          mostrarFormulario();
+        }
+      } catch (e) {
+        mostrarErro('Erro ao verificar configuração: ' + e.message);
+        mostrarFormulario();
+      } finally {
+        document.getElementById('estadoCarregando').style.display = 'none';
+      }
+    }
+
+    // ====== Estados da Tela ======
+    function mostrarFormulario() {
+      document.getElementById('formNfce').style.display = 'block';
+      document.getElementById('estadoAtivado').style.display = 'none';
+      document.getElementById('statusAtual').innerHTML = '';
+    }
+
+    function mostrarEstadoAtivado(config) {
+      document.getElementById('formNfce').style.display = 'none';
+      document.getElementById('estadoAtivado').style.display = 'block';
+
+      document.getElementById('ambienteAtual').textContent =
+        config.ambiente === 'producao' ? '✅ Produção' : '✏️ Teste (Homologação)';
+      document.getElementById('serieAtual').textContent = config.nfce_serie || '1';
+      document.getElementById('cscAtual').textContent = config.csc_id || '(não configurado)';
+    }
+
+    // ====== Alertas ======
+    function mostrarAlerta(mensagem, tipo = 'info') {
+      const alert = document.getElementById('alertStatus');
+      alert.textContent = mensagem;
+      alert.className = `alert ${tipo}`;
+      setTimeout(() => {
+        alert.className = 'alert';
+      }, 5000);
+    }
+
+    function mostrarErro(mensagem) {
+      const alert = document.getElementById('alertStatus');
+      alert.innerHTML = `<strong>❌ Erro</strong><br>${mensagem}`;
+      alert.className = 'alert error';
+    }
+
+    // ====== Submissão do Formulário ======
+    document.getElementById('formNfce').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const token = document.getElementById('token').value.trim();
+      const csc_id = document.getElementById('csc_id').value.trim();
+      const ambiente = document.getElementById('ambiente').value;
+      const serie = document.getElementById('serie').value;
+
+      if (***REMOVED***token || token.length < 10) {
+        mostrarErro('TOKEN inválido. Deve ter pelo menos 10 caracteres.');
+        return;
+      }
+
+      if (***REMOVED***csc_id || csc_id.length < 3) {
+        mostrarErro('CSC ID inválido. Deve ter pelo menos 3 caracteres.');
+        return;
+      }
+
+      const btn = document.querySelector('#formNfce button[type="submit"]');
+      const textOriginal = btn.textContent;
+      btn.disabled = true;
+      btn.innerHTML = '<span class="loading"></span> Ativando...';
+
+      try {
+        const res = await fetch(`${API_BASE}/ativar`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, csc_id, ambiente, serie })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          mostrarAlerta('✅ NFC-e ativada com sucesso***REMOVED***', 'success');
+          setTimeout(() => inicializar(), 1000);
+        } else {
+          mostrarErro(data.erro || 'Erro ao ativar');
+        }
+      } catch (e) {
+        mostrarErro('Erro na requisição: ' + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = textOriginal;
+      }
+    });
+
+    // ====== Botões de Ação ======
+    document.getElementById('btnAlterar').addEventListener('click', () => {
+      mostrarFormulario();
+      document.getElementById('token').value = '';
+      document.getElementById('csc_id').value = '';
+      document.getElementById('token').focus();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    document.getElementById('btnDesativar').addEventListener('click', () => {
+      mostrarConfirmacao(
+        'Desativar NFC-e?',
+        'Você não conseguirá mais emitir notas. Pode reativar depois.',
+        async () => {
+          try {
+            const res = await fetch(`${API_BASE}/desativar`, {
+              method: 'POST'
+            });
+            if (res.ok) {
+              mostrarAlerta('✅ NFC-e desativada', 'success');
+              setTimeout(() => inicializar(), 1000);
+            } else {
+              const data = await res.json();
+              mostrarErro(data.erro || 'Erro ao desativar');
+            }
+          } catch (e) {
+            mostrarErro('Erro: ' + e.message);
+          }
+        }
+      );
+    });
+
+    // ====== Modal de Confirmação ======
+    function mostrarConfirmacao(titulo, mensagem, callback) {
+      document.getElementById('modalTitle').textContent = titulo;
+      document.getElementById('modalMessage').textContent = mensagem;
+      document.getElementById('modalConfirm').classList.add('active');
+
+      document.getElementById('btnConfirmSim').onclick = () => {
+        document.getElementById('modalConfirm').classList.remove('active');
+        callback();
+      };
+
+      document.getElementById('btnConfirmNao').onclick = () => {
+        document.getElementById('modalConfirm').classList.remove('active');
+      };
+    }
+
+    // Iniciar ao carregar
+    inicializar();
+  </script>
+</body>
+</html>
