@@ -691,3 +691,16 @@ CREATE TABLE IF NOT EXISTS alertas_clientes (
 CREATE INDEX IF NOT EXISTS idx_alertas_tipo ON alertas_clientes(tipo);
 CREATE INDEX IF NOT EXISTS idx_alertas_ativo ON alertas_clientes(resolvido_em);
 CREATE INDEX IF NOT EXISTS idx_alertas_tenant ON alertas_clientes(tenant_id);
+
+-- ============================================================
+-- DELECOES_AGENDADAS — LGPD: Grace period de 30 dias pra deletion
+-- ============================================================
+CREATE TABLE IF NOT EXISTS delecoes_agendadas (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  tenant_id INTEGER UNIQUE NOT NULL,
+  agendado_para TEXT NOT NULL,    -- data/hora quando será hard-delete
+  criado_em TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+  FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_delecoes_agendado ON delecoes_agendadas(agendado_para);

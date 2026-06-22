@@ -17,6 +17,7 @@ const configRouter = require('./routes/config');
 const { iniciar_backup_scheduler } = require('./lib/backup-scheduler');
 const { iniciar_alertas_scheduler } = require('./lib/alertas-scheduler');
 const { iniciar_renovacao_scheduler } = require('./lib/renovacao-scheduler');
+const { iniciar_cobranca_scheduler } = require('./lib/cobranca-scheduler');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -227,4 +228,5 @@ app.listen(PORT, '0.0.0.0', () => {
   iniciar_backup_scheduler();
   iniciar_alertas_scheduler();
   iniciar_renovacao_scheduler();
+  iniciar_cobranca_scheduler();
 });

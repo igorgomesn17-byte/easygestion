@@ -175,6 +175,12 @@ garantirColuna('conversa_followups', 'tenant_id', 'INTEGER');
 garantirColuna('conversa_tags', 'tenant_id', 'INTEGER');
 garantirColuna('crm_acoes_enviadas', 'tenant_id', 'INTEGER');
 
+// Stripe — colunas para integração
+garantirColuna('tenants', 'stripe_customer_id', 'TEXT');
+garantirColuna('tenants', 'stripe_subscription_id', 'TEXT');
+garantirColuna('assinaturas', 'stripe_subscription_id', 'TEXT');
+garantirColuna('assinaturas', 'tentativas_pagamento', 'INTEGER DEFAULT 0');
+
 // Criar indices de tenant_id (performance) — safe porque colunas ja foram adicionadas
 raw.exec(`
   CREATE INDEX IF NOT EXISTS idx_usuarios_tenant ON usuarios(tenant_id);
