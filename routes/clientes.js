@@ -20,7 +20,7 @@ router.use((req, res, next) => {
 router.get('/', (req, res) => {
   const { busca, arquivados } = req.query;
   let sql = 'SELECT * FROM clientes WHERE tenant_id = ?';
-  const params = [req.tenantId || 1];
+  const params = [req.tenantId];
   // por padrão esconde arquivados; ?arquivados=1 mostra também
   if (arquivados ***REMOVED***== '1') sql += ' AND arquivado = 0';
   if (busca) { sql += ' AND (nome LIKE ? OR telefone LIKE ?)'; params.push(`%${busca}%`, `%${busca}%`); }
@@ -35,25 +35,25 @@ router.get('/ranking-indicacoes', (req, res) => {
     FROM clientes c JOIN clientes i ON i.indicada_por = c.id AND i.tenant_id = c.tenant_id
     WHERE c.tenant_id = ?
     GROUP BY c.id ORDER BY indicou DESC, c.nome LIMIT 20
-  `).all(req.tenantId || 1);
+  `).all(req.tenantId);
   res.json(rows);
 });
 
 // GET /api/clientes/:id -> dados + historico de compras + quem ela indicou
 router.get('/:id', (req, res) => {
-  const c = db.prepare('SELECT * FROM clientes WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenantId || 1);
+  const c = db.prepare('SELECT * FROM clientes WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenantId);
   if (***REMOVED***c) return res.status(404).json({ erro: 'Cliente nao encontrado' });
   c.compras = db.prepare(`
     SELECT id, data_hora, total, forma_pagamento, origem FROM vendas WHERE cliente_id = ? AND tenant_id = ? ORDER BY data_hora DESC
-  `).all(c.id, req.tenantId || 1);
+  `).all(c.id, req.tenantId);
   const getItens = db.prepare('SELECT descricao, qtd, preco_unit FROM venda_itens WHERE venda_id = ? AND tenant_id = ?');
-  for (const compra of c.compras) compra.itens = getItens.all(compra.id, req.tenantId || 1);
+  for (const compra of c.compras) compra.itens = getItens.all(compra.id, req.tenantId);
   // quem indicou esta cliente (nome) e quantas ela já indicou
   if (c.indicada_por) {
-    const ind = db.prepare('SELECT nome FROM clientes WHERE id = ? AND tenant_id = ?').get(c.indicada_por, req.tenantId || 1);
+    const ind = db.prepare('SELECT nome FROM clientes WHERE id = ? AND tenant_id = ?').get(c.indicada_por, req.tenantId);
     c.indicada_por_nome = ind ? ind.nome : null;
   }
-  c.indicou = db.prepare('SELECT COUNT(*) AS n FROM clientes WHERE indicada_por = ? AND tenant_id = ?').get(c.id, req.tenantId || 1).n;
+  c.indicou = db.prepare('SELECT COUNT(*) AS n FROM clientes WHERE indicada_por = ? AND tenant_id = ?').get(c.id, req.tenantId).n;
   res.json(c);
 });
 
@@ -69,14 +69,14 @@ router.post('/', (req, res) => {
     // procura cliente (não arquivado) com o mesmo telefone, ignorando formatação
     const existente = db.prepare(
       `SELECT * FROM clientes WHERE tenant_id = ? AND arquivado = 0 AND REPLACE(REPLACE(REPLACE(REPLACE(telefone,'(',''),')',''),'-',''),' ','') LIKE ?`
-    ).get(req.tenantId || 1, '%' + telDigitos + '%');
+    ).get(req.tenantId, '%' + telDigitos + '%');
     if (existente) {
       return res.json({ id: existente.id, nome: existente.nome, telefone: existente.telefone, ja_existia: true });
     }
   }
 
   const info = db.prepare('INSERT INTO clientes (tenant_id, nome, telefone, cidade, aniversario, origem, indicada_por) VALUES (?, ?, ?, ?, ?, ?, ?)')
-    .run(req.tenantId || 1, nome, telefone || null, cidade || null, aniversario || null, origem || null, indicada_por || null);
+    .run(req.tenantId, nome, telefone || null, cidade || null, aniversario || null, origem || null, indicada_por || null);
   res.status(201).json({ id: info.lastInsertRowid, nome, ja_existia: false });
 });
 
@@ -84,34 +84,34 @@ router.post('/', (req, res) => {
 router.put('/:id', (req, res) => {
   const { nome, telefone, cidade, aniversario, origem, indicada_por } = req.body;
   db.prepare('UPDATE clientes SET nome=?, telefone=?, cidade=?, aniversario=?, origem=?, indicada_por=? WHERE id=? AND tenant_id=?')
-    .run(nome, telefone || null, cidade || null, aniversario || null, origem || null, indicada_por || null, req.params.id, req.tenantId || 1);
+    .run(nome, telefone || null, cidade || null, aniversario || null, origem || null, indicada_por || null, req.params.id, req.tenantId);
   res.json({ ok: true });
 });
 
 // PATCH /api/clientes/:id/arquivar   body: { arquivado: 0|1 }
 router.patch('/:id/arquivar', (req, res) => {
   const v = req.body.arquivado ? 1 : 0;
-  db.prepare('UPDATE clientes SET arquivado = ? WHERE id = ? AND tenant_id = ?').run(v, req.params.id, req.tenantId || 1);
+  db.prepare('UPDATE clientes SET arquivado = ? WHERE id = ? AND tenant_id = ?').run(v, req.params.id, req.tenantId);
   res.json({ ok: true, arquivado: v });
 });
 
 // PATCH /api/clientes/:id/nao-perturbe   body: { nao_perturbe: 0|1 }
 router.patch('/:id/nao-perturbe', (req, res) => {
   const v = req.body.nao_perturbe ? 1 : 0;
-  db.prepare('UPDATE clientes SET nao_perturbe = ? WHERE id = ? AND tenant_id = ?').run(v, req.params.id, req.tenantId || 1);
+  db.prepare('UPDATE clientes SET nao_perturbe = ? WHERE id = ? AND tenant_id = ?').run(v, req.params.id, req.tenantId);
   res.json({ ok: true, nao_perturbe: v });
 });
 
 // DELETE /api/clientes/:id  -> só permite excluir quem NÃO tem compras (senão, arquivar)
 router.delete('/:id', (req, res) => {
   const id = req.params.id;
-  const temVenda = db.prepare('SELECT COUNT(*) AS n FROM vendas WHERE cliente_id = ? AND tenant_id = ?').get(id, req.tenantId || 1).n;
+  const temVenda = db.prepare('SELECT COUNT(*) AS n FROM vendas WHERE cliente_id = ? AND tenant_id = ?').get(id, req.tenantId).n;
   if (temVenda > 0) {
     return res.status(400).json({ erro: `Este cliente tem ${temVenda} compra(s) no histórico. Em vez de excluir (que apagaria o vínculo das vendas), arquive o cliente.` });
   }
   // limpa indicações que apontavam pra ele (não quebra os indicados)
-  db.prepare('UPDATE clientes SET indicada_por = NULL WHERE indicada_por = ? AND tenant_id = ?').run(id, req.tenantId || 1);
-  db.prepare('DELETE FROM clientes WHERE id = ? AND tenant_id = ?').run(id, req.tenantId || 1);
+  db.prepare('UPDATE clientes SET indicada_por = NULL WHERE indicada_por = ? AND tenant_id = ?').run(id, req.tenantId);
+  db.prepare('DELETE FROM clientes WHERE id = ? AND tenant_id = ?').run(id, req.tenantId);
   res.json({ ok: true });
 });
 

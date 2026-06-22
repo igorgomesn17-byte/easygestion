@@ -99,6 +99,30 @@ function validarTenantAtivo(req, res, next) {
   next();
 }
 
+// --- Validação de tenant (CRÍTICO para multi-tenancy) ---
+// NUNCA use req.tenantId || fallback — isso quebra isolamento de tenant***REMOVED***
+// Use esta função ou middleware para validar antes de qualquer query
+function validarTenantId(req) {
+  if (***REMOVED***req.tenantId) {
+    const err = new Error('Tenant não identificado');
+    err.status = 401;
+    throw err;
+  }
+  return req.tenantId;
+}
+
+// Middleware que garante req.tenantId está presente em rotas protegidas
+function garantirTenantId(req, res, next) {
+  const full = '/api' + req.path;
+  // Rotas públicas não precisam de tenant (pode ser undefined)
+  if (ehPublica(full)) return next();
+  // Rotas protegidas EXIGEM tenant
+  if (***REMOVED***req.tenantId) {
+    return res.status(401).json({ erro: 'Tenant não identificado' });
+  }
+  next();
+}
+
 // --- Autorização por PAPEL ---
 // Factory: devolve um middleware que só deixa passar quem tem um dos papéis.
 // Admin SEMPRE passa (superusuário). Sessão antiga sem papel = tratada como admin
@@ -162,4 +186,4 @@ const limiteResetSenha = rateLimit({
   message: { erro: 'Muitas tentativas de reset. Aguarde 15 minutos.' },
 });
 
-module.exports = { hashSenha, verificarSenha, exigirLogin, injetarTenant, validarTenantAtivo, exigirPapel, apenasAdmin, limiteGlobal, limiteLogin, limiteAdminPassword, limiteForgotPassword, limiteResetSenha, ehPublica };
+module.exports = { hashSenha, verificarSenha, exigirLogin, injetarTenant, validarTenantAtivo, validarTenantId, garantirTenantId, exigirPapel, apenasAdmin, limiteGlobal, limiteLogin, limiteAdminPassword, limiteForgotPassword, limiteResetSenha, ehPublica };

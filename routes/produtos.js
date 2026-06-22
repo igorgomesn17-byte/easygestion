@@ -99,7 +99,7 @@ function gerarEAN13() {
 // GET /api/produtos  -> lista produtos com estoque total e grade
 router.get('/', (req, res) => {
   const { busca, categoria, colecao } = req.query;
-  const tenantId = req.tenantId || 1;
+  const tenantId = req.tenantId;
   let sql = 'SELECT * FROM produtos WHERE ativo = 1 AND tenant_id = ?';
   const params = [tenantId];
   if (busca) {
@@ -158,7 +158,7 @@ router.get('/vitrine', (req, res) => {
 
 // GET /api/produtos/:id
 router.get('/:id', (req, res) => {
-  const tenantId = req.tenantId || 1;
+  const tenantId = req.tenantId;
   const p = db.prepare('SELECT * FROM produtos WHERE id = ? AND tenant_id = ?').get(req.params.id, tenantId);
   if (***REMOVED***p) return res.status(404).json({ erro: 'Produto nao encontrado' });
   p.grade = db.prepare('SELECT id, tamanho, quantidade FROM variacoes WHERE produto_id = ? ORDER BY id').all(p.id);
@@ -173,7 +173,7 @@ router.get('/:id', (req, res) => {
 // Cria o produto com 1 unidade do tamanho e devolve a VARIAÇÃO pronta pro carrinho.
 // O resto (custo, categoria, foto) o admin completa depois em Produtos.
 router.post('/rapido', (req, res) => {
-  const tenantId = req.tenantId || 1;
+  const tenantId = req.tenantId;
   const nome = String(req.body.nome || '').trim();
   const preco = parseFloat(req.body.preco_venda) || 0;
   const tamanho = String(req.body.tamanho || 'U').trim().toUpperCase() || 'U';
@@ -208,7 +208,7 @@ router.post('/rapido', (req, res) => {
 // POST /api/produtos  -> cadastra produto + grade
 // body: { nome, categoria, descricao, cor, custo, preco_venda, foto, fotos:[base64...], grade: [{tamanho, quantidade}] }
 router.post('/', (req, res) => {
-  const tenantId = req.tenantId || 1;
+  const tenantId = req.tenantId;
   const { nome, categoria, descricao, cor, custo, preco_venda, foto, fotos, grade, colecao } = req.body;
 
   const prefixo = (categoria || 'PRD').slice(0, 3).toUpperCase();
@@ -256,7 +256,7 @@ router.post('/', (req, res) => {
 
 // PUT /api/produtos/:id -> edita dados (nao mexe na grade aqui; estoque e via /api/estoque)
 router.put('/:id', (req, res) => {
-  const tenantId = req.tenantId || 1;
+  const tenantId = req.tenantId;
   const { nome, categoria, descricao, cor, custo, preco_venda, foto, fotos, colecao } = req.body;
   const p = db.prepare('SELECT id, codigo, foto FROM produtos WHERE id = ? AND tenant_id = ?').get(req.params.id, tenantId);
   if (***REMOVED***p) return res.status(404).json({ erro: 'Produto nao encontrado' });
@@ -284,7 +284,7 @@ router.put('/:id', (req, res) => {
 
 // DELETE /api/produtos/:id -> inativa (nao apaga, preserva historico de vendas)
 router.delete('/:id', (req, res) => {
-  const tenantId = req.tenantId || 1;
+  const tenantId = req.tenantId;
   db.prepare('UPDATE produtos SET ativo = 0 WHERE id = ? AND tenant_id = ?').run(req.params.id, tenantId);
   res.json({ ok: true });
 });

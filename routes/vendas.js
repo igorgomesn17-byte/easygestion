@@ -32,7 +32,7 @@ router.post('/', (req, res) => {
   if (***REMOVED***temSplit && ***REMOVED***forma_pagamento) return res.status(400).json({ erro: 'Forma de pagamento obrigatoria' });
 
   // A19: exige caixa do dia aberto pra registrar venda
-  const cxHoje = db.prepare('SELECT aberto, fechado FROM caixa_dia WHERE data = ? AND tenant_id = ?').get(hojeLocal(), req.tenantId || 1);
+  const cxHoje = db.prepare('SELECT aberto, fechado FROM caixa_dia WHERE data = ? AND tenant_id = ?').get(hojeLocal(), req.tenantId);
   if (***REMOVED***cxHoje || ***REMOVED***cxHoje.aberto) {
     return res.status(400).json({ erro: 'Abra o caixa do dia antes de vender.' });
   }
@@ -40,7 +40,7 @@ router.post('/', (req, res) => {
   // comissao do vendedor (se houver)
   let comissaoPct = 0;
   if (vendedor_id) {
-    const vend = db.prepare('SELECT comissao_pct FROM vendedores WHERE id = ? AND tenant_id = ?').get(vendedor_id, req.tenantId || 1);
+    const vend = db.prepare('SELECT comissao_pct FROM vendedores WHERE id = ? AND tenant_id = ?').get(vendedor_id, req.tenantId);
     if (vend) comissaoPct = vend.comissao_pct;
   }
   const embalagemUnit = parseFloat(getConfig('embalagem_unit', '1')) || 0;
@@ -132,7 +132,7 @@ router.post('/', (req, res) => {
       INSERT INTO vendas (tenant_id, cliente_id, vendedor_id, subtotal, desconto, acrescimo, total, forma_pagamento, origem, parcelas,
                           taxa_aplicada, valor_liquido, imposto, comissao_valor, embalagem_total, custo_total, lucro, observacao, comprovante, troco, troco_forma)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(req.tenantId || 1, cliente_id || null, vendedor_id || null, subtotal, desc, acrescimo, total, formaPrincipal, origem || 'loja', parcelasPrincipal,
+    `).run(req.tenantId, cliente_id || null, vendedor_id || null, subtotal, desc, acrescimo, total, formaPrincipal, origem || 'loja', parcelasPrincipal,
            r.taxaPct, r.liquido, r.imposto, r.comissao, r.embalagemTotal, r.custoTotal, r.lucro, observacao, comprovantePath, trocoVal, trocoForma);
     const vendaId = info.lastInsertRowid;
 
@@ -140,7 +140,7 @@ router.post('/', (req, res) => {
     const insPgto = db.prepare(`INSERT INTO venda_pagamentos (venda_id, tenant_id, forma, parcelas, valor, taxa_pct, valor_taxa, valor_liquido)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
     for (const p of partes) {
-      insPgto.run(vendaId, req.tenantId || 1, p.forma, p.parcelas, p.valor, p.taxaPct, p.valorTaxa, p.liquido);
+      insPgto.run(vendaId, req.tenantId, p.forma, p.parcelas, p.valor, p.taxaPct, p.valorTaxa, p.liquido);
     }
 
     // 2. itens + baixa de estoque + movimento
@@ -149,7 +149,7 @@ router.post('/', (req, res) => {
     const baixa = db.prepare('UPDATE variacoes SET quantidade = quantidade - ? WHERE id = ?');
     const mov = db.prepare("INSERT INTO movimentos_estoque (variacao_id, tipo, qtd, motivo) VALUES (?, 'saida', ?, ?)");
     for (const l of linhas) {
-      insItem.run(vendaId, req.tenantId || 1, l.variacao_id, l.produto_id, `${l.nome} (${l.tamanho})`, l.qtd, l.preco_unit, l.custo_unit);
+      insItem.run(vendaId, req.tenantId, l.variacao_id, l.produto_id, `${l.nome} (${l.tamanho})`, l.qtd, l.preco_unit, l.custo_unit);
       baixa.run(l.qtd, l.variacao_id);
       mov.run(l.variacao_id, -l.qtd, `venda #${vendaId}`);
     }
@@ -157,7 +157,7 @@ router.post('/', (req, res) => {
     // 3. atualiza cliente (se informado)
     if (cliente_id) {
       db.prepare(`UPDATE clientes SET total_gasto = total_gasto + ?, num_compras = num_compras + 1, ultima_compra = ?
-                  WHERE id = ? AND tenant_id = ?`).run(total, hoje, cliente_id, req.tenantId || 1);
+                  WHERE id = ? AND tenant_id = ?`).run(total, hoje, cliente_id, req.tenantId);
     }
 
     // 3b. troco devolvido por PIX: a gaveta ficou com a sobra física (cliente pagou em
@@ -165,20 +165,20 @@ router.post('/', (req, res) => {
     // o fechamento bater: +suprimento dinheiro (sobra real na gaveta) e −sangria pix (conta).
     if (trocoForma === 'pix' && trocoVal > 0) {
       db.prepare(`INSERT INTO caixa_movimentos (data, tenant_id, tipo, valor, forma, motivo) VALUES (?, ?, 'suprimento', ?, 'dinheiro', ?)`)
-        .run(hoje, req.tenantId || 1, trocoVal, `Troco da venda #${vendaId} ficou na gaveta (devolvido por Pix)`);
+        .run(hoje, req.tenantId, trocoVal, `Troco da venda #${vendaId} ficou na gaveta (devolvido por Pix)`);
       db.prepare(`INSERT INTO caixa_movimentos (data, tenant_id, tipo, valor, forma, motivo) VALUES (?, ?, 'sangria', ?, 'pix', ?)`)
-        .run(hoje, req.tenantId || 1, trocoVal, `Troco da venda #${vendaId} devolvido por Pix`);
+        .run(hoje, req.tenantId, trocoVal, `Troco da venda #${vendaId} devolvido por Pix`);
       // recalcula sangrias/suprimentos do caixa contando só dinheiro (mesma regra do caixa.js)
       const m = db.prepare(`SELECT
           COALESCE(SUM(CASE WHEN tipo='sangria'    AND forma='dinheiro' THEN valor END),0) AS s,
           COALESCE(SUM(CASE WHEN tipo='suprimento' AND forma='dinheiro' THEN valor END),0) AS u
-        FROM caixa_movimentos WHERE data = ? AND tenant_id = ?`).get(hoje, req.tenantId || 1);
+        FROM caixa_movimentos WHERE data = ? AND tenant_id = ?`).get(hoje, req.tenantId);
       db.prepare('UPDATE caixa_dia SET sangrias = ?, suprimentos = ? WHERE data = ? AND tenant_id = ?')
-        .run(+m.s.toFixed(2), +m.u.toFixed(2), hoje, req.tenantId || 1);
+        .run(+m.s.toFixed(2), +m.u.toFixed(2), hoje, req.tenantId);
     }
 
     // 4. atualiza caixa do dia
-    atualizarCaixaDia(hoje, req.tenantId || 1);
+    atualizarCaixaDia(hoje, req.tenantId);
 
     return vendaId;
   });
@@ -234,7 +234,7 @@ router.get('/', (req, res) => {
              FROM vendas v
              LEFT JOIN clientes c ON c.id = v.cliente_id
              LEFT JOIN vendedores vd ON vd.id = v.vendedor_id WHERE v.tenant_id = ?`;
-  const params = [req.tenantId || 1];
+  const params = [req.tenantId];
   if (data) { sql += ' AND date(v.data_hora) = ?'; params.push(data); }
   if (de)   { sql += ' AND date(v.data_hora) >= ?'; params.push(de); }
   if (ate)  { sql += ' AND date(v.data_hora) <= ?'; params.push(ate); }
@@ -267,13 +267,13 @@ router.post('/impacto-desconto', (req, res) => {
 // Troca/define o vendedor de uma venda já feita e RECALCULA a comissão e o lucro
 // com o % do novo vendedor (vendedor_id null = remover vendedor, comissão zera).
 router.patch('/:id/vendedor', (req, res) => {
-  const v = db.prepare('SELECT * FROM vendas WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenantId || 1);
+  const v = db.prepare('SELECT * FROM vendas WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenantId);
   if (***REMOVED***v) return res.status(404).json({ erro: 'Venda não encontrada' });
   const vendedorId = req.body.vendedor_id || null;
 
   let comissaoPct = 0;
   if (vendedorId) {
-    const vend = db.prepare('SELECT comissao_pct FROM vendedores WHERE id = ? AND tenant_id = ?').get(vendedorId, req.tenantId || 1);
+    const vend = db.prepare('SELECT comissao_pct FROM vendedores WHERE id = ? AND tenant_id = ?').get(vendedorId, req.tenantId);
     if (***REMOVED***vend) return res.status(400).json({ erro: 'Vendedor inválido' });
     comissaoPct = vend.comissao_pct || 0;
   }
@@ -283,8 +283,8 @@ router.patch('/:id/vendedor', (req, res) => {
   const hoje = v.data_hora.slice(0, 10);
   const tx = db.transaction(() => {
     db.prepare('UPDATE vendas SET vendedor_id = ?, comissao_valor = ?, lucro = ? WHERE id = ? AND tenant_id = ?')
-      .run(vendedorId, novaComissao, novoLucro, v.id, req.tenantId || 1);
-    atualizarCaixaDia(hoje, req.tenantId || 1); // lucro do dia muda
+      .run(vendedorId, novaComissao, novoLucro, v.id, req.tenantId);
+    atualizarCaixaDia(hoje, req.tenantId); // lucro do dia muda
   });
   tx();
   res.json({ ok: true, comissao_valor: novaComissao, lucro: novoLucro });
@@ -297,18 +297,18 @@ router.get('/:id', (req, res) => {
                         FROM vendas v
                         LEFT JOIN clientes c ON c.id = v.cliente_id
                         LEFT JOIN vendedores vd ON vd.id = v.vendedor_id
-                        WHERE v.id = ? AND v.tenant_id = ?`).get(req.params.id, req.tenantId || 1);
+                        WHERE v.id = ? AND v.tenant_id = ?`).get(req.params.id, req.tenantId);
   if (***REMOVED***v) return res.status(404).json({ erro: 'Venda nao encontrada' });
-  v.itens = db.prepare('SELECT * FROM venda_itens WHERE venda_id = ? AND tenant_id = ?').all(v.id, req.tenantId || 1);
-  v.pagamentos = db.prepare('SELECT forma, parcelas, valor FROM venda_pagamentos WHERE venda_id = ? AND tenant_id = ?').all(v.id, req.tenantId || 1);
+  v.itens = db.prepare('SELECT * FROM venda_itens WHERE venda_id = ? AND tenant_id = ?').all(v.id, req.tenantId);
+  v.pagamentos = db.prepare('SELECT forma, parcelas, valor FROM venda_pagamentos WHERE venda_id = ? AND tenant_id = ?').all(v.id, req.tenantId);
   res.json(v);
 });
 
 // DELETE /api/vendas/:id -> cancela venda (devolve estoque)
 router.delete('/:id', (req, res) => {
-  const v = db.prepare('SELECT * FROM vendas WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenantId || 1);
+  const v = db.prepare('SELECT * FROM vendas WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenantId);
   if (***REMOVED***v) return res.status(404).json({ erro: 'Venda nao encontrada' });
-  const itens = db.prepare('SELECT * FROM venda_itens WHERE venda_id = ? AND tenant_id = ?').all(v.id, req.tenantId || 1);
+  const itens = db.prepare('SELECT * FROM venda_itens WHERE venda_id = ? AND tenant_id = ?').all(v.id, req.tenantId);
   const hoje = v.data_hora.slice(0, 10);
   const tx = db.transaction(() => {
     for (const it of itens) {
@@ -320,10 +320,10 @@ router.delete('/:id', (req, res) => {
     }
     if (v.cliente_id) {
       db.prepare('UPDATE clientes SET total_gasto = total_gasto - ?, num_compras = MAX(num_compras - 1, 0) WHERE id = ? AND tenant_id = ?')
-        .run(v.total, v.cliente_id, req.tenantId || 1);
+        .run(v.total, v.cliente_id, req.tenantId);
     }
-    db.prepare('DELETE FROM vendas WHERE id = ? AND tenant_id = ?').run(v.id, req.tenantId || 1);
-    atualizarCaixaDia(hoje, req.tenantId || 1);
+    db.prepare('DELETE FROM vendas WHERE id = ? AND tenant_id = ?').run(v.id, req.tenantId);
+    atualizarCaixaDia(hoje, req.tenantId);
   });
   tx();
   res.json({ ok: true });

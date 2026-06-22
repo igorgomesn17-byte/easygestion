@@ -63,8 +63,14 @@ router.post('/login', (req, res) => {
 
   const u = db.prepare('SELECT * FROM usuarios WHERE LOWER(email) = LOWER(?) AND ativo = 1').get(email.trim());
   if (u && verificarSenha(senha, u.senha_hash)) {
+    // ⚠️ tenant_id deve estar sempre presente em DB (NOT NULL)
+    if (***REMOVED***u.tenant_id) {
+      console.error(`[LOGIN ERRO] ${u.email} não tem tenant_id no DB***REMOVED*** Bloqueando login.`);
+      return res.status(500).json({ erro: 'Erro de configuração (contate suporte)' });
+    }
+
     // ✅ Verificar se o tenant está bloqueado
-    const tenant = db.prepare('SELECT status FROM tenants WHERE id = ?').get(u.tenant_id || 1);
+    const tenant = db.prepare('SELECT status FROM tenants WHERE id = ?').get(u.tenant_id);
     if (tenant && tenant.status === 'bloqueado') {
       console.warn(`[LOGIN BLOQUEADO] ${u.email} (tenant ${u.tenant_id} bloqueado) • ${req.ip} • ${new Date().toISOString()}`);
       return res.status(403).json({ erro: 'Sua conta foi bloqueada pelo administrador' });
@@ -74,7 +80,7 @@ router.post('/login', (req, res) => {
     req.session.usuario = u.nome;
     req.session.email = u.email;
     req.session.papel = u.papel;
-    req.session.tenant_id = u.tenant_id || 1;
+    req.session.tenant_id = u.tenant_id;
     const destino = u.papel === 'admin' ? 'index.html'
       : u.papel === 'vendedor' ? 'pdv.html'
       : 'relacionamento.html';
@@ -287,15 +293,17 @@ router.get('/me/dados', (req, res) => {
     return res.status(401).json({ erro: 'Não autenticado' });
   }
 
-  const tenantId = req.tenantId || req.session.tenant_id || 1;
+  if (***REMOVED***req.tenantId) {
+    return res.status(401).json({ erro: 'Tenant não identificado' });
+  }
   const usuario = db.prepare('SELECT id, nome, email, papel, criado_em FROM usuarios WHERE nome = ? AND tenant_id = ?')
-    .get(req.session.usuario, tenantId);
+    .get(req.session.usuario, req.tenantId);
 
   const dados = {
     usuario,
-    vendas: db.prepare('SELECT * FROM vendas WHERE tenant_id = ? ORDER BY data_hora DESC LIMIT 100').all(tenantId),
-    clientes: db.prepare('SELECT * FROM clientes WHERE tenant_id = ? ORDER BY criado_em DESC').all(tenantId),
-    produtos: db.prepare('SELECT * FROM produtos WHERE tenant_id = ?').all(tenantId),
+    vendas: db.prepare('SELECT * FROM vendas WHERE tenant_id = ? ORDER BY data_hora DESC LIMIT 100').all(req.tenantId),
+    clientes: db.prepare('SELECT * FROM clientes WHERE tenant_id = ? ORDER BY criado_em DESC').all(req.tenantId),
+    produtos: db.prepare('SELECT * FROM produtos WHERE tenant_id = ?').all(req.tenantId),
   };
 
   res.json(dados);

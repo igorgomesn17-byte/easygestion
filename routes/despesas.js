@@ -11,7 +11,7 @@ const { hojeLocal } = require('../lib/datas');
 router.get('/', (req, res) => {
   const mes = req.query.mes || hojeLocal().slice(0, 7);
   let sql = "SELECT * FROM despesas WHERE substr(data_competencia,1,7) = ? AND recorrente = 0 AND tenant_id = ?";
-  const params = [mes, req.tenantId || 1];
+  const params = [mes, req.tenantId];
   if (req.query.centro) { sql += ' AND centro = ?'; params.push(req.query.centro); }
   if (req.query.status === 'pago') sql += ' AND pago = 1';
   if (req.query.status === 'apagar') sql += ' AND pago = 0';
@@ -32,12 +32,12 @@ router.get('/', (req, res) => {
 
 // GET /api/despesas/recorrentes -> modelos de despesa fixa
 router.get('/recorrentes', (req, res) => {
-  res.json(db.prepare('SELECT * FROM despesas WHERE recorrente = 1 AND tenant_id = ? ORDER BY categoria, descricao').all(req.tenantId || 1));
+  res.json(db.prepare('SELECT * FROM despesas WHERE recorrente = 1 AND tenant_id = ? ORDER BY categoria, descricao').all(req.tenantId));
 });
 
 // GET /api/despesas/a-pagar -> contas a pagar (nao pagas, todas), ordenado por vencimento
 router.get('/a-pagar', (req, res) => {
-  const rows = db.prepare("SELECT * FROM despesas WHERE pago = 0 AND recorrente = 0 AND tenant_id = ? ORDER BY vencimento ASC").all(req.tenantId || 1);
+  const rows = db.prepare("SELECT * FROM despesas WHERE pago = 0 AND recorrente = 0 AND tenant_id = ? ORDER BY vencimento ASC").all(req.tenantId);
   res.json(rows);
 });
 
@@ -50,7 +50,7 @@ router.post('/', (req, res) => {
   const info = db.prepare(`
     INSERT INTO despesas (tenant_id, descricao, valor, categoria, tipo, centro, data_competencia, vencimento, data_pagamento, pago, forma_pagamento, recorrente, obs)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(req.tenantId || 1, descricao, v, categoria || null, tipo || 'variavel', centro || 'empresa',
+  `).run(req.tenantId, descricao, v, categoria || null, tipo || 'variavel', centro || 'empresa',
     comp, vencimento || null, (pago ? (req.body.data_pagamento || hojeLocal()) : null),
     pago ? 1 : 0, forma_pagamento || null, recorrente ? 1 : 0, obs || null);
   res.status(201).json({ id: info.lastInsertRowid });
@@ -58,7 +58,7 @@ router.post('/', (req, res) => {
 
 // PUT /api/despesas/:id
 router.put('/:id', (req, res) => {
-  const d = db.prepare('SELECT id FROM despesas WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenantId || 1);
+  const d = db.prepare('SELECT id FROM despesas WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenantId);
   if (***REMOVED***d) return res.status(404).json({ erro: 'Despesa nao encontrada' });
   const { descricao, valor, categoria, tipo, centro, data_competencia, vencimento, pago, forma_pagamento, obs } = req.body;
   db.prepare(`
@@ -66,7 +66,7 @@ router.put('/:id', (req, res) => {
       vencimento=?, pago=?, data_pagamento=?, forma_pagamento=?, obs=? WHERE id=? AND tenant_id=?
   `).run(descricao, parseFloat(valor) || 0, categoria || null, tipo || 'variavel', centro || 'empresa',
     data_competencia, vencimento || null, pago ? 1 : 0,
-    pago ? (req.body.data_pagamento || hojeLocal()) : null, forma_pagamento || null, obs || null, req.params.id, req.tenantId || 1);
+    pago ? (req.body.data_pagamento || hojeLocal()) : null, forma_pagamento || null, obs || null, req.params.id, req.tenantId);
   res.json({ ok: true });
 });
 
@@ -77,33 +77,33 @@ router.post('/:id/pagar', (req, res) => {
   const formaPagemento = req.body.forma_pagamento || null;
 
   // busca a despesa
-  const d = db.prepare('SELECT * FROM despesas WHERE id = ? AND tenant_id = ?').get(despesaId, req.tenantId || 1);
+  const d = db.prepare('SELECT * FROM despesas WHERE id = ? AND tenant_id = ?').get(despesaId, req.tenantId);
   if (***REMOVED***d) return res.status(404).json({ erro: 'Despesa não encontrada' });
 
   const tx = db.transaction(() => {
     // 1. marca como paga
     db.prepare('UPDATE despesas SET pago = 1, data_pagamento = ?, forma_pagamento = ? WHERE id = ? AND tenant_id = ?')
-      .run(dataPagamento, formaPagemento, despesaId, req.tenantId || 1);
+      .run(dataPagamento, formaPagemento, despesaId, req.tenantId);
 
     // 2. se forma de pagamento informada, cria movimento no caixa (sangria)
     if (formaPagemento) {
       // verifica se caixa do dia existe
-      const cxDia = db.prepare('SELECT id, aberto FROM caixa_dia WHERE data = ? AND tenant_id = ?').get(dataPagamento, req.tenantId || 1);
+      const cxDia = db.prepare('SELECT id, aberto FROM caixa_dia WHERE data = ? AND tenant_id = ?').get(dataPagamento, req.tenantId);
 
       if (cxDia && cxDia.aberto) {
         // caixa aberto: cria movimento de sangria
         const insMovimento = db.prepare(`
           INSERT INTO caixa_movimentos (data, tenant_id, tipo, valor, forma, motivo, despesa_id)
           VALUES (?, ?, 'sangria', ?, ?, ?, ?)
-        `).run(dataPagamento, req.tenantId || 1, d.valor, formaPagemento, `Pagamento de ${d.descricao}`, despesaId);
+        `).run(dataPagamento, req.tenantId, d.valor, formaPagemento, `Pagamento de ${d.descricao}`, despesaId);
 
         // recalcula sangrias/suprimentos do dia (só dinheiro afeta a gaveta)
         if (formaPagemento === 'dinheiro') {
           const sangrias = db.prepare(`
             SELECT COALESCE(SUM(valor), 0) AS v FROM caixa_movimentos
             WHERE data = ? AND tenant_id = ? AND tipo = 'sangria' AND forma = 'dinheiro'
-          `).get(dataPagamento, req.tenantId || 1).v;
-          db.prepare('UPDATE caixa_dia SET sangrias = ? WHERE data = ? AND tenant_id = ?').run(sangrias, dataPagamento, req.tenantId || 1);
+          `).get(dataPagamento, req.tenantId).v;
+          db.prepare('UPDATE caixa_dia SET sangrias = ? WHERE data = ? AND tenant_id = ?').run(sangrias, dataPagamento, req.tenantId);
         }
       }
     }
@@ -115,7 +115,7 @@ router.post('/:id/pagar', (req, res) => {
 
 // DELETE /api/despesas/:id
 router.delete('/:id', (req, res) => {
-  db.prepare('DELETE FROM despesas WHERE id = ? AND tenant_id = ?').run(req.params.id, req.tenantId || 1);
+  db.prepare('DELETE FROM despesas WHERE id = ? AND tenant_id = ?').run(req.params.id, req.tenantId);
   res.json({ ok: true });
 });
 
@@ -124,19 +124,19 @@ router.delete('/:id', (req, res) => {
 router.post('/gerar-mes', (req, res) => {
   const mes = req.body.mes || hojeLocal().slice(0, 7);
   const comp = mes + '-01';
-  const modelos = db.prepare('SELECT * FROM despesas WHERE recorrente = 1 AND tenant_id = ?').all(req.tenantId || 1);
+  const modelos = db.prepare('SELECT * FROM despesas WHERE recorrente = 1 AND tenant_id = ?').all(req.tenantId);
   let geradas = 0, jaExistiam = 0;
   const tx = db.transaction(() => {
     for (const m of modelos) {
       // evita duplicar: ja existe despesa gerada desse modelo nesse mes?
       const existe = db.prepare(
         "SELECT id FROM despesas WHERE recorrente_id = ? AND substr(data_competencia,1,7) = ? AND tenant_id = ?"
-      ).get(m.id, mes, req.tenantId || 1);
+      ).get(m.id, mes, req.tenantId);
       if (existe) { jaExistiam++; continue; }
       db.prepare(`
         INSERT INTO despesas (tenant_id, descricao, valor, categoria, tipo, centro, data_competencia, vencimento, pago, recorrente, recorrente_id)
         VALUES (?, ?, ?, ?, 'fixa', ?, ?, ?, 0, 0, ?)
-      `).run(req.tenantId || 1, m.descricao, m.valor, m.categoria, m.centro || 'empresa', comp,
+      `).run(req.tenantId, m.descricao, m.valor, m.categoria, m.centro || 'empresa', comp,
              m.vencimento ? mes + '-' + (m.vencimento.slice(-2)) : null, m.id);
       geradas++;
     }

@@ -33,7 +33,7 @@ router.get('/', (req, res) => {
 
 // GET /api/estoque/baixo -> tamanhos em ruptura ou estoque minimo
 router.get('/baixo', (req, res) => {
-  const min = parseInt(db.prepare("SELECT valor FROM config WHERE chave='estoque_minimo_alerta' AND tenant_id = ?").get(req.tenantId || 1)?.valor || '1', 10);
+  const min = parseInt(db.prepare("SELECT valor FROM config WHERE chave='estoque_minimo_alerta' AND tenant_id = ?").get(req.tenantId)?.valor || '1', 10);
   const rows = db.prepare(`
     SELECT p.codigo, p.nome, v.tamanho, v.quantidade
     FROM produtos p JOIN variacoes v ON v.produto_id = p.id

@@ -16,21 +16,21 @@ router.get('/fluxo', exigirPapel('admin'), (req, res) => {
   const vendas = db.prepare(`
     SELECT COALESCE(SUM(total),0) AS bruto, COALESCE(SUM(valor_liquido),0) AS liquido, COUNT(*) AS n
     FROM vendas WHERE substr(data_hora,1,7) = ? AND tenant_id = ?
-  `).get(mes, req.tenantId || 1);
+  `).get(mes, req.tenantId);
 
   // SAIDAS: despesas do mes (competencia)
   const despPagas = db.prepare(`
     SELECT COALESCE(SUM(valor),0) AS v FROM despesas WHERE substr(data_competencia,1,7)=? AND recorrente=0 AND pago=1 AND tenant_id = ?
-  `).get(mes, req.tenantId || 1).v;
+  `).get(mes, req.tenantId).v;
   const despApagar = db.prepare(`
     SELECT COALESCE(SUM(valor),0) AS v FROM despesas WHERE substr(data_competencia,1,7)=? AND recorrente=0 AND pago=0 AND tenant_id = ?
-  `).get(mes, req.tenantId || 1).v;
+  `).get(mes, req.tenantId).v;
   const despEmpresa = db.prepare(`
     SELECT COALESCE(SUM(valor),0) AS v FROM despesas WHERE substr(data_competencia,1,7)=? AND recorrente=0 AND centro='empresa' AND tenant_id = ?
-  `).get(mes, req.tenantId || 1).v;
+  `).get(mes, req.tenantId).v;
   const despPessoal = db.prepare(`
     SELECT COALESCE(SUM(valor),0) AS v FROM despesas WHERE substr(data_competencia,1,7)=? AND recorrente=0 AND centro='pessoal' AND tenant_id = ?
-  `).get(mes, req.tenantId || 1).v;
+  `).get(mes, req.tenantId).v;
 
   const totalDespesas = +(despPagas + despApagar).toFixed(2);
   const entradas = +vendas.liquido.toFixed(2);
@@ -41,7 +41,7 @@ router.get('/fluxo', exigirPapel('admin'), (req, res) => {
     SELECT COALESCE(categoria,'sem categoria') AS categoria, SUM(valor) AS valor
     FROM despesas WHERE substr(data_competencia,1,7)=? AND recorrente=0 AND tenant_id = ?
     GROUP BY categoria ORDER BY valor DESC
-  `).all(mes, req.tenantId || 1);
+  `).all(mes, req.tenantId);
 
   res.json({
     mes,
@@ -69,22 +69,22 @@ router.get('/dre', exigirPapel('admin'), (req, res) => {
            COALESCE(SUM(embalagem_total),0) AS embalagem,
            COUNT(*) AS num_vendas
     FROM vendas WHERE substr(data_hora,1,7) = ? AND tenant_id = ?
-  `).get(mes, req.tenantId || 1);
+  `).get(mes, req.tenantId);
 
   // Despesas da EMPRESA (operacionais) — só centro='empresa'. Separadas em fixas/variáveis.
   const despFixas = db.prepare(`
     SELECT COALESCE(SUM(valor),0) AS v FROM despesas
     WHERE substr(data_competencia,1,7)=? AND recorrente=0 AND tipo='fixa' AND centro='empresa' AND tenant_id = ?
-  `).get(mes, req.tenantId || 1).v;
+  `).get(mes, req.tenantId).v;
   const despVar = db.prepare(`
     SELECT COALESCE(SUM(valor),0) AS v FROM despesas
     WHERE substr(data_competencia,1,7)=? AND recorrente=0 AND tipo='variavel' AND centro='empresa' AND tenant_id = ?
-  `).get(mes, req.tenantId || 1).v;
+  `).get(mes, req.tenantId).v;
   // Pró-labore / retiradas do dono (centro='pessoal') — abatem DEPOIS do operacional
   const proLabore = db.prepare(`
     SELECT COALESCE(SUM(valor),0) AS v FROM despesas
     WHERE substr(data_competencia,1,7)=? AND recorrente=0 AND centro='pessoal' AND tenant_id = ?
-  `).get(mes, req.tenantId || 1).v;
+  `).get(mes, req.tenantId).v;
 
   const receitaBruta = +v.receita_bruta.toFixed(2);
 
@@ -95,7 +95,7 @@ router.get('/dre', exigirPapel('admin'), (req, res) => {
     const meiBoleto = db.prepare(`
       SELECT COALESCE(SUM(valor),0) AS v FROM despesas
       WHERE substr(data_competencia,1,7)=? AND recorrente=0 AND categoria='mei' AND tenant_id = ?
-    `).get(mes, req.tenantId || 1).v;
+    `).get(mes, req.tenantId).v;
     impostos = +meiBoleto.toFixed(2);
   } else if (regimeFiscal === 'simples') {
     // Simples Nacional: alíquota configurada pelo cliente sobre faturamento
@@ -157,7 +157,7 @@ router.get('/curva-abc', (req, res) => {
     JOIN vendas v ON v.id = vi.venda_id AND v.tenant_id = vi.tenant_id
     LEFT JOIN produtos p ON p.id = vi.produto_id
     WHERE v.tenant_id = ?`;
-  const params = [req.tenantId || 1];
+  const params = [req.tenantId];
   if (de)  { sql += ' AND date(v.data_hora) >= ?'; params.push(de); }
   if (ate) { sql += ' AND date(v.data_hora) <= ?'; params.push(ate); }
   sql += ' GROUP BY vi.produto_id ORDER BY faturamento DESC';
@@ -193,7 +193,7 @@ router.get('/por-canal', (req, res) => {
   let sql = `SELECT COALESCE(origem,'loja') AS canal, COUNT(*) AS n,
                     SUM(total) AS faturamento, SUM(lucro) AS lucro
              FROM vendas WHERE tenant_id = ?`;
-  const params = [req.tenantId || 1];
+  const params = [req.tenantId];
   if (de)  { sql += ' AND date(data_hora) >= ?'; params.push(de); }
   if (ate) { sql += ' AND date(data_hora) <= ?'; params.push(ate); }
   sql += ' GROUP BY canal ORDER BY faturamento DESC';
@@ -215,7 +215,7 @@ router.get('/por-colecao', (req, res) => {
     JOIN vendas v ON v.id = vi.venda_id AND v.tenant_id = vi.tenant_id
     LEFT JOIN produtos p ON p.id = vi.produto_id
     WHERE v.tenant_id = ?`;
-  const params = [req.tenantId || 1];
+  const params = [req.tenantId];
   if (de)  { sql += ' AND date(v.data_hora) >= ?'; params.push(de); }
   if (ate) { sql += ' AND date(v.data_hora) <= ?'; params.push(ate); }
   sql += ' GROUP BY colecao ORDER BY faturamento DESC';
@@ -238,7 +238,7 @@ router.get('/por-vendedor', (req, res) => {
            SUM(v.comissao_valor) AS comissao
     FROM vendas v LEFT JOIN vendedores vd ON vd.id = v.vendedor_id AND vd.tenant_id = v.tenant_id
     WHERE v.tenant_id = ?`;
-  const params = [req.tenantId || 1];
+  const params = [req.tenantId];
   if (de)  { sql += ' AND date(v.data_hora) >= ?'; params.push(de); }
   if (ate) { sql += ' AND date(v.data_hora) <= ?'; params.push(ate); }
   sql += ' GROUP BY v.vendedor_id ORDER BY faturamento DESC';
@@ -261,7 +261,7 @@ router.get('/por-vendedor', (req, res) => {
 // Mostra: saldo informado + o que entrou/saiu pela conta = esperado, pra bater com o banco.
 router.get('/conciliacao', exigirPapel('admin'), (req, res) => {
   const data = req.query.data || hojeLocal();
-  const cx = db.prepare('SELECT saldo_conta_inicial, conta_conferida FROM caixa_dia WHERE data = ? AND tenant_id = ?').get(data, req.tenantId || 1) || {};
+  const cx = db.prepare('SELECT saldo_conta_inicial, conta_conferida FROM caixa_dia WHERE data = ? AND tenant_id = ?').get(data, req.tenantId) || {};
 
   // vendas que caem na conta: pix cai na hora; cartão (débito/crédito) é "a receber"
   const vendasConta = db.prepare(`
@@ -269,7 +269,7 @@ router.get('/conciliacao', exigirPapel('admin'), (req, res) => {
       COALESCE(SUM(CASE WHEN forma_pagamento IN ('pix','pix_chave') THEN total END),0) AS pix,
       COALESCE(SUM(CASE WHEN forma_pagamento IN ('debito','credito_vista','credito_parcelado') THEN total END),0) AS cartao
     FROM vendas WHERE date(data_hora) = ? AND tenant_id = ?
-  `).get(data, req.tenantId || 1);
+  `).get(data, req.tenantId);
   // pagamentos divididos (venda 'misto'): soma por forma a partir de venda_pagamentos
   const splitConta = db.prepare(`
     SELECT
@@ -277,7 +277,7 @@ router.get('/conciliacao', exigirPapel('admin'), (req, res) => {
       COALESCE(SUM(CASE WHEN vp.forma IN ('debito','credito_vista','credito_parcelado') THEN vp.valor END),0) AS cartao
     FROM venda_pagamentos vp JOIN vendas v ON v.id = vp.venda_id AND v.tenant_id = vp.tenant_id
     WHERE date(v.data_hora) = ? AND v.forma_pagamento = 'misto' AND v.tenant_id = ?
-  `).get(data, req.tenantId || 1);
+  `).get(data, req.tenantId);
   const pixDia = +(vendasConta.pix + splitConta.pix).toFixed(2);
   const cartaoReceber = +(vendasConta.cartao + splitConta.cartao).toFixed(2);
 
@@ -285,7 +285,7 @@ router.get('/conciliacao', exigirPapel('admin'), (req, res) => {
   const movs = db.prepare(`
     SELECT id, tipo, forma, valor, motivo, criado_em FROM caixa_movimentos
     WHERE data = ? AND tenant_id = ? AND forma <> 'dinheiro' ORDER BY criado_em
-  `).all(data, req.tenantId || 1);
+  `).all(data, req.tenantId);
   const saidasConta = +movs.filter(m => m.tipo === 'sangria').reduce((s, m) => s + m.valor, 0).toFixed(2);
   const entradasConta = +movs.filter(m => m.tipo === 'suprimento').reduce((s, m) => s + m.valor, 0).toFixed(2);
 
@@ -315,14 +315,14 @@ router.get('/conciliacao', exigirPapel('admin'), (req, res) => {
 // Salva o saldo inicial da conta e/ou o valor conferido no banco.
 router.post('/conciliacao', exigirPapel('admin'), (req, res) => {
   const data = req.body.data || hojeLocal();
-  db.prepare('INSERT OR IGNORE INTO caixa_dia (data, tenant_id) VALUES (?, ?)').run(data, req.tenantId || 1);
+  db.prepare('INSERT OR IGNORE INTO caixa_dia (data, tenant_id) VALUES (?, ?)').run(data, req.tenantId);
   if ('saldo_inicial' in req.body) {
     const s = req.body.saldo_inicial === '' || req.body.saldo_inicial == null ? null : parseFloat(req.body.saldo_inicial);
-    db.prepare('UPDATE caixa_dia SET saldo_conta_inicial = ? WHERE data = ? AND tenant_id = ?').run(s, data, req.tenantId || 1);
+    db.prepare('UPDATE caixa_dia SET saldo_conta_inicial = ? WHERE data = ? AND tenant_id = ?').run(s, data, req.tenantId);
   }
   if ('conferido' in req.body) {
     const c = req.body.conferido === '' || req.body.conferido == null ? null : parseFloat(req.body.conferido);
-    db.prepare('UPDATE caixa_dia SET conta_conferida = ? WHERE data = ? AND tenant_id = ?').run(c, data, req.tenantId || 1);
+    db.prepare('UPDATE caixa_dia SET conta_conferida = ? WHERE data = ? AND tenant_id = ?').run(c, data, req.tenantId);
   }
   res.json({ ok: true });
 });
@@ -364,7 +364,7 @@ router.get('/fluxo-caixa', exigirPapel('admin'), (req, res) => {
     SELECT v.id, v.data_hora, v.total FROM vendas v
     WHERE substr(v.data_hora,1,7) = ? AND v.tenant_id = ?
     ORDER BY v.data_hora ASC
-  `).all(mes, req.tenantId || 1);
+  `).all(mes, req.tenantId);
 
   // Para cada venda, calcula quando o dinheiro cai por forma
   const recebimentos = {}; // data -> { pix: X, dinheiro: X, debito: X, credito_vista: X, credito_parc: [] }
@@ -373,7 +373,7 @@ router.get('/fluxo-caixa', exigirPapel('admin'), (req, res) => {
   for (const v of vendas) {
     const dataPagtos = db.prepare(`
       SELECT forma, parcelas, valor FROM venda_pagamentos WHERE venda_id = ? AND tenant_id = ?
-    `).all(v.id, req.tenantId || 1);
+    `).all(v.id, req.tenantId);
 
     for (const p of dataPagtos) {
       let dataReceb;
@@ -416,7 +416,7 @@ router.get('/fluxo-caixa', exigirPapel('admin'), (req, res) => {
     SELECT data_pagamento, valor, categoria FROM despesas
     WHERE substr(data_competencia,1,7) = ? AND recorrente = 0 AND pago = 1 AND tenant_id = ?
     ORDER BY data_pagamento ASC
-  `).all(mes, req.tenantId || 1);
+  `).all(mes, req.tenantId);
 
   const saidas = {}; // data -> valor total
   for (const d of despesas) {

@@ -65,7 +65,7 @@ function contaEsperada(caixa, data) {
 // GET /api/caixa/hoje  (ou ?data=YYYY-MM-DD)
 router.get('/hoje', (req, res) => {
   const data = req.query.data || hojeLocal();
-  let caixa = db.prepare('SELECT * FROM caixa_dia WHERE data = ? AND tenant_id = ?').get(data, req.tenantId || 1);
+  let caixa = db.prepare('SELECT * FROM caixa_dia WHERE data = ? AND tenant_id = ?').get(data, req.tenantId);
   if (***REMOVED***caixa) {
     caixa = { data, total_pix: 0, total_debito: 0, total_credito: 0, total_dinheiro: 0,
               total_bruto: 0, total_liquido: 0, lucro_dia: 0, num_vendas: 0, conciliado: 0, obs: null,
@@ -74,7 +74,7 @@ router.get('/hoje', (req, res) => {
   }
   caixa.dinheiro_esperado = dinheiroEsperado(caixa);
   // movimentos que saíram/entraram na CONTA (pix/cartão), separados da gaveta
-  Object.assign(caixa, movimentosConta(data, req.tenantId || 1));
+  Object.assign(caixa, movimentosConta(data, req.tenantId));
   // bloco CONTA: saldo inicial + entradas na conta − saídas pela conta = esperado no banco
   Object.assign(caixa, contaEsperada(caixa, data));
   // vendas do dia para detalhamento
@@ -82,10 +82,10 @@ router.get('/hoje', (req, res) => {
     SELECT v.id, v.data_hora, v.total, v.forma_pagamento, v.origem, v.valor_liquido, v.lucro, c.nome AS cliente_nome
     FROM vendas v LEFT JOIN clientes c ON c.id = v.cliente_id AND c.tenant_id = v.tenant_id
     WHERE date(v.data_hora) = ? AND v.tenant_id = ? ORDER BY v.data_hora DESC
-  `).all(data, req.tenantId || 1);
+  `).all(data, req.tenantId);
   // movimentos (abertura/sangria/suprimento) do dia
   caixa.movimentos = db.prepare(
-    'SELECT * FROM caixa_movimentos WHERE data = ? AND tenant_id = ? ORDER BY criado_em').all(data, req.tenantId || 1);
+    'SELECT * FROM caixa_movimentos WHERE data = ? AND tenant_id = ? ORDER BY criado_em').all(data, req.tenantId);
   res.json(caixa);
 });
 
@@ -93,14 +93,14 @@ router.get('/hoje', (req, res) => {
 router.post('/abrir', (req, res) => {
   const data = req.body.data || hojeLocal();
   const fundo = parseFloat(req.body.fundo_troco) || 0;
-  garantirLinha(data, req.tenantId || 1);
-  const c = db.prepare('SELECT * FROM caixa_dia WHERE data = ? AND tenant_id = ?').get(data, req.tenantId || 1);
+  garantirLinha(data, req.tenantId);
+  const c = db.prepare('SELECT * FROM caixa_dia WHERE data = ? AND tenant_id = ?').get(data, req.tenantId);
   if (c.fechado) return res.status(400).json({ erro: 'Caixa deste dia já foi fechado.' });
   const tx = db.transaction(() => {
     db.prepare(`UPDATE caixa_dia SET fundo_troco = ?, aberto = 1, aberto_em = datetime('now','localtime') WHERE data = ? AND tenant_id = ?`)
-      .run(fundo, data, req.tenantId || 1);
+      .run(fundo, data, req.tenantId);
     db.prepare(`INSERT INTO caixa_movimentos (data, tenant_id, tipo, valor, motivo) VALUES (?, ?, 'abertura', ?, ?)`)
-      .run(data, req.tenantId || 1, fundo, 'fundo de troco');
+      .run(data, req.tenantId, fundo, 'fundo de troco');
   });
   tx();
   res.json({ ok: true });
@@ -112,8 +112,8 @@ router.post('/saldo-conta', (req, res) => {
   const data = req.body.data || hojeLocal();
   const saldo = req.body.saldo === '' || req.body.saldo == null ? null : parseFloat(req.body.saldo);
   if (saldo ***REMOVED***== null && isNaN(saldo)) return res.status(400).json({ erro: 'Saldo inválido' });
-  garantirLinha(data, req.tenantId || 1);
-  db.prepare('UPDATE caixa_dia SET saldo_conta_inicial = ? WHERE data = ? AND tenant_id = ?').run(saldo, data, req.tenantId || 1);
+  garantirLinha(data, req.tenantId);
+  db.prepare('UPDATE caixa_dia SET saldo_conta_inicial = ? WHERE data = ? AND tenant_id = ?').run(saldo, data, req.tenantId);
   res.json({ ok: true, saldo_conta_inicial: saldo });
 });
 
@@ -129,11 +129,11 @@ router.post('/sangria', (req, res) => {
   const valor = parseFloat(req.body.valor) || 0;
   if (valor <= 0) return res.status(400).json({ erro: 'Informe um valor.' });
   const forma = normalizaForma(req.body.forma);
-  garantirLinha(data, req.tenantId || 1);
+  garantirLinha(data, req.tenantId);
   const tx = db.transaction(() => {
     db.prepare(`INSERT INTO caixa_movimentos (data, tenant_id, tipo, valor, forma, motivo) VALUES (?, ?, 'sangria', ?, ?, ?)`)
-      .run(data, req.tenantId || 1, valor, forma, req.body.motivo || null);
-    recalcularMovimentos(data, req.tenantId || 1); // só dinheiro afeta a gaveta
+      .run(data, req.tenantId, valor, forma, req.body.motivo || null);
+    recalcularMovimentos(data, req.tenantId); // só dinheiro afeta a gaveta
   });
   tx();
   res.json({ ok: true });
@@ -153,17 +153,17 @@ router.post('/saida', (req, res) => {
   const centro = req.body.centro === 'pessoal' ? 'pessoal' : 'empresa';
   // forma no padrão das despesas (cartão/transferência viram 'cartao'/'transferencia')
   const formaDespesa = forma === 'debito' || forma === 'credito' ? 'cartao' : forma;
-  garantirLinha(data, req.tenantId || 1);
+  garantirLinha(data, req.tenantId);
   const tx = db.transaction(() => {
     // 1) despesa no Financeiro (já paga, competência = mês do caixa, data_pagamento = data do caixa)
     const info = db.prepare(`INSERT INTO despesas (tenant_id, descricao, valor, categoria, tipo, centro, data_competencia,
                 data_pagamento, pago, forma_pagamento, obs)
                 VALUES (?, ?, ?, ?, 'variavel', ?, ?, ?, 1, ?, 'Lançada pelo caixa do dia')`)
-      .run(req.tenantId || 1, descricao, valor, categoria, centro, data.slice(0, 7) + '-01', data, formaDespesa);
+      .run(req.tenantId, descricao, valor, categoria, centro, data.slice(0, 7) + '-01', data, formaDespesa);
     // 2) movimento no caixa (sangria) vinculado à despesa — apagar um apaga o outro
     db.prepare(`INSERT INTO caixa_movimentos (data, tenant_id, tipo, valor, forma, motivo, despesa_id) VALUES (?, ?, 'sangria', ?, ?, ?, ?)`)
-      .run(data, req.tenantId || 1, valor, forma, descricao, info.lastInsertRowid);
-    recalcularMovimentos(data, req.tenantId || 1); // só dinheiro afeta a gaveta
+      .run(data, req.tenantId, valor, forma, descricao, info.lastInsertRowid);
+    recalcularMovimentos(data, req.tenantId); // só dinheiro afeta a gaveta
   });
   tx();
   res.json({ ok: true });
@@ -171,13 +171,13 @@ router.post('/saida', (req, res) => {
 
 // DELETE /api/caixa/movimento/:id  -> apaga sangria/suprimento; se veio de despesa, apaga a despesa junto
 router.delete('/movimento/:id', (req, res) => {
-  const m = db.prepare('SELECT * FROM caixa_movimentos WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenantId || 1);
+  const m = db.prepare('SELECT * FROM caixa_movimentos WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenantId);
   if (***REMOVED***m) return res.status(404).json({ erro: 'Movimento não encontrado' });
   if (m.tipo === 'abertura') return res.status(400).json({ erro: 'A abertura do caixa não pode ser apagada por aqui.' });
   const tx = db.transaction(() => {
-    db.prepare('DELETE FROM caixa_movimentos WHERE id = ? AND tenant_id = ?').run(m.id, req.tenantId || 1);
-    if (m.despesa_id) db.prepare('DELETE FROM despesas WHERE id = ? AND tenant_id = ?').run(m.despesa_id, req.tenantId || 1); // despesa vinculada some junto
-    recalcularMovimentos(m.data, req.tenantId || 1);
+    db.prepare('DELETE FROM caixa_movimentos WHERE id = ? AND tenant_id = ?').run(m.id, req.tenantId);
+    if (m.despesa_id) db.prepare('DELETE FROM despesas WHERE id = ? AND tenant_id = ?').run(m.despesa_id, req.tenantId); // despesa vinculada some junto
+    recalcularMovimentos(m.data, req.tenantId);
   });
   tx();
   res.json({ ok: true });
@@ -189,11 +189,11 @@ router.post('/suprimento', (req, res) => {
   const valor = parseFloat(req.body.valor) || 0;
   if (valor <= 0) return res.status(400).json({ erro: 'Informe um valor.' });
   const forma = normalizaForma(req.body.forma);
-  garantirLinha(data, req.tenantId || 1);
+  garantirLinha(data, req.tenantId);
   const tx = db.transaction(() => {
     db.prepare(`INSERT INTO caixa_movimentos (data, tenant_id, tipo, valor, forma, motivo) VALUES (?, ?, 'suprimento', ?, ?, ?)`)
-      .run(data, req.tenantId || 1, valor, forma, req.body.motivo || null);
-    recalcularMovimentos(data, req.tenantId || 1);
+      .run(data, req.tenantId, valor, forma, req.body.motivo || null);
+    recalcularMovimentos(data, req.tenantId);
   });
   tx();
   res.json({ ok: true });
@@ -205,20 +205,20 @@ router.post('/fechar', (req, res) => {
   const contado = parseFloat(req.body.dinheiro_contado) || 0;
   const contaConf = req.body.conta_conferida === '' || req.body.conta_conferida == null
     ? null : parseFloat(req.body.conta_conferida);
-  garantirLinha(data, req.tenantId || 1);
-  const c = db.prepare('SELECT * FROM caixa_dia WHERE data = ? AND tenant_id = ?').get(data, req.tenantId || 1);
+  garantirLinha(data, req.tenantId);
+  const c = db.prepare('SELECT * FROM caixa_dia WHERE data = ? AND tenant_id = ?').get(data, req.tenantId);
   const esperado = dinheiroEsperado(c);
   const diferenca = +(contado - esperado).toFixed(2);
   db.prepare(`UPDATE caixa_dia SET dinheiro_contado = ?, diferenca = ?, conta_conferida = ?, fechado = 1,
               fechado_em = datetime('now','localtime'), obs = COALESCE(?, obs) WHERE data = ? AND tenant_id = ?`)
-    .run(contado, diferenca, contaConf, req.body.obs || null, data, req.tenantId || 1);
+    .run(contado, diferenca, contaConf, req.body.obs || null, data, req.tenantId);
   res.json({ ok: true, dinheiro_esperado: esperado, diferenca });
 });
 
 // POST /api/caixa/reabrir  body: { data? }  (corrige fechamento por engano)
 router.post('/reabrir', (req, res) => {
   const data = req.body.data || hojeLocal();
-  db.prepare(`UPDATE caixa_dia SET fechado = 0, fechado_em = NULL WHERE data = ? AND tenant_id = ?`).run(data, req.tenantId || 1);
+  db.prepare(`UPDATE caixa_dia SET fechado = 0, fechado_em = NULL WHERE data = ? AND tenant_id = ?`).run(data, req.tenantId);
   res.json({ ok: true });
 });
 
@@ -229,7 +229,7 @@ router.post('/conciliar', (req, res) => {
   db.prepare(`
     INSERT INTO caixa_dia (data, tenant_id, conciliado, obs) VALUES (?, ?, ?, ?)
     ON CONFLICT(data, tenant_id) DO UPDATE SET conciliado=excluded.conciliado, obs=excluded.obs
-  `).run(d, req.tenantId || 1, conciliado ? 1 : 0, obs || null);
+  `).run(d, req.tenantId, conciliado ? 1 : 0, obs || null);
   res.json({ ok: true });
 });
 
@@ -238,7 +238,7 @@ router.get('/mes', (req, res) => {
   const ano = req.query.ano || new Date().getFullYear();
   const mes = String(req.query.mes || (new Date().getMonth() + 1)).padStart(2, '0');
   const prefixo = `${ano}-${mes}`;
-  const dias = db.prepare('SELECT * FROM caixa_dia WHERE data LIKE ? AND tenant_id = ? ORDER BY data').all(prefixo + '%', req.tenantId || 1);
+  const dias = db.prepare('SELECT * FROM caixa_dia WHERE data LIKE ? AND tenant_id = ? ORDER BY data').all(prefixo + '%', req.tenantId);
   const total = dias.reduce((a, d) => ({
     bruto: a.bruto + d.total_bruto, liquido: a.liquido + d.total_liquido,
     lucro: a.lucro + d.lucro_dia, vendas: a.vendas + d.num_vendas

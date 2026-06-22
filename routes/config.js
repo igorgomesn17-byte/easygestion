@@ -39,7 +39,7 @@ function ehSensivel(chave) {
 
 router.get('/', (req, res) => {
   const ehAdmin = req.session && req.session.papel === 'admin';
-  const rows = db.prepare('SELECT chave, valor FROM config WHERE tenant_id = ?').all(req.tenantId || 1);
+  const rows = db.prepare('SELECT chave, valor FROM config WHERE tenant_id = ?').all(req.tenantId);
   const obj = {};
   for (const r of rows) {
     if (***REMOVED***ehAdmin && ehSensivel(r.chave)) continue; // esconde financeiro de não-admin
@@ -60,7 +60,7 @@ router.post('/', apenasAdmin, (req, res) => {
   const updates = req.body; // { chave: valor, ... }
   const stmt = db.prepare('INSERT INTO config (chave, valor, tenant_id) VALUES (?, ?, ?) ON CONFLICT(chave, tenant_id) DO UPDATE SET valor=excluded.valor');
   const tx = db.transaction(() => {
-    for (const [chave, valor] of Object.entries(updates)) stmt.run(chave, String(valor), req.tenantId || 1);
+    for (const [chave, valor] of Object.entries(updates)) stmt.run(chave, String(valor), req.tenantId);
   });
   tx();
   res.json({ ok: true });
@@ -72,13 +72,13 @@ router.post('/logo', apenasAdmin, (req, res) => {
   const caminho = salvarLogoBase64(req.body && req.body.logo);
   if (***REMOVED***caminho) return res.status(400).json({ erro: 'Imagem inválida. Envie PNG, JPG ou WEBP de até 2MB.' });
   db.prepare('INSERT INTO config (chave, valor, tenant_id) VALUES (?, ?, ?) ON CONFLICT(chave, tenant_id) DO UPDATE SET valor=excluded.valor')
-    .run('loja_logo', caminho, req.tenantId || 1);
+    .run('loja_logo', caminho, req.tenantId);
   res.json({ ok: true, loja_logo: caminho });
 });
 
 // Remove a logo (volta a mostrar o nome em texto).
 router.delete('/logo', apenasAdmin, (req, res) => {
-  db.prepare("UPDATE config SET valor='' WHERE chave='loja_logo' AND tenant_id = ?").run(req.tenantId || 1);
+  db.prepare("UPDATE config SET valor='' WHERE chave='loja_logo' AND tenant_id = ?").run(req.tenantId);
   res.json({ ok: true });
 });
 
@@ -139,15 +139,15 @@ router.post('/certificado-a1', apenasAdmin, async (req, res) => {
 
     const certEncriptado = criptografarCertificado(certBuffer);
     db.prepare('INSERT INTO config (chave, valor, tenant_id) VALUES (?, ?, ?) ON CONFLICT(chave, tenant_id) DO UPDATE SET valor=excluded.valor')
-      .run('nfce_certificado', certEncriptado, req.tenantId || 1);
+      .run('nfce_certificado', certEncriptado, req.tenantId);
 
     // Salvar também um flag indicando que existe
     db.prepare('INSERT INTO config (chave, valor, tenant_id) VALUES (?, ?, ?) ON CONFLICT(chave, tenant_id) DO UPDATE SET valor=excluded.valor')
-      .run('nfce_certificado_instalado', '1', req.tenantId || 1);
+      .run('nfce_certificado_instalado', '1', req.tenantId);
 
     // TODO: extrair data de vencimento do certificado
     db.prepare('INSERT INTO config (chave, valor, tenant_id) VALUES (?, ?, ?) ON CONFLICT(chave, tenant_id) DO UPDATE SET valor=excluded.valor')
-      .run('nfce_certificado_vencimento', '2026-12-31', req.tenantId || 1);
+      .run('nfce_certificado_vencimento', '2026-12-31', req.tenantId);
 
     res.json({ ok: true, vencimento: '2026-12-31', mensagem: 'Certificado instalado com segurança***REMOVED***' });
   } catch (e) {
@@ -159,8 +159,8 @@ router.post('/certificado-a1', apenasAdmin, async (req, res) => {
 // GET /config/certificado-a1 — retorna status (NÃO o certificado em si***REMOVED***)
 router.get('/certificado-a1', apenasAdmin, (req, res) => {
   const stmt = db.prepare('SELECT valor FROM config WHERE chave = ? AND tenant_id = ?');
-  const certInstaled = stmt.get('nfce_certificado_instalado', req.tenantId || 1);
-  const vencimento = stmt.get('nfce_certificado_vencimento', req.tenantId || 1);
+  const certInstaled = stmt.get('nfce_certificado_instalado', req.tenantId);
+  const vencimento = stmt.get('nfce_certificado_vencimento', req.tenantId);
 
   res.json({
     certificado_instalado: certInstaled && certInstaled.valor === '1',
@@ -170,8 +170,8 @@ router.get('/certificado-a1', apenasAdmin, (req, res) => {
 
 // DELETE /config/certificado-a1 — remove certificado
 router.delete('/certificado-a1', apenasAdmin, (req, res) => {
-  db.prepare("DELETE FROM config WHERE chave='nfce_certificado' AND tenant_id = ?").run(req.tenantId || 1);
-  db.prepare("UPDATE config SET valor='0' WHERE chave='nfce_certificado_instalado' AND tenant_id = ?").run(req.tenantId || 1);
+  db.prepare("DELETE FROM config WHERE chave='nfce_certificado' AND tenant_id = ?").run(req.tenantId);
+  db.prepare("UPDATE config SET valor='0' WHERE chave='nfce_certificado_instalado' AND tenant_id = ?").run(req.tenantId);
   res.json({ ok: true });
 });
 
@@ -180,7 +180,7 @@ function lojaPublica(req, res) {
   const obj = {};
   const stmt = db.prepare('SELECT valor FROM config WHERE chave = ? AND tenant_id = ?');
   for (const chave of CHAVES_PUBLICAS) {
-    const row = stmt.get(chave, req.tenantId || 1);
+    const row = stmt.get(chave, req.tenantId);
     if (row) obj[chave] = row.valor;
   }
   res.json(obj);

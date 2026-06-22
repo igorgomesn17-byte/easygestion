@@ -31,7 +31,7 @@ function hojeLocal() {
 router.get('/', (req, res) => {
   const { de, ate } = req.query;
   let sql = `SELECT t.*, v.id AS venda_num FROM trocas t LEFT JOIN vendas v ON v.id = t.venda_id AND v.tenant_id = t.tenant_id WHERE t.tenant_id = ?`;
-  const params = [req.tenantId || 1];
+  const params = [req.tenantId];
   if (de)  { sql += ' AND date(t.data_troca) >= ?'; params.push(de); }
   if (ate) { sql += ' AND date(t.data_troca) <= ?'; params.push(ate); }
   sql += ' ORDER BY t.data_troca DESC LIMIT 300';
@@ -40,7 +40,7 @@ router.get('/', (req, res) => {
 
 // GET /api/trocas/prazo/:vendaId -> diz se a venda ainda está no prazo de troca
 router.get('/prazo/:vendaId', (req, res) => {
-  const venda = db.prepare('SELECT id, data_hora FROM vendas WHERE id = ? AND tenant_id = ?').get(req.params.vendaId, req.tenantId || 1);
+  const venda = db.prepare('SELECT id, data_hora FROM vendas WHERE id = ? AND tenant_id = ?').get(req.params.vendaId, req.tenantId);
   if (***REMOVED***venda) return res.status(404).json({ erro: 'Venda não encontrada' });
   const prazo = 7; // prazo fixo: 7 dias úteis
   const dias = diasUteisEntre(venda.data_hora.slice(0, 10), hojeLocal());
@@ -49,7 +49,7 @@ router.get('/prazo/:vendaId', (req, res) => {
 
 // GET /api/trocas/:id -> detalhe com itens
 router.get('/:id', (req, res) => {
-  const t = db.prepare('SELECT * FROM trocas WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenantId || 1);
+  const t = db.prepare('SELECT * FROM trocas WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenantId);
   if (***REMOVED***t) return res.status(404).json({ erro: 'Troca não encontrada' });
   res.json(t);
 });
@@ -74,7 +74,7 @@ router.post('/', (req, res) => {
   if (***REMOVED***venda_id) {
     return res.status(400).json({ erro: 'Informe a venda de origem para registrar a troca.' });
   }
-  const venda = db.prepare('SELECT id, data_hora FROM vendas WHERE id = ? AND tenant_id = ?').get(venda_id, req.tenantId || 1);
+  const venda = db.prepare('SELECT id, data_hora FROM vendas WHERE id = ? AND tenant_id = ?').get(venda_id, req.tenantId);
   if (***REMOVED***venda) return res.status(404).json({ erro: 'Venda de origem não encontrada.' });
 
   const diasPassados = diasUteisEntre(venda.data_hora.slice(0, 10), hojeLocal());
@@ -113,7 +113,7 @@ router.post('/', (req, res) => {
     const info = db.prepare(`
       INSERT INTO trocas (tenant_id, venda_id, valor_devolvido, valor_levado, diferenca, forma_pagamento_diferenca, obs, data_hora)
       VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now','localtime'))
-    `).run(req.tenantId || 1, venda_id, +valorDevolvido.toFixed(2), +valorLevado.toFixed(2), diferenca, forma_pagamento, obs);
+    `).run(req.tenantId, venda_id, +valorDevolvido.toFixed(2), +valorLevado.toFixed(2), diferenca, forma_pagamento, obs);
     const trocaId = info.lastInsertRowid;
 
     const insItem = db.prepare(`INSERT INTO troca_itens (troca_id, tenant_id, tipo, variacao_id, produto_id, descricao, qtd, valor_unit)
@@ -126,7 +126,7 @@ router.post('/', (req, res) => {
     // 2. devolvidos -> voltam ao estoque
     for (const d of devolvidos) {
       const qtd = parseInt(d.qtd,10) || 1;
-      insItem.run(trocaId, req.tenantId || 1, 'devolvido', d.variacao_id || null, d.produto_id || null, d.descricao || null, qtd, parseFloat(d.valor_unit)||0);
+      insItem.run(trocaId, req.tenantId, 'devolvido', d.variacao_id || null, d.produto_id || null, d.descricao || null, qtd, parseFloat(d.valor_unit)||0);
       if (d.variacao_id) {
         sobe.run(qtd, d.variacao_id);
         mov.run(d.variacao_id, 'entrada', qtd, `troca #${trocaId} (devolução)`);
@@ -135,7 +135,7 @@ router.post('/', (req, res) => {
 
     // 3. levados -> saem do estoque
     for (const l of levadosResolv) {
-      insItem.run(trocaId, req.tenantId || 1, 'levado', l.variacao_id, l.produto_id, l.descricao, l.qtd, l.valor_unit);
+      insItem.run(trocaId, req.tenantId, 'levado', l.variacao_id, l.produto_id, l.descricao, l.qtd, l.valor_unit);
       baixa.run(l.qtd, l.variacao_id);
       mov.run(l.variacao_id, 'saida', -l.qtd, `troca #${trocaId} (saída)`);
     }
@@ -143,18 +143,18 @@ router.post('/', (req, res) => {
     // 4. resolve a diferença (ajusta caixa se necessário)
     if (diferenca > 0 && forma_pagamento === 'dinheiro') {
       // cliente paga a diferenca em dinheiro -> entra no caixa
-      db.prepare('INSERT OR IGNORE INTO caixa_dia (data, tenant_id) VALUES (?, ?)').run(hoje, req.tenantId || 1);
-      db.prepare('UPDATE caixa_dia SET suprimentos = suprimentos + ? WHERE data = ? AND tenant_id = ?').run(diferenca, hoje, req.tenantId || 1);
+      db.prepare('INSERT OR IGNORE INTO caixa_dia (data, tenant_id) VALUES (?, ?)').run(hoje, req.tenantId);
+      db.prepare('UPDATE caixa_dia SET suprimentos = suprimentos + ? WHERE data = ? AND tenant_id = ?').run(diferenca, hoje, req.tenantId);
       db.prepare(`INSERT INTO caixa_movimentos (data, tenant_id, tipo, valor, forma, motivo) VALUES (?, ?, 'suprimento', ?, ?, ?)`)
-        .run(hoje, req.tenantId || 1, diferenca, 'dinheiro', `troca #${trocaId} (cliente pagou diferença)`);
+        .run(hoje, req.tenantId, diferenca, 'dinheiro', `troca #${trocaId} (cliente pagou diferença)`);
     } else if (diferenca < 0) {
       const aFavor = Math.abs(diferenca);
       if (forma_pagamento === 'dinheiro') {
         // devolução em dinheiro (sai do caixa)
-        db.prepare('INSERT OR IGNORE INTO caixa_dia (data, tenant_id) VALUES (?, ?)').run(hoje, req.tenantId || 1);
-        db.prepare('UPDATE caixa_dia SET sangrias = sangrias + ? WHERE data = ? AND tenant_id = ?').run(aFavor, hoje, req.tenantId || 1);
+        db.prepare('INSERT OR IGNORE INTO caixa_dia (data, tenant_id) VALUES (?, ?)').run(hoje, req.tenantId);
+        db.prepare('UPDATE caixa_dia SET sangrias = sangrias + ? WHERE data = ? AND tenant_id = ?').run(aFavor, hoje, req.tenantId);
         db.prepare(`INSERT INTO caixa_movimentos (data, tenant_id, tipo, valor, forma, motivo) VALUES (?, ?, 'sangria', ?, ?, ?)`)
-          .run(hoje, req.tenantId || 1, aFavor, 'dinheiro', `troca #${trocaId} (devolução em dinheiro)`);
+          .run(hoje, req.tenantId, aFavor, 'dinheiro', `troca #${trocaId} (devolução em dinheiro)`);
       }
       // nota: Pix/débito/crédito deveriam ser processados via API do banco (fora do escopo MVP)
     }
