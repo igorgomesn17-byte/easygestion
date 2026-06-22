@@ -90,10 +90,16 @@ function validarTenantAtivo(req, res, next) {
     return res.status(400).json({ erro: 'Tenant não encontrado' });
   }
 
+  // ✅ CRÍTICO: Se tenant foi bloqueado, destruir sessão e negar acesso
   if (tenant.status === 'bloqueado') {
-    req.session.destroy(() => {
-      return res.status(403).json({ erro: 'Sua conta foi bloqueada pelo administrador' });
+    req.session.destroy((err) => {
+      // Não importa se destroy() falhar, nega acesso mesmo assim
+      return res.status(403).json({
+        erro: 'Sua conta foi bloqueada pelo administrador',
+        bloqueado: true
+      });
     });
+    return; // NÃO chama next()***REMOVED***
   }
 
   next();

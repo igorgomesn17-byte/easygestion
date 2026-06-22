@@ -3,7 +3,7 @@
 // GET  /admin                     → dashboard HTML
 // GET  /api/admin/clientes        → lista de clientes (tenants)
 // GET  /api/admin/clientes/:id    → detalhes de um cliente
-// PATCH /api/admin/clientes/:id   → bloquear/desbloquear cliente
+// PATCH /api/admin/clientes/:id   → bloquear/desbloquear cliente (+ email)
 // DELETE /api/admin/clientes/:id  → deletar cliente (com auditoria)
 // GET  /api/admin/financeiro      → resumo de faturamento (MRR, ARR, etc)
 // GET  /api/admin/auditoria       → histórico de ações administrativas (LGPD)
@@ -13,6 +13,7 @@ const path = require('path');
 const { db } = require('../db/database');
 const { exigirPapel } = require('../middleware/seguranca');
 const { auditarAcao, buscarAuditoria } = require('../middleware/auditoria');
+const { enviarEmail, templateContaBloqueada, templateContaReativada } = require('../lib/email');
 const router = express.Router();
 
 const { limiteAdminPassword, verificarSenha, hashSenha } = require('../middleware/seguranca');
@@ -144,10 +145,10 @@ router.get('/clientes/:id', exigirAdminBackoffice, (req, res) => {
   }
 });
 
-// --- PATCH /clientes/:id → bloquear/desbloquear cliente (com AUDITORIA) ---
-router.patch('/clientes/:id', exigirAdminBackoffice, (req, res) => {
+// --- PATCH /clientes/:id → bloquear/desbloquear cliente (+ AUDITORIA + EMAIL) ---
+router.patch('/clientes/:id', exigirAdminBackoffice, async (req, res) => {
   const clienteId = req.params.id;
-  const { status } = req.body; // 'ativo' ou 'bloqueado'
+  const { status, motivo } = req.body; // status: 'ativo' ou 'bloqueado'; motivo: opcional
 
   if (***REMOVED***['ativo', 'bloqueado', 'teste'].includes(status)) {
     return res.status(400).json({ erro: 'Status inválido. Use "ativo", "bloqueado" ou "teste"' });
@@ -159,6 +160,11 @@ router.patch('/clientes/:id', exigirAdminBackoffice, (req, res) => {
     if (***REMOVED***antes) {
       return res.status(404).json({ erro: 'Cliente não encontrado' });
     }
+
+    // Detectar mudança de status (para saber se precisa notificar)
+    const statusAnterior = antes.status;
+    const statusNovo = status;
+    const houveMudanca = statusAnterior ***REMOVED***== statusNovo;
 
     // Atualizar
     const result = db.prepare('UPDATE tenants SET status = ? WHERE id = ?')
@@ -181,7 +187,26 @@ router.patch('/clientes/:id', exigirAdminBackoffice, (req, res) => {
       status: 200,
     });
 
-    res.json({ sucesso: true, status });
+    // ✅ NOTIFICAÇÃO: se mudou pra 'bloqueado', avisar cliente
+    if (houveMudanca && statusNovo === 'bloqueado' && antes.email) {
+      const html = templateContaBloqueada(antes.nome_loja, motivo);
+      enviarEmail(antes.email, '⚠️ Sua conta foi bloqueada', html).catch(err => {
+        console.error('[EMAIL] Erro ao notificar bloqueio:', err.message);
+        // Não falha a requisição por erro de email
+      });
+      console.log(`[NOTIF] Cliente ${antes.nome_loja} (${antes.email}) foi bloqueado`);
+    }
+
+    // ✅ NOTIFICAÇÃO: se mudou pra 'ativo', avisar que foi reativado
+    if (houveMudanca && statusNovo === 'ativo' && statusAnterior === 'bloqueado' && antes.email) {
+      const html = templateContaReativada(antes.nome_loja);
+      enviarEmail(antes.email, '✅ Sua conta foi reativada', html).catch(err => {
+        console.error('[EMAIL] Erro ao notificar reativação:', err.message);
+      });
+      console.log(`[NOTIF] Cliente ${antes.nome_loja} (${antes.email}) foi reativado`);
+    }
+
+    res.json({ sucesso: true, status, notificacao: houveMudanca ? 'Email enviado ao cliente' : null });
   } catch (err) {
     console.error('[ADMIN] Erro ao atualizar cliente:', err);
     return res.status(500).json({ erro: 'Erro ao atualizar' });
