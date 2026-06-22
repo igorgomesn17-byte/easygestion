@@ -10,8 +10,9 @@ PRAGMA foreign_keys = ON;
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS produtos (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
-  codigo        TEXT UNIQUE NOT NULL,          -- ex: V001
-  codigo_barras TEXT UNIQUE,                   -- EAN gerado
+  tenant_id     INTEGER NOT NULL DEFAULT 1,    -- isolamento multi-tenant
+  codigo        TEXT NOT NULL,                 -- ex: V001
+  codigo_barras TEXT,                          -- EAN gerado
   nome          TEXT NOT NULL,
   categoria     TEXT,                          -- vestido, calca, blusa...
   descricao     TEXT,
@@ -21,7 +22,9 @@ CREATE TABLE IF NOT EXISTS produtos (
   foto          TEXT,                          -- caminho/nome do arquivo de foto
   colecao       TEXT,                          -- coleção/linha do produto
   ativo         INTEGER NOT NULL DEFAULT 1,     -- 1 ativo, 0 inativo
-  criado_em     TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+  criado_em     TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+  UNIQUE(tenant_id, codigo),
+  UNIQUE(tenant_id, codigo_barras)
 );
 
 -- ------------------------------------------------------------
@@ -54,14 +57,18 @@ CREATE TABLE IF NOT EXISTS variacoes (
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS clientes (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  tenant_id     INTEGER NOT NULL DEFAULT 1,    -- isolamento multi-tenant
   nome          TEXT NOT NULL,
   telefone      TEXT,
   cidade        TEXT,
   aniversario   TEXT,                          -- DD/MM
   origem        TEXT,                          -- como conheceu a DS: instagram, indicacao, google, loja...
+  indicada_por  INTEGER,                       -- cliente que indicou (referral)
   total_gasto   REAL NOT NULL DEFAULT 0,
   num_compras   INTEGER NOT NULL DEFAULT 0,
   ultima_compra TEXT,
+  arquivado     INTEGER NOT NULL DEFAULT 0,    -- 1 = cliente arquivado
+  nao_perturbe  INTEGER NOT NULL DEFAULT 0,    -- 1 = não ligar/enviar mensagens
   criado_em     TEXT NOT NULL DEFAULT (datetime('now','localtime'))
 );
 
@@ -82,6 +89,7 @@ CREATE TABLE IF NOT EXISTS vendedores (
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS vendas (
   id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  tenant_id       INTEGER NOT NULL DEFAULT 1,    -- isolamento multi-tenant (CRÍTICO)
   data_hora       TEXT NOT NULL DEFAULT (datetime('now','localtime')),
   cliente_id      INTEGER,
   vendedor_id     INTEGER,
@@ -248,7 +256,8 @@ CREATE TABLE IF NOT EXISTS movimentos_estoque (
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS caixa_dia (
   id              INTEGER PRIMARY KEY AUTOINCREMENT,
-  data            TEXT UNIQUE NOT NULL,
+  tenant_id       INTEGER NOT NULL DEFAULT 1,    -- isolamento multi-tenant (CRÍTICO)
+  data            TEXT NOT NULL,
   total_pix       REAL NOT NULL DEFAULT 0,
   total_debito    REAL NOT NULL DEFAULT 0,
   total_credito   REAL NOT NULL DEFAULT 0,
@@ -259,6 +268,8 @@ CREATE TABLE IF NOT EXISTS caixa_dia (
   num_vendas      INTEGER NOT NULL DEFAULT 0,
   conciliado      INTEGER NOT NULL DEFAULT 0,
   obs             TEXT,
+  saldo_conta_inicial REAL,                   -- saldo inicial da conta (reconciliação)
+  conta_conferida REAL,                        -- valor conferido na conta
   -- abertura / fechamento de caixa
   fundo_troco     REAL NOT NULL DEFAULT 0,   -- dinheiro inicial (troco)
   sangrias        REAL NOT NULL DEFAULT 0,   -- total retirado durante o dia
@@ -268,7 +279,8 @@ CREATE TABLE IF NOT EXISTS caixa_dia (
   aberto_em       TEXT,
   fechado_em      TEXT,
   aberto          INTEGER NOT NULL DEFAULT 0, -- 1 = caixa aberto no dia
-  fechado         INTEGER NOT NULL DEFAULT 0  -- 1 = caixa fechado
+  fechado         INTEGER NOT NULL DEFAULT 0, -- 1 = caixa fechado
+  UNIQUE(tenant_id, data)
 );
 
 -- ------------------------------------------------------------
@@ -421,15 +433,17 @@ CREATE TABLE IF NOT EXISTS conversa_tags (
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS usuarios (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  nome       TEXT UNIQUE NOT NULL,                       -- login (case-insensitive na consulta)
-  email      TEXT UNIQUE,                                -- email do usuário (para recovery)
+  tenant_id  INTEGER NOT NULL DEFAULT 1,                 -- isolamento multi-tenant
+  nome       TEXT NOT NULL,                              -- login (case-insensitive na consulta)
+  email      TEXT,                                       -- email do usuário (para recovery)
   senha_hash TEXT NOT NULL,                              -- scrypt$salt$hash (mesmo formato do admin)
-  papel      TEXT NOT NULL DEFAULT 'relacionamento',     -- 'admin' | 'relacionamento'
+  papel      TEXT NOT NULL DEFAULT 'relacionamento',     -- 'admin' | 'vendedor' | 'relacionamento'
   ativo      INTEGER NOT NULL DEFAULT 1,
-  criado_em  TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+  criado_em  TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+  UNIQUE(tenant_id, nome),
+  UNIQUE(tenant_id, email)
 );
-CREATE INDEX IF NOT EXISTS idx_usuarios_nome ON usuarios(nome);
-CREATE INDEX IF NOT EXISTS idx_usuarios_email ON usuarios(email);
+CREATE INDEX IF NOT EXISTS idx_usuarios_tenant ON usuarios(tenant_id);
 
 -- ------------------------------------------------------------
 -- CONFIG
