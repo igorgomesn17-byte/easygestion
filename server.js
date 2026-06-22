@@ -9,7 +9,7 @@ const session = require('express-session');
 const helmet = require('helmet');
 const cors = require('cors');
 
-const { exigirLogin, injetarTenant, apenasAdmin, exigirPapel, limiteGlobal, limiteLogin } = require('./middleware/seguranca');
+const { exigirLogin, injetarTenant, validarTenantAtivo, apenasAdmin, exigirPapel, limiteGlobal, limiteLogin } = require('./middleware/seguranca');
 // PDV: admin OU vendedor (vendedor só vende e opera o caixa)
 const pdvOuAdmin = exigirPapel('admin', 'vendedor');
 const configRouter = require('./routes/config');
@@ -100,6 +100,9 @@ app.use('/api', exigirLogin);
 
 // ---------- Middleware de tenant (injeta req.tenantId em rotas protegidas) ----------
 app.use('/api', injetarTenant);
+
+// ✅ Validar se tenant foi bloqueado (impede acesso se status = 'bloqueado')
+app.use('/api', validarTenantAtivo);
 
 // ---------- Rotas da API (protegidas) ----------
 app.use('/api/produtos',   require('./routes/produtos'));   // admin + vendedor (busca)

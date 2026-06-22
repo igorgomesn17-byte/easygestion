@@ -75,6 +75,30 @@ function injetarTenant(req, res, next) {
   return res.status(401).json({ erro: 'Tenant não identificado' });
 }
 
+// --- Middleware: valida se tenant está bloqueado ---
+// Verifica se o tenant do usuário logado foi bloqueado
+// Se bloqueado, desconecta a sessão e retorna erro
+function validarTenantAtivo(req, res, next) {
+  if (***REMOVED***req.session?.logado || ***REMOVED***req.session?.tenant_id) {
+    return next(); // rotas públicas, deixa passar
+  }
+
+  const { db } = require('../db/database');
+  const tenant = db.prepare('SELECT status FROM tenants WHERE id = ?').get(req.session.tenant_id);
+
+  if (***REMOVED***tenant) {
+    return res.status(400).json({ erro: 'Tenant não encontrado' });
+  }
+
+  if (tenant.status === 'bloqueado') {
+    req.session.destroy(() => {
+      return res.status(403).json({ erro: 'Sua conta foi bloqueada pelo administrador' });
+    });
+  }
+
+  next();
+}
+
 // --- Autorização por PAPEL ---
 // Factory: devolve um middleware que só deixa passar quem tem um dos papéis.
 // Admin SEMPRE passa (superusuário). Sessão antiga sem papel = tratada como admin
@@ -138,4 +162,4 @@ const limiteResetSenha = rateLimit({
   message: { erro: 'Muitas tentativas de reset. Aguarde 15 minutos.' },
 });
 
-module.exports = { hashSenha, verificarSenha, exigirLogin, injetarTenant, exigirPapel, apenasAdmin, limiteGlobal, limiteLogin, limiteAdminPassword, limiteForgotPassword, limiteResetSenha, ehPublica };
+module.exports = { hashSenha, verificarSenha, exigirLogin, injetarTenant, validarTenantAtivo, exigirPapel, apenasAdmin, limiteGlobal, limiteLogin, limiteAdminPassword, limiteForgotPassword, limiteResetSenha, ehPublica };

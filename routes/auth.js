@@ -63,6 +63,13 @@ router.post('/login', (req, res) => {
 
   const u = db.prepare('SELECT * FROM usuarios WHERE LOWER(email) = LOWER(?) AND ativo = 1').get(email.trim());
   if (u && verificarSenha(senha, u.senha_hash)) {
+    // ✅ Verificar se o tenant está bloqueado
+    const tenant = db.prepare('SELECT status FROM tenants WHERE id = ?').get(u.tenant_id || 1);
+    if (tenant && tenant.status === 'bloqueado') {
+      console.warn(`[LOGIN BLOQUEADO] ${u.email} (tenant ${u.tenant_id} bloqueado) • ${req.ip} • ${new Date().toISOString()}`);
+      return res.status(403).json({ erro: 'Sua conta foi bloqueada pelo administrador' });
+    }
+
     req.session.logado = true;
     req.session.usuario = u.nome;
     req.session.email = u.email;
