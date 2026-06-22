@@ -430,6 +430,8 @@ CREATE TABLE IF NOT EXISTS conversa_tags (
 -- O admin principal vem do .env (ADMIN_SENHA) e NÃO fica aqui —
 -- esta tabela guarda os usuários adicionais (ex: a pessoa que opera
 -- só o sistema de Relacionamento, sem ver financeiro).
+-- ✅ NOVO: usuário admin de verdade com papel='admin' pode existir aqui também.
+-- O sistema tenta .env primeiro; se não existir, tenta usuario admin na tabela.
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS usuarios (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -444,6 +446,32 @@ CREATE TABLE IF NOT EXISTS usuarios (
   UNIQUE(tenant_id, email)
 );
 CREATE INDEX IF NOT EXISTS idx_usuarios_tenant ON usuarios(tenant_id);
+
+-- ------------------------------------------------------------
+-- AUDITORIA: log de TODAS as ações administrativas
+-- Registra: quem fez o quê, quando, em qual tenant, e payload da ação
+-- Critério: DELETE, PATCH (exceto certos campos), POST que modifica estado global
+-- ✅ OBRIGATÓRIO PARA LGPD: rastreabilidade de acesso a dados pessoais (GDPR/LGPD)
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS auditoria (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  usuario_id   INTEGER,                           -- quem fez a ação (NULL se admin do .env)
+  usuario_nome TEXT,                              -- nome do usuário (snapshot para forensics)
+  tenant_id    INTEGER,                           -- em qual tenant foi feita a ação
+  acao         TEXT NOT NULL,                     -- DELETE_cliente, PATCH_cliente, etc
+  recurso      TEXT NOT NULL,                     -- 'cliente', 'usuario', 'config', etc
+  recurso_id   INTEGER,                           -- ID do que foi modificado (se aplicável)
+  antes        TEXT,                              -- JSON com valores ANTES (para audit trail)
+  depois       TEXT,                              -- JSON com valores DEPOIS (para audit trail)
+  ip           TEXT,                              -- IP da requisição
+  status_http  INTEGER,                           -- 200, 400, 403, 500, etc
+  criado_em    TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+  FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS idx_auditoria_usuario ON auditoria(usuario_id);
+CREATE INDEX IF NOT EXISTS idx_auditoria_tenant ON auditoria(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_auditoria_recurso ON auditoria(recurso);
+CREATE INDEX IF NOT EXISTS idx_auditoria_data ON auditoria(criado_em);
 
 -- ------------------------------------------------------------
 -- CONFIG

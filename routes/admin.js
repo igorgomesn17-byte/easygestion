@@ -1,60 +1,100 @@
 // ============================================================
-// Backoffice Administrativo — Rotas do painel SaaS
+// Backoffice Administrativo — Rotas do painel SaaS (LGPD-compliant)
 // GET  /admin                     → dashboard HTML
 // GET  /api/admin/clientes        → lista de clientes (tenants)
 // GET  /api/admin/clientes/:id    → detalhes de um cliente
 // PATCH /api/admin/clientes/:id   → bloquear/desbloquear cliente
+// DELETE /api/admin/clientes/:id  → deletar cliente (com auditoria)
 // GET  /api/admin/financeiro      → resumo de faturamento (MRR, ARR, etc)
+// GET  /api/admin/auditoria       → histórico de ações administrativas (LGPD)
 // ============================================================
 const express = require('express');
 const path = require('path');
 const { db } = require('../db/database');
+const { exigirPapel } = require('../middleware/seguranca');
+const { auditarAcao, buscarAuditoria } = require('../middleware/auditoria');
 const router = express.Router();
 
-const { limiteAdminPassword, verificarSenha } = require('../middleware/seguranca');
+const { limiteAdminPassword, verificarSenha, hashSenha } = require('../middleware/seguranca');
 
-// --- Middleware: só o admin (você) acessa ---
-// Exige: req.session.admin_autenticado === true (definido em POST /api/admin/login)
+// --- Middleware: só admin acessa o backoffice ---
+// Verifica: 1) logado na sessão, 2) papel === 'admin'
 function exigirAdminBackoffice(req, res, next) {
-  if (req.session?.admin_autenticado === true) {
-    return next();
+  // Se não está logado, nega
+  if (***REMOVED***req.session?.logado) {
+    return res.status(401).json({ erro: 'Não autenticado. Faça login primeiro.', login: true });
   }
-  return res.status(403).json({ erro: 'Acesso negado. Faça login primeiro.' });
+
+  // Se está logado mas não é admin, nega
+  if (req.session.papel ***REMOVED***== 'admin') {
+    return res.status(403).json({ erro: 'Acesso negado. Apenas admins.' });
+  }
+
+  return next();
 }
 
-// --- GET / → dashboard HTML (validação é feita pelos fetch's das APIs, não aqui) ---
+// --- GET / → dashboard HTML ---
 router.get('/', exigirAdminBackoffice, (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'admin-dashboard.html'));
 });
 
-// --- POST /login → autentica admin via senha (cria sessão segura) ---
+// --- POST /login → autentica admin (usuário admin real na tabela DE usuarios) ---
 router.post('/login', limiteAdminPassword, (req, res) => {
-  const { senha } = req.body;
-  const hashAdmin = process.env.ADMIN_SENHA_HASH || null;
+  const { nome, senha } = req.body;
 
-  if (***REMOVED***hashAdmin) {
-    return res.status(400).json({ erro: 'Admin não configurado neste servidor.' });
+  if (***REMOVED***nome || ***REMOVED***senha) {
+    return res.status(400).json({ erro: 'Nome de usuário e senha obrigatórios.' });
   }
 
-  if (***REMOVED***senha) {
-    return res.status(400).json({ erro: 'Senha obrigatória.' });
+  try {
+    // 1️⃣ Tentar buscar usuário admin na TABELA (novo sistema LGPD-compliant)
+    let usuario = db.prepare(
+      'SELECT id, tenant_id, nome, email, senha_hash, papel FROM usuarios WHERE nome = ? AND papel = ? AND ativo = 1'
+    ).get(nome, 'admin');
+
+    // 2️⃣ Se não encontrou, tentar ADMIN_SENHA_HASH do .env (compatibilidade)
+    let eh_admin_env = false;
+    if (***REMOVED***usuario) {
+      const hashAdmin = process.env.ADMIN_SENHA_HASH || null;
+      if (hashAdmin && verificarSenha(String(senha), hashAdmin)) {
+        eh_admin_env = true;
+      } else {
+        return res.status(401).json({ erro: 'Usuário ou senha incorretos.' });
+      }
+    }
+
+    // 3️⃣ Se encontrou usuário na tabela, validar senha
+    if (usuario && ***REMOVED***verificarSenha(String(senha), usuario.senha_hash)) {
+      return res.status(401).json({ erro: 'Usuário ou senha incorretos.' });
+    }
+
+    // ✅ Autenticação bem-sucedida: criar sessão
+    req.session.logado = true;
+    req.session.usuario_id = usuario?.id || null;
+    req.session.nome = nome;
+    req.session.email = usuario?.email || null;
+    req.session.papel = 'admin';
+    req.session.tenant_id = usuario?.tenant_id || 1; // admin sempre é tenant 1
+    req.session.login_em = new Date().toISOString();
+
+    console.log(`[ADMIN] Login bem-sucedido: ${nome} (${eh_admin_env ? 'env' : 'db'})`);
+    res.json({ sucesso: true, mensagem: 'Logado como administrador', usuario: nome });
+  } catch (err) {
+    console.error('[ADMIN] Erro ao fazer login:', err);
+    return res.status(500).json({ erro: 'Erro ao processar login' });
   }
-
-  if (***REMOVED***verificarSenha(String(senha), hashAdmin)) {
-    return res.status(401).json({ erro: 'Senha incorreta.' });
-  }
-
-  // ✅ Autenticação bem-sucedida: marca a sessão como admin autenticado
-  req.session.admin_autenticado = true;
-  req.session.admin_login_em = new Date().toISOString();
-
-  res.json({ sucesso: true, mensagem: 'Logado como admin' });
 });
 
 // --- POST /logout → encerra sessão admin ---
 router.post('/logout', (req, res) => {
-  req.session.admin_autenticado = false;
-  res.json({ sucesso: true, mensagem: 'Deslogado' });
+  const usuario = req.session?.nome || 'unknown';
+  req.session.destroy((err) => {
+    console.log(`[ADMIN] Logout: ${usuario}`);
+    if (err) {
+      return res.status(500).json({ erro: 'Erro ao desconectar' });
+    }
+    res.json({ sucesso: true, mensagem: 'Deslogado com sucesso' });
+  });
 });
 
 // --- GET /clientes → lista de clientes (tenants) ---
@@ -104,7 +144,7 @@ router.get('/clientes/:id', exigirAdminBackoffice, (req, res) => {
   }
 });
 
-// --- PATCH /clientes/:id → bloquear/desbloquear cliente ---
+// --- PATCH /clientes/:id → bloquear/desbloquear cliente (com AUDITORIA) ---
 router.patch('/clientes/:id', exigirAdminBackoffice, (req, res) => {
   const clienteId = req.params.id;
   const { status } = req.body; // 'ativo' ou 'bloqueado'
@@ -114,12 +154,33 @@ router.patch('/clientes/:id', exigirAdminBackoffice, (req, res) => {
   }
 
   try {
+    // Buscar dados ANTES
+    const antes = db.prepare('SELECT * FROM tenants WHERE id = ?').get(clienteId);
+    if (***REMOVED***antes) {
+      return res.status(404).json({ erro: 'Cliente não encontrado' });
+    }
+
+    // Atualizar
     const result = db.prepare('UPDATE tenants SET status = ? WHERE id = ?')
       .run(status, clienteId);
 
     if (result.changes === 0) {
       return res.status(404).json({ erro: 'Cliente não encontrado' });
     }
+
+    // Buscar dados DEPOIS
+    const depois = db.prepare('SELECT * FROM tenants WHERE id = ?').get(clienteId);
+
+    // ✅ AUDITORIA
+    auditarAcao(req, {
+      acao: 'PATCH_tenant_status',
+      recurso: 'tenants',
+      recurso_id: clienteId,
+      antes,
+      depois,
+      status: 200,
+    });
+
     res.json({ sucesso: true, status });
   } catch (err) {
     console.error('[ADMIN] Erro ao atualizar cliente:', err);
@@ -127,12 +188,13 @@ router.patch('/clientes/:id', exigirAdminBackoffice, (req, res) => {
   }
 });
 
-// --- DELETE /clientes/:id → deletar cliente (hard delete com cascata) ---
+// --- DELETE /clientes/:id → deletar cliente (hard delete com cascata + AUDITORIA) ---
 router.delete('/clientes/:id', exigirAdminBackoffice, (req, res) => {
   const clienteId = req.params.id;
 
   try {
-    const tenant = db.prepare('SELECT id FROM tenants WHERE id = ?').get(clienteId);
+    // Buscar dados ANTES de deletar (para auditoria)
+    const tenant = db.prepare('SELECT * FROM tenants WHERE id = ?').get(clienteId);
     if (***REMOVED***tenant) {
       return res.status(404).json({ erro: 'Cliente não encontrado' });
     }
@@ -155,7 +217,17 @@ router.delete('/clientes/:id', exigirAdminBackoffice, (req, res) => {
       db.prepare('DELETE FROM tenants WHERE id = ?').run(clienteId);
     })();
 
-    console.log(`[ADMIN] Cliente deletado: ${clienteId}`);
+    // ✅ AUDITORIA: registrar a deleção
+    auditarAcao(req, {
+      acao: 'DELETE_tenant',
+      recurso: 'tenants',
+      recurso_id: clienteId,
+      antes: tenant,
+      depois: null,
+      status: 200,
+    });
+
+    console.log(`[ADMIN] Cliente deletado: ${clienteId} (por ${req.session?.nome || 'admin-env'})`);
     res.json({ sucesso: true, mensagem: 'Cliente deletado permanentemente' });
   } catch (err) {
     console.error('[ADMIN] Erro ao deletar cliente:', err);
@@ -195,6 +267,55 @@ router.get('/financeiro', exigirAdminBackoffice, (req, res) => {
   } catch (err) {
     console.error('[ADMIN] Erro ao buscar financeiro:', err);
     return res.status(500).json({ erro: 'Erro ao buscar financeiro' });
+  }
+});
+
+// --- GET /auditoria → histórico de ações administrativas (LGPD/GDPR compliance) ---
+// Query params: recurso, recurso_id, usuario_id, dias (default 90)
+router.get('/auditoria', exigirAdminBackoffice, (req, res) => {
+  try {
+    const filtros = {
+      recurso: req.query.recurso || null,
+      recurso_id: req.query.recurso_id ? parseInt(req.query.recurso_id, 10) : null,
+      usuario_id: req.query.usuario_id ? parseInt(req.query.usuario_id, 10) : null,
+      tenant_id: req.query.tenant_id ? parseInt(req.query.tenant_id, 10) : null,
+      dias: req.query.dias ? parseInt(req.query.dias, 10) : 90,
+    };
+
+    const registros = buscarAuditoria(filtros);
+    res.json({ auditoria: registros, total: registros.length });
+  } catch (err) {
+    console.error('[ADMIN] Erro ao buscar auditoria:', err);
+    return res.status(500).json({ erro: 'Erro ao buscar auditoria' });
+  }
+});
+
+// --- GET /auditoria/:id → detalhes completos de um registro de auditoria ---
+router.get('/auditoria/:id', exigirAdminBackoffice, (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const registro = db.prepare('SELECT * FROM auditoria WHERE id = ?').get(id);
+
+    if (***REMOVED***registro) {
+      return res.status(404).json({ erro: 'Registro de auditoria não encontrado' });
+    }
+
+    // Parse JSON antes e depois (pode ser nulo)
+    if (registro.antes) {
+      try {
+        registro.antes = JSON.parse(registro.antes);
+      } catch (e) { /* deixar como string */ }
+    }
+    if (registro.depois) {
+      try {
+        registro.depois = JSON.parse(registro.depois);
+      } catch (e) { /* deixar como string */ }
+    }
+
+    res.json({ auditoria: registro });
+  } catch (err) {
+    console.error('[ADMIN] Erro ao buscar registro de auditoria:', err);
+    return res.status(500).json({ erro: 'Erro ao buscar registro' });
   }
 });
 

@@ -10,6 +10,7 @@ const helmet = require('helmet');
 const cors = require('cors');
 
 const { exigirLogin, injetarTenant, validarTenantAtivo, garantirTenantId, apenasAdmin, exigirPapel, limiteGlobal, limiteLogin } = require('./middleware/seguranca');
+const { middlewareAuditoria } = require('./middleware/auditoria');
 // PDV: admin OU vendedor (vendedor só vende e opera o caixa)
 const pdvOuAdmin = exigirPapel('admin', 'vendedor');
 const configRouter = require('./routes/config');
@@ -82,6 +83,9 @@ app.use(session({
 
 // ---------- Rate limit global ----------
 app.use('/api', limiteGlobal);
+
+// ---------- Middleware de Auditoria (registra todas as ações admin) ----------
+app.use('/api/admin', middlewareAuditoria);
 
 // ---------- Rotas PÚBLICAS (sem login) ----------
 app.use('/api/login', limiteLogin);              // brute force
