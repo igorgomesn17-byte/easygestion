@@ -107,6 +107,12 @@ raw.exec(`INSERT OR IGNORE INTO config (chave, valor) VALUES ('nfce_csc_id', '')
 raw.exec(`INSERT OR IGNORE INTO config (chave, valor) VALUES ('nfce_serie', '1')`);
 raw.exec(`INSERT OR IGNORE INTO config (chave, valor) VALUES ('nfce_ncm_padrao', '61099000')`);
 raw.exec(`INSERT OR IGNORE INTO config (chave, valor) VALUES ('nfce_cfop_padrao', '5102')`);
+// trocas: colunas de custo para CMVR (v21) — rastreia impacto nas trocas
+garantirColuna('trocas', 'custo_devolvido', 'REAL NOT NULL DEFAULT 0');
+garantirColuna('trocas', 'custo_levado', 'REAL NOT NULL DEFAULT 0');
+garantirColuna('trocas', 'cmvr_bruto', 'REAL NOT NULL DEFAULT 0');
+// troca_itens: custo unitário para auditoria (v21)
+garantirColuna('troca_itens', 'custo_unit', 'REAL NOT NULL DEFAULT 0');
 raw.exec(`INSERT OR IGNORE INTO config (chave, valor) VALUES ('nfce_csosn_padrao', '102')`);
 raw.exec(`INSERT OR IGNORE INTO config (chave, valor) VALUES ('nfce_origem_padrao', '0')`);
 raw.exec(`INSERT OR IGNORE INTO config (chave, valor) VALUES ('nfce_unidade_padrao', 'UN')`);
@@ -162,6 +168,10 @@ garantirColuna('caixa_dia', 'tenant_id', 'INTEGER');
 garantirColuna('caixa_movimentos', 'tenant_id', 'INTEGER');
 garantirColuna('despesas', 'tenant_id', 'INTEGER');
 garantirColuna('trocas', 'tenant_id', 'INTEGER');
+garantirColuna('trocas', 'cancelada', 'INTEGER NOT NULL DEFAULT 0');
+garantirColuna('trocas', 'data_troca', 'TEXT');
+garantirColuna('trocas', 'venda_id', 'INTEGER');
+garantirColuna('troca_itens', 'tenant_id', 'INTEGER');
 garantirColuna('permutas', 'tenant_id', 'INTEGER');
 try { garantirColuna('estoque', 'tenant_id', 'INTEGER'); } catch (e) { /* tabela pode nao existir */ }
 garantirColuna('encomendas', 'tenant_id', 'INTEGER');

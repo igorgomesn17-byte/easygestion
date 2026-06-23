@@ -78,6 +78,12 @@ router.get('/dre', exigirPapel('admin'), limiteCálculoCustoso, middlewareRelato
     FROM vendas WHERE substr(data_hora,1,7) = ? AND tenant_id = ?
   `).get(mes, req.tenantId);
 
+  // trocas do mes (impacto CMVR)
+  const t = db.prepare(`
+    SELECT COALESCE(SUM(cmvr_bruto),0) AS cmvr_trocas
+    FROM trocas WHERE substr(data_hora,1,7) = ? AND tenant_id = ?
+  `).get(mes, req.tenantId);
+
   // Despesas da EMPRESA (operacionais) — só centro='empresa'. Separadas em fixas/variáveis.
   const despFixas = db.prepare(`
     SELECT COALESCE(SUM(valor),0) AS v FROM despesas
@@ -111,7 +117,7 @@ router.get('/dre', exigirPapel('admin'), limiteCálculoCustoso, middlewareRelato
   }
 
   const receitaLiquida = +(receitaBruta - impostos).toFixed(2);
-  const cmv = +v.cmv.toFixed(2);
+  const cmv = +(v.cmv + t.cmvr_trocas).toFixed(2); // CMV + impacto de trocas
   const lucroBruto = +(receitaLiquida - cmv).toFixed(2);
   const taxasCartao = +v.taxas_cartao.toFixed(2);
   const comissoes = +v.comissoes.toFixed(2);
@@ -199,10 +205,10 @@ router.get('/curva-abc', limiteCálculoCustoso, middlewareCurvaAbcComCache, (req
 
   const resultado = { total_faturamento: +totalFat.toFixed(2), itens, resumo };
 
-  // Cachear resultado
-  const de = req.query.de || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-  const ate = req.query.ate || new Date().toISOString().slice(0, 10);
-  const cacheKey = `curva-abc:${de}:${ate}`;
+  // Cachear resultado (usar de/ate já declarados acima)
+  const dePadrao = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const atePadrao = new Date().toISOString().slice(0, 10);
+  const cacheKey = `curva-abc:${de || dePadrao}:${ate || atePadrao}`;
   cacheRelatorioPorTenant.set(req.tenantId, cacheKey, resultado);
 
   res.json(resultado);

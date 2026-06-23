@@ -32,9 +32,9 @@ router.get('/', (req, res) => {
   const { de, ate } = req.query;
   let sql = `SELECT t.*, v.id AS venda_num FROM trocas t LEFT JOIN vendas v ON v.id = t.venda_id AND v.tenant_id = t.tenant_id WHERE t.tenant_id = ?`;
   const params = [req.tenantId];
-  if (de)  { sql += ' AND date(t.data_troca) >= ?'; params.push(de); }
-  if (ate) { sql += ' AND date(t.data_troca) <= ?'; params.push(ate); }
-  sql += ' ORDER BY t.data_troca DESC LIMIT 300';
+  if (de)  { sql += ' AND date(t.data_hora) >= ?'; params.push(de); }
+  if (ate) { sql += ' AND date(t.data_hora) <= ?'; params.push(ate); }
+  sql += ' ORDER BY t.data_hora DESC LIMIT 300';
   res.json(db.prepare(sql).all(...params));
 });
 
@@ -51,7 +51,57 @@ router.get('/prazo/:vendaId', (req, res) => {
 router.get('/:id', (req, res) => {
   const t = db.prepare('SELECT * FROM trocas WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenantId);
   if (***REMOVED***t) return res.status(404).json({ erro: 'Troca não encontrada' });
+  const itens = db.prepare('SELECT * FROM troca_itens WHERE troca_id = ? AND tenant_id = ?').all(t.id, req.tenantId);
+  t.itens = itens;
   res.json(t);
+});
+
+// PATCH /api/trocas/:id/cancelar -> cancela uma troca (reverte estoque e caixa)
+router.patch('/:id/cancelar', (req, res) => {
+  const troca = db.prepare('SELECT * FROM trocas WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenantId);
+  if (***REMOVED***troca) return res.status(404).json({ erro: 'Troca não encontrada' });
+  if (troca.cancelada) return res.status(400).json({ erro: 'Troca já foi cancelada' });
+
+  const tx = db.transaction(() => {
+    const itens = db.prepare('SELECT * FROM troca_itens WHERE troca_id = ? AND tenant_id = ?').all(troca.id, req.tenantId);
+    const baixa = db.prepare('UPDATE variacoes SET quantidade = quantidade - ? WHERE id = ?');
+    const sobe = db.prepare('UPDATE variacoes SET quantidade = quantidade + ? WHERE id = ?');
+    const mov = db.prepare('INSERT INTO movimentos_estoque (variacao_id, tipo, qtd, motivo) VALUES (?, ?, ?, ?)');
+
+    // reverte: devolução são "saidas" (baixa), levação são "entradas" (sobe)
+    for (const it of itens) {
+      if (it.tipo === 'devolvido' && it.variacao_id) {
+        baixa.run(it.qtd, it.variacao_id);
+        mov.run(it.variacao_id, 'saida', -it.qtd, `cancelamento troca #${troca.id} (devolução revertida)`);
+      } else if (it.tipo === 'levado' && it.variacao_id) {
+        sobe.run(it.qtd, it.variacao_id);
+        mov.run(it.variacao_id, 'entrada', it.qtd, `cancelamento troca #${troca.id} (levação revertida)`);
+      }
+    }
+
+    // reverte ajuste de caixa
+    const dataTroca = (troca.data_troca || troca.data_hora || '').split('T')[0];
+    if (dataTroca && troca.diferenca > 0 && troca.forma_pagamento_diferenca === 'dinheiro') {
+      db.prepare('UPDATE caixa_dia SET suprimentos = suprimentos - ? WHERE data = ? AND tenant_id = ?')
+        .run(troca.diferenca, dataTroca, req.tenantId);
+    } else if (dataTroca && troca.diferenca < 0) {
+      const aFavor = Math.abs(troca.diferenca);
+      if (troca.forma_pagamento_diferenca === 'dinheiro') {
+        db.prepare('UPDATE caixa_dia SET sangrias = sangrias - ? WHERE data = ? AND tenant_id = ?')
+          .run(aFavor, dataTroca, req.tenantId);
+      }
+    }
+
+    // marca como cancelada
+    db.prepare('UPDATE trocas SET cancelada = 1 WHERE id = ? AND tenant_id = ?').run(troca.id, req.tenantId);
+  });
+
+  try {
+    tx();
+    res.json({ ok: true, mensagem: 'Troca cancelada e estoque/caixa revertidos' });
+  } catch (e) {
+    res.status(500).json({ erro: e.message });
+  }
 });
 
 // POST /api/trocas
@@ -86,9 +136,9 @@ router.post('/', (req, res) => {
     });
   }
 
-  // resolve dados das pecas levadas
+  // resolve dados das pecas levadas (incluir custo para CMVR)
   const getVar = db.prepare(`
-    SELECT v.id AS variacao_id, v.quantidade, v.tamanho, v.produto_id, p.nome, p.preco_venda
+    SELECT v.id AS variacao_id, v.quantidade, v.tamanho, v.produto_id, p.nome, p.preco_venda, COALESCE(p.custo, 0) AS custo
     FROM variacoes v JOIN produtos p ON p.id = v.produto_id WHERE v.id = ?`);
 
   const levadosResolv = [];
@@ -106,18 +156,38 @@ router.post('/', (req, res) => {
   const valorLevado = levadosResolv.reduce((s, l) => s + l.valor_unit * l.qtd, 0);
   const diferenca = +(valorLevado - valorDevolvido).toFixed(2);
 
+  // Calcula custos (para CMVR na DRE)
+  let custoDevolv = 0;
+  const getVar2 = db.prepare(`
+    SELECT COALESCE(p.custo, 0) AS custo
+    FROM variacoes v JOIN produtos p ON p.id = v.produto_id WHERE v.id = ?`);
+  for (const d of devolvidos) {
+    if (d.variacao_id) {
+      const p = getVar2.get(d.variacao_id);
+      custoDevolv += (p?.custo || 0) * (parseInt(d.qtd, 10) || 1);
+    }
+  }
+  let custoLeva = 0;
+  for (const l of levadosResolv) {
+    if (l.variacao_id) {
+      const p = getVar2.get(l.variacao_id);
+      custoLeva += (p?.custo || 0) * (parseInt(l.qtd, 10) || 1);
+    }
+  }
+  const cmvrBruto = +(custoLeva - custoDevolv).toFixed(2);
+
   const hoje = hojeLocal();
 
   const tx = db.transaction(() => {
-    // 1. registra a troca
+    // 1. registra a troca (com custos para CMVR)
     const info = db.prepare(`
-      INSERT INTO trocas (tenant_id, venda_id, valor_devolvido, valor_levado, diferenca, forma_pagamento_diferenca, obs, data_hora)
-      VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now','localtime'))
-    `).run(req.tenantId, venda_id, +valorDevolvido.toFixed(2), +valorLevado.toFixed(2), diferenca, forma_pagamento, obs);
+      INSERT INTO trocas (tenant_id, venda_id, valor_devolvido, valor_levado, diferenca, forma_pagamento_diferenca, obs, custo_devolvido, custo_levado, cmvr_bruto, data_hora)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now','localtime'))
+    `).run(req.tenantId, venda_id, +valorDevolvido.toFixed(2), +valorLevado.toFixed(2), diferenca, forma_pagamento, obs, +custoDevolv.toFixed(2), +custoLeva.toFixed(2), cmvrBruto);
     const trocaId = info.lastInsertRowid;
 
-    const insItem = db.prepare(`INSERT INTO troca_itens (troca_id, tenant_id, tipo, variacao_id, produto_id, descricao, qtd, valor_unit)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
+    const insItem = db.prepare(`INSERT INTO troca_itens (troca_id, tenant_id, tipo, variacao_id, produto_id, descricao, qtd, valor_unit, custo_unit)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`);
 
     const sobe = db.prepare('UPDATE variacoes SET quantidade = quantidade + ? WHERE id = ?');
     const baixa = db.prepare('UPDATE variacoes SET quantidade = quantidade - ? WHERE id = ?');
@@ -126,7 +196,12 @@ router.post('/', (req, res) => {
     // 2. devolvidos -> voltam ao estoque
     for (const d of devolvidos) {
       const qtd = parseInt(d.qtd,10) || 1;
-      insItem.run(trocaId, req.tenantId, 'devolvido', d.variacao_id || null, d.produto_id || null, d.descricao || null, qtd, parseFloat(d.valor_unit)||0);
+      let custoDev = 0;
+      if (d.variacao_id) {
+        const p = getVar2.get(d.variacao_id);
+        custoDev = p?.custo || 0;
+      }
+      insItem.run(trocaId, req.tenantId, 'devolvido', d.variacao_id || null, d.produto_id || null, d.descricao || null, qtd, parseFloat(d.valor_unit)||0, +custoDev.toFixed(2));
       if (d.variacao_id) {
         sobe.run(qtd, d.variacao_id);
         mov.run(d.variacao_id, 'entrada', qtd, `troca #${trocaId} (devolução)`);
@@ -135,7 +210,7 @@ router.post('/', (req, res) => {
 
     // 3. levados -> saem do estoque
     for (const l of levadosResolv) {
-      insItem.run(trocaId, req.tenantId, 'levado', l.variacao_id, l.produto_id, l.descricao, l.qtd, l.valor_unit);
+      insItem.run(trocaId, req.tenantId, 'levado', l.variacao_id, l.produto_id, l.descricao, l.qtd, l.valor_unit, +l.custo.toFixed(2));
       baixa.run(l.qtd, l.variacao_id);
       mov.run(l.variacao_id, 'saida', -l.qtd, `troca #${trocaId} (saída)`);
     }
