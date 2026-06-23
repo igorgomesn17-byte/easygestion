@@ -12,7 +12,7 @@ function hashSenha(senha) {
   return `scrypt$${salt}$${hash}`;
 }
 function verificarSenha(senha, armazenado) {
-  if (***REMOVED***armazenado || ***REMOVED***armazenado.startsWith('scrypt$')) return false;
+  if (!armazenado || !armazenado.startsWith('scrypt$')) return false;
   const [, salt, hashEsperado] = armazenado.split('$');
   const hash = crypto.scryptSync(String(senha), salt, 64).toString('hex');
   // comparação em tempo constante (evita timing attack)
@@ -50,7 +50,7 @@ function exigirLogin(req, res, next) {
 // só se for o usuário admin do env (compat); senão, negada.
 function exigirPapel(...papeis) {
   return (req, res, next) => {
-    if (***REMOVED***req.session || ***REMOVED***req.session.logado) {
+    if (!req.session || !req.session.logado) {
       return res.status(401).json({ erro: 'Não autenticado', login: true });
     }
     const papel = req.session.papel;

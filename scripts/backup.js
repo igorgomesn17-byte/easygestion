@@ -7,9 +7,9 @@ const path = require('path');
 
 const origem = path.join(__dirname, '..', 'db', 'dsstore.db');
 const destinoDir = path.join(__dirname, '..', 'backup');
-if (***REMOVED***fs.existsSync(destinoDir)) fs.mkdirSync(destinoDir, { recursive: true });
+if (!fs.existsSync(destinoDir)) fs.mkdirSync(destinoDir, { recursive: true });
 
-if (***REMOVED***fs.existsSync(origem)) { console.log('Banco ainda nao existe.'); process.exit(0); }
+if (!fs.existsSync(origem)) { console.log('Banco ainda nao existe.'); process.exit(0); }
 
 const carimbo = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
 const destino = path.join(destinoDir, `dsstore-${carimbo}.db`);

@@ -44,7 +44,7 @@ router.get('/a-pagar', (req, res) => {
 // POST /api/despesas -> cria despesa
 router.post('/', (req, res) => {
   const { descricao, valor, categoria, tipo, centro, data_competencia, vencimento, pago, forma_pagamento, recorrente, obs } = req.body;
-  if (***REMOVED***descricao) return res.status(400).json({ erro: 'Descricao obrigatoria' });
+  if (!descricao) return res.status(400).json({ erro: 'Descricao obrigatoria' });
   const v = parseFloat(valor) || 0;
   const comp = data_competencia || (hojeLocal().slice(0, 7) + '-01');
   const info = db.prepare(`
@@ -59,7 +59,7 @@ router.post('/', (req, res) => {
 // PUT /api/despesas/:id
 router.put('/:id', (req, res) => {
   const d = db.prepare('SELECT id FROM despesas WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenantId);
-  if (***REMOVED***d) return res.status(404).json({ erro: 'Despesa nao encontrada' });
+  if (!d) return res.status(404).json({ erro: 'Despesa nao encontrada' });
   const { descricao, valor, categoria, tipo, centro, data_competencia, vencimento, pago, forma_pagamento, obs } = req.body;
   db.prepare(`
     UPDATE despesas SET descricao=?, valor=?, categoria=?, tipo=?, centro=?, data_competencia=?,
@@ -78,7 +78,7 @@ router.post('/:id/pagar', (req, res) => {
 
   // busca a despesa
   const d = db.prepare('SELECT * FROM despesas WHERE id = ? AND tenant_id = ?').get(despesaId, req.tenantId);
-  if (***REMOVED***d) return res.status(404).json({ erro: 'Despesa não encontrada' });
+  if (!d) return res.status(404).json({ erro: 'Despesa não encontrada' });
 
   const tx = db.transaction(() => {
     // 1. marca como paga

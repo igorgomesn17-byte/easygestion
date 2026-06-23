@@ -28,7 +28,7 @@ router.post('/login', (req, res) => {
   const { usuario, senha } = req.body || {};
 
   // (1) admin do ambiente — usuário vazio ou batendo com o admin
-  const ehAdminEnv = ***REMOVED***usuario || String(usuario).toLowerCase() === usuarioAdmin().toLowerCase();
+  const ehAdminEnv = !usuario || String(usuario).toLowerCase() === usuarioAdmin().toLowerCase();
   if (ehAdminEnv && senha && verificarSenha(senha, hashAdmin())) {
     req.session.logado = true;
     req.session.usuario = usuarioAdmin();
@@ -74,7 +74,7 @@ router.post('/login-sem-senha', (req, res) => {
   const usuario = (req.body?.usuario || '').trim();
 
   // Se vazio ou "admin", loga como admin
-  if (***REMOVED***usuario || usuario.toLowerCase() === 'admin') {
+  if (!usuario || usuario.toLowerCase() === 'admin') {
     req.session.logado = true;
     req.session.usuario = 'admin';
     req.session.papel = 'admin';

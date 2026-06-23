@@ -33,13 +33,13 @@ class LicenseManager {
 
   // Validar código de ativação
   static validateCode(code) {
-    if (***REMOVED***code || typeof code ***REMOVED***== 'string') {
+    if (!code || typeof code !== 'string') {
       return { valid: false, error: 'Código inválido' };
     }
 
     try {
       const parts = code.split('-');
-      if (parts.length ***REMOVED***== 3 || parts[0] ***REMOVED***== 'EG') {
+      if (parts.length !== 3 || parts[0] !== 'EG') {
         return { valid: false, error: 'Formato de código incorreto' };
       }
 
@@ -79,7 +79,7 @@ class LicenseManager {
   static saveLicense(code) {
     const validation = this.validateCode(code);
 
-    if (***REMOVED***validation.valid) {
+    if (!validation.valid) {
       return { success: false, error: validation.error };
     }
 
@@ -87,7 +87,7 @@ class LicenseManager {
       fs.writeFileSync(LICENSE_FILE, code, 'utf8');
       return {
         success: true,
-        message: 'Licença ativada com sucesso***REMOVED***',
+        message: 'Licença ativada com sucesso!',
         expiresAt: validation.expiresAt,
         daysLeft: validation.daysLeft
       };
@@ -99,14 +99,14 @@ class LicenseManager {
   // Verificar se está licenciado
   static isLicensed() {
     try {
-      if (***REMOVED***fs.existsSync(LICENSE_FILE)) {
+      if (!fs.existsSync(LICENSE_FILE)) {
         return { licensed: false, error: 'Licença não encontrada. Ative o sistema.' };
       }
 
       const code = fs.readFileSync(LICENSE_FILE, 'utf8').trim();
       const validation = this.validateCode(code);
 
-      if (***REMOVED***validation.valid) {
+      if (!validation.valid) {
         return { licensed: false, error: validation.error, expiredAt: validation.expiredAt };
       }
 

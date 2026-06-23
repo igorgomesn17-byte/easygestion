@@ -31,12 +31,12 @@ function salvarNfce({ venda_id, ref, ambiente, valor_total, info }) {
 
 // monta a URL absoluta do DANFE/XML na Focus (os caminhos vêm relativos)
 function urlAbsoluta(caminho, ambiente) {
-  if (***REMOVED***caminho) return null;
+  if (!caminho) return null;
   if (/^https?:\/\//i.test(caminho)) return caminho;
   return FOCUS.urlDe(ambiente) + caminho;
 }
 function comUrls(linha) {
-  if (***REMOVED***linha) return linha;
+  if (!linha) return linha;
   return {
     ...linha,
     danfe_url: urlAbsoluta(linha.caminho_danfe, linha.ambiente),
@@ -44,7 +44,7 @@ function comUrls(linha) {
   };
 }
 
-// GET /api/nfce/config -> estado da integração (sem expor o token***REMOVED***)
+// GET /api/nfce/config -> estado da integração (sem expor o token!)
 router.get('/config', (req, res) => {
   const ambiente = getConfig('nfce_ambiente', 'homologacao');
   const ativoStr = getConfig('nfce_ativo', '0');
@@ -72,15 +72,15 @@ router.post('/ativar', (req, res) => {
   const { token, csc_id, ambiente, serie } = req.body;
 
   // Validação básica
-  if (***REMOVED***token || typeof token ***REMOVED***== 'string' || token.trim().length < 10) {
+  if (!token || typeof token !== 'string' || token.trim().length < 10) {
     return res.status(400).json({ erro: 'TOKEN inválido ou muito curto' });
   }
 
-  if (***REMOVED***csc_id || typeof csc_id ***REMOVED***== 'string' || csc_id.trim().length < 3) {
+  if (!csc_id || typeof csc_id !== 'string' || csc_id.trim().length < 3) {
     return res.status(400).json({ erro: 'CSC ID inválido' });
   }
 
-  if (***REMOVED***['homologacao', 'producao'].includes(ambiente)) {
+  if (!['homologacao', 'producao'].includes(ambiente)) {
     return res.status(400).json({ erro: 'Ambiente deve ser "homologacao" ou "producao"' });
   }
 
@@ -121,7 +121,7 @@ router.post('/ativar', (req, res) => {
 
     res.status(201).json({
       ok: true,
-      mensagem: 'NFC-e ativada com sucesso***REMOVED***',
+      mensagem: 'NFC-e ativada com sucesso!',
       ambiente,
       serie: serieNum,
     });
@@ -197,11 +197,11 @@ router.get('/venda/:vendaId', (req, res) => {
 // Emite a NFC-e da venda. Se já existe uma autorizada, não duplica.
 // Usa token do cliente (se configurado) ou token do .env (fallback)
 router.post('/emitir/:vendaId', async (req, res) => {
-  if (getConfig('nfce_ativo', '0') ***REMOVED***== '1') {
+  if (getConfig('nfce_ativo', '0') !== '1') {
     return res.status(400).json({ erro: 'A emissão de NFC-e está desligada. Ative em Configurações.' });
   }
   const venda = db.prepare('SELECT * FROM vendas WHERE id = ?').get(req.params.vendaId);
-  if (***REMOVED***venda) return res.status(404).json({ erro: 'Venda não encontrada' });
+  if (!venda) return res.status(404).json({ erro: 'Venda não encontrada' });
 
   // não duplica: se já tem nota autorizada/processando, devolve a existente
   const existente = db.prepare(
@@ -239,7 +239,7 @@ router.get('/status/:vendaId', async (req, res) => {
   const linha = db.prepare(
     'SELECT * FROM nfce WHERE venda_id = ? ORDER BY id DESC'
   ).get(req.params.vendaId);
-  if (***REMOVED***linha) return res.status(404).json({ erro: 'Nenhuma NFC-e para esta venda' });
+  if (!linha) return res.status(404).json({ erro: 'Nenhuma NFC-e para esta venda' });
   if (linha.status === 'autorizado' || linha.status === 'cancelado') return res.json(comUrls(linha));
 
   const tokenCliente = getConfig('nfce_token_cliente', null);
@@ -261,7 +261,7 @@ router.delete('/cancelar/:vendaId', async (req, res) => {
   const linha = db.prepare(
     "SELECT * FROM nfce WHERE venda_id = ? AND status = 'autorizado' ORDER BY id DESC"
   ).get(req.params.vendaId);
-  if (***REMOVED***linha) return res.status(404).json({ erro: 'Nenhuma NFC-e autorizada para cancelar' });
+  if (!linha) return res.status(404).json({ erro: 'Nenhuma NFC-e autorizada para cancelar' });
   const justificativa = (req.body && req.body.justificativa || '').trim();
   if (justificativa.length < 15) {
     return res.status(400).json({ erro: 'A justificativa do cancelamento precisa ter pelo menos 15 caracteres.' });

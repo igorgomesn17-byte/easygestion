@@ -16,7 +16,7 @@ const router = express.Router();
 
 // --- GET /minha → detalhes da assinatura do cliente logado ---
 router.get('/minha', (req, res) => {
-  if (***REMOVED***req.session?.logado || ***REMOVED***req.session?.tenant_id) {
+  if (!req.session?.logado || !req.session?.tenant_id) {
     return res.status(401).json({ erro: 'Não autenticado' });
   }
 
@@ -25,7 +25,7 @@ router.get('/minha', (req, res) => {
     const assinatura = db.prepare('SELECT * FROM assinaturas WHERE tenant_id = ?').get(tenantId);
     const status = obterStatusAssinatura(tenantId);
 
-    if (***REMOVED***assinatura) {
+    if (!assinatura) {
       return res.json({
         assinatura: null,
         status,
@@ -45,7 +45,7 @@ router.get('/minha', (req, res) => {
 
 // --- GET /pagamentos → histórico de cobranças do cliente ---
 router.get('/pagamentos', (req, res) => {
-  if (***REMOVED***req.session?.logado || ***REMOVED***req.session?.tenant_id) {
+  if (!req.session?.logado || !req.session?.tenant_id) {
     return res.status(401).json({ erro: 'Não autenticado' });
   }
 
@@ -70,7 +70,7 @@ router.get('/pagamentos', (req, res) => {
         resumo.total_pago += c.valor;
       } else if (c.status === 'pendente') {
         resumo.total_pendente += c.valor;
-        if (***REMOVED***resumo.proxima_cobranca || c.data_cobranca < resumo.proxima_cobranca) {
+        if (!resumo.proxima_cobranca || c.data_cobranca < resumo.proxima_cobranca) {
           resumo.proxima_cobranca = c.data_cobranca;
         }
       }
@@ -88,7 +88,7 @@ router.get('/pagamentos', (req, res) => {
 
 // --- POST /checkout → inicia Stripe Checkout Session ---
 router.post('/checkout', (req, res) => {
-  if (***REMOVED***req.session?.logado || ***REMOVED***req.session?.tenant_id) {
+  if (!req.session?.logado || !req.session?.tenant_id) {
     return res.status(401).json({ erro: 'Não autenticado' });
   }
 
@@ -96,7 +96,7 @@ router.post('/checkout', (req, res) => {
     const tenantId = req.session.tenant_id;
     const { plano } = req.body;
 
-    if (***REMOVED***plano || ***REMOVED***['basico', 'crescimento', 'premium'].includes(plano)) {
+    if (!plano || !['basico', 'crescimento', 'premium'].includes(plano)) {
       return res.status(400).json({ erro: 'Plano inválido' });
     }
 
@@ -116,7 +116,7 @@ router.post('/checkout', (req, res) => {
 
 // --- GET /portal → abre Stripe Customer Portal (gerenciar cartão, cancelar) ---
 router.get('/portal', (req, res) => {
-  if (***REMOVED***req.session?.logado || ***REMOVED***req.session?.tenant_id) {
+  if (!req.session?.logado || !req.session?.tenant_id) {
     return res.status(401).json({ erro: 'Não autenticado' });
   }
 
@@ -181,7 +181,7 @@ router.get('/admin/assinaturas/:id', apenasAdmin, (req, res) => {
       WHERE a.id = ?
     `).get(req.params.id);
 
-    if (***REMOVED***assinatura) {
+    if (!assinatura) {
       return res.status(404).json({ erro: 'Assinatura não encontrada' });
     }
 
@@ -206,13 +206,13 @@ router.get('/admin/assinaturas/:id', apenasAdmin, (req, res) => {
 router.patch('/admin/assinaturas/:id', apenasAdmin, (req, res) => {
   try {
     const assinatura = db.prepare('SELECT * FROM assinaturas WHERE id = ?').get(req.params.id);
-    if (***REMOVED***assinatura) {
+    if (!assinatura) {
       return res.status(404).json({ erro: 'Assinatura não encontrada' });
     }
 
     const { plano, valor_mensal } = req.body;
 
-    if (***REMOVED***plano || ***REMOVED***valor_mensal) {
+    if (!plano || !valor_mensal) {
       return res.status(400).json({ erro: 'Plano e valor_mensal são obrigatórios' });
     }
 
@@ -243,7 +243,7 @@ router.patch('/admin/assinaturas/:id', apenasAdmin, (req, res) => {
 router.delete('/admin/assinaturas/:id', apenasAdmin, (req, res) => {
   try {
     const assinatura = db.prepare('SELECT * FROM assinaturas WHERE id = ?').get(req.params.id);
-    if (***REMOVED***assinatura) {
+    if (!assinatura) {
       return res.status(404).json({ erro: 'Assinatura não encontrada' });
     }
 

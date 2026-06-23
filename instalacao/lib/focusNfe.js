@@ -145,7 +145,7 @@ function montarPayloadNfce(venda, ref) {
 // Chamada HTTP genérica à Focus (Basic Auth: token como usuário, senha vazia).
 async function focusRequest(ambiente, metodo, caminho, corpo) {
   const token = FOCUS.tokenDe(ambiente);
-  if (***REMOVED***token) {
+  if (!token) {
     const err = new Error(`Integração NFC-e não configurada (falta o token de ${ambiente} no .env)`);
     err.status = 503;
     throw err;

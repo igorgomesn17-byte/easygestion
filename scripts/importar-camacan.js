@@ -15,7 +15,7 @@ const JSON_PATH = path.join(__dirname, '..', '..', '..', '06-CLIENTES', '_camaca
 function soDigitos(t) { return String(t || '').replace(/\D/g, ''); }
 function chaveTel(t) { const d = soDigitos(t); return d.slice(-8); } // ignora DDD/9 pra casar duplicado
 
-if (***REMOVED***fs.existsSync(JSON_PATH)) {
+if (!fs.existsSync(JSON_PATH)) {
   console.error('Arquivo não encontrado:', JSON_PATH, '\nRode antes o _to_json.py em 06-CLIENTES.');
   process.exit(1);
 }
@@ -35,7 +35,7 @@ let inseridos = 0, pulados = 0;
 const tx = db.transaction(() => {
   for (const c of lista) {
     const k = chaveTel(c.telefone);
-    if (***REMOVED***k || jaTem.has(k)) { pulados++; continue; }
+    if (!k || jaTem.has(k)) { pulados++; continue; }
     insert.run(c.nome, soDigitos(c.telefone), c.total_gasto || 0, c.num_compras || 0, c.ultima_compra || null);
     jaTem.add(k);
     inseridos++;

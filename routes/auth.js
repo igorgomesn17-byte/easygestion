@@ -19,7 +19,7 @@ function validarEmail(email) {
 
 // Sanitização básica (remove caracteres perigosos)
 function sanitizar(texto) {
-  if (***REMOVED***texto) return '';
+  if (!texto) return '';
   return String(texto)
     .trim()
     .substring(0, 500)
@@ -46,7 +46,7 @@ function usuarioAdmin() { return getConfig('admin_usuario', 'igor'); }
 router.post('/admin/login', limiteAdminPassword, (req, res) => {
   const { senha } = req.body || {};
 
-  if (***REMOVED***senha) {
+  if (!senha) {
     return res.status(400).json({ erro: 'Senha é obrigatória' });
   }
 
@@ -69,7 +69,7 @@ router.post('/login', (req, res) => {
   const { email, senha } = req.body || {};
 
   // Se vier vazio (compatibilidade com admin do .env)
-  if (***REMOVED***email && senha && verificarSenha(senha, hashAdmin())) {
+  if (!email && senha && verificarSenha(senha, hashAdmin())) {
     req.session.logado = true;
     req.session.usuario = usuarioAdmin();
     req.session.papel = 'admin';
@@ -79,15 +79,15 @@ router.post('/login', (req, res) => {
   }
 
   // Login por email (tabela de usuários)
-  if (***REMOVED***email || ***REMOVED***senha) {
+  if (!email || !senha) {
     return res.status(400).json({ erro: 'Email e senha são obrigatórios' });
   }
 
   const u = db.prepare('SELECT * FROM usuarios WHERE LOWER(email) = LOWER(?) AND ativo = 1').get(email.trim());
   if (u && verificarSenha(senha, u.senha_hash)) {
     // ⚠️ tenant_id deve estar sempre presente em DB (NOT NULL)
-    if (***REMOVED***u.tenant_id) {
-      console.error(`[LOGIN ERRO] ${u.email} não tem tenant_id no DB***REMOVED*** Bloqueando login.`);
+    if (!u.tenant_id) {
+      console.error(`[LOGIN ERRO] ${u.email} não tem tenant_id no DB! Bloqueando login.`);
       return res.status(500).json({ erro: 'Erro de configuração (contate suporte)' });
     }
 
@@ -120,27 +120,27 @@ router.post('/registro', (req, res) => {
   const { email, senha, nome_loja, nome_responsavel, telefone } = req.body || {};
 
   // Validações
-  if (***REMOVED***validarEmail(email)) {
+  if (!validarEmail(email)) {
     return res.status(400).json({ erro: 'Email inválido' });
   }
   const validacaoSenha = validarSenha(senha);
-  if (***REMOVED***validacaoSenha.valida) {
+  if (!validacaoSenha.valida) {
     return res.status(400).json({ erro: validacaoSenha.erro });
   }
   const nomeLoja = sanitizar(nome_loja);
   const nomeResponsavel = sanitizar(nome_responsavel);
   const telefoneLimpo = sanitizar(telefone);
 
-  if (***REMOVED***nomeLoja) {
+  if (!nomeLoja) {
     return res.status(400).json({ erro: 'Nome da loja é obrigatório' });
   }
-  if (***REMOVED***nomeResponsavel) {
+  if (!nomeResponsavel) {
     return res.status(400).json({ erro: 'Nome do responsável é obrigatório' });
   }
-  if (***REMOVED***telefoneLimpo) {
+  if (!telefoneLimpo) {
     return res.status(400).json({ erro: 'Telefone é obrigatório' });
   }
-  if (***REMOVED***/^\d{10,11}$/.test(telefoneLimpo.replace(/\D/g, ''))) {
+  if (!/^\d{10,11}$/.test(telefoneLimpo.replace(/\D/g, ''))) {
     return res.status(400).json({ erro: 'Telefone deve ter 10 ou 11 dígitos' });
   }
 
@@ -188,7 +188,7 @@ router.post('/registro', (req, res) => {
     console.log(`[REGISTRO OK] ${email} (tenant ${r.tenantId}) • ${req.ip} • ${new Date().toISOString()}`);
     return res.status(201).json({
       ok: true,
-      mensagem: 'Conta criada com sucesso***REMOVED***',
+      mensagem: 'Conta criada com sucesso!',
       usuario: nome_loja.trim(),
       email: email.trim(),
       papel: 'admin',
@@ -216,13 +216,13 @@ router.get('/me', (req, res) => {
 // Envia email com link para redefinir senha
 router.post('/forgot-password', limiteForgotPassword, async (req, res) => {
   const { email } = req.body;
-  if (***REMOVED***email || ***REMOVED***email.includes('@')) {
+  if (!email || !email.includes('@')) {
     return res.status(400).json({ erro: 'Email inválido' });
   }
 
   // Procura usuário
   const user = db.prepare('SELECT * FROM usuarios WHERE LOWER(email) = LOWER(?)').get(email.trim());
-  if (***REMOVED***user) {
+  if (!user) {
     // NÃO expor se existe ou não (segurança)
     return res.json({ ok: true, mensagem: 'Se existe uma conta com este email, um link foi enviado.' });
   }
@@ -252,27 +252,27 @@ router.post('/forgot-password', limiteForgotPassword, async (req, res) => {
 // Reseta a senha com token válido
 router.post('/reset-senha', limiteResetSenha, (req, res) => {
   const { token, nova_senha } = req.body;
-  if (***REMOVED***token) {
+  if (!token) {
     return res.status(400).json({ erro: 'Token ausente' });
   }
   const validacaoSenha = validarSenha(nova_senha);
-  if (***REMOVED***validacaoSenha.valida) {
+  if (!validacaoSenha.valida) {
     return res.status(400).json({ erro: validacaoSenha.erro });
   }
 
   try {
     // (1) Valida token JWT
     const decoded = jwt.verify(token, TOKEN_SECRET);
-    if (decoded.tipo ***REMOVED***== 'reset') throw new Error('Token inválido');
+    if (decoded.tipo !== 'reset') throw new Error('Token inválido');
 
     // (2) Procura usuário
     const user = db.prepare('SELECT * FROM usuarios WHERE id = ?').get(decoded.id);
-    if (***REMOVED***user) return res.status(404).json({ erro: 'Usuário não encontrado' });
+    if (!user) return res.status(404).json({ erro: 'Usuário não encontrado' });
 
     // (3) Valida token no BD
     const tokenRec = db.prepare('SELECT * FROM tokens_verificacao WHERE token = ? AND tipo = ?')
       .get(token, 'reset-senha');
-    if (***REMOVED***tokenRec || tokenRec.usado_em) {
+    if (!tokenRec || tokenRec.usado_em) {
       return res.status(400).json({ erro: 'Token já foi usado ou expirou' });
     }
 
@@ -284,7 +284,7 @@ router.post('/reset-senha', limiteResetSenha, (req, res) => {
         .run(new Date().toISOString(), tokenRec.id);
     })();
 
-    return res.json({ ok: true, mensagem: 'Senha redefinida com sucesso***REMOVED***' });
+    return res.json({ ok: true, mensagem: 'Senha redefinida com sucesso!' });
   } catch (err) {
     console.error('Reset error:', err.message);
     return res.status(400).json({ erro: 'Token inválido ou expirado' });
@@ -294,33 +294,33 @@ router.post('/reset-senha', limiteResetSenha, (req, res) => {
 // PATCH /api/me/senha { senha_atual, senha_nova }
 // Usuário altera sua própria senha
 router.patch('/me/senha', (req, res) => {
-  if (***REMOVED***req.session || ***REMOVED***req.session.logado) {
+  if (!req.session || !req.session.logado) {
     return res.status(401).json({ erro: 'Não autenticado' });
   }
 
   const { senha_atual, senha_nova } = req.body;
-  if (***REMOVED***senha_atual) {
+  if (!senha_atual) {
     return res.status(400).json({ erro: 'Senha atual é obrigatória' });
   }
 
   const validacaoSenha = validarSenha(senha_nova);
-  if (***REMOVED***validacaoSenha.valida) {
+  if (!validacaoSenha.valida) {
     return res.status(400).json({ erro: validacaoSenha.erro });
   }
 
   // Procura usuário
   const user = db.prepare('SELECT * FROM usuarios WHERE nome = ? AND ativo = 1')
     .get(req.session.usuario);
-  if (***REMOVED***user) return res.status(404).json({ erro: 'Usuário não encontrado' });
+  if (!user) return res.status(404).json({ erro: 'Usuário não encontrado' });
 
   // Valida senha atual
-  if (***REMOVED***verificarSenha(senha_atual, user.senha_hash)) {
+  if (!verificarSenha(senha_atual, user.senha_hash)) {
     return res.status(403).json({ erro: 'Senha atual incorreta' });
   }
 
   // Valida que a nova senha é diferente da antiga
   const naoReutilizada = validarNaoReutilizada(senha_nova, user.senha_hash);
-  if (***REMOVED***naoReutilizada.valida) {
+  if (!naoReutilizada.valida) {
     return res.status(400).json({ erro: naoReutilizada.erro });
   }
 
@@ -328,17 +328,17 @@ router.patch('/me/senha', (req, res) => {
   db.prepare('UPDATE usuarios SET senha_hash = ? WHERE id = ?')
     .run(hashSenha(senha_nova), user.id);
 
-  res.json({ ok: true, mensagem: 'Senha alterada com sucesso***REMOVED***' });
+  res.json({ ok: true, mensagem: 'Senha alterada com sucesso!' });
 });
 
 // GET /api/me/dados
 // Exportar dados do usuário em JSON (LGPD - direito de portabilidade)
 router.get('/me/dados', (req, res) => {
-  if (***REMOVED***req.session || ***REMOVED***req.session.logado) {
+  if (!req.session || !req.session.logado) {
     return res.status(401).json({ erro: 'Não autenticado' });
   }
 
-  if (***REMOVED***req.tenantId) {
+  if (!req.tenantId) {
     return res.status(401).json({ erro: 'Tenant não identificado' });
   }
   const usuario = db.prepare('SELECT id, nome, email, papel, criado_em FROM usuarios WHERE nome = ? AND tenant_id = ?')
@@ -358,7 +358,7 @@ router.get('/me/dados', (req, res) => {
 // Usuário solicita deleção de conta (LGPD - direito ao esquecimento)
 // Grace period: 30 dias antes da deleção efetiva (cancelável nesse período)
 router.delete('/me/conta', (req, res) => {
-  if (***REMOVED***req.session || ***REMOVED***req.session.logado) {
+  if (!req.session || !req.session.logado) {
     return res.status(401).json({ erro: 'Não autenticado' });
   }
 
@@ -366,7 +366,7 @@ router.delete('/me/conta', (req, res) => {
   const user = db.prepare('SELECT * FROM usuarios WHERE nome = ?')
     .get(req.session.usuario);
 
-  if (***REMOVED***verificarSenha(senha, user.senha_hash)) {
+  if (!verificarSenha(senha, user.senha_hash)) {
     return res.status(403).json({ erro: 'Senha incorreta' });
   }
 

@@ -13,15 +13,15 @@ const { apenasAdmin } = require('../middleware/seguranca');
 const DIR_MARCA = process.env.UPLOADS_DIR
   ? path.join(process.env.UPLOADS_DIR, 'marca')
   : path.join(__dirname, '..', 'public', 'img', 'marca');
-if (***REMOVED***fs.existsSync(DIR_MARCA)) fs.mkdirSync(DIR_MARCA, { recursive: true });
+if (!fs.existsSync(DIR_MARCA)) fs.mkdirSync(DIR_MARCA, { recursive: true });
 const MAX_LOGO_BYTES = 2 * 1024 * 1024; // 2MB
 
 // Salva a logo base64 (data URL). Aceita SÓ raster (png/jpg/webp) — bloqueia svg
 // (pode conter script) e limita tamanho. Mesmo padrão das fotos de produto.
 function salvarLogoBase64(dataUrl) {
-  if (***REMOVED***dataUrl || typeof dataUrl ***REMOVED***== 'string') return null;
+  if (!dataUrl || typeof dataUrl !== 'string') return null;
   const m = dataUrl.match(/^data:image\/(png|jpe?g|webp);base64,([A-Za-z0-9+/=]+)$/i);
-  if (***REMOVED***m) return null;
+  if (!m) return null;
   const buf = Buffer.from(m[2], 'base64');
   if (buf.length === 0 || buf.length > MAX_LOGO_BYTES) return null;
   const ext = m[1].toLowerCase() === 'jpeg' ? 'jpg' : m[1].toLowerCase();
@@ -42,7 +42,7 @@ router.get('/', (req, res) => {
   const rows = db.prepare('SELECT chave, valor FROM config WHERE tenant_id = ?').all(req.tenantId);
   const obj = {};
   for (const r of rows) {
-    if (***REMOVED***ehAdmin && ehSensivel(r.chave)) continue; // esconde financeiro de não-admin
+    if (!ehAdmin && ehSensivel(r.chave)) continue; // esconde financeiro de não-admin
     obj[r.chave] = r.valor;
   }
   res.json(obj);
@@ -70,7 +70,7 @@ router.post('/', apenasAdmin, (req, res) => {
 // e grava o caminho em config.loja_logo. Devolve o caminho pra o front atualizar na hora.
 router.post('/logo', apenasAdmin, (req, res) => {
   const caminho = salvarLogoBase64(req.body && req.body.logo);
-  if (***REMOVED***caminho) return res.status(400).json({ erro: 'Imagem inválida. Envie PNG, JPG ou WEBP de até 2MB.' });
+  if (!caminho) return res.status(400).json({ erro: 'Imagem inválida. Envie PNG, JPG ou WEBP de até 2MB.' });
   db.prepare('INSERT INTO config (chave, valor, tenant_id) VALUES (?, ?, ?) ON CONFLICT(chave, tenant_id) DO UPDATE SET valor=excluded.valor')
     .run('loja_logo', caminho, req.tenantId);
   res.json({ ok: true, loja_logo: caminho });
@@ -112,24 +112,24 @@ function descriptografarCertificado(encrypted64) {
 // Valida, criptografa e armazena no banco
 router.post('/certificado-a1', apenasAdmin, async (req, res) => {
   const { certificado, senha } = req.body;
-  if (***REMOVED***certificado || ***REMOVED***senha) {
+  if (!certificado || !senha) {
     return res.status(400).json({ erro: 'Envie certificado e senha' });
   }
 
   try {
     const m = certificado.match(/^data:application\/(x-pkcs12|octet-stream);base64,([A-Za-z0-9+/=]+)$/i);
-    if (***REMOVED***m) {
+    if (!m) {
       // Tenta aceitar também .pfx direto como base64
       const m2 = certificado.match(/^data:application\/x-pkcs12;base64,([A-Za-z0-9+/=]+)$/i) ||
                  certificado.match(/^([A-Za-z0-9+/=]+)$/);
-      if (***REMOVED***m2) return res.status(400).json({ erro: 'Formato de certificado inválido' });
+      if (!m2) return res.status(400).json({ erro: 'Formato de certificado inválido' });
     }
 
     const base64Str = m ? m[2] : (m2 ? m2[1] : null);
     const certBuffer = Buffer.from(base64Str, 'base64');
 
     // Validação básica (um arquivo .pfx válido começa com 0x30 0x82)
-    if (certBuffer.length < 100 || (certBuffer[0] ***REMOVED***== 0x30)) {
+    if (certBuffer.length < 100 || (certBuffer[0] !== 0x30)) {
       return res.status(400).json({ erro: 'Arquivo não parece ser um certificado válido (.pfx/.p12)' });
     }
 
@@ -149,14 +149,14 @@ router.post('/certificado-a1', apenasAdmin, async (req, res) => {
     db.prepare('INSERT INTO config (chave, valor, tenant_id) VALUES (?, ?, ?) ON CONFLICT(chave, tenant_id) DO UPDATE SET valor=excluded.valor')
       .run('nfce_certificado_vencimento', '2026-12-31', req.tenantId);
 
-    res.json({ ok: true, vencimento: '2026-12-31', mensagem: 'Certificado instalado com segurança***REMOVED***' });
+    res.json({ ok: true, vencimento: '2026-12-31', mensagem: 'Certificado instalado com segurança!' });
   } catch (e) {
     console.error('Erro ao processar certificado:', e);
     res.status(400).json({ erro: 'Erro ao processar certificado: ' + e.message });
   }
 });
 
-// GET /config/certificado-a1 — retorna status (NÃO o certificado em si***REMOVED***)
+// GET /config/certificado-a1 — retorna status (NÃO o certificado em si!)
 router.get('/certificado-a1', apenasAdmin, (req, res) => {
   const stmt = db.prepare('SELECT valor FROM config WHERE chave = ? AND tenant_id = ?');
   const certInstaled = stmt.get('nfce_certificado_instalado', req.tenantId);

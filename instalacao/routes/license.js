@@ -15,7 +15,7 @@ router.get('/check', (req, res) => {
 router.post('/activate', (req, res) => {
   const { code } = req.body;
 
-  if (***REMOVED***code) {
+  if (!code) {
     return res.json({ success: false, error: 'Código não fornecido' });
   }
 
@@ -26,7 +26,7 @@ router.post('/activate', (req, res) => {
 // GET /api/license/generate — Gerar novo código (ADMIN ONLY)
 // Use em localhost:3000/api/license/generate?name=Cliente%20Teste
 router.get('/generate', (req, res) => {
-  // Apenas em desenvolvimento (remover em produção***REMOVED***)
+  // Apenas em desenvolvimento (remover em produção!)
   if (process.env.NODE_ENV === 'production') {
     return res.status(403).json({ error: 'Não permitido em produção' });
   }

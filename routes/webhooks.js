@@ -40,7 +40,7 @@ router.post('/stripe', verificarAssinaturaStripe, async (req, res) => {
     res.json({ received: true, type: event.type });
   } catch (err) {
     console.error('[Webhook] Erro ao processar evento:', err.message);
-    // Stripe vai retentar se retornar status ***REMOVED***= 200
+    // Stripe vai retentar se retornar status != 200
     return res.status(500).json({ erro: 'Erro ao processar webhook' });
   }
 });

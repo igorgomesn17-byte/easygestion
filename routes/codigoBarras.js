@@ -34,7 +34,7 @@ router.get('/:codigo.png', async (req, res) => {
 // GET /api/codigo-barras/etiquetas/:produtoId  -> dados para folha de etiquetas
 router.get('/etiquetas/:produtoId', (req, res) => {
   const p = db.prepare('SELECT codigo, codigo_barras, nome, preco_venda FROM produtos WHERE id = ?').get(req.params.produtoId);
-  if (***REMOVED***p) return res.status(404).json({ erro: 'Produto nao encontrado' });
+  if (!p) return res.status(404).json({ erro: 'Produto nao encontrado' });
   res.json(p);
 });
 

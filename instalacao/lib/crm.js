@@ -7,7 +7,7 @@
 const { db, getConfig } = require('../db/database');
 
 // ---------- Helpers ----------
-function cfgNum(chave, fallback) { const v = getConfig(chave, null); return v ***REMOVED***== null ? parseFloat(v) : fallback; }
+function cfgNum(chave, fallback) { const v = getConfig(chave, null); return v !== null ? parseFloat(v) : fallback; }
 function clubeAtivo() { return getConfig('clube_ativo', '1') === '1'; }
 function apelido(nome) { return (nome || '').trim().split(/\s+/)[0] || 'cliente'; }
 function soDigitos(t) { return String(t || '').replace(/\D/g, ''); }
@@ -59,27 +59,27 @@ const CUPONS = {
 
 // ---------- Mensagens (tom DS) ----------
 const M = {
-  dia1: (ap) => `Oi ${ap}***REMOVED*** 🥰 Que alegria ter você aqui na ${lojaNome()}***REMOVED***\n\nSua compra foi confirmada e mal podemos esperar pra você arrasar com a peça nova 🤎\n\nSegue a gente no Instagram pra ver os lançamentos em primeira mão:\n📲 ${lojaInsta()}${lojaInstaUrl() ? '\n👉 ' + lojaInstaUrl() : ''}\n\nObrigada por escolher a ${lojaNome()}***REMOVED*** 🛍️`,
-  clube_bv: (ap, c) => `Oi ${ap}***REMOVED*** 🤎\nSeja muito bem-vinda ao ${clubeNome()}***REMOVED*** 🎉\n\nCom cada R$ ${c.valorSelo} em compras você acumula 1 selo.\nComplete ${c.totalSelos} selos e ganhe R$ ${c.valorPremio} pra usar como quiser aqui na loja***REMOVED*** 🎁\n\nVocê já deu o primeiro passo — continue acumulando e aproveite as vantagens de ser uma DS Lover***REMOVED***`,
-  clube_progresso: (ap, s) => `Oi ${ap}***REMOVED*** 🌟\nVocê já tem ${s.noCiclo} selos no ${clubeNome()}***REMOVED*** ${s.noCiclo >= 7 ? '🔥 Tá quase lá***REMOVED***' : '💪 Continue assim***REMOVED***'}\n\nFaltam só ${s.faltam} selos pra você ganhar R$ ${s.valorPremio} de presente 🎁\nCada R$ ${s.valorSelo} em compras = 1 selo a mais***REMOVED***\n\nVem garantir os próximos***REMOVED*** 🤎`,
-  clube_completo: (ap, c) => `Oi ${ap}***REMOVED*** 🎊🎉\nPARABÉNS***REMOVED*** Você completou o cartão do ${clubeNome()}***REMOVED***\n\nVocê ganhou R$ ${c.valorPremio} pra usar na sua próxima compra aqui na ${lojaNome()}***REMOVED*** 🎁\n\nÉ só passar por aqui e apresentar essa mensagem 😊\nObrigada por ser uma DS Lover tão especial***REMOVED*** 🤎`,
-  pos_venda1: (ap) => `Oi ${ap}***REMOVED*** 😊 Tudo bem?\nPassando pra saber se você ficou feliz com sua compra na ${lojaNome()}***REMOVED*** 🛍️\n\nPode me contar rapidinho?\n⭐ De 1 a 5, que nota você dá pra sua experiência?\n👗 A peça ficou como esperava? O caimento ficou bom?\n\nSua opinião é muito importante pra a gente***REMOVED*** 🤎`,
-  google: (ap, link) => `Oi ${ap}***REMOVED*** ⭐\nObrigada por ser uma DS Lover***REMOVED*** Sua presença na ${lojaNome()} faz toda diferença 🤎\n\nVocê teria 1 minutinho pra deixar sua avaliação no Google? Isso ajuda muito a gente a crescer 🙏${link ? '\n\n👉 ' + link : ''}\n\nMuito obrigada***REMOVED***`,
-  pos_venda2: (ap, c) => `Oi ${ap}***REMOVED*** 🌟\nEsperamos que esteja amando sua peça da ${lojaNome()}***REMOVED*** 🤎\n\nVocê faz parte do ${clubeNome()}: a cada R$ ${c.valorSelo} em compras acumula 1 selo — complete ${c.totalSelos} e ganhe R$ ${c.valorPremio}***REMOVED*** 🎁\n\nE se indicar uma amiga e ela comprar, você ganha um mimo especial 😉 É só mandar o contato dela***REMOVED***`,
-  pre_aniversario: (ap) => { const c = CUPONS.pre_aniversario; return `Oi ${ap}***REMOVED*** 🎉\nSeu aniversário tá chegando e o ${clubeNome()} preparou algo especial***REMOVED***\n\nPassa aqui na ${lojaNome()} antes do seu dia e ganhe ${c.desconto}% de desconto em toda a loja 🎁\n\n🎟️ Seu cupom exclusivo: *${c.codigo}*\n⏳ Válido por ${c.validade} dias — não deixa passar***REMOVED***\n\nVocê merece ser celebrada com muito estilo***REMOVED*** 🤎`; },
-  aniversario: (ap) => { const c = CUPONS.aniversario; return `Feliz aniversário, ${ap}***REMOVED*** 🎂🎉\nQue seu dia seja tão lindo quanto você***REMOVED***\n\nO ${clubeNome()} tem um presente: ${c.desconto}% de desconto em toda a ${lojaNome()}***REMOVED*** 🎁\n\n🎟️ Seu cupom: *${c.codigo}*\n⏳ Válido por ${c.validade} dias — aproveita***REMOVED***\n\nPassa pra celebrar com a gente***REMOVED*** 🤎`; },
-  retorno: (ap) => `Oi ${ap}***REMOVED*** 🌸\nChegaram novidades aqui na ${lojaNome()} e lembrei de você***REMOVED*** 😍\n\nTem peças que ficam tudo no seu estilo — e cada compra acumula mais um selo no seu ${clubeNome()}***REMOVED*** 🎁\nVem dar uma olhadinha?`,
-  reat1: (ap, c) => `Oi ${ap}***REMOVED*** 🌸\nSentimos sua falta aqui na ${lojaNome()}***REMOVED***\n\nChegaram peças lindas essa semana e lembrei de você 😍\nSeus selos do ${clubeNome()} ainda estão te esperando — cada visita te deixa mais perto dos R$ ${c.valorPremio} de presente***REMOVED*** 🎁\n\nVem dar uma olhadinha?`,
-  reat2: (ap) => { const c = CUPONS.reat2; return `Oi ${ap}***REMOVED*** 💕\nFaz um tempinho que você não passa aqui na ${lojaNome()} e a gente quer muito te ver***REMOVED***\n\nPreparamos um cupom exclusivo de ${c.desconto}% pra você voltar com tudo 🎁\n🎟️ Cupom: *${c.codigo}*\n⏳ Válido por ${c.validade} dias — corre***REMOVED***\n\nTe esperamos***REMOVED*** 🤎`; },
-  reat3: (ap) => { const c = CUPONS.reat3; return `Oi ${ap}***REMOVED*** 💌\nÉ a ${lojaNome()}***REMOVED*** Não te esquecemos não 😊\n\nNosso melhor cupom, especialmente pra você voltar: ${c.desconto}% de desconto em toda a loja***REMOVED*** 🎁\n🎟️ Cupom: *${c.codigo}*\n⏳ Válido por ${c.validade} dias\n\nPode passar essa semana? A gente adora te ver***REMOVED*** 🛍️`; },
-  lanc1: (ap, prod) => `Oi ${ap}***REMOVED*** 🔥\nNovidade na ${lojaNome()}: acabou de chegar ${prod}***REMOVED***\n\nAs peças são lindas e estão voando 🚀\nVem garantir a sua antes que acabe***REMOVED*** 🛍️`,
-  lanc2: (ap, prod) => `Oi ${ap}***REMOVED*** ⚡\nAinda dá tempo de garantir ${prod} aqui na ${lojaNome()}***REMOVED***\nAs peças estão acabando rápido — não deixa pra amanhã 😉`,
-  lanc3: (ap, prod) => `Oi ${ap}***REMOVED*** 🚨 Últimas unidades***REMOVED***\n${prod} na ${lojaNome()} tá quase esgotando. Se tava pensando, é agora — depois não tem mais***REMOVED*** 🛍️`,
-  pos_lanc: (ap, prod) => `Oi ${ap}***REMOVED*** 📸\nEsperamos que esteja amando ${prod}***REMOVED*** 🤎\nA gente ia adorar te ver com a peça — se quiser, manda uma foto ou nos marca no Instagram que a gente reposta com carinho 🥰`,
+  dia1: (ap) => `Oi ${ap}! 🥰 Que alegria ter você aqui na ${lojaNome()}!\n\nSua compra foi confirmada e mal podemos esperar pra você arrasar com a peça nova 🤎\n\nSegue a gente no Instagram pra ver os lançamentos em primeira mão:\n📲 ${lojaInsta()}${lojaInstaUrl() ? '\n👉 ' + lojaInstaUrl() : ''}\n\nObrigada por escolher a ${lojaNome()}! 🛍️`,
+  clube_bv: (ap, c) => `Oi ${ap}! 🤎\nSeja muito bem-vinda ao ${clubeNome()}! 🎉\n\nCom cada R$ ${c.valorSelo} em compras você acumula 1 selo.\nComplete ${c.totalSelos} selos e ganhe R$ ${c.valorPremio} pra usar como quiser aqui na loja! 🎁\n\nVocê já deu o primeiro passo — continue acumulando e aproveite as vantagens de ser uma DS Lover!`,
+  clube_progresso: (ap, s) => `Oi ${ap}! 🌟\nVocê já tem ${s.noCiclo} selos no ${clubeNome()}! ${s.noCiclo >= 7 ? '🔥 Tá quase lá!' : '💪 Continue assim!'}\n\nFaltam só ${s.faltam} selos pra você ganhar R$ ${s.valorPremio} de presente 🎁\nCada R$ ${s.valorSelo} em compras = 1 selo a mais!\n\nVem garantir os próximos! 🤎`,
+  clube_completo: (ap, c) => `Oi ${ap}! 🎊🎉\nPARABÉNS! Você completou o cartão do ${clubeNome()}!\n\nVocê ganhou R$ ${c.valorPremio} pra usar na sua próxima compra aqui na ${lojaNome()}! 🎁\n\nÉ só passar por aqui e apresentar essa mensagem 😊\nObrigada por ser uma DS Lover tão especial! 🤎`,
+  pos_venda1: (ap) => `Oi ${ap}! 😊 Tudo bem?\nPassando pra saber se você ficou feliz com sua compra na ${lojaNome()}! 🛍️\n\nPode me contar rapidinho?\n⭐ De 1 a 5, que nota você dá pra sua experiência?\n👗 A peça ficou como esperava? O caimento ficou bom?\n\nSua opinião é muito importante pra a gente! 🤎`,
+  google: (ap, link) => `Oi ${ap}! ⭐\nObrigada por ser uma DS Lover! Sua presença na ${lojaNome()} faz toda diferença 🤎\n\nVocê teria 1 minutinho pra deixar sua avaliação no Google? Isso ajuda muito a gente a crescer 🙏${link ? '\n\n👉 ' + link : ''}\n\nMuito obrigada!`,
+  pos_venda2: (ap, c) => `Oi ${ap}! 🌟\nEsperamos que esteja amando sua peça da ${lojaNome()}! 🤎\n\nVocê faz parte do ${clubeNome()}: a cada R$ ${c.valorSelo} em compras acumula 1 selo — complete ${c.totalSelos} e ganhe R$ ${c.valorPremio}! 🎁\n\nE se indicar uma amiga e ela comprar, você ganha um mimo especial 😉 É só mandar o contato dela!`,
+  pre_aniversario: (ap) => { const c = CUPONS.pre_aniversario; return `Oi ${ap}! 🎉\nSeu aniversário tá chegando e o ${clubeNome()} preparou algo especial!\n\nPassa aqui na ${lojaNome()} antes do seu dia e ganhe ${c.desconto}% de desconto em toda a loja 🎁\n\n🎟️ Seu cupom exclusivo: *${c.codigo}*\n⏳ Válido por ${c.validade} dias — não deixa passar!\n\nVocê merece ser celebrada com muito estilo! 🤎`; },
+  aniversario: (ap) => { const c = CUPONS.aniversario; return `Feliz aniversário, ${ap}! 🎂🎉\nQue seu dia seja tão lindo quanto você!\n\nO ${clubeNome()} tem um presente: ${c.desconto}% de desconto em toda a ${lojaNome()}! 🎁\n\n🎟️ Seu cupom: *${c.codigo}*\n⏳ Válido por ${c.validade} dias — aproveita!\n\nPassa pra celebrar com a gente! 🤎`; },
+  retorno: (ap) => `Oi ${ap}! 🌸\nChegaram novidades aqui na ${lojaNome()} e lembrei de você! 😍\n\nTem peças que ficam tudo no seu estilo — e cada compra acumula mais um selo no seu ${clubeNome()}! 🎁\nVem dar uma olhadinha?`,
+  reat1: (ap, c) => `Oi ${ap}! 🌸\nSentimos sua falta aqui na ${lojaNome()}!\n\nChegaram peças lindas essa semana e lembrei de você 😍\nSeus selos do ${clubeNome()} ainda estão te esperando — cada visita te deixa mais perto dos R$ ${c.valorPremio} de presente! 🎁\n\nVem dar uma olhadinha?`,
+  reat2: (ap) => { const c = CUPONS.reat2; return `Oi ${ap}! 💕\nFaz um tempinho que você não passa aqui na ${lojaNome()} e a gente quer muito te ver!\n\nPreparamos um cupom exclusivo de ${c.desconto}% pra você voltar com tudo 🎁\n🎟️ Cupom: *${c.codigo}*\n⏳ Válido por ${c.validade} dias — corre!\n\nTe esperamos! 🤎`; },
+  reat3: (ap) => { const c = CUPONS.reat3; return `Oi ${ap}! 💌\nÉ a ${lojaNome()}! Não te esquecemos não 😊\n\nNosso melhor cupom, especialmente pra você voltar: ${c.desconto}% de desconto em toda a loja! 🎁\n🎟️ Cupom: *${c.codigo}*\n⏳ Válido por ${c.validade} dias\n\nPode passar essa semana? A gente adora te ver! 🛍️`; },
+  lanc1: (ap, prod) => `Oi ${ap}! 🔥\nNovidade na ${lojaNome()}: acabou de chegar ${prod}!\n\nAs peças são lindas e estão voando 🚀\nVem garantir a sua antes que acabe! 🛍️`,
+  lanc2: (ap, prod) => `Oi ${ap}! ⚡\nAinda dá tempo de garantir ${prod} aqui na ${lojaNome()}!\nAs peças estão acabando rápido — não deixa pra amanhã 😉`,
+  lanc3: (ap, prod) => `Oi ${ap}! 🚨 Últimas unidades!\n${prod} na ${lojaNome()} tá quase esgotando. Se tava pensando, é agora — depois não tem mais! 🛍️`,
+  pos_lanc: (ap, prod) => `Oi ${ap}! 📸\nEsperamos que esteja amando ${prod}! 🤎\nA gente ia adorar te ver com a peça — se quiser, manda uma foto ou nos marca no Instagram que a gente reposta com carinho 🥰`,
   // Convite de recompra (~dia 20): convite leve, SEM cupom — previne o esfriamento
-  recompra: (ap) => `Oi ${ap}***REMOVED*** ✨\nChegaram peças novas aqui na ${lojaNome()} e separei algumas pensando em você 😍\n\nVem dar uma espiadinha? Tenho certeza que vai encontrar algo que combina com seu estilo 🤎`,
+  recompra: (ap) => `Oi ${ap}! ✨\nChegaram peças novas aqui na ${lojaNome()} e separei algumas pensando em você 😍\n\nVem dar uma espiadinha? Tenho certeza que vai encontrar algo que combina com seu estilo 🤎`,
   // Selos parados: cliente quase com o cartão cheio que parou de comprar
-  selos_parados: (ap, s) => `Oi ${ap}***REMOVED*** 🎁\nVocê está pertinho de ganhar um presente no ${clubeNome()}***REMOVED***\n\nTem ${s.noCiclo} selos — faltam só ${s.faltam} pra completar e ganhar R$ ${s.valorPremio} pra usar na loja 🤎\nQue tal garantir uma peça nova e já somar mais selos? Vem***REMOVED***`,
+  selos_parados: (ap, s) => `Oi ${ap}! 🎁\nVocê está pertinho de ganhar um presente no ${clubeNome()}!\n\nTem ${s.noCiclo} selos — faltam só ${s.faltam} pra completar e ganhar R$ ${s.valorPremio} pra usar na loja 🤎\nQue tal garantir uma peça nova e já somar mais selos? Vem!`,
   // Data comercial genérica (a mensagem real vem do cadastro da data)
   data_comercial: (ap, texto) => texto.replace(/\{nome\}/g, ap),
 };
@@ -108,7 +108,7 @@ function acoesDoDia(hoje, opc = {}) {
 
     // --- Aniversário (hoje) e pré (+3 dias) ---
     if (cli.aniversario === hojeDDMM)
-      add({ ...base, tipo: 'ANIVERSARIO', label: '🎂 Aniversário hoje', prioridade: 1, detalhe: 'Faz aniversário hoje***REMOVED***', mensagem: M.aniversario(ap) });
+      add({ ...base, tipo: 'ANIVERSARIO', label: '🎂 Aniversário hoje', prioridade: 1, detalhe: 'Faz aniversário hoje!', mensagem: M.aniversario(ap) });
     else if (cli.aniversario === mais3DDMM)
       add({ ...base, tipo: 'PRE_ANIV', label: '🎁 Pré-aniversário', prioridade: 1, detalhe: `Aniversário em 3 dias (${cli.aniversario})`, mensagem: M.pre_aniversario(ap) });
 
@@ -126,7 +126,7 @@ function acoesDoDia(hoje, opc = {}) {
         add({ ...base, ...meta, tipo: 'DIA1', label: '📲 Boas-vindas', prioridade: 1, detalhe: 'Comprou hoje', mensagem: M.dia1(ap) });
         if (ativo) {
           if (s.noCiclo === 0 && s.premiosGanhos > 0)
-            add({ ...base, ...meta, tipo: 'CLUBE_OK', label: '🎊 Prêmio do clube', prioridade: 1, detalhe: `Completou ${c.totalSelos} selos***REMOVED***`, mensagem: M.clube_completo(ap, c) });
+            add({ ...base, ...meta, tipo: 'CLUBE_OK', label: '🎊 Prêmio do clube', prioridade: 1, detalhe: `Completou ${c.totalSelos} selos!`, mensagem: M.clube_completo(ap, c) });
           else if (cli.num_compras === 1)
             add({ ...base, ...meta, tipo: 'CLUBE_BV', label: '🤎 Boas-vindas ao clube', prioridade: 2, detalhe: 'Primeira compra', mensagem: M.clube_bv(ap, c) });
           else
@@ -160,7 +160,7 @@ function acoesDoDia(hoje, opc = {}) {
       for (const cli of clientes)
         add({ cliente_id: cli.id, nome: cli.nome, telefone: cli.telefone,
           tipo: 'DATA_COMERCIAL', label: `📅 ${dc.nome}`, prioridade: 2,
-          detalhe: dc.dias_antes ? `Faltam ${dc.dias_antes} dias` : 'É hoje***REMOVED***',
+          detalhe: dc.dias_antes ? `Faltam ${dc.dias_antes} dias` : 'É hoje!',
           mensagem: M.data_comercial(apelido(cli.nome), dc.mensagem || '') });
     }
   }
@@ -169,7 +169,7 @@ function acoesDoDia(hoje, opc = {}) {
   if (opc.lancamento && opc.dataLanc) {
     const dl = diasEntre(hoje, opc.dataLanc);
     let fn = null, lbl = '';
-    if (dl === 0) { fn = M.lanc1; lbl = '🔥 Lançamento — chegou***REMOVED***'; }
+    if (dl === 0) { fn = M.lanc1; lbl = '🔥 Lançamento — chegou!'; }
     else if (dl === 2) { fn = M.lanc2; lbl = '⚡ Lançamento — urgência'; }
     else if (dl === 5) { fn = M.lanc3; lbl = '🚨 Lançamento — últimas'; }
     if (fn) for (const cli of clientes)
@@ -182,7 +182,7 @@ function acoesDoDia(hoje, opc = {}) {
     enviadas = db.prepare('SELECT cliente_id, tipo FROM crm_acoes_enviadas WHERE data = ?').all(hoje);
   } catch (e) { enviadas = []; }
   const jaEnviada = new Set(enviadas.map(e => e.cliente_id + '|' + e.tipo));
-  const pendentes = acoes.filter(a => ***REMOVED***jaEnviada.has(a.cliente_id + '|' + a.tipo));
+  const pendentes = acoes.filter(a => !jaEnviada.has(a.cliente_id + '|' + a.tipo));
 
   pendentes.sort((a, b) => a.prioridade - b.prioridade);
   return pendentes;
@@ -239,10 +239,10 @@ const SEGMENTOS = {
 // Mensagem de campanha sugerida por segmento (tom DS)
 function campanhaSegmento(seg, ap) {
   switch (seg) {
-    case 'campeas': return `Oi ${ap}***REMOVED*** 👑 Você é uma das nossas clientes mais especiais na ${lojaNome()}***REMOVED***\nComo agradecimento, quero te mostrar em primeira mão nossas novidades antes de todo mundo 🤎 Posso te enviar?`;
-    case 'fieis': return `Oi ${ap}***REMOVED*** 🤎 Sempre um prazer te ter na ${lojaNome()}***REMOVED***\nChegaram peças novas que combinam com seu estilo — quer dar uma olhadinha?`;
+    case 'campeas': return `Oi ${ap}! 👑 Você é uma das nossas clientes mais especiais na ${lojaNome()}!\nComo agradecimento, quero te mostrar em primeira mão nossas novidades antes de todo mundo 🤎 Posso te enviar?`;
+    case 'fieis': return `Oi ${ap}! 🤎 Sempre um prazer te ter na ${lojaNome()}!\nChegaram peças novas que combinam com seu estilo — quer dar uma olhadinha?`;
     case 'novas': return M.pos_venda2(ap, clubeCfg());
-    case 'promissoras': return `Oi ${ap}***REMOVED*** 😍 Adoramos te ter na ${lojaNome()}***REMOVED***\nChegaram novidades lindas — vem ver, tenho certeza que vai amar 🤎`;
+    case 'promissoras': return `Oi ${ap}! 😍 Adoramos te ter na ${lojaNome()}!\nChegaram novidades lindas — vem ver, tenho certeza que vai amar 🤎`;
     case 'atencao': return M.retorno(ap);
     case 'risco': return M.reat2(ap);
     case 'perdidas': return M.reat3(ap);
@@ -255,7 +255,7 @@ function campanhaSegmento(seg, ap) {
 // "a loja voltou / temos novidade", não "sentimos sua falta há pouco". Genérica
 // e editável — sem cidade/marca chumbada (era específica da DS/Camacan).
 function reencontroFrio(ap) {
-  return `Oi ${ap}***REMOVED*** Aqui é a ${lojaNome()}***REMOVED*** ✨\n\nFaz um tempo que a gente não se vê e lembramos de você***REMOVED*** 🥰 Chegou coleção nova linda e separamos algumas peças pensando no seu estilo.\n\nQuer dar uma olhadinha no que chegou? 😍`;
+  return `Oi ${ap}! Aqui é a ${lojaNome()}! ✨\n\nFaz um tempo que a gente não se vê e lembramos de você! 🥰 Chegou coleção nova linda e separamos algumas peças pensando no seu estilo.\n\nQuer dar uma olhadinha no que chegou? 😍`;
 }
 
 function segmentarRFM(hoje) {

@@ -57,7 +57,7 @@ while (i < linhas.length) {
     continue;
   }
   if (/^\s*[-*]\s+/.test(ln)) {
-    if (***REMOVED***emLista) { html += '<ul>\n'; emLista = true; }
+    if (!emLista) { html += '<ul>\n'; emLista = true; }
     html += `<li>${inline(ln.replace(/^\s*[-*]\s+/, ''))}</li>\n`;
     i++; continue;
   }
@@ -79,7 +79,7 @@ while (i < linhas.length) {
 }
 fechaLista();
 
-const doc = `<***REMOVED***DOCTYPE html>
+const doc = `<!DOCTYPE html>
 <html lang="pt-BR"><head><meta charset="UTF-8">
 <style>
   @page { size: A4; margin: 18mm 16mm 16mm 16mm; }

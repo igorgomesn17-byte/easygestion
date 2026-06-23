@@ -70,7 +70,7 @@ router.get('/:id', (req, res) => {
       WHERE id = ? AND tenant_id = ?
     `).get(parseInt(id, 10), req.tenantId);
 
-    if (***REMOVED***log) {
+    if (!log) {
       return res.status(404).json({ erro: 'Log de auditoria não encontrado' });
     }
 

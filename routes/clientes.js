@@ -9,7 +9,7 @@ const { db } = require('../db/database');
 // Editar, excluir, arquivar, opt-out e rankings são de admin + relacionamento.
 router.use((req, res, next) => {
   const papel = req.session && req.session.papel;
-  if (papel ***REMOVED***== 'vendedor') return next(); // admin e relacionamento: acesso pleno
+  if (papel !== 'vendedor') return next(); // admin e relacionamento: acesso pleno
   const ehBusca = req.method === 'GET';
   const ehCadastro = req.method === 'POST' && (req.path === '/' || req.path === '');
   if (ehBusca || ehCadastro) return next();
@@ -22,7 +22,7 @@ router.get('/', (req, res) => {
   let sql = 'SELECT * FROM clientes WHERE tenant_id = ?';
   const params = [req.tenantId];
   // por padrão esconde arquivados; ?arquivados=1 mostra também
-  if (arquivados ***REMOVED***== '1') sql += ' AND arquivado = 0';
+  if (arquivados !== '1') sql += ' AND arquivado = 0';
   if (busca) { sql += ' AND (nome LIKE ? OR telefone LIKE ?)'; params.push(`%${busca}%`, `%${busca}%`); }
   sql += ' ORDER BY nome';
   res.json(db.prepare(sql).all(...params));
@@ -42,7 +42,7 @@ router.get('/ranking-indicacoes', (req, res) => {
 // GET /api/clientes/:id -> dados + historico de compras + quem ela indicou
 router.get('/:id', (req, res) => {
   const c = db.prepare('SELECT * FROM clientes WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenantId);
-  if (***REMOVED***c) return res.status(404).json({ erro: 'Cliente nao encontrado' });
+  if (!c) return res.status(404).json({ erro: 'Cliente nao encontrado' });
   c.compras = db.prepare(`
     SELECT id, data_hora, total, forma_pagamento, origem FROM vendas WHERE cliente_id = ? AND tenant_id = ? ORDER BY data_hora DESC
   `).all(c.id, req.tenantId);
@@ -62,7 +62,7 @@ router.get('/:id', (req, res) => {
 // não cria de novo — devolve o existente com a flag `ja_existia` pro PDV já selecioná-lo.
 router.post('/', (req, res) => {
   const { nome, telefone, cidade, aniversario, origem, indicada_por } = req.body;
-  if (***REMOVED***nome) return res.status(400).json({ erro: 'Nome obrigatorio' });
+  if (!nome) return res.status(400).json({ erro: 'Nome obrigatorio' });
 
   const telDigitos = String(telefone || '').replace(/\D/g, '');
   if (telDigitos.length >= 8) {

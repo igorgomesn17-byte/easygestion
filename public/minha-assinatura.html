@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Minha Assinatura • EasyGestão</title>
+  <link rel="stylesheet" href="css/ds.css">
+  <style>
+    .badge-status {
+      display: inline-block;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .badge-ativo { background:#d4edda; color:#155724; }
+    .badge-teste { background:#cce5ff; color:#004085; }
+    .badge-vencido { background:#f8d7da; color:#721c24; }
+    .badge-bloqueado { background:#f5c6cb; color:#721c24; }
+
+    .info-assinatura {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 20px 0;
+    }
+    .info-item {
+      padding: 15px;
+      background: #f9f9f9;
+      border-radius: 8px;
+      border-left: 4px solid var(--dourado-claro);
+    }
+    .info-label {
+      font-size: 12px;
+      color: #999;
+      text-transform: uppercase;
+      margin-bottom: 5px;
+    }
+    .info-valor {
+      font-size: 18px;
+      font-weight: 700;
+      color: #1B5E3F;
+    }
+
+    .tabela-pagamentos {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      margin-top: 15px;
+    }
+    .tabela-pagamentos th {
+      background: #f9f9f9;
+      padding: 12px;
+      text-align: left;
+      font-weight: 600;
+      color: #666;
+      border-bottom: 2px solid #eee;
+    }
+    .tabela-pagamentos td {
+      padding: 12px;
+      border-bottom: 1px solid #eee;
+    }
+    .status-pago { color: #28a745; font-weight: 600; }
+    .status-pendente { color: #ffc107; font-weight: 600; }
+    .status-falhou { color: #dc3545; font-weight: 600; }
+
+    .btn-acao {
+      padding: 6px 12px;
+      font-size: 12px;
+      margin: 0 4px;
+      display: inline-block;
+    }
+    .btn-recibo { background: #1B5E3F; color: #fff; }
+    .btn-recibo:hover { background: #0d3a24; }
+  </style>
+</head>
+<body>
+  <div class="conteudo">
+    <h1>Minha Assinatura</h1>
+    <p class="subtitulo">Visualize sua assinatura, pagamentos e gere recibos</p>
+
+    <!-- Card Assinatura Atual -->
+    <div class="card">
+      <h2 style="margin-top:0;">Plano Atual</h2>
+      <div id="carregandoAssinatura" style="text-align:center;padding:20px;">
+        <div class="spinner"></div>
+        <p>Carregando...</p>
+      </div>
+      <div id="conteudoAssinatura" style="display:none;">
+        <div class="flex-entre" style="align-items:flex-start;">
+          <div>
+            <h2 id="nomePlano" style="margin:0;color:#1B5E3F;">EasyGestão</h2>
+            <p id="valorPlano" style="margin:5px 0 0 0;color:#999;">R$ 0,00 / mês</p>
+          </div>
+          <span class="badge-status" id="statusBadge">ATIVO</span>
+        </div>
+
+        <div class="info-assinatura">
+          <div class="info-item">
+            <div class="info-label">Próxima Renovação</div>
+            <div class="info-valor" id="proximaRenovacao">-</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Dias Restantes</div>
+            <div class="info-valor" id="diasRestantes">-</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Data de Início</div>
+            <div class="info-valor" id="dataInicio">-</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Status</div>
+            <div class="info-valor" id="statusTexto">ATIVO</div>
+          </div>
+        </div>
+
+        <div id="alertasAssinatura" style="margin-top:20px;"></div>
+
+        <div style="margin-top:20px;display:flex;gap:10px;">
+          <button class="btn btn-verde" onclick="abrirCheckout()">Upgrade de Plano</button>
+          <button class="btn btn-escuro" onclick="abrirPortal()">Gerenciar Plano</button>
+        </div>
+      </div>
+
+      <div id="semAssinatura" style="display:none;text-align:center;padding:30px;">
+        <p style="font-size:18px;color:#666;">Você está em período de teste.</p>
+        <p style="color:#999;">Escolha um plano abaixo para continuar usando a plataforma.</p>
+        <button class="btn btn-verde btn-bloco mt" onclick="abrirCheckout()">Contratar Plano</button>
+      </div>
+    </div>
+
+    <!-- Histórico de Pagamentos -->
+    <div class="card">
+      <h2 style="margin-top:0;">Histórico de Pagamentos</h2>
+
+      <div id="carregandoPagamentos" style="text-align:center;padding:20px;">
+        <div class="spinner"></div>
+        <p>Carregando histórico...</p>
+      </div>
+
+      <div id="tabelaPagamentos" style="display:none;overflow-x:auto;">
+        <table class="tabela-pagamentos">
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Valor</th>
+              <th>Status</th>
+              <th>Método</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody id="corpoPagamentos"></tbody>
+        </table>
+      </div>
+
+      <div id="semHistorico" style="display:none;text-align:center;padding:30px;color:#999;">
+        <p>Nenhum pagamento registrado ainda.</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/comum.js"></script>
+  <script>
+    montarLayout('assinatura');
+
+    async function carregarAssinatura() {
+      try {
+        const dados = await api('/assinaturas/minha');
+        document.getElementById('carregandoAssinatura').style.display = 'none';
+
+        if (!dados.assinatura) {
+          document.getElementById('semAssinatura').style.display = 'block';
+          return;
+        }
+
+        const { assinatura, status } = dados;
+        document.getElementById('conteudoAssinatura').style.display = 'block';
+
+        // Preencher dados
+        document.getElementById('nomePlano').textContent = (assinatura.plano || 'EasyGestão').charAt(0).toUpperCase() + (assinatura.plano || 'EasyGestão').slice(1);
+        document.getElementById('valorPlano').textContent = `R$ ${(assinatura.valor_mensal || 0).toFixed(2).replace('.', ',')} / mês`;
+        document.getElementById('proximaRenovacao').textContent = new Date(assinatura.data_proxima_renovacao).toLocaleDateString('pt-BR');
+        document.getElementById('dataInicio').textContent = new Date(assinatura.data_inicio).toLocaleDateString('pt-BR');
+        document.getElementById('statusTexto').textContent = (status.status || 'ativo').toUpperCase();
+
+        // Badge de status
+        const badge = document.getElementById('statusBadge');
+        badge.className = 'badge-status badge-' + (status.status || 'ativo');
+        badge.textContent = (status.status || 'ativo').toUpperCase();
+
+        // Dias restantes
+        const hoje = new Date();
+        const proxRenovacao = new Date(assinatura.data_proxima_renovacao);
+        const diasRestantes = Math.ceil((proxRenovacao - hoje) / (1000 * 60 * 60 * 24));
+        document.getElementById('diasRestantes').textContent = Math.max(0, diasRestantes);
+
+        // Alertas
+        const alertas = document.getElementById('alertasAssinatura');
+        alertas.innerHTML = '';
+        if (status.bloqueado) {
+          alertas.innerHTML = `<div class="card" style="background:#f8d7da;border:1px solid #f5c6cb;"><strong style="color:#721c24;">⚠️ Sua conta foi bloqueada</strong><br><span style="color:#721c24;font-size:14px;">${esc(status.motivo || 'Contate o suporte')}</span></div>`;
+        } else if (diasRestantes <= 7 && diasRestantes > 0) {
+          alertas.innerHTML = `<div class="card" style="background:#fff3cd;border:1px solid #ffc107;"><strong style="color:#856404;">⏰ Sua assinatura vence em ${diasRestantes} dia(s)</strong><br><span style="color:#856404;font-size:14px;">Não há ação necessária — renoveremos automaticamente.</span></div>`;
+        }
+      } catch(e) {
+        document.getElementById('carregandoAssinatura').innerHTML = `<div style="color:#dc3545;">Erro ao carregar: ${e.message}</div>`;
+      }
+    }
+
+    async function carregarPagamentos() {
+      try {
+        const dados = await api('/assinaturas/pagamentos');
+        document.getElementById('carregandoPagamentos').style.display = 'none';
+
+        if (!dados.cobracas || dados.cobracas.length === 0) {
+          document.getElementById('semHistorico').style.display = 'block';
+          return;
+        }
+
+        document.getElementById('tabelaPagamentos').style.display = 'block';
+        const corpo = document.getElementById('corpoPagamentos');
+        corpo.innerHTML = '';
+
+        dados.cobracas.forEach(c => {
+          const statusClass = `status-${c.status}`;
+          const statusTexto = {
+            'pago': '✅ Pago',
+            'pendente': '⏳ Pendente',
+            'falhou': '❌ Falhou'
+          }[c.status] || c.status;
+
+          const metodo = c.metodo_pagamento || 'Stripe';
+          const data = new Date(c.data_cobranca).toLocaleDateString('pt-BR');
+          const valor = moeda(c.valor);
+
+          corpo.innerHTML += `
+            <tr>
+              <td>${data}</td>
+              <td>${valor}</td>
+              <td class="${statusClass}">${statusTexto}</td>
+              <td>${metodo}</td>
+              <td>
+                <button class="btn-acao btn-recibo" onclick="gerarRecibo(${c.id}, '${data}', '${valor}')">🖨️ Recibo</button>
+              </td>
+            </tr>
+          `;
+        });
+      } catch(e) {
+        document.getElementById('carregandoPagamentos').innerHTML = `<div style="color:#dc3545;">Erro ao carregar: ${e.message}</div>`;
+      }
+    }
+
+    function gerarRecibo(pagamentoId, data, valor) {
+      const w = window.open('', 'recibo-' + pagamentoId, 'width=600,height=800');
+      const hoje = new Date().toLocaleDateString('pt-BR');
+      const hora = new Date().toLocaleTimeString('pt-BR');
+
+      w.document.write(`
+        <!DOCTYPE html>
+        <html lang="pt-BR">
+        <head>
+          <meta charset="UTF-8">
+          <title>Recibo - Assinatura EasyGestão</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 40px 20px; line-height: 1.6; background: #fff; }
+            .container { max-width: 600px; margin: 0 auto; border: 2px solid #1B5E3F; padding: 30px; background: #fff; }
+            .header { text-align: center; border-bottom: 3px solid #1B5E3F; padding-bottom: 20px; margin-bottom: 30px; }
+            .logo { font-size: 28px; font-weight: 700; color: #1B5E3F; margin: 0; }
+            .recibo-tipo { font-size: 14px; color: #999; margin-top: 5px; }
+            .secao { margin: 20px 0; }
+            .secao-titulo { font-size: 12px; font-weight: 700; color: #1B5E3F; text-transform: uppercase; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 8px; }
+            .linha { display: flex; justify-content: space-between; margin: 8px 0; font-size: 14px; }
+            .label { color: #666; }
+            .valor { font-weight: 600; color: #1B5E3F; }
+            .total-area { background: #f9f9f9; padding: 15px; border-radius: 8px; margin-top: 20px; }
+            .total-valor { font-size: 24px; font-weight: 700; color: #1B5E3F; text-align: center; }
+            .rodape { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #999; }
+            .assinatura-area { margin-top: 30px; text-align: center; }
+            .assinatura-linha { border-top: 1px solid #333; width: 200px; margin: 40px auto 0; }
+            @media print {
+              body { padding: 0; margin: 0; }
+              .container { border: none; margin: 0; padding: 0; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <p class="logo">EasyGestão</p>
+              <p class="recibo-tipo">RECIBO DE PAGAMENTO</p>
+            </div>
+
+            <div class="secao">
+              <div class="secao-titulo">Informações do Recibo</div>
+              <div class="linha">
+                <span class="label">Recibo Nº:</span>
+                <span>#${pagamentoId}</span>
+              </div>
+              <div class="linha">
+                <span class="label">Data de Emissão:</span>
+                <span>${hoje}</span>
+              </div>
+              <div class="linha">
+                <span class="label">Hora:</span>
+                <span>${hora}</span>
+              </div>
+            </div>
+
+            <div class="secao">
+              <div class="secao-titulo">Detalhes do Pagamento</div>
+              <div class="linha">
+                <span class="label">Data do Pagamento:</span>
+                <span>${data}</span>
+              </div>
+              <div class="linha">
+                <span class="label">Descrição:</span>
+                <span>Assinatura Mensal - EasyGestão</span>
+              </div>
+              <div class="linha">
+                <span class="label">Plano:</span>
+                <span>Crescimento</span>
+              </div>
+            </div>
+
+            <div class="total-area">
+              <div class="linha">
+                <span class="label">Valor Pago:</span>
+                <span class="total-valor">${valor}</span>
+              </div>
+            </div>
+
+            <div class="secao">
+              <div class="secao-titulo">Forma de Pagamento</div>
+              <div class="linha">
+                <span class="label">Método:</span>
+                <span>Cartão de Crédito / Stripe</span>
+              </div>
+              <div class="linha">
+                <span class="label">Status:</span>
+                <span style="color: #28a745; font-weight: 600;">✅ Pago</span>
+              </div>
+            </div>
+
+            <div class="rodape">
+              <p>Este é um recibo automático da plataforma EasyGestão.</p>
+              <p>Conserve este documento para fins de referência.</p>
+            </div>
+
+            <div class="assinatura-area">
+              <p style="font-size: 12px; color: #666; margin: 0;">Autorizado por:</p>
+              <div class="assinatura-linha"></div>
+              <p style="font-size: 11px; color: #999; margin-top: 5px;">EasyGestão - Sistema de Gestão</p>
+            </div>
+          </div>
+          <script>
+            setTimeout(() => window.print(), 500);
+          </script>
+        </body>
+        </html>
+      `);
+      w.document.close();
+    }
+
+    async function abrirCheckout() {
+      try {
+        const resp = await api('/assinaturas/checkout', { method: 'POST', body: { plano: 'basico' } });
+        if (resp.checkout_url) window.location.href = resp.checkout_url;
+        else toast('Erro ao abrir checkout', 'erro');
+      } catch(e) { toast(e.message, 'erro'); }
+    }
+
+    async function abrirPortal() {
+      try {
+        const resp = await api('/assinaturas/portal');
+        if (resp.portal_url) window.location.href = resp.portal_url;
+        else toast('Erro ao abrir portal', 'erro');
+      } catch(e) { toast(e.message, 'erro'); }
+    }
+
+    // Inicializar
+    carregarAssinatura();
+    carregarPagamentos();
+  </script>
+</body>
+</html>

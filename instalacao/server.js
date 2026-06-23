@@ -90,7 +90,7 @@ app.use((req, res, next) => {
 
   // Para qualquer outra rota, verificar licença
   const license = LicenseManager.isLicensed();
-  if (***REMOVED***license.licensed) {
+  if (!license.licensed) {
     // Se é uma requisição JSON (API), retornar erro
     if (req.headers.accept && req.headers.accept.includes('application/json')) {
       return res.status(403).json({ error: 'Licença não ativada', redirect: '/ativacao.html' });
@@ -157,7 +157,7 @@ function getLocalIP() {
   const ifaces = os.networkInterfaces();
   for (const name of Object.keys(ifaces)) {
     for (const iface of ifaces[name]) {
-      if (iface.family === 'IPv4' && ***REMOVED***iface.internal) return iface.address;
+      if (iface.family === 'IPv4' && !iface.internal) return iface.address;
     }
   }
   return 'localhost';
@@ -166,9 +166,9 @@ function getLocalIP() {
 app.listen(PORT, '0.0.0.0', () => {
   const ip = getLocalIP();
   console.log('\n========================================');
-  console.log('   DS SISTEMA no ar***REMOVED***' + (EM_PRODUCAO ? ' (produção)' : ' (local)'));
+  console.log('   DS SISTEMA no ar!' + (EM_PRODUCAO ? ' (produção)' : ' (local)'));
   console.log('========================================');
   console.log(`   Neste PC:     http://localhost:${PORT}`);
-  if (***REMOVED***EM_PRODUCAO) console.log(`   No celular:   http://${ip}:${PORT}`);
+  if (!EM_PRODUCAO) console.log(`   No celular:   http://${ip}:${PORT}`);
   console.log('========================================\n');
 });

@@ -8,13 +8,13 @@ const express = require('express');
 
 // Simula middleware de tenant (antes da correção teria fallback || 1)
 function testOldVulnerableCode(req) {
-  // ❌ ANTES (vulnerável): req.tenantId || 1  -> silenciosamente usa tenant 1***REMOVED***
+  // ❌ ANTES (vulnerável): req.tenantId || 1  -> silenciosamente usa tenant 1!
   return req.tenantId || 1;
 }
 
 function testNewSecureCode(req) {
   // ✅ DEPOIS (seguro): validação explícita
-  if (***REMOVED***req.tenantId) {
+  if (!req.tenantId) {
     const err = new Error('Tenant não identificado');
     err.status = 401;
     throw err;
@@ -27,7 +27,7 @@ describe('Cross-Tenant Security Validation', () => {
   test('❌ Old vulnerable code: req.tenantId undefined silently becomes 1', () => {
     const req = { tenantId: undefined };
     const result = testOldVulnerableCode(req);
-    expect(result).toBe(1);  // ❌ Operaria silenciosamente no tenant 1***REMOVED***
+    expect(result).toBe(1);  // ❌ Operaria silenciosamente no tenant 1!
     console.warn('⚠️ VULNERÁVEL: tenant undefined foi para tenant 1');
   });
 
@@ -70,7 +70,7 @@ describe('Cross-Tenant Security Validation', () => {
       console.error('❌ FOUND VULNERABLE PATTERNS:');
       vulnerableLines.forEach(v => console.error(`  ${v}`));
     } else {
-      console.log('✓ No vulnerable req.tenantId || 1 patterns found***REMOVED***');
+      console.log('✓ No vulnerable req.tenantId || 1 patterns found!');
     }
 
     expect(foundVulnerability).toBe(false);
@@ -87,7 +87,7 @@ describe('Tenant Validation in Routes', () => {
 
     app.post('/api/vendas', (req, res) => {
       // Novo código seguro:
-      if (***REMOVED***req.tenantId) {
+      if (!req.tenantId) {
         return res.status(401).json({ erro: 'Tenant não identificado' });
       }
       res.json({ ok: true, tenantId: req.tenantId });
@@ -113,7 +113,7 @@ describe('Tenant Validation in Routes', () => {
     });
 
     app.post('/api/vendas', (req, res) => {
-      if (***REMOVED***req.tenantId) {
+      if (!req.tenantId) {
         return res.status(401).json({ erro: 'Tenant não identificado' });
       }
       res.json({ ok: true, tenantId: req.tenantId });
@@ -138,12 +138,12 @@ console.log(`
 
 ❌ ANTES (Vulnerável):
    req.tenantId || 1
-   → Se tenantId for undefined, silenciosamente usa tenant 1***REMOVED***
+   → Se tenantId for undefined, silenciosamente usa tenant 1!
    → Vendor poderia ver/editar dados de outros tenants
 
 ✅ DEPOIS (Seguro):
    1. Removerem todos os fallbacks || 1
-   2. Adicionaram validação explícita: if (***REMOVED***req.tenantId) return 401
+   2. Adicionaram validação explícita: if (!req.tenantId) return 401
    3. Middleware garantirTenantId valida globalmente
    4. Queries usam req.tenantId diretamente (sem fallback)
 

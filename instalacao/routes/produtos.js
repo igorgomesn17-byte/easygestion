@@ -16,22 +16,22 @@ router.use((req, res, next) => {
   if (papel === 'admin') return next();
   const ehLeitura = req.method === 'GET';
   const ehPrecoComCusto = req.method === 'POST' && (req.path === '/sugerir-preco' || req.path === '/analisar-preco');
-  if (ehLeitura && ***REMOVED***ehPrecoComCusto) return next();
+  if (ehLeitura && !ehPrecoComCusto) return next();
   return res.status(403).json({ erro: 'Sem permissão para esta área' });
 });
 
 // UPLOADS_DIR configurável por env (disco persistente na nuvem); default = pasta local.
 const DIR_FOTOS = process.env.UPLOADS_DIR || path.join(__dirname, '..', 'public', 'img', 'produtos');
-if (***REMOVED***fs.existsSync(DIR_FOTOS)) fs.mkdirSync(DIR_FOTOS, { recursive: true });
+if (!fs.existsSync(DIR_FOTOS)) fs.mkdirSync(DIR_FOTOS, { recursive: true });
 
 const MAX_FOTO_BYTES = 3 * 1024 * 1024; // 3MB por foto
 
 // Salva uma foto base64 (data URL) com validação de segurança.
 // Aceita SÓ raster (png/jpg/webp) — BLOQUEIA svg (pode conter script) e limita tamanho.
 function salvarFotoBase64(dataUrl, codigo) {
-  if (***REMOVED***dataUrl || typeof dataUrl ***REMOVED***== 'string') return null;
+  if (!dataUrl || typeof dataUrl !== 'string') return null;
   const m = dataUrl.match(/^data:image\/(png|jpe?g|webp);base64,([A-Za-z0-9+/=]+)$/i);
-  if (***REMOVED***m) return null; // formato não permitido (inclui svg, gif, etc.)
+  if (!m) return null; // formato não permitido (inclui svg, gif, etc.)
   const buf = Buffer.from(m[2], 'base64');
   if (buf.length === 0 || buf.length > MAX_FOTO_BYTES) return null;
   const ext = m[1].toLowerCase() === 'jpeg' ? 'jpg' : m[1].toLowerCase();
@@ -47,7 +47,7 @@ const MAX_FOTOS = 5; // 1 capa + até 4 extras
 // Salva as fotos EXTRAS de um produto (galeria). Substitui as existentes.
 // fotosExtras: array de base64 (novas) ou caminhos (mantidas). Máx MAX_FOTOS-1 extras.
 function salvarFotosExtras(produtoId, codigo, fotosExtras) {
-  if (***REMOVED***Array.isArray(fotosExtras)) return;
+  if (!Array.isArray(fotosExtras)) return;
   db.prepare('DELETE FROM produto_fotos WHERE produto_id = ?').run(produtoId);
   const ins = db.prepare('INSERT INTO produto_fotos (produto_id, caminho, ordem) VALUES (?, ?, ?)');
   let ordem = 0;
@@ -72,7 +72,7 @@ function proximoCodigo(prefixo) {
   let n = 1;
   if (row) {
     const num = parseInt(row.codigo.replace(prefixo, ''), 10);
-    if (***REMOVED***isNaN(num)) n = num + 1;
+    if (!isNaN(num)) n = num + 1;
   }
   return prefixo + String(n).padStart(3, '0');
 }
@@ -152,7 +152,7 @@ router.get('/vitrine', (req, res) => {
 // GET /api/produtos/:id
 router.get('/:id', (req, res) => {
   const p = db.prepare('SELECT * FROM produtos WHERE id = ?').get(req.params.id);
-  if (***REMOVED***p) return res.status(404).json({ erro: 'Produto nao encontrado' });
+  if (!p) return res.status(404).json({ erro: 'Produto nao encontrado' });
   p.grade = db.prepare('SELECT id, tamanho, quantidade FROM variacoes WHERE produto_id = ? ORDER BY id').all(p.id);
   p.estoque_total = p.grade.reduce((s, v) => s + v.quantidade, 0);
   p.fotos = fotosExtrasDe(p.id); // fotos extras da galeria (a capa fica em p.foto)
@@ -169,7 +169,7 @@ router.post('/rapido', (req, res) => {
   const preco = parseFloat(req.body.preco_venda) || 0;
   const tamanho = String(req.body.tamanho || 'U').trim().toUpperCase() || 'U';
   const qtd = parseInt(req.body.quantidade, 10) || 1;
-  if (***REMOVED***nome) return res.status(400).json({ erro: 'Informe o nome da peça' });
+  if (!nome) return res.status(400).json({ erro: 'Informe o nome da peça' });
   if (preco <= 0) return res.status(400).json({ erro: 'Informe o preço de venda' });
 
   const codigo = proximoCodigo('PRD');
@@ -226,7 +226,7 @@ router.post('/', (req, res) => {
     const produtoId = info.lastInsertRowid;
     if (Array.isArray(grade)) {
       for (const g of grade) {
-        if (***REMOVED***g.tamanho) continue;
+        if (!g.tamanho) continue;
         const qtd = parseInt(g.quantidade, 10) || 0;
         const vinfo = insertVar.run(produtoId, String(g.tamanho).toUpperCase(), qtd);
         if (qtd > 0) insertMov.run(vinfo.lastInsertRowid, qtd);
@@ -248,7 +248,7 @@ router.post('/', (req, res) => {
 router.put('/:id', (req, res) => {
   const { nome, categoria, descricao, cor, custo, preco_venda, foto, fotos, colecao } = req.body;
   const p = db.prepare('SELECT id, codigo, foto FROM produtos WHERE id = ?').get(req.params.id);
-  if (***REMOVED***p) return res.status(404).json({ erro: 'Produto nao encontrado' });
+  if (!p) return res.status(404).json({ erro: 'Produto nao encontrado' });
 
   // foto: se vier base64 nova, salva; se vier caminho existente, mantem; se vazio, mantem o atual
   let fotoPath = p.foto;

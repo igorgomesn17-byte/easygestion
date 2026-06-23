@@ -14,7 +14,7 @@ const { salvarComprovanteBase64 } = require('../lib/comprovantes');
 router.use((req, res, next) => {
   if (req.session && req.session.papel === 'vendedor') {
     const ehCriarVenda = req.method === 'POST' && (req.path === '/' || req.path === '');
-    if (***REMOVED***ehCriarVenda) return res.status(403).json({ erro: 'Sem permissão para esta área' });
+    if (!ehCriarVenda) return res.status(403).json({ erro: 'Sem permissão para esta área' });
   }
   next();
 });
@@ -26,14 +26,14 @@ router.use((req, res, next) => {
 // }
 router.post('/', (req, res) => {
   const { itens, forma_pagamento, parcelas = 1, desconto = 0, cliente_id = null, vendedor_id = null, observacao = null, origem = 'loja', pagamentos = null, comprovante = null, troco = 0, troco_forma = null, repassar_taxa = true } = req.body;
-  if (***REMOVED***Array.isArray(itens) || itens.length === 0) return res.status(400).json({ erro: 'Venda sem itens' });
+  if (!Array.isArray(itens) || itens.length === 0) return res.status(400).json({ erro: 'Venda sem itens' });
   // pagamento: aceita split (array `pagamentos`) ou forma unica (compatibilidade).
   const temSplit = Array.isArray(pagamentos) && pagamentos.length > 0;
-  if (***REMOVED***temSplit && ***REMOVED***forma_pagamento) return res.status(400).json({ erro: 'Forma de pagamento obrigatoria' });
+  if (!temSplit && !forma_pagamento) return res.status(400).json({ erro: 'Forma de pagamento obrigatoria' });
 
   // A19: exige caixa do dia aberto pra registrar venda
   const cxHoje = db.prepare('SELECT aberto, fechado FROM caixa_dia WHERE data = ?').get(hojeLocal());
-  if (***REMOVED***cxHoje || ***REMOVED***cxHoje.aberto) {
+  if (!cxHoje || !cxHoje.aberto) {
     return res.status(400).json({ erro: 'Abra o caixa do dia antes de vender.' });
   }
 
@@ -56,7 +56,7 @@ router.post('/', (req, res) => {
   const linhas = [];
   for (const it of itens) {
     const v = getVar.get(it.variacao_id);
-    if (***REMOVED***v) return res.status(400).json({ erro: `Item invalido (id ${it.variacao_id})` });
+    if (!v) return res.status(400).json({ erro: `Item invalido (id ${it.variacao_id})` });
     const qtd = parseInt(it.qtd, 10) || 1;
     if (v.quantidade < qtd) {
       return res.status(400).json({ erro: `Estoque insuficiente: ${v.nome} tam ${v.tamanho} (tem ${v.quantidade}, pediu ${qtd})` });
@@ -89,7 +89,7 @@ router.post('/', (req, res) => {
     // validacoes do split: formas validas e soma == total
     const formasValidas = ['pix', 'pix_chave', 'dinheiro', 'debito', 'credito_vista', 'credito_parcelado'];
     for (const p of partes) {
-      if (***REMOVED***formasValidas.includes(p.forma)) return res.status(400).json({ erro: `Forma de pagamento invalida: ${p.forma}` });
+      if (!formasValidas.includes(p.forma)) return res.status(400).json({ erro: `Forma de pagamento invalida: ${p.forma}` });
       if (p.valor <= 0) return res.status(400).json({ erro: 'Cada pagamento precisa ter valor maior que zero' });
     }
     const somaPartes = +partes.reduce((s, p) => s + p.valor, 0).toFixed(2);
@@ -268,13 +268,13 @@ router.post('/impacto-desconto', (req, res) => {
 // com o % do novo vendedor (vendedor_id null = remover vendedor, comissão zera).
 router.patch('/:id/vendedor', (req, res) => {
   const v = db.prepare('SELECT * FROM vendas WHERE id = ?').get(req.params.id);
-  if (***REMOVED***v) return res.status(404).json({ erro: 'Venda não encontrada' });
+  if (!v) return res.status(404).json({ erro: 'Venda não encontrada' });
   const vendedorId = req.body.vendedor_id || null;
 
   let comissaoPct = 0;
   if (vendedorId) {
     const vend = db.prepare('SELECT comissao_pct FROM vendedores WHERE id = ?').get(vendedorId);
-    if (***REMOVED***vend) return res.status(400).json({ erro: 'Vendedor inválido' });
+    if (!vend) return res.status(400).json({ erro: 'Vendedor inválido' });
     comissaoPct = vend.comissao_pct || 0;
   }
   const novaComissao = +(v.total * comissaoPct / 100).toFixed(2);
@@ -298,7 +298,7 @@ router.get('/:id', (req, res) => {
                         LEFT JOIN clientes c ON c.id = v.cliente_id
                         LEFT JOIN vendedores vd ON vd.id = v.vendedor_id
                         WHERE v.id = ?`).get(req.params.id);
-  if (***REMOVED***v) return res.status(404).json({ erro: 'Venda nao encontrada' });
+  if (!v) return res.status(404).json({ erro: 'Venda nao encontrada' });
   v.itens = db.prepare('SELECT * FROM venda_itens WHERE venda_id = ?').all(v.id);
   v.pagamentos = db.prepare('SELECT forma, parcelas, valor FROM venda_pagamentos WHERE venda_id = ?').all(v.id);
   res.json(v);
@@ -307,7 +307,7 @@ router.get('/:id', (req, res) => {
 // DELETE /api/vendas/:id -> cancela venda (devolve estoque)
 router.delete('/:id', (req, res) => {
   const v = db.prepare('SELECT * FROM vendas WHERE id = ?').get(req.params.id);
-  if (***REMOVED***v) return res.status(404).json({ erro: 'Venda nao encontrada' });
+  if (!v) return res.status(404).json({ erro: 'Venda nao encontrada' });
   const itens = db.prepare('SELECT * FROM venda_itens WHERE venda_id = ?').all(v.id);
   const hoje = v.data_hora.slice(0, 10);
   const tx = db.transaction(() => {

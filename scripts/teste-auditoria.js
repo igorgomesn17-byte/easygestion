@@ -1,4 +1,4 @@
-#***REMOVED***/usr/bin/env node
+#!/usr/bin/env node
 
 /**
  * Script: Testa se a tabela de auditoria está criada e funcional
@@ -17,7 +17,7 @@ try {
   `).all();
 
   if (tables.length === 0) {
-    console.log('❌ Tabela auditoria NÃO existe***REMOVED***');
+    console.log('❌ Tabela auditoria NÃO existe!');
     console.log('   Verifique db/schema.sql e reinicie o servidor.');
     process.exit(1);
   }
@@ -83,7 +83,7 @@ try {
     console.log(`   - ${idx.name}`);
   });
 
-  console.log('\n✅ Sistema de auditoria está PRONTO***REMOVED***');
+  console.log('\n✅ Sistema de auditoria está PRONTO!');
   console.log('   Você pode acessar o dashboard em: /auditoria.html\n');
 
 } catch (err) {

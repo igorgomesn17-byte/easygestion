@@ -1,4 +1,4 @@
-#***REMOVED***/usr/bin/env node
+#!/usr/bin/env node
 // ============================================================
 // Script para gerar códigos de ativação
 // Use: node gerar-codigo.js "Nome do Cliente"
@@ -22,7 +22,7 @@ console.log(`\nCopie este código e envie para o cliente.\n`);
 // Validar o código gerado (para confirmar que funciona)
 const validation = LicenseManager.validateCode(codigo);
 if (validation.valid) {
-  console.log('✅ Código validado com sucesso***REMOVED***');
+  console.log('✅ Código validado com sucesso!');
   console.log(`   Expira em: ${validation.expiresAt}`);
   console.log(`   Dias: ${validation.daysLeft}\n`);
 } else {

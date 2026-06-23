@@ -1,4 +1,4 @@
-#***REMOVED***/usr/bin/env node
+#!/usr/bin/env node
 /**
  * Testes Simples Golden Path
  * Testa os cenários críticos via HTTP

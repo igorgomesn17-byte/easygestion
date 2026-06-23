@@ -10,17 +10,17 @@ const origem = path.join(__dirname, '..', 'db', 'dsstore.db');
 const googleDriveFolderId = process.env.GOOGLE_DRIVE_BACKUP_FOLDER_ID;
 const googleApiKey = process.env.GOOGLE_API_KEY;
 
-if (***REMOVED***googleDriveFolderId) {
+if (!googleDriveFolderId) {
   console.error('❌ ERRO: GOOGLE_DRIVE_BACKUP_FOLDER_ID não está definido no .env');
   process.exit(1);
 }
 
-if (***REMOVED***googleApiKey) {
+if (!googleApiKey) {
   console.error('❌ ERRO: GOOGLE_API_KEY não está definido no .env');
   process.exit(1);
 }
 
-if (***REMOVED***fs.existsSync(origem)) {
+if (!fs.existsSync(origem)) {
   console.log('ℹ️  Banco ainda não existe.');
   process.exit(0);
 }
@@ -57,7 +57,7 @@ async function fazer_backup() {
       fields: 'id, name, size, createdTime',
     });
 
-    console.log(`✅ Backup enviado com sucesso***REMOVED***`);
+    console.log(`✅ Backup enviado com sucesso!`);
     console.log(`   ID: ${response.data.id}`);
     console.log(`   Tamanho: ${(fileSize / 1024 / 1024).toFixed(2)} MB`);
     console.log(`   Data: ${response.data.createdTime}`);
@@ -103,7 +103,7 @@ async function limpar_backups_antigos(drive) {
 }
 
 fazer_backup().then(() => {
-  console.log('\n✨ Processo concluído***REMOVED***');
+  console.log('\n✨ Processo concluído!');
   process.exit(0);
 }).catch(err => {
   console.error('Erro fatal:', err);

@@ -41,7 +41,7 @@ router.get('/', (req, res) => {
 // GET /api/trocas/prazo/:vendaId -> diz se a venda ainda está no prazo de troca
 router.get('/prazo/:vendaId', (req, res) => {
   const venda = db.prepare('SELECT id, data_hora FROM vendas WHERE id = ?').get(req.params.vendaId);
-  if (***REMOVED***venda) return res.status(404).json({ erro: 'Venda não encontrada' });
+  if (!venda) return res.status(404).json({ erro: 'Venda não encontrada' });
   const prazo = 7; // prazo fixo: 7 dias úteis
   const dias = diasUteisEntre(venda.data_hora.slice(0, 10), hojeLocal());
   res.json({ dias_passados: dias, prazo, dentro_prazo: dias <= prazo });
@@ -50,7 +50,7 @@ router.get('/prazo/:vendaId', (req, res) => {
 // GET /api/trocas/:id -> detalhe com itens
 router.get('/:id', (req, res) => {
   const t = db.prepare('SELECT * FROM trocas WHERE id = ?').get(req.params.id);
-  if (***REMOVED***t) return res.status(404).json({ erro: 'Troca não encontrada' });
+  if (!t) return res.status(404).json({ erro: 'Troca não encontrada' });
   res.json(t);
 });
 
@@ -66,20 +66,20 @@ router.post('/', (req, res) => {
   const { venda_id = null, devolvidos = [], levados = [],
           forma_pagamento = null, obs = null, forcar_excecao = false } = req.body;
 
-  if ((***REMOVED***devolvidos || ***REMOVED***devolvidos.length) && (***REMOVED***levados || ***REMOVED***levados.length)) {
+  if ((!devolvidos || !devolvidos.length) && (!levados || !levados.length)) {
     return res.status(400).json({ erro: 'Informe ao menos uma peça devolvida ou levada.' });
   }
 
   // Validação de prazo
-  if (***REMOVED***venda_id) {
+  if (!venda_id) {
     return res.status(400).json({ erro: 'Informe a venda de origem para registrar a troca.' });
   }
   const venda = db.prepare('SELECT id, data_hora FROM vendas WHERE id = ?').get(venda_id);
-  if (***REMOVED***venda) return res.status(404).json({ erro: 'Venda de origem não encontrada.' });
+  if (!venda) return res.status(404).json({ erro: 'Venda de origem não encontrada.' });
 
   const diasPassados = diasUteisEntre(venda.data_hora.slice(0, 10), hojeLocal());
   const prazo = 7;
-  if (diasPassados > prazo && ***REMOVED***forcar_excecao) {
+  if (diasPassados > prazo && !forcar_excecao) {
     return res.status(422).json({
       erro: `Prazo de troca expirado: a compra foi há ${diasPassados} dias úteis (limite ${prazo}).`,
       prazo_expirado: true, dias_passados: diasPassados, prazo: prazo,
@@ -94,7 +94,7 @@ router.post('/', (req, res) => {
   const levadosResolv = [];
   for (const it of levados) {
     const v = getVar.get(it.variacao_id);
-    if (***REMOVED***v) return res.status(400).json({ erro: `Peça levada inválida (id ${it.variacao_id})` });
+    if (!v) return res.status(400).json({ erro: `Peça levada inválida (id ${it.variacao_id})` });
     const qtd = parseInt(it.qtd, 10) || 1;
     if (v.quantidade < qtd) {
       return res.status(400).json({ erro: `Estoque insuficiente: ${v.nome} tam ${v.tamanho} (tem ${v.quantidade})` });

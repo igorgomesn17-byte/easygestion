@@ -12,7 +12,7 @@ function hashSenha(senha) {
   return `scrypt$${salt}$${hash}`;
 }
 function verificarSenha(senha, armazenado) {
-  if (***REMOVED***armazenado || ***REMOVED***armazenado.startsWith('scrypt$')) return false;
+  if (!armazenado || !armazenado.startsWith('scrypt$')) return false;
   const [, salt, hashEsperado] = armazenado.split('$');
   const hash = crypto.scryptSync(String(senha), salt, 64).toString('hex');
   // comparação em tempo constante (evita timing attack)
@@ -25,7 +25,7 @@ function verificarSenha(senha, armazenado) {
 // Regra simples: mínimo 8 caracteres (sem requisitos de maiúscula, número ou símbolo)
 // Retorna: { valida: bool, erro: string|null }
 function validarSenha(senha) {
-  if (***REMOVED***senha || typeof senha ***REMOVED***== 'string') {
+  if (!senha || typeof senha !== 'string') {
     return { valida: false, erro: 'Senha obrigatória' };
   }
   const s = String(senha).trim();
@@ -79,12 +79,12 @@ function exigirLogin(req, res, next) {
 // Rotas públicas (sem login) → não injeta, deixa passar
 function injetarTenant(req, res, next) {
   // Se não está logado, deixar passar (rotas públicas)
-  if (***REMOVED***req.session?.logado) {
+  if (!req.session?.logado) {
     return next();
   }
 
   // Se é admin do .env e ainda não tem tenant_id, assume tenant 1
-  if (req.session?.papel === 'admin' && ***REMOVED***req.session?.tenant_id) {
+  if (req.session?.papel === 'admin' && !req.session?.tenant_id) {
     req.tenantId = 1;
     return next();
   }
@@ -104,14 +104,14 @@ function injetarTenant(req, res, next) {
 // Verifica se o tenant do usuário logado foi bloqueado
 // Se bloqueado, desconecta a sessão e retorna erro
 function validarTenantAtivo(req, res, next) {
-  if (***REMOVED***req.session?.logado || ***REMOVED***req.session?.tenant_id) {
+  if (!req.session?.logado || !req.session?.tenant_id) {
     return next(); // rotas públicas, deixa passar
   }
 
   const { db } = require('../db/database');
   const tenant = db.prepare('SELECT status FROM tenants WHERE id = ?').get(req.session.tenant_id);
 
-  if (***REMOVED***tenant) {
+  if (!tenant) {
     return res.status(400).json({ erro: 'Tenant não encontrado' });
   }
 
@@ -124,17 +124,17 @@ function validarTenantAtivo(req, res, next) {
         bloqueado: true
       });
     });
-    return; // NÃO chama next()***REMOVED***
+    return; // NÃO chama next()!
   }
 
   next();
 }
 
 // --- Validação de tenant (CRÍTICO para multi-tenancy) ---
-// NUNCA use req.tenantId || fallback — isso quebra isolamento de tenant***REMOVED***
+// NUNCA use req.tenantId || fallback — isso quebra isolamento de tenant!
 // Use esta função ou middleware para validar antes de qualquer query
 function validarTenantId(req) {
-  if (***REMOVED***req.tenantId) {
+  if (!req.tenantId) {
     const err = new Error('Tenant não identificado');
     err.status = 401;
     throw err;
@@ -148,7 +148,7 @@ function garantirTenantId(req, res, next) {
   // Rotas públicas não precisam de tenant (pode ser undefined)
   if (ehPublica(full)) return next();
   // Rotas protegidas EXIGEM tenant
-  if (***REMOVED***req.tenantId) {
+  if (!req.tenantId) {
     return res.status(401).json({ erro: 'Tenant não identificado' });
   }
   next();
@@ -160,7 +160,7 @@ function garantirTenantId(req, res, next) {
 // só se for o usuário admin do env (compat); senão, negada.
 function exigirPapel(...papeis) {
   return (req, res, next) => {
-    if (***REMOVED***req.session || ***REMOVED***req.session.logado) {
+    if (!req.session || !req.session.logado) {
       return res.status(401).json({ erro: 'Não autenticado', login: true });
     }
     const papel = req.session.papel;

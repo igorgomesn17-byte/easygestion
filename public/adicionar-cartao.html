@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Adicionar Cartão • EasyGestão</title>
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="stylesheet" href="css/ds.css">
+  <style>
+    body {
+      background: linear-gradient(135deg, #1B5E3F 0%, #0d3d28 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container-cartao {
+      max-width: 500px;
+      background: white;
+      border-radius: 16px;
+      padding: 40px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+    }
+
+    .logo-header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .logo-header img {
+      height: 60px;
+      margin-bottom: 15px;
+    }
+
+    .logo-header h1 {
+      font-size: 28px;
+      color: #1B5E3F;
+      margin: 0 0 10px 0;
+    }
+
+    .logo-header p {
+      color: #777;
+      margin: 0;
+      font-size: 14px;
+    }
+
+    .info-teste {
+      background: #e8f5e9;
+      border-left: 4px solid #4caf50;
+      padding: 15px;
+      margin-bottom: 25px;
+      border-radius: 4px;
+    }
+
+    .info-teste strong {
+      color: #2e7d32;
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    .info-teste p {
+      margin: 0;
+      color: #558b2f;
+      font-size: 14px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #333;
+      font-size: 14px;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: inherit;
+      box-sizing: border-box;
+      transition: border-color 0.2s;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: #1B5E3F;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 15px;
+    }
+
+    .form-row.full {
+      grid-template-columns: 1fr;
+    }
+
+    .btn-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+      margin-top: 30px;
+    }
+
+    .btn {
+      padding: 14px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .btn-primary {
+      background: #1B5E3F;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #0d3d28;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(27, 94, 63, 0.3);
+    }
+
+    .btn-primary:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-secondary {
+      background: #f5f5f5;
+      color: #333;
+      border: 1px solid #ddd;
+    }
+
+    .btn-secondary:hover {
+      background: #eeeeee;
+    }
+
+    .stripe-info {
+      background: #f9f9f9;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      font-size: 13px;
+      color: #666;
+    }
+
+    .stripe-info strong {
+      display: block;
+      color: #333;
+      margin-bottom: 8px;
+    }
+
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #1B5E3F;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 10px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .alerta {
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      font-size: 14px;
+    }
+
+    .alerta-danger {
+      background: #ffebee;
+      color: #c62828;
+      border-left: 4px solid #c62828;
+    }
+
+    .alerta-warning {
+      background: #fff3e0;
+      color: #e65100;
+      border-left: 4px solid #e65100;
+    }
+  </style>
+</head>
+<body>
+  <div class="container-cartao">
+    <!-- Logo -->
+    <div class="logo-header">
+      <img src="logo.png" alt="EasyGestão" style="max-height: 50px;">
+      <h1>EasyGestão</h1>
+      <p>Bem-vindo ao seu gestor de loja!</p>
+    </div>
+
+    <!-- Mensagem de Teste -->
+    <div class="info-teste">
+      <strong>✨ 14 dias grátis!</strong>
+      <p>Seu período de teste já começou. Adicione um cartão para continuar usando após 14 dias.</p>
+    </div>
+
+    <!-- Alertas -->
+    <div id="alertas"></div>
+
+    <!-- Formulário -->
+    <div id="formulario">
+      <div class="stripe-info">
+        <strong>💳 Seu cartão está seguro</strong>
+        Usamos o Stripe, empresa líder em pagamentos seguros. Seus dados nunca são armazenados em nossos servidores.
+      </div>
+
+      <form id="formCartao">
+        <!-- Nome -->
+        <div class="form-group">
+          <label for="nome">Nome Completo</label>
+          <input type="text" id="nome" name="nome" placeholder="Ex: João Silva" required>
+        </div>
+
+        <!-- Número do Cartão -->
+        <div class="form-group">
+          <label for="numero">Número do Cartão</label>
+          <input type="text" id="numero" name="numero" placeholder="4242 4242 4242 4242" maxlength="19" required>
+        </div>
+
+        <!-- Data e CVC -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="validade">Validade (MM/AA)</label>
+            <input type="text" id="validade" name="validade" placeholder="12/25" maxlength="5" required>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="cvc">CVC</label>
+            <input type="text" id="cvc" name="cvc" placeholder="123" maxlength="4" required>
+          </div>
+        </div>
+
+        <!-- Botão -->
+        <div class="btn-container" style="grid-template-columns: 1fr;">
+          <button type="submit" class="btn btn-primary" id="btnSalvar">Salvar Cartão e Começar</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Loading -->
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <p>Processando...</p>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('formCartao').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const nome = document.getElementById('nome').value.trim();
+      const numero = document.getElementById('numero').value.trim().replace(/\s/g, '');
+      const validade = document.getElementById('validade').value.trim();
+      const cvc = document.getElementById('cvc').value.trim();
+
+      if (!nome || !numero || !validade || !cvc) {
+        mostrarAlerta('Todos os campos são obrigatórios', 'danger');
+        return;
+      }
+
+      document.getElementById('formulario').style.display = 'none';
+      document.getElementById('loading').style.display = 'block';
+      document.getElementById('btnSalvar').disabled = true;
+
+      try {
+        // Parsear data (MM/AA)
+        const [mes, ano] = validade.split('/');
+        if (!mes || !ano || mes.length !== 2 || ano.length !== 2) {
+          throw new Error('Formato de data inválido. Use MM/AA');
+        }
+
+        // Salvar cartão no backend (marca como salvo na assinatura)
+        const respSalvar = await fetch('/api/assinaturas/salvar-cartao-teste', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ nome, numero, mes, ano, cvc })
+        });
+
+        if (!respSalvar.ok) {
+          const errData = await respSalvar.json();
+          throw new Error(errData.erro || 'Erro ao salvar cartão');
+        }
+
+        // Cartão salvo com sucesso!
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('formulario').style.display = 'none';
+
+        // Mostrar sucesso
+        const alertas = document.getElementById('alertas');
+        alertas.innerHTML = `
+          <div class="alerta" style="background: #e8f5e9; color: #2e7d32; border-left: 4px solid #4caf50; padding: 15px; border-radius: 4px;">
+            <strong>✅ Cartão salvo com sucesso!</strong>
+            <p style="margin: 8px 0 0 0;">Seu período de teste está ativo. Você será cobrado após 14 dias.</p>
+          </div>
+        `;
+
+        // Redirecionar para dashboard em 2 segundos
+        setTimeout(() => {
+          window.location.href = '/index.html';
+        }, 2000);
+
+      } catch (err) {
+        console.error('Erro:', err);
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('formulario').style.display = 'block';
+        document.getElementById('btnSalvar').disabled = false;
+        mostrarAlerta('Erro: ' + err.message, 'danger');
+      }
+    });
+
+    function mostrarAlerta(msg, tipo = 'warning') {
+      const alertas = document.getElementById('alertas');
+      alertas.innerHTML = `<div class="alerta alerta-${tipo}">${msg}</div>`;
+    }
+
+    // Formatar número do cartão enquanto digita
+    document.getElementById('numero').addEventListener('input', (e) => {
+      let valor = e.target.value.replace(/\s/g, '');
+      let formatado = valor.match(/.{1,4}/g)?.join(' ') || valor;
+      e.target.value = formatado;
+    });
+
+    // Formatar data enquanto digita
+    document.getElementById('validade').addEventListener('input', (e) => {
+      let valor = e.target.value.replace(/\D/g, '');
+      if (valor.length >= 2) {
+        valor = valor.substring(0, 2) + '/' + valor.substring(2, 4);
+      }
+      e.target.value = valor;
+    });
+  </script>
+</body>
+</html>

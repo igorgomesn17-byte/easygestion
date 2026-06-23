@@ -24,7 +24,7 @@ router.post('/', (req, res) => {
   if (nome.length < 2) return res.status(400).json({ erro: 'Informe um nome de usuário válido' });
 
   const validacaoSenha = validarSenha(senha);
-  if (***REMOVED***validacaoSenha.valida) {
+  if (!validacaoSenha.valida) {
     return res.status(400).json({ erro: validacaoSenha.erro });
   }
 
@@ -40,7 +40,7 @@ router.post('/', (req, res) => {
 router.patch('/:id/ativo', (req, res) => {
   const ativo = req.body.ativo ? 1 : 0;
   const user = db.prepare('SELECT id FROM usuarios WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenantId);
-  if (***REMOVED***user) return res.status(403).json({ erro: 'Usuário não encontrado ou acesso negado' });
+  if (!user) return res.status(403).json({ erro: 'Usuário não encontrado ou acesso negado' });
   db.prepare('UPDATE usuarios SET ativo = ? WHERE id = ?').run(ativo, req.params.id);
   res.json({ ok: true, ativo });
 });
@@ -50,15 +50,15 @@ router.patch('/:id/senha', (req, res) => {
   const senha = String(req.body.senha || '');
 
   const validacaoSenha = validarSenha(senha);
-  if (***REMOVED***validacaoSenha.valida) {
+  if (!validacaoSenha.valida) {
     return res.status(400).json({ erro: validacaoSenha.erro });
   }
 
   const user = db.prepare('SELECT senha_hash FROM usuarios WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenantId);
-  if (***REMOVED***user) return res.status(403).json({ erro: 'Usuário não encontrado ou acesso negado' });
+  if (!user) return res.status(403).json({ erro: 'Usuário não encontrado ou acesso negado' });
 
   const naoReutilizada = validarNaoReutilizada(senha, user.senha_hash);
-  if (***REMOVED***naoReutilizada.valida) {
+  if (!naoReutilizada.valida) {
     return res.status(400).json({ erro: naoReutilizada.erro });
   }
 
@@ -69,7 +69,7 @@ router.patch('/:id/senha', (req, res) => {
 // DELETE /api/usuarios/:id
 router.delete('/:id', (req, res) => {
   const user = db.prepare('SELECT id FROM usuarios WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenantId);
-  if (***REMOVED***user) return res.status(403).json({ erro: 'Usuário não encontrado ou acesso negado' });
+  if (!user) return res.status(403).json({ erro: 'Usuário não encontrado ou acesso negado' });
   db.prepare('DELETE FROM usuarios WHERE id = ?').run(req.params.id);
   res.json({ ok: true });
 });

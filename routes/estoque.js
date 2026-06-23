@@ -70,7 +70,7 @@ router.post('/ajuste', (req, res) => {
     JOIN produtos p ON p.id = v.produto_id
     WHERE v.id = ? AND p.tenant_id = ?
   `).get(variacao_id, req.tenantId);
-  if (***REMOVED***v) return res.status(404).json({ erro: 'Variacao nao encontrada' });
+  if (!v) return res.status(404).json({ erro: 'Variacao nao encontrada' });
   const nova = parseInt(nova_quantidade, 10);
   if (isNaN(nova) || nova < 0) return res.status(400).json({ erro: 'Quantidade invalida' });
   const diff = nova - v.quantidade;
@@ -91,7 +91,7 @@ router.post('/entrada', (req, res) => {
     JOIN produtos p ON p.id = v.produto_id
     WHERE v.id = ? AND p.tenant_id = ?
   `).get(variacao_id, req.tenantId);
-  if (***REMOVED***v) return res.status(404).json({ erro: 'Variacao nao encontrada' });
+  if (!v) return res.status(404).json({ erro: 'Variacao nao encontrada' });
   const add = parseInt(qtd, 10);
   if (isNaN(add) || add <= 0) return res.status(400).json({ erro: 'Quantidade invalida' });
   const tx = db.transaction(() => {
@@ -106,12 +106,12 @@ router.post('/entrada', (req, res) => {
 // POST /api/estoque/adicionar-tamanho body: { produto_id, tamanho, quantidade }
 router.post('/adicionar-tamanho', (req, res) => {
   const { produto_id, tamanho, quantidade } = req.body;
-  if (***REMOVED***produto_id || ***REMOVED***tamanho) return res.status(400).json({ erro: 'Dados incompletos' });
+  if (!produto_id || !tamanho) return res.status(400).json({ erro: 'Dados incompletos' });
   const qtd = parseInt(quantidade, 10) || 0;
 
   const produtoValido = db.prepare('SELECT id FROM produtos WHERE id = ? AND tenant_id = ?')
     .get(produto_id, req.tenantId);
-  if (***REMOVED***produtoValido) return res.status(403).json({ erro: 'Produto não encontrado ou acesso negado' });
+  if (!produtoValido) return res.status(403).json({ erro: 'Produto não encontrado ou acesso negado' });
 
   try {
     const info = db.prepare('INSERT INTO variacoes (produto_id, tamanho, quantidade, tenant_id) VALUES (?, ?, ?, ?)')
@@ -131,7 +131,7 @@ router.post('/adicionar-tamanho', (req, res) => {
 // Retorna { ok: true, processados: N, erros: [{ codigo, tamanho, motivo }] }
 router.post('/lote', (req, res) => {
   const itens = Array.isArray(req.body) ? req.body : [];
-  if (***REMOVED***itens.length) return res.status(400).json({ erro: 'Nenhum item para processar' });
+  if (!itens.length) return res.status(400).json({ erro: 'Nenhum item para processar' });
 
   const processados = [];
   const erros = [];
@@ -148,14 +148,14 @@ router.post('/lote', (req, res) => {
       const qtd = parseInt(quantidade, 10);
 
       // validações básicas
-      if (***REMOVED***codigo || ***REMOVED***tamanho || isNaN(qtd) || qtd <= 0) {
+      if (!codigo || !tamanho || isNaN(qtd) || qtd <= 0) {
         erros.push({ codigo, tamanho, motivo: 'Dados inválidos (código, tamanho e quantidade > 0 obrigatórios)' });
         continue;
       }
 
       // busca a variação
       const v = getVarId.get(String(codigo).trim(), String(tamanho).trim().toUpperCase(), req.tenantId);
-      if (***REMOVED***v) {
+      if (!v) {
         erros.push({ codigo, tamanho, motivo: 'Código/tamanho não encontrado' });
         continue;
       }

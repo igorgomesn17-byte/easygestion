@@ -15,7 +15,7 @@ const limiteUploadPorTenant = (() => {
     const hoje = new Date().toDateString();
     const chave = `${tenantId}-${hoje}`;
 
-    if (***REMOVED***store.has(chave)) {
+    if (!store.has(chave)) {
       store.set(chave, { bytes: 0, resetTime: Date.now() + 24 * 60 * 60 * 1000 });
     }
 
@@ -70,7 +70,7 @@ const cacheRelatorioPorTenant = (() => {
     get(tenantId, chave) {
       const k = `${tenantId}:${chave}`;
       const entry = cache.get(k);
-      if (***REMOVED***entry) return null;
+      if (!entry) return null;
       if (Date.now() - entry.timestamp > TTL) {
         cache.delete(k);
         return null;
@@ -141,7 +141,7 @@ const limiteExport = rateLimit({
   message: { erro: 'Muitos exports neste período. Máx 5 por hora. Tente novamente depois.' },
   skip: (req) => {
     // Skip para users que não são admin (só admin pode exportar)
-    return req.session?.papel ***REMOVED***== 'admin';
+    return req.session?.papel !== 'admin';
   },
 });
 

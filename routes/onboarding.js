@@ -11,7 +11,7 @@ const router = express.Router();
 router.post('/demo-data', exigirLogin, injetarTenant, (req, res) => {
   try {
     const tenantId = req.tenantId;
-    if (***REMOVED***tenantId) {
+    if (!tenantId) {
       return res.status(401).json({ erro: 'Tenant não identificado' });
     }
 
@@ -150,7 +150,7 @@ router.post('/demo-data', exigirLogin, injetarTenant, (req, res) => {
 
     res.json({
       sucesso: true,
-      mensagem: 'Dados de exemplo carregados com sucesso***REMOVED***',
+      mensagem: 'Dados de exemplo carregados com sucesso!',
       produtos: produtosInseridos.length,
       clientes: clientesInseridos.length,
     });

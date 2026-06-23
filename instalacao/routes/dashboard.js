@@ -96,7 +96,7 @@ function contarDiasSegASab(mesPrefixo) {
   let n = 0;
   for (let dia = 1; dia <= diasNoMes; dia++) {
     const dow = new Date(ano, mes - 1, dia).getDay(); // 0=dom ... 6=sáb
-    if (dow ***REMOVED***== 0) n++;
+    if (dow !== 0) n++;
   }
   return n;
 }

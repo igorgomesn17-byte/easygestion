@@ -23,12 +23,12 @@ const { limiteAdminPassword, verificarSenha, hashSenha } = require('../middlewar
 // Verifica: 1) logado na sessão, 2) papel === 'admin'
 function exigirAdminBackoffice(req, res, next) {
   // Se não está logado, nega
-  if (***REMOVED***req.session?.logado) {
+  if (!req.session?.logado) {
     return res.status(401).json({ erro: 'Não autenticado. Faça login primeiro.', login: true });
   }
 
   // Se está logado mas não é admin, nega
-  if (req.session.papel ***REMOVED***== 'admin') {
+  if (req.session.papel !== 'admin') {
     return res.status(403).json({ erro: 'Acesso negado. Apenas admins.' });
   }
 
@@ -44,7 +44,7 @@ router.get('/', exigirAdminBackoffice, (req, res) => {
 router.post('/login', limiteAdminPassword, (req, res) => {
   const { nome, senha } = req.body;
 
-  if (***REMOVED***nome || ***REMOVED***senha) {
+  if (!nome || !senha) {
     return res.status(400).json({ erro: 'Nome de usuário e senha obrigatórios.' });
   }
 
@@ -58,7 +58,7 @@ router.post('/login', limiteAdminPassword, (req, res) => {
     let eh_admin_env = false;
     let senha_valida = false;
 
-    if (***REMOVED***usuario) {
+    if (!usuario) {
       const hashAdmin = process.env.ADMIN_SENHA_HASH || null;
       if (hashAdmin && verificarSenha(String(senha), hashAdmin)) {
         eh_admin_env = true;
@@ -72,9 +72,9 @@ router.post('/login', limiteAdminPassword, (req, res) => {
     }
 
     // ❌ Se senha inválida, retornar erro
-    if (***REMOVED***senha_valida) {
+    if (!senha_valida) {
       // Log detalhado (sem expor senha)
-      const motivo = ***REMOVED***usuario ? 'usuário não encontrado' : 'senha incorreta';
+      const motivo = !usuario ? 'usuário não encontrado' : 'senha incorreta';
       console.warn(`[ADMIN] Login falhou: ${nome} (${motivo}) • IP: ${req.ip} • ${new Date().toISOString()}`);
       return res.status(401).json({
         erro: 'Usuário ou senha incorretos.',
@@ -153,7 +153,7 @@ router.get('/clientes/:id', exigirAdminBackoffice, (req, res) => {
   const clienteId = req.params.id;
   try {
     const tenant = db.prepare('SELECT * FROM tenants WHERE id = ?').get(clienteId);
-    if (***REMOVED***tenant) {
+    if (!tenant) {
       return res.status(404).json({ erro: 'Cliente não encontrado' });
     }
 
@@ -173,21 +173,21 @@ router.patch('/clientes/:id', exigirAdminBackoffice, async (req, res) => {
   const clienteId = req.params.id;
   const { status, motivo } = req.body; // status: 'ativo' ou 'bloqueado'; motivo: opcional
 
-  if (***REMOVED***['ativo', 'bloqueado', 'teste'].includes(status)) {
+  if (!['ativo', 'bloqueado', 'teste'].includes(status)) {
     return res.status(400).json({ erro: 'Status inválido. Use "ativo", "bloqueado" ou "teste"' });
   }
 
   try {
     // Buscar dados ANTES
     const antes = db.prepare('SELECT * FROM tenants WHERE id = ?').get(clienteId);
-    if (***REMOVED***antes) {
+    if (!antes) {
       return res.status(404).json({ erro: 'Cliente não encontrado' });
     }
 
     // Detectar mudança de status (para saber se precisa notificar)
     const statusAnterior = antes.status;
     const statusNovo = status;
-    const houveMudanca = statusAnterior ***REMOVED***== statusNovo;
+    const houveMudanca = statusAnterior !== statusNovo;
 
     // Atualizar
     const result = db.prepare('UPDATE tenants SET status = ? WHERE id = ?')
@@ -214,7 +214,7 @@ router.patch('/clientes/:id', exigirAdminBackoffice, async (req, res) => {
     if (houveMudanca && statusNovo === 'bloqueado' && antes.email) {
       // Se não foi informado motivo, detectar automaticamente pela assinatura
       let motivoNotificacao = motivo;
-      if (***REMOVED***motivoNotificacao) {
+      if (!motivoNotificacao) {
         const statusAssinatura = obterStatusAssinatura(clienteId);
         motivoNotificacao = statusAssinatura.motivo || 'Bloqueio administrativo';
       }
@@ -250,7 +250,7 @@ router.delete('/clientes/:id', exigirAdminBackoffice, (req, res) => {
   try {
     // Buscar dados ANTES de deletar (para auditoria)
     const tenant = db.prepare('SELECT * FROM tenants WHERE id = ?').get(clienteId);
-    if (***REMOVED***tenant) {
+    if (!tenant) {
       return res.status(404).json({ erro: 'Cliente não encontrado' });
     }
 
@@ -351,7 +351,7 @@ router.get('/auditoria/:id', exigirAdminBackoffice, (req, res) => {
     const id = parseInt(req.params.id, 10);
     const registro = db.prepare('SELECT * FROM auditoria WHERE id = ?').get(id);
 
-    if (***REMOVED***registro) {
+    if (!registro) {
       return res.status(404).json({ erro: 'Registro de auditoria não encontrado' });
     }
 

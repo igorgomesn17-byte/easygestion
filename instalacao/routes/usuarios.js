@@ -24,7 +24,7 @@ router.post('/', (req, res) => {
   if (nome.length < 2) return res.status(400).json({ erro: 'Informe um nome de usuário válido' });
 
   const validacaoSenha = validarSenha(senha);
-  if (***REMOVED***validacaoSenha.valida) {
+  if (!validacaoSenha.valida) {
     return res.status(400).json({ erro: validacaoSenha.erro });
   }
 
@@ -48,14 +48,14 @@ router.patch('/:id/senha', (req, res) => {
   const senha = String(req.body.senha || '');
 
   const validacaoSenha = validarSenha(senha);
-  if (***REMOVED***validacaoSenha.valida) {
+  if (!validacaoSenha.valida) {
     return res.status(400).json({ erro: validacaoSenha.erro });
   }
 
   const user = db.prepare('SELECT senha_hash FROM usuarios WHERE id = ?').get(req.params.id);
   if (user) {
     const naoReutilizada = validarNaoReutilizada(senha, user.senha_hash);
-    if (***REMOVED***naoReutilizada.valida) {
+    if (!naoReutilizada.valida) {
       return res.status(400).json({ erro: naoReutilizada.erro });
     }
   }

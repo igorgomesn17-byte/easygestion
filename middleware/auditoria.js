@@ -39,7 +39,7 @@ function middlewareAuditoria(req, res, next) {
   const config = encontrarConfigRota(method, path);
 
   // Se não é rota auditada, passa adiante
-  if (***REMOVED***config) return next();
+  if (!config) return next();
 
   // Se é DELETE ou PATCH, capturar estado "antes"
   let estadoAntes = null;
@@ -116,7 +116,7 @@ function extrairIdDaRota(caminho) {
 
 // Busca estado ANTES de uma mudança (para comparação no audit trail)
 function buscarEstadoAntes(recurso, id) {
-  if (***REMOVED***id) return null;
+  if (!id) return null;
 
   try {
     let sql, result;

@@ -12,7 +12,7 @@ const { DatabaseSync } = require('node:sqlite');
 
 // DB_DIR configurável por env (disco persistente na nuvem); default = pasta local.
 const DB_DIR = process.env.DB_DIR || __dirname;
-if (***REMOVED***fs.existsSync(DB_DIR)) fs.mkdirSync(DB_DIR, { recursive: true });
+if (!fs.existsSync(DB_DIR)) fs.mkdirSync(DB_DIR, { recursive: true });
 const DB_PATH = path.join(DB_DIR, 'dsstore.db');
 const SCHEMA_PATH = path.join(__dirname, 'schema.sql'); // schema sempre vem do código
 
@@ -29,7 +29,7 @@ function colunasDe(tabela) {
   return raw.prepare(`PRAGMA table_info(${tabela})`).all().map(c => c.name);
 }
 function garantirColuna(tabela, coluna, definicao) {
-  if (***REMOVED***colunasDe(tabela).includes(coluna)) {
+  if (!colunasDe(tabela).includes(coluna)) {
     raw.exec(`ALTER TABLE ${tabela} ADD COLUMN ${coluna} ${definicao}`);
   }
 }
@@ -87,7 +87,7 @@ try {
   const row = raw.prepare("SELECT valor FROM config WHERE chave = 'categorias'").get();
   if (row) {
     let cats = JSON.parse(row.valor);
-    if (***REMOVED***cats.includes('body')) {
+    if (!cats.includes('body')) {
       // insere 'body' antes de 'outro' (se houver), senao no fim
       const i = cats.indexOf('outro');
       if (i >= 0) cats.splice(i, 0, 'body'); else cats.push('body');
@@ -147,12 +147,12 @@ raw.exec(`INSERT OR IGNORE INTO config (chave, valor) VALUES ('clube_valor_premi
 // config: Datas comerciais / sazonais (v9) — principais do varejo de moda BR.
 // data 'MM-DD' (anual); dias_antes = quantos dias antes dispara; {nome} = apelido do cliente.
 raw.exec(`INSERT OR IGNORE INTO config (chave, valor) VALUES ('datas_comerciais', '${JSON.stringify([
-  { nome: 'Dia dos Namorados', data: '06-09', dias_antes: 3, mensagem: 'Oi {nome}***REMOVED*** 💕 O Dia dos Namorados tá chegando***REMOVED*** Que tal se presentear (ou ganhar um mimo)? Separamos peças lindas na DS Store. Vem ver***REMOVED*** 🤎' },
-  { nome: 'São João', data: '06-21', dias_antes: 3, mensagem: 'Oi {nome}***REMOVED*** 🎉 É São João na DS Store***REMOVED*** Chegou a coleção pra você arrasar nas festas juninas com muito estilo. Corre que tá voando***REMOVED*** 🌽🔥' },
-  { nome: 'Dia dos Pais', data: '08-08', dias_antes: 3, mensagem: 'Oi {nome}***REMOVED*** 💙 Dia dos Pais chegando — e toda mãe/filha merece se cuidar também. Passa na DS Store ver as novidades***REMOVED*** 🤎' },
-  { nome: 'Dia das Crianças', data: '10-12', dias_antes: 3, mensagem: 'Oi {nome}***REMOVED*** 🧡 Mês das crianças***REMOVED*** E você também merece um presente, né? Vem ver o que chegou na DS Store***REMOVED*** 🤎' },
-  { nome: 'Black Friday', data: '11-28', dias_antes: 2, mensagem: 'Oi {nome}***REMOVED*** 🖤 BLACK FRIDAY DS Store chegando***REMOVED*** Prepara o carrinho — vão ser ofertas que você não vai querer perder. Te aviso em primeira mão***REMOVED*** 🔥' },
-  { nome: 'Natal', data: '12-25', dias_antes: 7, mensagem: 'Oi {nome}***REMOVED*** 🎄 O Natal tá chegando***REMOVED*** Que tal garantir aquele look lindo pra ceia (ou um presente especial)? Vem pra DS Store***REMOVED*** 🤎✨' },
+  { nome: 'Dia dos Namorados', data: '06-09', dias_antes: 3, mensagem: 'Oi {nome}! 💕 O Dia dos Namorados tá chegando! Que tal se presentear (ou ganhar um mimo)? Separamos peças lindas na DS Store. Vem ver! 🤎' },
+  { nome: 'São João', data: '06-21', dias_antes: 3, mensagem: 'Oi {nome}! 🎉 É São João na DS Store! Chegou a coleção pra você arrasar nas festas juninas com muito estilo. Corre que tá voando! 🌽🔥' },
+  { nome: 'Dia dos Pais', data: '08-08', dias_antes: 3, mensagem: 'Oi {nome}! 💙 Dia dos Pais chegando — e toda mãe/filha merece se cuidar também. Passa na DS Store ver as novidades! 🤎' },
+  { nome: 'Dia das Crianças', data: '10-12', dias_antes: 3, mensagem: 'Oi {nome}! 🧡 Mês das crianças! E você também merece um presente, né? Vem ver o que chegou na DS Store! 🤎' },
+  { nome: 'Black Friday', data: '11-28', dias_antes: 2, mensagem: 'Oi {nome}! 🖤 BLACK FRIDAY DS Store chegando! Prepara o carrinho — vão ser ofertas que você não vai querer perder. Te aviso em primeira mão! 🔥' },
+  { nome: 'Natal', data: '12-25', dias_antes: 7, mensagem: 'Oi {nome}! 🎄 O Natal tá chegando! Que tal garantir aquele look lindo pra ceia (ou um presente especial)? Vem pra DS Store! 🤎✨' },
 ]).replace(/'/g, "''")}')`);
 
 // --- Migracoes: Adicionar tenant_id a tabelas operacionais (multi-tenant) ---
@@ -223,7 +223,7 @@ raw.exec(`
 // --- Seed tenant padrão (DS Store) se não existir nenhum ---
 try {
   const hasTenant = raw.prepare('SELECT COUNT(*) as cnt FROM tenants').get().cnt > 0;
-  if (***REMOVED***hasTenant) {
+  if (!hasTenant) {
     raw.exec(`INSERT INTO tenants (id, nome_loja, nome_responsavel, telefone, email, senha_hash)
       VALUES (1, 'DS Store', 'Admin', '0000-0000', 'admin@dsstore.local', 'placeholder')`);
   }
@@ -310,8 +310,8 @@ const META = {
   META_APP_SECRET:   process.env.META_APP_SECRET || '',     // valida assinatura X-Hub-Signature-256
   GRAPH_VERSION:     process.env.META_GRAPH_VERSION || 'v21.0',
 };
-META.whatsappAtivo  = ***REMOVED******REMOVED***(META.WHATSAPP_TOKEN && META.WHATSAPP_PHONE_ID);
-META.instagramAtivo = ***REMOVED******REMOVED***(META.INSTAGRAM_TOKEN && META.INSTAGRAM_ID);
+META.whatsappAtivo  = !!(META.WHATSAPP_TOKEN && META.WHATSAPP_PHONE_ID);
+META.instagramAtivo = !!(META.INSTAGRAM_TOKEN && META.INSTAGRAM_ID);
 
 // Tokens da Focus NFe (NFC-e) — SEGREDO: vêm do ambiente (.env / Render), NUNCA do banco
 // nem do código. São dois ambientes independentes, cada um com seu token:
@@ -329,6 +329,6 @@ const FOCUS = {
 // Token do ambiente pedido ('homologacao' default). Vazio = integração não configurada.
 FOCUS.tokenDe = (ambiente) => ambiente === 'producao' ? FOCUS.TOKEN_PRODUCAO : FOCUS.TOKEN_HOMOLOGACAO;
 FOCUS.urlDe   = (ambiente) => ambiente === 'producao' ? FOCUS.URL_PRODUCAO : FOCUS.URL_HOMOLOGACAO;
-FOCUS.configurado = (ambiente) => ***REMOVED******REMOVED***FOCUS.tokenDe(ambiente);
+FOCUS.configurado = (ambiente) => !!FOCUS.tokenDe(ambiente);
 
 module.exports = { db, getConfig, setConfig, DB_PATH, META, FOCUS };

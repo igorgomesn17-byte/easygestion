@@ -26,7 +26,7 @@ router.get('/', (req, res) => {
 // POST /api/vendedores
 router.post('/', (req, res) => {
   const { nome, telefone, comissao_pct } = req.body;
-  if (***REMOVED***nome) return res.status(400).json({ erro: 'Nome obrigatorio' });
+  if (!nome) return res.status(400).json({ erro: 'Nome obrigatorio' });
   const info = db.prepare('INSERT INTO vendedores (tenant_id, nome, telefone, comissao_pct) VALUES (?, ?, ?, ?)')
     .run(req.tenantId, nome, telefone || null, parseFloat(comissao_pct) || 0);
   res.status(201).json({ id: info.lastInsertRowid });

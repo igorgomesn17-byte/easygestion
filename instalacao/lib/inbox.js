@@ -58,7 +58,7 @@ function registrarEntrada({ canal = 'whatsapp', external_contact_id = null, tele
         'SELECT * FROM conversas WHERE canal = ? AND external_contact_id = ? AND arquivada = 0 ORDER BY id DESC LIMIT 1'
       ).get(canal, external_contact_id);
     }
-    if (***REMOVED***conversa && telefone) {
+    if (!conversa && telefone) {
       const d = soDigitos(telefone);
       if (d.length >= 8) {
         conversa = db.prepare(
@@ -69,7 +69,7 @@ function registrarEntrada({ canal = 'whatsapp', external_contact_id = null, tele
 
     // se não existe, cria — já tentando vincular a um cliente conhecido
     let criouConversa = false;
-    if (***REMOVED***conversa) {
+    if (!conversa) {
       const cli = telefone ? acharClientePorTelefone(telefone) : null;
       const info = db.prepare(`
         INSERT INTO conversas (cliente_id, canal, external_contact_id, contato_nome, telefone,

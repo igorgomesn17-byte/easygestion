@@ -107,7 +107,7 @@ db.exec(sql, (err) => {
     process.exit(1);
   }
 
-  console.log('✅ Tabelas criadas com sucesso***REMOVED***');
+  console.log('✅ Tabelas criadas com sucesso!');
   db.close();
   process.exit(0);
 });

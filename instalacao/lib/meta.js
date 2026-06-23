@@ -19,7 +19,7 @@ const GRAPH_IG = (path) => `https://graph.instagram.com/${META.GRAPH_VERSION}/${
 // Texto livre só é permitido enquanto a janela (última msg da cliente + 24h)
 // estiver aberta. Fora dela: WhatsApp exige template; Instagram exige HUMAN_AGENT.
 function dentroDaJanela(janelaExpiraEm) {
-  if (***REMOVED***janelaExpiraEm) return false;
+  if (!janelaExpiraEm) return false;
   return new Date(janelaExpiraEm.replace(' ', 'T')) > new Date();
 }
 
@@ -27,12 +27,12 @@ function dentroDaJanela(janelaExpiraEm) {
 // A Meta assina cada POST com HMAC-SHA256 (App Secret) no header
 // X-Hub-Signature-256. Garante que o evento veio mesmo da Meta.
 function assinaturaValida(rawBody, header) {
-  if (***REMOVED***META.META_APP_SECRET) {
+  if (!META.META_APP_SECRET) {
     // Em produção, SEM secret configurado = recusa (não deixa o webhook aberto).
     // Em dev (local), libera pra facilitar testes sem credenciais da Meta.
-    return process.env.NODE_ENV ***REMOVED***== 'production';
+    return process.env.NODE_ENV !== 'production';
   }
-  if (***REMOVED***header) return false;
+  if (!header) return false;
   const esperado = 'sha256=' + crypto
     .createHmac('sha256', META.META_APP_SECRET)
     .update(rawBody)
@@ -47,7 +47,7 @@ function assinaturaValida(rawBody, header) {
 // ---------- Envio: WhatsApp ----------
 // Texto livre dentro da janela; fora dela, passar { template } pra enviar modelo.
 async function enviarWhatsApp(to, texto, opcoes = {}) {
-  if (***REMOVED***META.whatsappAtivo) {
+  if (!META.whatsappAtivo) {
     return { ok: false, simulado: true, motivo: 'WhatsApp Cloud API não configurada (.env)' };
   }
   const corpo = opcoes.template
@@ -60,13 +60,13 @@ async function enviarWhatsApp(to, texto, opcoes = {}) {
     body: JSON.stringify(corpo),
   });
   const dados = await resp.json().catch(() => ({}));
-  if (***REMOVED***resp.ok) return { ok: false, erro: dados.error?.message || 'Falha ao enviar (WhatsApp)', dados };
+  if (!resp.ok) return { ok: false, erro: dados.error?.message || 'Falha ao enviar (WhatsApp)', dados };
   return { ok: true, external_id: dados.messages?.[0]?.id || null, dados };
 }
 
 // ---------- Envio: Instagram ----------
 async function enviarInstagram(igsid, texto, opcoes = {}) {
-  if (***REMOVED***META.instagramAtivo) {
+  if (!META.instagramAtivo) {
     return { ok: false, simulado: true, motivo: 'Instagram API não configurada (.env)' };
   }
   const corpo = { recipient: { id: igsid }, message: { text: texto } };
@@ -78,7 +78,7 @@ async function enviarInstagram(igsid, texto, opcoes = {}) {
     body: JSON.stringify(corpo),
   });
   const dados = await resp.json().catch(() => ({}));
-  if (***REMOVED***resp.ok) return { ok: false, erro: dados.error?.message || 'Falha ao enviar (Instagram)', dados };
+  if (!resp.ok) return { ok: false, erro: dados.error?.message || 'Falha ao enviar (Instagram)', dados };
   return { ok: true, external_id: dados.message_id || null, dados };
 }
 
@@ -97,15 +97,15 @@ async function enviar(conversa, texto, opcoes = {}) {
 // ---------- Mídia ----------
 // O webhook manda só o media_id. Aqui obtemos a URL temporária e baixamos.
 async function baixarMidia(mediaId) {
-  if (***REMOVED***META.whatsappAtivo) return null;
+  if (!META.whatsappAtivo) return null;
   const meta = await fetch(GRAPH(mediaId), {
     headers: { Authorization: `Bearer ${META.WHATSAPP_TOKEN}` },
   }).then(r => r.json()).catch(() => null);
-  if (***REMOVED***meta?.url) return null;
+  if (!meta?.url) return null;
   const bin = await fetch(meta.url, {
     headers: { Authorization: `Bearer ${META.WHATSAPP_TOKEN}` },
   });
-  if (***REMOVED***bin.ok) return null;
+  if (!bin.ok) return null;
   return { buffer: Buffer.from(await bin.arrayBuffer()), mime: meta.mime_type || 'application/octet-stream' };
 }
 

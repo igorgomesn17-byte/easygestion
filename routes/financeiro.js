@@ -317,12 +317,12 @@ router.get('/conciliacao', exigirPapel('admin'), (req, res) => {
   const entradasConta = +movs.filter(m => m.tipo === 'suprimento').reduce((s, m) => s + m.valor, 0).toFixed(2);
 
   const saldoIni = cx.saldo_conta_inicial;
-  const temSaldo = saldoIni ***REMOVED***== null && saldoIni ***REMOVED***== undefined;
+  const temSaldo = saldoIni !== null && saldoIni !== undefined;
   const esperado = temSaldo
     ? +((saldoIni || 0) + pixDia + entradasConta - saidasConta).toFixed(2)
     : null;
   const conferido = cx.conta_conferida;
-  const diferenca = (temSaldo && conferido ***REMOVED***= null) ? +(conferido - esperado).toFixed(2) : null;
+  const diferenca = (temSaldo && conferido != null) ? +(conferido - esperado).toFixed(2) : null;
 
   res.json({
     data,

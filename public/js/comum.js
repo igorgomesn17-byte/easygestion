@@ -18,7 +18,7 @@ function moeda(v) {
 // Máscara de aniversário DD/MM: digita só números e a "/" entra sozinha.
 // Liga num input: mascaraAniversario(document.getElementById('aniv'))
 function mascaraAniversario(input) {
-  if (***REMOVED***input) return;
+  if (!input) return;
   input.setAttribute('inputmode', 'numeric');
   input.setAttribute('maxlength', '5');
   input.addEventListener('input', () => {
@@ -50,7 +50,7 @@ function aplicarModoValores() {
   // Só age na página que tem o botão de olho (o Painel). Nas demais telas,
   // garante que o blur nunca seja aplicado, mesmo com a preferência salva.
   const btn = document.getElementById('btnOlho');
-  if (***REMOVED***btn) { document.body.classList.remove('valores-ocultos'); return; }
+  if (!btn) { document.body.classList.remove('valores-ocultos'); return; }
   document.body.classList.toggle('valores-ocultos', valoresOcultos());
   btn.innerHTML = valoresOcultos() ? '🙈 Mostrar valores' : '👁️ Ocultar valores';
 }
@@ -59,7 +59,7 @@ function toggleValores() {
   aplicarModoValores();
 }
 // aplica assim que o DOM estiver pronto (e o botão existir)
-if (document.readyState ***REMOVED***== 'loading') aplicarModoValores();
+if (document.readyState !== 'loading') aplicarModoValores();
 else document.addEventListener('DOMContentLoaded', aplicarModoValores);
 
 // Chamada de API simplificada
@@ -71,12 +71,12 @@ async function api(caminho, opcoes = {}) {
     body: opcoes.body ? JSON.stringify(opcoes.body) : undefined,
   });
   // sessão expirada / não autenticado → manda pro login (exceto se já estiver nele)
-  if (resp.status === 401 && ***REMOVED***location.pathname.endsWith('login.html')) {
+  if (resp.status === 401 && !location.pathname.endsWith('login.html')) {
     location.href = 'login.html';
     throw new Error('Sessão expirada');
   }
   const dados = await resp.json().catch(() => ({}));
-  if (***REMOVED***resp.ok) throw new Error(dados.erro || 'Erro na operacao');
+  if (!resp.ok) throw new Error(dados.erro || 'Erro na operacao');
   return dados;
 }
 
@@ -88,14 +88,14 @@ async function apiPublico(caminho, opcoes = {}) {
     body: opcoes.body ? JSON.stringify(opcoes.body) : undefined,
   });
   const dados = await resp.json().catch(() => ({}));
-  if (***REMOVED***resp.ok) throw new Error(dados.erro || 'Erro na operacao');
+  if (!resp.ok) throw new Error(dados.erro || 'Erro na operacao');
   return dados;
 }
 
 // Aviso flutuante (toast)
 function toast(msg, tipo = '') {
   let el = document.getElementById('toast');
-  if (***REMOVED***el) { el = document.createElement('div'); el.id = 'toast'; document.body.appendChild(el); }
+  if (!el) { el = document.createElement('div'); el.id = 'toast'; document.body.appendChild(el); }
   el.textContent = msg;
   el.className = tipo;
   void el.offsetWidth; // reflow
@@ -173,7 +173,7 @@ async function carregarMarca() {
 // Aplica a COR da marca como variável CSS global (--marca). O CSS do sistema usa
 // var(--marca) no essencial visível (topbar, botões principais, destaques).
 function aplicarCorMarca(cor) {
-  if (***REMOVED***cor) return;
+  if (!cor) return;
   document.documentElement.style.setProperty('--marca', cor);
   document.documentElement.style.setProperty('--marca-escura', sombrearCor(cor, -18));
   document.documentElement.style.setProperty('--marca-clara', sombrearCor(cor, 24));
@@ -181,7 +181,7 @@ function aplicarCorMarca(cor) {
 // Escurece/clareia um hex (%); usado pra derivar tons da cor principal.
 function sombrearCor(hex, pct) {
   const h = String(hex).replace('#', '');
-  if (h.length ***REMOVED***== 6) return hex;
+  if (h.length !== 6) return hex;
   const n = parseInt(h, 16);
   const ajust = (c) => Math.max(0, Math.min(255, Math.round(c + (c * pct) / 100)));
   const r = ajust((n >> 16) & 255), g = ajust((n >> 8) & 255), b = ajust(n & 255);
@@ -220,27 +220,27 @@ const PAGINAS_POR_PAPEL = {
 function montarLayout(paginaAtiva) {
   const EMBED = new URLSearchParams(location.search).get('embed') === '1';
   fetch('/api/me', { credentials: 'same-origin' }).then(r => {
-    if (***REMOVED***r.ok) { if (***REMOVED***EMBED) location.href = 'login.html'; return; }
+    if (!r.ok) { if (!EMBED) location.href = 'login.html'; return; }
     return r.json();
   }).then(me => {
-    if (***REMOVED***me) return;
+    if (!me) return;
     const papel = me.papel || 'admin';
     // guarda de página: papel não-admin tentando abrir tela fora da sua lista → redireciona
     const permitidas = PAGINAS_POR_PAPEL[papel];
-    if (permitidas && ***REMOVED***permitidas.includes(paginaAtiva)) {
+    if (permitidas && !permitidas.includes(paginaAtiva)) {
       location.href = permitidas[0] + '.html';
       return;
     }
     // esconde do menu os itens fora do papel
     if (permitidas) {
       document.querySelectorAll('.sidebar-nav .nav-link[data-pagina]').forEach(a => {
-        if (***REMOVED***permitidas.includes(a.dataset.pagina)) a.style.display = 'none';
+        if (!permitidas.includes(a.dataset.pagina)) a.style.display = 'none';
       });
       // some também com os títulos de grupo que ficaram sem nenhum item visível
       document.querySelectorAll('.nav-grupo-titulo').forEach(t => {
         let n = t.nextElementSibling, temVisivel = false;
-        while (n && n.classList.contains('nav-link')) { if (n.style.display ***REMOVED***== 'none') temVisivel = true; n = n.nextElementSibling; }
-        if (***REMOVED***temVisivel) t.style.display = 'none';
+        while (n && n.classList.contains('nav-link')) { if (n.style.display !== 'none') temVisivel = true; n = n.nextElementSibling; }
+        if (!temVisivel) t.style.display = 'none';
       });
     }
   }).catch(() => {});
@@ -307,7 +307,7 @@ function montarLayout(paginaAtiva) {
 
 function toggleRecolher() {
   const app = document.getElementById('app');
-  const isRecolhida = ***REMOVED***app.classList.contains('recolhida');
+  const isRecolhida = !app.classList.contains('recolhida');
   app.classList.toggle('recolhida');
   localStorage.setItem('ds-sidebar-recolhida', isRecolhida ? '1' : '0');
 
@@ -330,7 +330,7 @@ function toggleMenuMob() {
 
 // Encerra a sessão e volta pro login
 async function sair() {
-  if (***REMOVED***confirm('Deseja sair do sistema?')) return;
+  if (!confirm('Deseja sair do sistema?')) return;
   try { await fetch('/api/logout', { method: 'POST', credentials: 'same-origin' }); } catch (e) {}
   location.href = 'login.html';
 }
@@ -395,7 +395,7 @@ async function carregarCategorias() {
   const cfg = await api('/config');
   try { _categoriasCache = JSON.parse(cfg.categorias || '[]'); }
   catch(e) { _categoriasCache = []; }
-  if (***REMOVED***_categoriasCache.length) _categoriasCache = ['vestido','blusa','calca','short','saia','conjunto','macacao','alfaiataria','acessorio','outro'];
+  if (!_categoriasCache.length) _categoriasCache = ['vestido','blusa','calca','short','saia','conjunto','macacao','alfaiataria','acessorio','outro'];
   return _categoriasCache;
 }
 // Deixa o rotulo bonito (primeira maiuscula)
@@ -403,7 +403,7 @@ function rotuloCategoria(c) { return c.charAt(0).toUpperCase() + c.slice(1); }
 async function popularSelectCategorias(selectId, valorSelecionado) {
   const cats = await carregarCategorias();
   const sel = document.getElementById(selectId);
-  if (***REMOVED***sel) return;
+  if (!sel) return;
   sel.innerHTML = cats.map(c => `<option value="${c}" ${c===valorSelecionado?'selected':''}>${rotuloCategoria(c)}</option>`).join('');
 }
 
@@ -414,7 +414,7 @@ async function carregarOrigens() {
   const cfg = await api('/config');
   try { _origensCache = JSON.parse(cfg.origens || '[]'); }
   catch(e) { _origensCache = []; }
-  if (***REMOVED***_origensCache.length) _origensCache = ['loja','instagram','whatsapp','indicacao'];
+  if (!_origensCache.length) _origensCache = ['loja','instagram','whatsapp','indicacao'];
   return _origensCache;
 }
 const _ICONE_ORIGEM = { loja:'🏪', instagram:'📷', whatsapp:'💬', indicacao:'🤝', site:'🌐', facebook:'📘' };
@@ -425,7 +425,7 @@ function rotuloOrigem(o) {
 async function popularSelectOrigens(selectId, valorSelecionado) {
   const ori = await carregarOrigens();
   const sel = document.getElementById(selectId);
-  if (***REMOVED***sel) return;
+  if (!sel) return;
   sel.innerHTML = ori.map(o => `<option value="${o}" ${o===valorSelecionado?'selected':''}>${rotuloOrigem(o)}</option>`).join('');
 }
 
@@ -442,7 +442,7 @@ function invalidarCacheColecoes() { _colecoesCache = null; }
 async function popularSelectColecoes(selectId, valorSelecionado) {
   const cols = await carregarColecoes();
   const sel = document.getElementById(selectId);
-  if (***REMOVED***sel) return;
+  if (!sel) return;
   sel.innerHTML = '<option value="">— sem coleção —</option>' +
     cols.map(c => `<option value="${esc(c)}" ${c===valorSelecionado?'selected':''}>${esc(c)}</option>`).join('');
 }
@@ -450,10 +450,10 @@ async function popularSelectColecoes(selectId, valorSelecionado) {
 // Exporta um array de objetos (ou matriz) como CSV que abre no Excel.
 // linhas: array de objetos {col:valor} OU array de arrays; cabecalho opcional.
 function exportarCSV(nomeArquivo, linhas, cabecalho) {
-  if (***REMOVED***linhas || ***REMOVED***linhas.length) { toast('Nada para exportar','erro'); return; }
+  if (!linhas || !linhas.length) { toast('Nada para exportar','erro'); return; }
   let cols = cabecalho;
   let dados = linhas;
-  if (***REMOVED***Array.isArray(linhas[0])) {
+  if (!Array.isArray(linhas[0])) {
     cols = cabecalho || Object.keys(linhas[0]);
     dados = linhas.map(o => cols.map(c => o[c]));
   }

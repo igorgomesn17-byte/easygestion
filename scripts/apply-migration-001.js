@@ -1,4 +1,4 @@
-#***REMOVED***/usr/bin/env node
+#!/usr/bin/env node
 // ============================================================
 // Script de Migração: Adiciona tenant_id a todas as tabelas
 // ============================================================
@@ -43,7 +43,7 @@ console.log(`
     // ============================================================
     console.log('🔄 Etapa 1: Criando backup do banco...');
 
-    if (***REMOVED***fs.existsSync(backupDir)) {
+    if (!fs.existsSync(backupDir)) {
       fs.mkdirSync(backupDir, { recursive: true });
     }
 
@@ -58,7 +58,7 @@ console.log(`
     // ============================================================
     console.log('\n🔄 Etapa 2: Executando SQL de migração...');
 
-    if (***REMOVED***fs.existsSync(migrationPath)) {
+    if (!fs.existsSync(migrationPath)) {
       throw new Error(`Arquivo de migração não encontrado: ${migrationPath}`);
     }
 
@@ -110,7 +110,7 @@ console.log(`
       const hasTenantId = info.some(col => col.name === 'tenant_id');
       results[table] = hasTenantId;
 
-      if (***REMOVED***hasTenantId) {
+      if (!hasTenantId) {
         console.log(`  ❌ ${table}: falta tenant_id`);
         allValid = false;
       } else {
@@ -118,7 +118,7 @@ console.log(`
       }
     }
 
-    if (***REMOVED***allValid) {
+    if (!allValid) {
       throw new Error('Algumas tabelas não têm tenant_id. Migração falhou.');
     }
 
@@ -183,7 +183,7 @@ console.log(`
 
     db.close();
 
-    console.log('\n✅ Migração aplicada com sucesso***REMOVED*** 🎉\n');
+    console.log('\n✅ Migração aplicada com sucesso! 🎉\n');
 
   } catch (error) {
     console.error('\n❌ ERRO durante migração:\n', error.message);

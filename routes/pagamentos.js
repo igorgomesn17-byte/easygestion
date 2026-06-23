@@ -19,7 +19,7 @@ const router = express.Router();
 router.post('/checkout', exigirLogin, injetarTenant, async (req, res) => {
   try {
     const tenantId = req.session?.tenant_id;
-    if (***REMOVED***tenantId) {
+    if (!tenantId) {
       return res.status(401).json({ erro: 'Tenant não identificado' });
     }
 
@@ -44,7 +44,7 @@ router.post('/checkout', exigirLogin, injetarTenant, async (req, res) => {
 router.get('/status', exigirLogin, injetarTenant, async (req, res) => {
   try {
     const { session_id } = req.query;
-    if (***REMOVED***session_id) {
+    if (!session_id) {
       return res.status(400).json({ erro: 'session_id obrigatório' });
     }
 
@@ -60,7 +60,7 @@ router.get('/status', exigirLogin, injetarTenant, async (req, res) => {
 router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
   try {
     const signature = req.headers['stripe-signature'];
-    if (***REMOVED***signature) {
+    if (!signature) {
       return res.status(400).json({ erro: 'Assinatura do Stripe não encontrada' });
     }
 
@@ -126,7 +126,7 @@ router.get('/admin/cobrancas/:id', apenasAdmin, (req, res) => {
       WHERE c.id = ?
     `).get(req.params.id);
 
-    if (***REMOVED***cobranca) {
+    if (!cobranca) {
       return res.status(404).json({ erro: 'Cobrança não encontrada' });
     }
 
@@ -141,7 +141,7 @@ router.get('/admin/cobrancas/:id', apenasAdmin, (req, res) => {
 router.patch('/admin/cobrancas/:id/marcar-paga', apenasAdmin, (req, res) => {
   try {
     const cobranca = db.prepare('SELECT * FROM cobracas WHERE id = ?').get(req.params.id);
-    if (***REMOVED***cobranca) {
+    if (!cobranca) {
       return res.status(404).json({ erro: 'Cobrança não encontrada' });
     }
 

@@ -1,4 +1,4 @@
-#***REMOVED***/usr/bin/env node
+#!/usr/bin/env node
 /**
  * Testes Golden Path — Tarefa 9.1
  * Valida os cenários críticos antes do deploy
@@ -131,7 +131,7 @@ async function test_multi_tenant_isolation() {
 
   // Deve retornar 404 ou 403 (não encontrado ou acesso negado)
   assert(res.status === 404 || res.status === 403,
-    `Isolamento falhou***REMOVED*** User 2 conseguiu acessar cliente de User 1: ${res.status}`);
+    `Isolamento falhou! User 2 conseguiu acessar cliente de User 1: ${res.status}`);
   console.log('  ✅ Isolamento funcionou: User 2 NÃO consegue ver cliente de User 1');
 }
 
@@ -241,7 +241,7 @@ async function runTests() {
       }
     }
 
-    if (***REMOVED***serverReady) {
+    if (!serverReady) {
       throw new Error('Servidor não respondeu em 10 segundos');
     }
 

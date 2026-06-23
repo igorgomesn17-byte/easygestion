@@ -49,7 +49,7 @@ function contaEsperada(caixa, data) {
   const supConta = +(caixa.suprimentos_conta || 0).toFixed(2);
   const sangConta = +(caixa.sangrias_conta || 0).toFixed(2);
   // só calcula esperado se o usuário informou o saldo inicial da conta
-  const temSaldo = saldoIni ***REMOVED***== null && saldoIni ***REMOVED***== undefined;
+  const temSaldo = saldoIni !== null && saldoIni !== undefined;
   const contaEsperado = temSaldo
     ? +((saldoIni || 0) + pixDia + supConta - sangConta).toFixed(2)
     : null;
@@ -66,7 +66,7 @@ function contaEsperada(caixa, data) {
 router.get('/hoje', (req, res) => {
   const data = req.query.data || hojeLocal();
   let caixa = db.prepare('SELECT * FROM caixa_dia WHERE data = ? AND tenant_id = ?').get(data, req.tenantId);
-  if (***REMOVED***caixa) {
+  if (!caixa) {
     caixa = { data, total_pix: 0, total_debito: 0, total_credito: 0, total_dinheiro: 0,
               total_bruto: 0, total_liquido: 0, lucro_dia: 0, num_vendas: 0, conciliado: 0, obs: null,
               fundo_troco: 0, sangrias: 0, suprimentos: 0, dinheiro_contado: null, diferenca: null,
@@ -111,7 +111,7 @@ router.post('/abrir', (req, res) => {
 router.post('/saldo-conta', (req, res) => {
   const data = req.body.data || hojeLocal();
   const saldo = req.body.saldo === '' || req.body.saldo == null ? null : parseFloat(req.body.saldo);
-  if (saldo ***REMOVED***== null && isNaN(saldo)) return res.status(400).json({ erro: 'Saldo inválido' });
+  if (saldo !== null && isNaN(saldo)) return res.status(400).json({ erro: 'Saldo inválido' });
   garantirLinha(data, req.tenantId);
   db.prepare('UPDATE caixa_dia SET saldo_conta_inicial = ? WHERE data = ? AND tenant_id = ?').run(saldo, data, req.tenantId);
   res.json({ ok: true, saldo_conta_inicial: saldo });
@@ -147,7 +147,7 @@ router.post('/saida', (req, res) => {
   const valor = parseFloat(req.body.valor) || 0;
   if (valor <= 0) return res.status(400).json({ erro: 'Informe um valor.' });
   const descricao = String(req.body.descricao || '').trim();
-  if (***REMOVED***descricao) return res.status(400).json({ erro: 'Descreva a saída (ex: pagamento fornecedor).' });
+  if (!descricao) return res.status(400).json({ erro: 'Descreva a saída (ex: pagamento fornecedor).' });
   const forma = normalizaForma(req.body.forma);
   const categoria = req.body.categoria || 'outro';
   const centro = req.body.centro === 'pessoal' ? 'pessoal' : 'empresa';
@@ -172,7 +172,7 @@ router.post('/saida', (req, res) => {
 // DELETE /api/caixa/movimento/:id  -> apaga sangria/suprimento; se veio de despesa, apaga a despesa junto
 router.delete('/movimento/:id', (req, res) => {
   const m = db.prepare('SELECT * FROM caixa_movimentos WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenantId);
-  if (***REMOVED***m) return res.status(404).json({ erro: 'Movimento não encontrado' });
+  if (!m) return res.status(404).json({ erro: 'Movimento não encontrado' });
   if (m.tipo === 'abertura') return res.status(400).json({ erro: 'A abertura do caixa não pode ser apagada por aqui.' });
   const tx = db.transaction(() => {
     db.prepare('DELETE FROM caixa_movimentos WHERE id = ? AND tenant_id = ?').run(m.id, req.tenantId);

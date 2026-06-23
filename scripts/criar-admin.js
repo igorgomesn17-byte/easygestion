@@ -1,4 +1,4 @@
-#***REMOVED***/usr/bin/env node
+#!/usr/bin/env node
 
 /**
  * Script: Criar usuário admin na tabela de usuários
@@ -43,7 +43,7 @@ async function main() {
     if (adminExistente) {
       console.log(`✓ Usuário admin já existe (ID: ${adminExistente.id})`);
       const sobrescrever = await pergunta('\nSobrescrever senha? (s/n): ');
-      if (sobrescrever.toLowerCase() ***REMOVED***== 's') {
+      if (sobrescrever.toLowerCase() !== 's') {
         console.log('\n✗ Operação cancelada.\n');
         rl.close();
         return;
@@ -55,14 +55,14 @@ async function main() {
     const senha = await pergunta('Nova senha para admin: ');
     const senhaConfirm = await pergunta('Confirme a senha: ');
 
-    if (senha ***REMOVED***== senhaConfirm) {
-      console.log('\n✗ Senhas não coincidem***REMOVED***\n');
+    if (senha !== senhaConfirm) {
+      console.log('\n✗ Senhas não coincidem!\n');
       rl.close();
       return;
     }
 
     const validacao = validarSenha(senha);
-    if (***REMOVED***validacao.valida) {
+    if (!validacao.valida) {
       console.log(`\n✗ ${validacao.erro}\n`);
       rl.close();
       return;
@@ -78,23 +78,23 @@ async function main() {
       db.prepare(
         'UPDATE usuarios SET senha_hash = ?, email = ? WHERE id = ?'
       ).run(senhaHash, email || null, adminExistente.id);
-      console.log(`\n✓ Senha do admin atualizada***REMOVED***\n`);
+      console.log(`\n✓ Senha do admin atualizada!\n`);
     } else {
       const result = db.prepare(`
         INSERT INTO usuarios (tenant_id, nome, email, senha_hash, papel, ativo)
         VALUES (?, ?, ?, ?, ?, ?)
       `).run(1, 'admin', email || null, senhaHash, 'admin', 1);
 
-      console.log(`\n✓ Usuário admin criado***REMOVED*** (ID: ${result.lastInsertRowid})\n`);
+      console.log(`\n✓ Usuário admin criado! (ID: ${result.lastInsertRowid})\n`);
     }
 
     console.log('═══════════════════════════════════════════════════');
-    console.log('   Setup concluído com sucesso***REMOVED***');
+    console.log('   Setup concluído com sucesso!');
     console.log('═══════════════════════════════════════════════════\n');
     console.log('   Próximos passos:');
     console.log('   1. Acesse /admin');
     console.log('   2. Login com usuário: admin');
-    console.log('   3. A auditoria LGPD agora está ativa***REMOVED***\n');
+    console.log('   3. A auditoria LGPD agora está ativa!\n');
 
   } catch (err) {
     console.error('\n✗ Erro:', err.message, '\n');
