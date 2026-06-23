@@ -202,7 +202,7 @@ const limiteLogin = rateLimit({
 // Admin password: estrito contra brute force
 const limiteAdminPassword = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5,                      // 5 tentativas / 15min por IP
+  max: 50,                     // 50 tentativas / 15min por IP (temporário para testes)
   standardHeaders: true,
   legacyHeaders: false,
   message: { erro: 'Muitas tentativas de admin. Aguarde 15 minutos.' },
