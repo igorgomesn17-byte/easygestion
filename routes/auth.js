@@ -58,7 +58,13 @@ router.post('/admin/login', (req, res) => {
     req.session.papel = 'admin';
     req.session.tenant_id = 1;
     console.log(`[ADMIN LOGIN OK] ${usuarioAdmin()} • ${req.ip} • ${new Date().toISOString()}`);
-    return res.json({ ok: true, usuario: usuarioAdmin(), papel: 'admin', destino: 'index.html' });
+    return req.session.save((err) => {
+      if (err) {
+        console.error('[SESSION SAVE ERROR]', err);
+        return res.status(500).json({ erro: 'Erro ao salvar sessão' });
+      }
+      res.json({ ok: true, usuario: usuarioAdmin(), papel: 'admin', destino: 'index.html' });
+    });
   }
 
   console.warn(`[ADMIN LOGIN FALHA] ${req.ip} • ${new Date().toISOString()}`);
@@ -77,7 +83,13 @@ router.post('/login', (req, res) => {
     req.session.papel = 'admin';
     req.session.tenant_id = 1;  // admin do .env sempre é tenant 1
     console.log(`[LOGIN OK] ${usuarioAdmin()} (admin env) • ${req.ip} • ${new Date().toISOString()}`);
-    return res.json({ ok: true, usuario: usuarioAdmin(), papel: 'admin', destino: 'index.html' });
+    return req.session.save((err) => {
+      if (err) {
+        console.error('[SESSION SAVE ERROR]', err);
+        return res.status(500).json({ erro: 'Erro ao salvar sessão' });
+      }
+      res.json({ ok: true, usuario: usuarioAdmin(), papel: 'admin', destino: 'index.html' });
+    });
   }
 
   // Login por email (tabela de usuários)
@@ -109,7 +121,13 @@ router.post('/login', (req, res) => {
       : u.papel === 'vendedor' ? 'pdv.html'
       : 'relacionamento.html';
     console.log(`[LOGIN OK] ${u.email} (${u.papel}) • ${req.ip} • ${new Date().toISOString()}`);
-    return res.json({ ok: true, usuario: u.nome, email: u.email, papel: u.papel, destino });
+    return req.session.save((err) => {
+      if (err) {
+        console.error('[SESSION SAVE ERROR]', err);
+        return res.status(500).json({ erro: 'Erro ao salvar sessão' });
+      }
+      res.json({ ok: true, usuario: u.nome, email: u.email, papel: u.papel, destino });
+    });
   }
 
   console.warn(`[LOGIN FALHA] ${email} • ${req.ip} • ${new Date().toISOString()}`);
