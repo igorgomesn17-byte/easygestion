@@ -43,7 +43,8 @@ function usuarioAdmin() { return getConfig('admin_usuario', 'igor'); }
 
 // POST /api/admin/login  body: { senha }
 // Login admin (apenas senha — sem email)
-router.post('/admin/login', limiteAdminPassword, (req, res) => {
+// Nota: rate limit temporariamente removido para testes (TODO: reativar após beta)
+router.post('/admin/login', (req, res) => {
   const { senha } = req.body || {};
 
   if (!senha) {
