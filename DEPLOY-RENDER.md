@@ -65,7 +65,7 @@ git push -u origin main
 ```
 
 **Arquivos a NÃO fazer commit:**
-- `.env` (tem secrets***REMOVED***)
+- `.env` (tem secrets!)
 - `node_modules/`
 - `db/dsstore.db` (será criado no Render)
 - `.license` (será gerado no Render)
@@ -99,27 +99,29 @@ Midiakit/
 
 ### 3.2 Configurar Environment Variables
 
-No painel Render → Environment:
+No painel Render → Environment (copie do seu `.env` local, NÃO do Git):
 
 ```env
 NODE_ENV=staging
 PORT=3000
-SESSION_SECRET=seu-secret-muito-seguro-min-32-caracteres-aleatorio
+SESSION_SECRET=[seu-secret-muito-seguro-min-32-caracteres-aleatorio]
 
-SENDGRID_API_KEY=SG.xxx...
+SENDGRID_API_KEY=[cole-aqui-sua-chave-sendgrid]
 LOJA_EMAIL=noreply@easygestao.com
 LOJA_NOME=EasyGestão
 
-AWS_ACCESS_KEY_ID=AKIA...
-AWS_SECRET_ACCESS_KEY=xxx...
+AWS_ACCESS_KEY_ID=[cole-aqui-sua-chave-aws]
+AWS_SECRET_ACCESS_KEY=[cole-aqui-seu-secret-aws]
 AWS_S3_BUCKET=easygestao-backups
 AWS_REGION=sa-east-1
 
-ADMIN_SENHA=Id172725
+ADMIN_SENHA=[cole-aqui-sua-senha-admin]
 
 # Opcionais
 ORIGIN=https://easygestion-staging.onrender.com
 ```
+
+⚠️ **NUNCA faça commit de `.env` ou credenciais no Git. Use variáveis de ambiente do Render.**
 
 ### 3.3 Deploy
 
