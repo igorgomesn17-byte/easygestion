@@ -195,7 +195,7 @@
 
         const data = await res.json();
 
-        if (res.ok) {
+        if (!res.ok) {
           erroDiv.textContent = data.erro || 'Erro ao autenticar.';
           erroDiv.classList.add('show');
           botao.disabled = false;
