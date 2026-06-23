@@ -125,6 +125,7 @@ class SQLiteSessionStore extends session.Store {
       if (!row) return callback(null, null);
       callback(null, JSON.parse(row.sess));
     } catch (err) {
+      console.error('[SESSION STORE GET ERROR]', err);
       callback(err);
     }
   }
@@ -132,9 +133,12 @@ class SQLiteSessionStore extends session.Store {
   set(sid, sess, callback) {
     try {
       const expire = Math.floor(Date.now() / 1000) + (sess.cookie.maxAge ? Math.floor(sess.cookie.maxAge / 1000) : 12 * 60 * 60);
+      console.log(`[SESSION STORE SET] sid=${sid}, expire=${expire}`);
       this.db.prepare('INSERT OR REPLACE INTO sessions (sid, sess, expire) VALUES (?, ?, ?)').run(sid, JSON.stringify(sess), expire);
+      console.log(`[SESSION STORE SET OK] sid=${sid}`);
       callback(null);
     } catch (err) {
+      console.error('[SESSION STORE SET ERROR]', err);
       callback(err);
     }
   }
@@ -144,6 +148,7 @@ class SQLiteSessionStore extends session.Store {
       this.db.prepare('DELETE FROM sessions WHERE sid = ?').run(sid);
       callback(null);
     } catch (err) {
+      console.error('[SESSION STORE DESTROY ERROR]', err);
       callback(err);
     }
   }
@@ -153,6 +158,7 @@ class SQLiteSessionStore extends session.Store {
       this.db.prepare('DELETE FROM sessions').run();
       callback(null);
     } catch (err) {
+      console.error('[SESSION STORE CLEAR ERROR]', err);
       callback(err);
     }
   }
