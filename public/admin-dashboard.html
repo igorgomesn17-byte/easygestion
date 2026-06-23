@@ -439,7 +439,7 @@
     async function carregarAlertas() {
       try {
         const res = await fetchAdmin('/alertas');
-        if (res.ok) throw new Error('Erro ao carregar');
+        if (!res.ok) throw new Error('Erro ao carregar');
 
         const { alertas, sumario } = await res.json();
 
@@ -546,7 +546,7 @@
     async function carregarClientes() {
       try {
         const res = await fetchAdmin('/clientes');
-        if (res.ok) throw new Error('Erro ao carregar');
+        if (!res.ok) throw new Error('Erro ao carregar');
 
         const { clientes } = await res.json();
 
