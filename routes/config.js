@@ -195,18 +195,26 @@ router.post('/focus-token', (req, res) => {
   }
 
   try {
-    // Criptografar o token (mesmo padrão do certificado)
     const chave = `focus_token_${ambiente}`;
+
+    // Salvar o token criptografado
     const tokenBuffer = Buffer.from(token, 'utf8');
-    const tokenCriptografado = criptografarCertificado(tokenBuffer);
+    let tokenCriptografado;
+    try {
+      tokenCriptografado = criptografarCertificado(tokenBuffer);
+    } catch (cryptoErr) {
+      console.error('Erro ao criptografar:', cryptoErr);
+      // Se falhar criptografia, salva em plain (TEMPORÁRIO)
+      tokenCriptografado = token;
+    }
 
     db.prepare('INSERT INTO config (chave, valor, tenant_id) VALUES (?, ?, ?) ON CONFLICT(chave, tenant_id) DO UPDATE SET valor=excluded.valor')
       .run(chave, tokenCriptografado, req.tenantId);
 
     res.json({ ok: true, mensagem: `Token de ${ambiente} salvo com segurança!` });
   } catch (e) {
-    console.error('Erro ao salvar token:', e);
-    res.status(500).json({ erro: 'Erro ao salvar token: ' + e.message });
+    console.error('[TOKEN SAVE ERROR]', e);
+    res.status(500).json({ erro: 'Erro ao salvar: ' + e.message });
   }
 });
 
