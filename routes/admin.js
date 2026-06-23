@@ -17,7 +17,7 @@ const { enviarEmail, templateContaBloqueada, templateContaReativada } = require(
 const { obterStatusAssinatura } = require('../lib/assinatura');
 const router = express.Router();
 
-const { limiteAdminPassword, verificarSenha, hashSenha } = require('../middleware/seguranca');
+const { verificarSenha, hashSenha } = require('../middleware/seguranca');
 
 // --- Middleware: só admin acessa o backoffice ---
 // Verifica: 1) logado na sessão, 2) papel === 'admin'
