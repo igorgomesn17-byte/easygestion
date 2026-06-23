@@ -466,20 +466,25 @@
       checarNfce();
     }
 
-    // Mostra se o servidor tem o token do ambiente escolhido (sem expor o token)
+    // Mostra se tem token salvo no banco de dados
     async function checarNfce() {
       const el = document.getElementById('nfceStatus');
       if (!el) return;
-      let s;
-      try { s = await api('/nfce/config'); } catch (e) { el.innerHTML = '⚠️ Não foi possível verificar a integração.'; return; }
-      const amb = (document.getElementById('nfce_ambiente').value) || s.ambiente;
-      const temToken = amb === 'producao' ? s.tem_token_producao : s.tem_token_homologacao;
-      if (temToken) {
-        el.innerHTML = `✅ Token de <strong>${amb === 'producao' ? 'produção' : 'homologação'}</strong> configurado no servidor. Pronto pra emitir.`;
-        el.style.color = 'var(--verde,#2e7d32)';
-      } else {
-        el.innerHTML = `⚠️ Falta o token de <strong>${amb === 'producao' ? 'produção' : 'homologação'}</strong> no servidor (.env: ${amb === 'producao' ? 'FOCUS_TOKEN_PRODUCAO' : 'FOCUS_TOKEN_HOMOLOGACAO'}). A emissão não vai funcionar até preencher.`;
-        el.style.color = 'var(--vermelho,#c62828)';
+      try {
+        const status = await fetch('/api/config/focus-token', { credentials: 'include' }).then(r => r.json());
+        const amb = document.getElementById('nfce_ambiente').value || 'producao';
+        const temToken = amb === 'producao' ? status.tem_token_producao : status.tem_token_homologacao;
+
+        if (temToken) {
+          el.innerHTML = `✅ Token de <strong>${amb === 'producao' ? 'produção' : 'homologação'}</strong> configurado. Pronto pra emitir!`;
+          el.style.color = 'var(--verde,#2e7d32)';
+        } else {
+          el.innerHTML = `⚠️ Falta adicionar o token de <strong>${amb === 'producao' ? 'produção' : 'homologação'}</strong>. Configure na seção abaixo.`;
+          el.style.color = 'var(--dourado,#8a6d3b)';
+        }
+      } catch (e) {
+        el.innerHTML = '⏳ Verificando configuração…';
+        el.style.color = 'var(--cinza,#999)';
       }
     }
     document.getElementById('nfce_ambiente').addEventListener('change', checarNfce);
