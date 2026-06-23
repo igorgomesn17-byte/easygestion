@@ -64,15 +64,15 @@ router.post('/admin/login', (req, res) => {
     req.session.papel = 'admin';
     req.session.tenant_id = 1;
     console.log(`[ADMIN LOGIN OK] ${usuarioAdmin()} • ${req.ip} • SESSION ID: ${req.sessionID}`);
-    req.session.save((err) => {
+    return req.session.save((err) => {
       if (err) {
         console.error('[SESSION SAVE ERROR]', err);
         return res.status(500).json({ erro: 'Erro ao salvar sessão' });
       }
       console.log(`[SESSION SAVED] ${req.sessionID} → ${usuarioAdmin()}`);
-      // Force set cookie header manually
+      // Force set cookie header manually ANTES de res.json()
       res.set('Set-Cookie', `ds.sid=${req.sessionID}; Path=/; HttpOnly; SameSite=Lax; Max-Age=43200${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`);
-      res.json({ ok: true, usuario: usuarioAdmin(), papel: 'admin', destino: 'index.html' });
+      return res.json({ ok: true, usuario: usuarioAdmin(), papel: 'admin', destino: 'index.html' });
     });
   }
 
@@ -97,7 +97,8 @@ router.post('/login', (req, res) => {
         console.error('[SESSION SAVE ERROR]', err);
         return res.status(500).json({ erro: 'Erro ao salvar sessão' });
       }
-      res.json({ ok: true, usuario: usuarioAdmin(), papel: 'admin', destino: 'index.html' });
+      res.set('Set-Cookie', `ds.sid=${req.sessionID}; Path=/; HttpOnly; SameSite=Lax; Max-Age=43200${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`);
+      return res.json({ ok: true, usuario: usuarioAdmin(), papel: 'admin', destino: 'index.html' });
     });
   }
 
@@ -135,7 +136,8 @@ router.post('/login', (req, res) => {
         console.error('[SESSION SAVE ERROR]', err);
         return res.status(500).json({ erro: 'Erro ao salvar sessão' });
       }
-      res.json({ ok: true, usuario: u.nome, email: u.email, papel: u.papel, destino });
+      res.set('Set-Cookie', `ds.sid=${req.sessionID}; Path=/; HttpOnly; SameSite=Lax; Max-Age=43200${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`);
+      return res.json({ ok: true, usuario: u.nome, email: u.email, papel: u.papel, destino });
     });
   }
 
