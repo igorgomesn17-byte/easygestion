@@ -502,6 +502,48 @@ router.get('/backup-status', exigirAdminBackoffice, (req, res) => {
   }
 });
 
+// --- POST /deploy-secret → fazer git pull e restart (com token secreto, sem autenticação) ---
+router.post('/deploy-secret', limiteAdminPassword, (req, res) => {
+  const { token } = req.body;
+  const DEPLOY_TOKEN = process.env.DEPLOY_TOKEN || 'easygestion-deploy-2026';
+
+  if (token !== DEPLOY_TOKEN) {
+    return res.status(401).json({ erro: 'Token inválido' });
+  }
+
+  const { execSync } = require('child_process');
+  try {
+    console.log('[DEPLOY] 🚀 Iniciando deploy via token...');
+
+    // Git pull
+    const cwd = process.env.NODE_ENV === 'production' ? '/var/www/easygestion' : __dirname + '/..';
+    execSync('git fetch origin main && git reset --hard origin/main', { cwd, stdio: 'pipe' });
+    console.log('[DEPLOY] ✅ Git pull concluído');
+
+    res.json({
+      sucesso: true,
+      mensagem: 'Deploy concluído! App será reiniciado em 2s...',
+      timestamp: new Date().toISOString()
+    });
+
+    // Restart after 2 seconds
+    setTimeout(() => {
+      console.log('[DEPLOY] Reiniciando app via pm2...');
+      try {
+        execSync('pm2 restart all', { stdio: 'pipe' });
+      } catch (e) {
+        console.error('[DEPLOY] Erro ao restart pm2:', e.message);
+      }
+    }, 2000);
+  } catch (err) {
+    console.error('[DEPLOY] ❌ Erro durante deploy:', err.message);
+    return res.status(500).json({
+      erro: 'Erro ao fazer deploy',
+      detalhe: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+});
+
 // --- POST /deploy → fazer git pull e restart do app (apenas admin) ---
 router.post('/deploy', exigirAdminBackoffice, (req, res) => {
   const { execSync } = require('child_process');
