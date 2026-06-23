@@ -670,7 +670,7 @@
 
     // Bloquear cliente
     async function bloquearCliente(clienteId) {
-      if (confirm('Tem certeza que deseja bloquear este cliente?')) return;
+      if (!confirm('Tem certeza que deseja bloquear este cliente?')) return;
 
       try {
         const res = await fetchAdmin(`/clientes/${clienteId}`, {
@@ -690,7 +690,7 @@
 
     // Desbloquear cliente
     async function desbloquearCliente(clienteId) {
-      if (confirm('Tem certeza que deseja desbloquear este cliente?')) return;
+      if (!confirm('Tem certeza que deseja desbloquear este cliente?')) return;
 
       try {
         const res = await fetchAdmin(`/clientes/${clienteId}`, {
@@ -710,8 +710,8 @@
 
     // Deletar cliente
     async function deletarCliente(clienteId) {
-      if (confirm('⚠️ ATENÇÃO: Tem certeza que deseja DELETAR este cliente? Esta ação é IRREVERSÍVEL e apagará todos os dados.')) return;
-      if (confirm('Tem certeza mesmo? Todos os dados do cliente serão perdidos permanentemente.')) return;
+      if (!confirm('⚠️ ATENÇÃO: Tem certeza que deseja DELETAR este cliente? Esta ação é IRREVERSÍVEL e apagará todos os dados.')) return;
+      if (!confirm('Tem certeza mesmo? Todos os dados do cliente serão perdidos permanentemente.')) return;
 
       try {
         const res = await fetchAdmin(`/clientes/${clienteId}`, {
