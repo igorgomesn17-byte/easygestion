@@ -83,8 +83,8 @@ app.use(helmet({
 
 // ---------- CORS (restrito ao próprio domínio) ----------
 const ORIGIN = process.env.ORIGIN || (EM_PRODUCAO ? false : 'http://localhost:3000');
-if (***REMOVED***ORIGIN && EM_PRODUCAO) {
-  console.error('❌ ERRO: ORIGIN deve estar configurado em produção***REMOVED***');
+if (!ORIGIN && EM_PRODUCAO) {
+  console.error('❌ ERRO: ORIGIN deve estar configurado em produção!');
   process.exit(1);
 }
 app.use(cors({ origin: ORIGIN, credentials: true }));
@@ -107,8 +107,8 @@ app.use(express.json({ limit: '8mb', verify: (req, _res, buf) => { req.rawBody =
 app.use(express.urlencoded({ extended: true, limit: '8mb' }));
 
 // ---------- Sessão ----------
-if (***REMOVED***process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32) {
-  console.error('❌ ERRO: SESSION_SECRET deve ter no mínimo 32 caracteres***REMOVED***');
+if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32) {
+  console.error('❌ ERRO: SESSION_SECRET deve ter no mínimo 32 caracteres!');
   process.exit(1);
 }
 app.use(session({
@@ -214,7 +214,7 @@ function getLocalIP() {
   const ifaces = os.networkInterfaces();
   for (const name of Object.keys(ifaces)) {
     for (const iface of ifaces[name]) {
-      if (iface.family === 'IPv4' && ***REMOVED***iface.internal) return iface.address;
+      if (iface.family === 'IPv4' && !iface.internal) return iface.address;
     }
   }
   return 'localhost';
@@ -223,10 +223,10 @@ function getLocalIP() {
 app.listen(PORT, '0.0.0.0', () => {
   const ip = getLocalIP();
   console.log('\n========================================');
-  console.log('   DS SISTEMA no ar***REMOVED***' + (EM_PRODUCAO ? ' (produção)' : ' (local)'));
+  console.log('   DS SISTEMA no ar' + (EM_PRODUCAO ? ' (produção)' : ' (local)'));
   console.log('========================================');
   console.log(`   Neste PC:     http://localhost:${PORT}`);
-  if (***REMOVED***EM_PRODUCAO) console.log(`   No celular:   http://${ip}:${PORT}`);
+  if (!EM_PRODUCAO) console.log(`   No celular:   http://${ip}:${PORT}`);
   console.log('========================================\n');
 
   // Iniciar agendadores automáticos
