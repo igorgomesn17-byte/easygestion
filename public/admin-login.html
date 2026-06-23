@@ -175,7 +175,7 @@
     async function login() {
       const senha = senhaInput.value;
 
-      if (senha) {
+      if (!senha) {
         erroDiv.textContent = 'Digite a senha';
         erroDiv.classList.add('show');
         return;
