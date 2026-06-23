@@ -175,6 +175,58 @@ router.delete('/certificado-a1', apenasAdmin, (req, res) => {
   res.json({ ok: true });
 });
 
+// ---------- Token Focus NFe ----------
+// POST /config/focus-token — recebe { token, ambiente } e salva criptografado
+router.post('/focus-token', apenasAdmin, (req, res) => {
+  const { token, ambiente } = req.body;
+  if (!token || !ambiente) {
+    return res.status(400).json({ erro: 'Token e ambiente são obrigatórios' });
+  }
+
+  if (!['homologacao', 'producao'].includes(ambiente)) {
+    return res.status(400).json({ erro: 'Ambiente deve ser homologacao ou producao' });
+  }
+
+  try {
+    // Criptografar o token (mesmo padrão do certificado)
+    const chave = `focus_token_${ambiente}`;
+    const tokenBuffer = Buffer.from(token, 'utf8');
+    const tokenCriptografado = criptografarCertificado(tokenBuffer);
+
+    db.prepare('INSERT INTO config (chave, valor, tenant_id) VALUES (?, ?, ?) ON CONFLICT(chave, tenant_id) DO UPDATE SET valor=excluded.valor')
+      .run(chave, tokenCriptografado, req.tenantId);
+
+    res.json({ ok: true, mensagem: `Token de ${ambiente} salvo com segurança!` });
+  } catch (e) {
+    console.error('Erro ao salvar token:', e);
+    res.status(400).json({ erro: 'Erro ao salvar token: ' + e.message });
+  }
+});
+
+// GET /config/focus-token — retorna se tem token (NÃO expõe o token!)
+router.get('/focus-token', apenasAdmin, (req, res) => {
+  const stmt = db.prepare('SELECT valor FROM config WHERE chave = ? AND tenant_id = ?');
+  const tokenHomolog = stmt.get('focus_token_homologacao', req.tenantId);
+  const tokenProd = stmt.get('focus_token_producao', req.tenantId);
+
+  res.json({
+    tem_token_homologacao: !!(tokenHomolog && tokenHomolog.valor),
+    tem_token_producao: !!(tokenProd && tokenProd.valor)
+  });
+});
+
+// DELETE /config/focus-token — remove token de um ambiente
+router.delete('/focus-token/:ambiente', apenasAdmin, (req, res) => {
+  const { ambiente } = req.params;
+  if (!['homologacao', 'producao'].includes(ambiente)) {
+    return res.status(400).json({ erro: 'Ambiente inválido' });
+  }
+
+  const chave = `focus_token_${ambiente}`;
+  db.prepare("DELETE FROM config WHERE chave=? AND tenant_id = ?").run(chave, req.tenantId);
+  res.json({ ok: true, mensagem: `Token de ${ambiente} removido` });
+});
+
 // Handler público: só as chaves seguras (montado em /api/loja-publica, SEM login)
 function lojaPublica(req, res) {
   const obj = {};

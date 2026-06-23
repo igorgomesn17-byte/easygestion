@@ -163,6 +163,32 @@
           <div class="campo"><label>Código IBGE do município</label><input type="text" id="loja_codigo_municipio" placeholder="2914802"></div>
         </div>
       </details>
+      <div style="margin-top:16px; padding-top:16px; border-top:1px solid #e0e8e5;">
+        <h3 style="margin:0 0 12px; font-size:0.95rem;">🔑 Token de Autenticação (Focus NFe)</h3>
+        <p class="texto-cinza" style="font-size:0.82rem; margin-bottom:12px;">Gere o token na <a href="https://focusnfe.com.br" target="_blank" style="color:#1a6f5e; text-decoration:underline;">Focus NFe</a> e cole aqui. O token fica criptografado e seguro no servidor.</p>
+        <div class="linha">
+          <div class="campo">
+            <label>Token de Homologação (teste)</label>
+            <div style="display:flex; gap:8px; align-items:flex-end;">
+              <input type="password" id="focus_token_homologacao" placeholder="Seu token de homologação" style="flex:1;">
+              <button type="button" class="btn btn-fino" onclick="salvarTokenFocus('homologacao')">Salvar</button>
+              <button type="button" class="btn btn-fino btn-vermelho" id="btnRemoverTokenHomolog" onclick="removerTokenFocus('homologacao')" style="display:none;">Remover</button>
+            </div>
+            <p class="texto-cinza" style="font-size:0.76rem; margin:6px 0 0;">Para emitir notas de teste (sem valor fiscal).</p>
+          </div>
+        </div>
+        <div class="linha">
+          <div class="campo">
+            <label>Token de Produção (real)</label>
+            <div style="display:flex; gap:8px; align-items:flex-end;">
+              <input type="password" id="focus_token_producao" placeholder="Seu token de produção" style="flex:1;">
+              <button type="button" class="btn btn-fino" onclick="salvarTokenFocus('producao')">Salvar</button>
+              <button type="button" class="btn btn-fino btn-vermelho" id="btnRemoverTokenProd" onclick="removerTokenFocus('producao')" style="display:none;">Remover</button>
+            </div>
+            <p class="texto-cinza" style="font-size:0.76rem; margin:6px 0 0;">Para emitir notas com valor fiscal real.</p>
+          </div>
+        </div>
+      </div>
     </div>
 
 
@@ -543,8 +569,49 @@
       }
     }
 
+    // ---------- Token Focus NFe ----------
+    async function salvarTokenFocus(ambiente) {
+      const inputId = `focus_token_${ambiente}`;
+      const token = document.getElementById(inputId).value.trim();
+      if (!token) { toast('Digite o token', 'erro'); return; }
+
+      try {
+        await api('/config/focus-token', {
+          method: 'POST',
+          body: { token, ambiente }
+        });
+        toast(`Token de ${ambiente} salvo com segurança 🔐`, 'sucesso');
+        document.getElementById(inputId).value = '';
+        verificarTokensFocus();
+      } catch (e) {
+        toast('Erro ao salvar: ' + e.message, 'erro');
+      }
+    }
+
+    async function removerTokenFocus(ambiente) {
+      if (!confirm(`Remover token de ${ambiente}?`)) return;
+      try {
+        await api(`/config/focus-token/${ambiente}`, { method: 'DELETE' });
+        toast(`Token de ${ambiente} removido`, 'sucesso');
+        verificarTokensFocus();
+      } catch (e) {
+        toast('Erro ao remover: ' + e.message, 'erro');
+      }
+    }
+
+    async function verificarTokensFocus() {
+      try {
+        const status = await api('/config/focus-token');
+        document.getElementById('btnRemoverTokenHomolog').style.display = status.tem_token_homologacao ? '' : 'none';
+        document.getElementById('btnRemoverTokenProd').style.display = status.tem_token_producao ? '' : 'none';
+      } catch (e) {
+        console.error('Erro ao verificar tokens:', e);
+      }
+    }
+
     carregar();
     checarCertificado();
+    verificarTokensFocus();
   </script>
 </body>
 </html>
