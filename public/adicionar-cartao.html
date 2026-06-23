@@ -206,23 +206,23 @@
 </head>
 <body>
   <div class="container-cartao">
-    <!-- Logo -->
+    
     <div class="logo-header">
       <img src="logo.png" alt="EasyGestão" style="max-height: 50px;">
       <h1>EasyGestão</h1>
       <p>Bem-vindo ao seu gestor de loja!</p>
     </div>
 
-    <!-- Mensagem de Teste -->
+    
     <div class="info-teste">
       <strong>✨ 14 dias grátis!</strong>
       <p>Seu período de teste já começou. Adicione um cartão para continuar usando após 14 dias.</p>
     </div>
 
-    <!-- Alertas -->
+    
     <div id="alertas"></div>
 
-    <!-- Formulário -->
+    
     <div id="formulario">
       <div class="stripe-info">
         <strong>💳 Seu cartão está seguro</strong>
@@ -230,19 +230,19 @@
       </div>
 
       <form id="formCartao">
-        <!-- Nome -->
+        
         <div class="form-group">
           <label for="nome">Nome Completo</label>
           <input type="text" id="nome" name="nome" placeholder="Ex: João Silva" required>
         </div>
 
-        <!-- Número do Cartão -->
+        
         <div class="form-group">
           <label for="numero">Número do Cartão</label>
           <input type="text" id="numero" name="numero" placeholder="4242 4242 4242 4242" maxlength="19" required>
         </div>
 
-        <!-- Data e CVC -->
+        
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
           <div class="form-group" style="margin-bottom: 0;">
             <label for="validade">Validade (MM/AA)</label>
@@ -254,14 +254,14 @@
           </div>
         </div>
 
-        <!-- Botão -->
+        
         <div class="btn-container" style="grid-template-columns: 1fr;">
           <button type="submit" class="btn btn-primary" id="btnSalvar">Salvar Cartão e Começar</button>
         </div>
       </form>
     </div>
 
-    <!-- Loading -->
+    
     <div class="loading" id="loading">
       <div class="spinner"></div>
       <p>Processando...</p>
