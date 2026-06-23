@@ -179,6 +179,14 @@ app.use(session({
   },
 }));
 
+// ---------- Desabilitar cache pra APIs (garante respostas sempre frescas) ----------
+app.use('/api', (req, res, next) => {
+  res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+  next();
+});
+
 // ---------- Rate limit global ----------
 app.use('/api', limiteGlobal);
 
