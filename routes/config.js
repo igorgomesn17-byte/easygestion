@@ -177,7 +177,10 @@ router.delete('/certificado-a1', apenasAdmin, (req, res) => {
 
 // ---------- Token Focus NFe ----------
 // POST /config/focus-token — recebe { token, ambiente } e salva criptografado
-router.post('/focus-token', apenasAdmin, (req, res) => {
+router.post('/focus-token', (req, res) => {
+  if (!req.session || !req.session.logado) {
+    return res.status(401).json({ erro: 'Não autenticado' });
+  }
   const { token, ambiente } = req.body;
   if (!token || !ambiente) {
     return res.status(400).json({ erro: 'Token e ambiente são obrigatórios' });
@@ -204,7 +207,10 @@ router.post('/focus-token', apenasAdmin, (req, res) => {
 });
 
 // GET /config/focus-token — retorna se tem token (NÃO expõe o token!)
-router.get('/focus-token', apenasAdmin, (req, res) => {
+router.get('/focus-token', (req, res) => {
+  if (!req.session || !req.session.logado) {
+    return res.status(401).json({ erro: 'Não autenticado' });
+  }
   const stmt = db.prepare('SELECT valor FROM config WHERE chave = ? AND tenant_id = ?');
   const tokenHomolog = stmt.get('focus_token_homologacao', req.tenantId);
   const tokenProd = stmt.get('focus_token_producao', req.tenantId);
@@ -216,7 +222,10 @@ router.get('/focus-token', apenasAdmin, (req, res) => {
 });
 
 // DELETE /config/focus-token — remove token de um ambiente
-router.delete('/focus-token/:ambiente', apenasAdmin, (req, res) => {
+router.delete('/focus-token/:ambiente', (req, res) => {
+  if (!req.session || !req.session.logado) {
+    return res.status(401).json({ erro: 'Não autenticado' });
+  }
   const { ambiente } = req.params;
   if (!['homologacao', 'producao'].includes(ambiente)) {
     return res.status(400).json({ erro: 'Ambiente inválido' });
