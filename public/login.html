@@ -19,7 +19,7 @@
     body{font-family:'Inter',system-ui,sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;
       background:linear-gradient(160deg,var(--marca) 0%,var(--marca-escura) 100%);padding:20px;color:var(--tinta)}
     .card{background:#fff;border-radius:18px;box-shadow:0 18px 50px rgba(0,0,0,.3);width:100%;max-width:380px;padding:38px 30px;text-align:center}
-    .logo{height:auto;max-width:280px;max-height:80px;margin:0 auto 12px;filter:drop-shadow(0 3px 8px rgba(0,0,0,.12));object-fit:contain}
+    .logo{height:auto;max-width:280px;max-height:80px;margin:0 auto 12px;filter:drop-shadow(0 3px 8px rgba(0,0,0,.12));object-fit:contain;display:block}
     .marca{font-family:'Inter',sans-serif;font-weight:700;letter-spacing:1px;font-size:1.4rem;color:var(--marrom-escuro);display:none}
     .sub{color:#5b6470;font-size:.85rem;letter-spacing:2px;margin:6px 0 26px;text-transform:uppercase}
     label{display:block;text-align:left;font-size:.82rem;font-weight:500;color:#5b6470;margin:14px 0 5px}
@@ -48,7 +48,7 @@
 </head>
 <body>
   <form class="card" id="form" onsubmit="entrar(event)">
-    <svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 850 230" style="max-width:240px;height:auto;margin:0 auto 15px;display:block">
+    <svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 850 230" style="max-width:240px;height:auto;margin:0 auto 15px">
       <g transform="translate(24 43) scale(1.2000)">
         <g transform="rotate(-24 24 62)"><path d="M11 56 a7 7 0 0 1 7 -7 H34 a6 6 0 0 1 6 6 V71 a6 6 0 0 1 -6 6 H18 a7 7 0 0 1 -7 -7 Z M21 55.6 a3.4 3.4 0 1 0 0 6.8 a3.4 3.4 0 1 0 0 -6.8 Z" fill="#c39a36" fill-rule="evenodd"></path></g>
         <path d="M45 46 V36 a15 15 0 0 1 30 0 V46" fill="none" stroke="#1c4a35" stroke-width="7.5" stroke-linecap="round"></path>
@@ -106,9 +106,20 @@
         const img = document.querySelector('.logo'), marca = document.querySelector('.marca');
         marca.textContent = nome;
         document.title = 'Entrar • ' + nome;
-        if (cfg.loja_logo) { img.src = cfg.loja_logo; img.alt = nome; img.style.display=''; marca.style.display='none'; }
-        else { img.style.display='none'; marca.style.display='block'; }
-      } catch(e) { document.querySelector('.marca').style.display='block'; }
+        if (cfg.loja_logo) {
+          img.src = cfg.loja_logo;
+          img.alt = nome;
+          img.style.display='block';
+          marca.style.display='none';
+        } else {
+          img.style.display='block';
+          marca.style.display='none';
+        }
+      } catch(e) {
+        // Em caso de erro, mantém a logo padrão visível
+        document.querySelector('.logo').style.display='block';
+        document.querySelector('.marca').style.display='none';
+      }
     })();
 
     // destino conforme o papel de quem está logado
