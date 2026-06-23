@@ -72,6 +72,37 @@
       box-shadow: 0 0 0 3px rgba(27, 94, 63, 0.1);
     }
 
+    .password-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .password-wrapper input {
+      padding-right: 40px;
+      flex: 1;
+    }
+
+    .toggle-senha {
+      position: absolute;
+      right: 12px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 16px;
+      color: #aaa;
+      padding: 8px;
+      margin: 0;
+      transition: color 0.2s;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+    }
+
+    .toggle-senha:hover {
+      color: #1B5E3F;
+    }
+
     button {
       width: 100%;
       padding: 12px;
@@ -122,7 +153,10 @@
 
     <div class="form-group">
       <label>Senha de Admin</label>
-      <input type="password" id="senha" placeholder="Digite a senha" autofocus>
+      <div class="password-wrapper">
+        <input type="password" id="senha" placeholder="Digite a senha" autofocus>
+        <button type="button" class="toggle-senha" id="toggleSenha">👁️</button>
+      </div>
     </div>
 
     <button id="btn-login" onclick="login()">Acessar</button>
@@ -134,6 +168,12 @@
     const senhaInput = document.getElementById('senha');
     const botao = document.getElementById('btn-login');
     const erroDiv = document.getElementById('erro');
+
+    // Toggle de visibilidade da senha
+    document.getElementById('toggleSenha').addEventListener('click', (e) => {
+      e.preventDefault();
+      senhaInput.type = senhaInput.type === 'password' ? 'text' : 'password';
+    });
 
     async function login() {
       const senha = senhaInput.value;
@@ -166,8 +206,8 @@
           return;
         }
 
-        // ✅ Sucesso: redireciona pro dashboard
-        window.location.href = '/admin';
+        // ✅ Sucesso: redireciona pro admin dashboard
+        window.location.href = '/admin-dashboard.html';
       } catch (err) {
         erroDiv.textContent = 'Erro de conexão. Tente novamente.';
         erroDiv.classList.add('show');

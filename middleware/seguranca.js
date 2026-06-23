@@ -22,7 +22,7 @@ function verificarSenha(senha, armazenado) {
 }
 
 // --- Validação de força de senha ---
-// Regras: mínimo 8 caracteres, maiúscula, minúscula, número, símbolo
+// Regra simples: mínimo 8 caracteres (sem requisitos de maiúscula, número ou símbolo)
 // Retorna: { valida: bool, erro: string|null }
 function validarSenha(senha) {
   if (***REMOVED***senha || typeof senha ***REMOVED***== 'string') {
@@ -31,18 +31,6 @@ function validarSenha(senha) {
   const s = String(senha).trim();
   if (s.length < 8) {
     return { valida: false, erro: 'Senha deve ter no mínimo 8 caracteres' };
-  }
-  if (***REMOVED***/[A-Z]/.test(s)) {
-    return { valida: false, erro: 'Senha deve conter pelo menos uma letra maiúscula' };
-  }
-  if (***REMOVED***/[a-z]/.test(s)) {
-    return { valida: false, erro: 'Senha deve conter pelo menos uma letra minúscula' };
-  }
-  if (***REMOVED***/\d/.test(s)) {
-    return { valida: false, erro: 'Senha deve conter pelo menos um número' };
-  }
-  if (***REMOVED***/[***REMOVED***@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(s)) {
-    return { valida: false, erro: 'Senha deve conter pelo menos um símbolo especial (***REMOVED***@#$%^&* etc)' };
   }
   return { valida: true, erro: null };
 }
@@ -60,6 +48,7 @@ function validarNaoReutilizada(novaSenha, senhaAntigaHash) {
 // --- Rotas/prefixos PÚBLICOS (não exigem login) ---
 const PUBLICAS = [
   '/api/login',
+  '/api/admin/login',           // novo: login admin por senha
   '/api/registro',              // novo: cadastro de contas (SaaS)
   '/api/logout',
   '/api/me',                    // decide sozinho se está logado (retorna 401 se não)
@@ -195,8 +184,11 @@ const limiteGlobal = rateLimit({
   keyGenerator: (req) => {
     // Se logado, usar tenant_id como parte da chave; senão, só IP
     const tenant = req.session?.tenant_id || 'anon';
-    return `${req.ip}-${tenant}`;
+    // Usar ipKeyGenerator para suportar IPv6 corretamente
+    const ip = req.ip || req.connection.remoteAddress || '';
+    return `${ip}-${tenant}`;
   },
+  skip: (req) => false,
 });
 // Login: estrito contra brute force
 const limiteLogin = rateLimit({
