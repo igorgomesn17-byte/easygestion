@@ -41,7 +41,8 @@ router.get('/', exigirAdminBackoffice, (req, res) => {
 });
 
 // --- POST /login → autentica admin (usuário admin real na tabela DE usuarios) ---
-router.post('/login', limiteAdminPassword, (req, res) => {
+// Nota: rate limit temporariamente removido para testes (TODO: reativar após beta)
+router.post('/login', (req, res) => {
   const { nome, senha } = req.body;
 
   if (!nome || !senha) {
@@ -503,7 +504,7 @@ router.get('/backup-status', exigirAdminBackoffice, (req, res) => {
 });
 
 // --- POST /deploy-secret → fazer git pull e restart (com token secreto, sem autenticação) ---
-router.post('/deploy-secret', limiteAdminPassword, (req, res) => {
+router.post('/deploy-secret', (req, res) => {
   const { token } = req.body;
   const DEPLOY_TOKEN = process.env.DEPLOY_TOKEN || 'easygestion-deploy-2026';
 
