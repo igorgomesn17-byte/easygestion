@@ -283,7 +283,7 @@
 
     async function carregar() {
       const cfg = await api('/config');
-      CAMPOS.forEach(c => { if (document.getElementById(c) && cfg[c] = null) document.getElementById(c).value = cfg[c]; });
+      CAMPOS.forEach(c => { if (document.getElementById(c) && cfg[c] != null) document.getElementById(c).value = cfg[c]; });
       // identidade visual: sincroniza o campo hex da cor e o preview da logo
       const cor = cfg.marca_cor || '#1a6f5e';
       document.getElementById('marca_cor').value = cor;
@@ -310,7 +310,7 @@
     }
     async function enviarLogo(input) {
       const file = input.files && input.files[0];
-      if (file) return;
+      if (!file) return;
       if (file.size > 2 * 1024 * 1024) { toast('A imagem precisa ter até 2MB','erro'); input.value=''; return; }
       const dataUrl = await new Promise((res, rej) => {
         const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file);
@@ -323,7 +323,7 @@
       input.value = '';
     }
     async function removerLogo() {
-      if (confirm('Remover a logo? Volta a mostrar o nome da loja em texto.')) return;
+      if (!confirm('Remover a logo? Volta a mostrar o nome da loja em texto.')) return;
       try { await api('/config/logo', { method:'DELETE' }); mostrarLogo(''); toast('Logo removida'); }
       catch (e) { toast(e.message,'erro'); }
     }
@@ -340,7 +340,7 @@
     }
 
     async function restaurarPadrao() {
-      if (confirm('Restaurar logo e cor padrão do EasyGestão?')) return;
+      if (!confirm('Restaurar logo e cor padrão do EasyGestão?')) return;
       try {
         await api('/config/logo', { method: 'DELETE' });
         await api('/config', { method: 'POST', body: { marca_cor: '#1a6f5e' } });
@@ -358,7 +358,7 @@
     async function carregarCategorias_config() {
       const cfg = await api('/config');
       try { categorias = JSON.parse(cfg.categorias || '[]'); } catch(e) { categorias = []; }
-      if (categorias.length) categorias = ['vestido','blusa','calca','short','saia','conjunto','macacao','alfaiataria','acessorio','outro'];
+      if (!categorias.length) categorias = ['vestido','blusa','calca','short','saia','conjunto','macacao','alfaiataria','acessorio','outro'];
       renderizarCategorias();
     }
     function renderizarCategorias() {
@@ -372,7 +372,7 @@
     async function adicionarCategoria() {
       const input = document.getElementById('novaCategoriaInput');
       const nova = input.value.trim().toLowerCase();
-      if (nova) { toast('Digite uma categoria', 'erro'); return; }
+      if (!nova) { toast('Digite uma categoria', 'erro'); return; }
       if (categorias.includes(nova)) { toast('Categoria já existe', 'erro'); return; }
       categorias.push(nova);
       await api('/config', { method:'POST', body: { categorias: JSON.stringify(categorias) } });
@@ -382,8 +382,8 @@
       invalidarCacheColecoes(); // invalida cache pra atualizar selects
     }
     async function removerCategoria(cat) {
-      if (confirm(`Remover categoria "${cat}"?`)) return;
-      categorias = categorias.filter(c => c == cat);
+      if (!confirm(`Remover categoria "${cat}"?`)) return;
+      categorias = categorias.filter(c => c !== cat);
       await api('/config', { method:'POST', body: { categorias: JSON.stringify(categorias) } });
       renderizarCategorias();
       toast('Categoria removida', 'sucesso');
@@ -409,7 +409,7 @@
     async function adicionarColecao() {
       const input = document.getElementById('novaColecaoInput');
       const nova = input.value.trim();
-      if (nova) { toast('Digite uma coleção', 'erro'); return; }
+      if (!nova) { toast('Digite uma coleção', 'erro'); return; }
       if (colecoes.includes(nova)) { toast('Coleção já existe', 'erro'); return; }
       colecoes.push(nova);
       await api('/config', { method:'POST', body: { colecoes: JSON.stringify(colecoes) } });
@@ -419,8 +419,8 @@
       invalidarCacheColecoes();
     }
     async function removerColecao(col) {
-      if (confirm(`Remover coleção "${col}"?`)) return;
-      colecoes = colecoes.filter(c => c == col);
+      if (!confirm(`Remover coleção "${col}"?`)) return;
+      colecoes = colecoes.filter(c => c !== col);
       await api('/config', { method:'POST', body: { colecoes: JSON.stringify(colecoes) } });
       renderizarColecoes();
       toast('Coleção removida', 'sucesso');
@@ -430,7 +430,7 @@
     async function salvar() {
       const body = {};
       CAMPOS.forEach(c => {
-        const el = document.getElementById(c); if (el) return;
+        const el = document.getElementById(c); if (!el) return;
         body[c] = CAMPOS_TEXTO.includes(c) ? el.value : (el.value || '0');
       });
       body.cupom_auto_imprimir = document.getElementById('cupom_auto_imprimir').checked ? '1' : '0';
@@ -443,7 +443,7 @@
     // Mostra se o servidor tem o token do ambiente escolhido (sem expor o token)
     async function checarNfce() {
       const el = document.getElementById('nfceStatus');
-      if (el) return;
+      if (!el) return;
       let s;
       try { s = await api('/nfce/config'); } catch (e) { el.innerHTML = '⚠️ Não foi possível verificar a integração.'; return; }
       const amb = (document.getElementById('nfce_ambiente').value) || s.ambiente;
@@ -480,8 +480,8 @@
 
     function previewCert(input) {
       const file = input.files && input.files[0];
-      if (file) return;
-      if (file.name.endsWith('.pfx') && file.name.endsWith('.p12')) {
+      if (!file) return;
+      if (!file.name.endsWith('.pfx') && !file.name.endsWith('.p12')) {
         toast('Envie um arquivo .pfx ou .p12','erro');
         input.value = '';
         return;
@@ -495,8 +495,8 @@
       const file = document.getElementById('certFile').files && document.getElementById('certFile').files[0];
       const senha = document.getElementById('certSenha').value;
 
-      if (file) { toast('Selecione um arquivo .pfx primeiro','erro'); return; }
-      if (senha) { toast('Informe a senha do certificado','erro'); return; }
+      if (!file) { toast('Selecione um arquivo .pfx primeiro','erro'); return; }
+      if (!senha) { toast('Informe a senha do certificado','erro'); return; }
 
       const reader = new FileReader();
       reader.onload = async (e) => {
@@ -532,7 +532,7 @@
     }
 
     async function removerCertificado() {
-      if (confirm('Remover o certificado? Você não conseguirá emitir NFC-e até instalar um novo.')) return;
+      if (!confirm('Remover o certificado? Você não conseguirá emitir NFC-e até instalar um novo.')) return;
       try {
         await api('/config/certificado-a1', { method: 'DELETE' });
         toast('Certificado removido');
