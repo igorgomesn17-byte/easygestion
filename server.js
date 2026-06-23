@@ -194,6 +194,12 @@ const COMPROVANTES_DIR = process.env.UPLOADS_DIR
   ? path.join(process.env.UPLOADS_DIR, 'comprovantes')
   : path.join(__dirname, 'public', 'img', 'comprovantes');
 app.use('/img/comprovantes', express.static(COMPROVANTES_DIR));
+
+// Landing page pública (raiz para visitantes não-autenticados)
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'landing.html'));
+});
+
 // HTML/JS sem cache (garante que o navegador sempre pegue a versão nova das telas)
 app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders: (res, filePath) => {
