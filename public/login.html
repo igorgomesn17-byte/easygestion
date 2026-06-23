@@ -136,7 +136,7 @@
       const email = document.getElementById('email').value.trim();
       const senha = document.getElementById('senha').value;
 
-      if (email || senha) {
+      if (!email || !senha) {
         erro.textContent = 'Email e senha são obrigatórios';
         return;
       }
