@@ -203,13 +203,7 @@ app.get('/api/loja-publica', configRouter.lojaPublica);
 app.use('/api/admin', require('./routes/admin')); // POST /login, POST /logout SEM autenticação
 app.use('/admin', require('./routes/admin'));     // GET / com autenticação de session
 
-// ✅ Rota de config com autenticação simples (antes de exigirLogin)
-app.use('/api/config', (req, res, next) => {
-  if (!req.session || !req.session.logado) {
-    return res.status(401).json({ erro: 'Não autenticado', login: true });
-  }
-  next();
-});
+// ✅ Rotas de config (cada rota faz sua própria autenticação)
 app.use('/api/config', configRouter);
 
 // ---------- Middleware de autenticação (protege o resto) ----------
