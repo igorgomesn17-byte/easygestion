@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  # ============================================================
+  # EASYGESTION - Node.js App
+  # ============================================================
+  app:
+    build: .
+    container_name: easygestion
+    ports:
+      - "3001:3001"
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      ADMIN_SENHA_HASH: ${ADMIN_SENHA_HASH}
+      TOKEN_SECRET: ${TOKEN_SECRET}
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      SITE_URL: ${SITE_URL:-http://localhost:3001}
+      DB_DIR: /app/db
+    volumes:
+      # Persistência do banco de dados
+      - easygestion_db:/app/db
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/api/me"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - easygestion_network
+
+  # ============================================================
+  # NGINX - Proxy reverso + SSL (opcional)
+  # ============================================================
+  nginx:
+    image: nginx:alpine
+    container_name: easygestion_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro  # Certificados SSL
+    depends_on:
+      - app
+    networks:
+      - easygestion_network
+    restart: unless-stopped
+
+volumes:
+  easygestion_db:
+    driver: local
+
+networks:
+  easygestion_network:
+    driver: bridge
