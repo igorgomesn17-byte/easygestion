@@ -18,17 +18,35 @@ router.get('/resumo', (req, res) => {
   res.json({ ...e, produtos });
 });
 
-// GET /api/estoque -> visao geral por produto/tamanho
+// GET /api/estoque -> visao geral por produto/tamanho com filtros
 router.get('/', (req, res) => {
-  const rows = db.prepare(`
-    SELECT p.id AS produto_id, p.codigo, p.nome, p.categoria, p.cor,
+  const { categoria, colecao, busca } = req.query;
+  let sql = `
+    SELECT p.id AS produto_id, p.codigo, p.nome, p.categoria, p.colecao, p.cor,
            p.custo, p.preco_venda,
            v.id AS variacao_id, v.tamanho, v.quantidade
     FROM produtos p
     JOIN variacoes v ON v.produto_id = p.id
     WHERE p.ativo = 1 AND p.tenant_id = ?
-    ORDER BY p.nome, v.id
-  `).all(req.tenantId);
+  `;
+  const params = [req.tenantId];
+
+  if (categoria) {
+    sql += ' AND p.categoria = ?';
+    params.push(categoria);
+  }
+  if (colecao) {
+    sql += ' AND p.colecao = ?';
+    params.push(colecao);
+  }
+  if (busca) {
+    const term = '%' + busca.trim().toLowerCase() + '%';
+    sql += ' AND (LOWER(p.nome) LIKE ? OR LOWER(p.codigo) LIKE ?)';
+    params.push(term, term);
+  }
+
+  sql += ' ORDER BY p.nome, v.id LIMIT 500';
+  const rows = db.prepare(sql).all(...params);
   res.json(rows);
 });
 

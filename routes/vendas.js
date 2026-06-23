@@ -229,7 +229,7 @@ function atualizarCaixaDia(data, tenantId = 1) {
 
 // GET /api/vendas -> lista com filtros (data, de/ate, vendedor, cliente, forma)
 router.get('/', (req, res) => {
-  const { data, de, ate, vendedor_id, cliente_id, forma, origem } = req.query;
+  const { data, de, ate, vendedor_id, cliente_id, forma, origem, agrupado } = req.query;
   let sql = `SELECT v.*, c.nome AS cliente_nome, vd.nome AS vendedor_nome
              FROM vendas v
              LEFT JOIN clientes c ON c.id = v.cliente_id
@@ -244,6 +244,7 @@ router.get('/', (req, res) => {
   if (origem)      { sql += ' AND v.origem = ?'; params.push(origem); }
   sql += ' ORDER BY v.data_hora DESC LIMIT 500';
   const vendas = db.prepare(sql).all(...params);
+
   // resumo
   const resumo = vendas.reduce((a, v) => ({
     total: a.total + v.total, lucro: a.lucro + v.lucro, comissao: a.comissao + v.comissao_valor, n: a.n + 1
@@ -252,7 +253,34 @@ router.get('/', (req, res) => {
   resumo.lucro = +resumo.lucro.toFixed(2);
   resumo.comissao = +resumo.comissao.toFixed(2);
   resumo.ticketMedio = resumo.n > 0 ? +(resumo.total / resumo.n).toFixed(2) : 0;
-  res.json({ vendas, resumo });
+
+  // Se agrupado=1, agrupa vendas por dia
+  if (agrupado === '1') {
+    const agrupadas = {};
+    for (const v of vendas) {
+      const dia = v.data_hora.slice(0, 10);
+      if (***REMOVED***agrupadas[dia]) {
+        agrupadas[dia] = { data: dia, vendas: [], total: 0, lucro: 0, comissao: 0, num: 0 };
+      }
+      agrupadas[dia].vendas.push(v);
+      agrupadas[dia].total += v.total;
+      agrupadas[dia].lucro += v.lucro;
+      agrupadas[dia].comissao += v.comissao_valor;
+      agrupadas[dia].num += 1;
+    }
+    // Converte para array e ordena por data DESC
+    const diasAgrupados = Object.values(agrupadas)
+      .map(d => ({
+        ...d,
+        total: +d.total.toFixed(2),
+        lucro: +d.lucro.toFixed(2),
+        comissao: +d.comissao.toFixed(2)
+      }))
+      .sort((a, b) => new Date(b.data) - new Date(a.data));
+    res.json({ dias: diasAgrupados, resumo });
+  } else {
+    res.json({ vendas, resumo });
+  }
 });
 
 // POST /api/vendas/impacto-desconto -> calcula impacto do desconto no lucro (preview no PDV)
