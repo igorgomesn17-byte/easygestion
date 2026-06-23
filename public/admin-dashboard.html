@@ -419,7 +419,7 @@
     async function carregarDashboard() {
       try {
         const res = await fetchAdmin('/financeiro');
-        if (res.ok) throw new Error('Erro ao carregar');
+        if (!res.ok) throw new Error('Erro ao carregar');
 
         const { financeiro } = await res.json();
 
@@ -535,7 +535,7 @@
           headers: { 'Content-Type': 'application/json' }
         });
 
-        if (res.ok) throw new Error('Erro');
+        if (!res.ok) throw new Error('Erro');
         carregarAlertas();
       } catch (err) {
         alert('Erro ao resolver alerta: ' + err.message);
@@ -606,7 +606,7 @@
     async function verDetalhes(clienteId) {
       try {
         const res = await fetchAdmin(`/clientes/${clienteId}`);
-        if (res.ok) throw new Error('Erro');
+        if (!res.ok) throw new Error('Erro');
 
         const { tenant, assinaturas } = await res.json();
 
@@ -679,7 +679,7 @@
           body: JSON.stringify({ status: 'bloqueado' })
         });
 
-        if (res.ok) throw new Error('Erro');
+        if (!res.ok) throw new Error('Erro');
         alert('Cliente bloqueado com sucesso.');
         carregarClientes();
         carregarDashboard();
@@ -699,7 +699,7 @@
           body: JSON.stringify({ status: 'ativo' })
         });
 
-        if (res.ok) throw new Error('Erro');
+        if (!res.ok) throw new Error('Erro');
         alert('Cliente desbloqueado com sucesso.');
         carregarClientes();
         carregarDashboard();
@@ -719,7 +719,7 @@
           headers: { 'Content-Type': 'application/json' }
         });
 
-        if (res.ok) throw new Error('Erro');
+        if (!res.ok) throw new Error('Erro');
         alert('Cliente deletado permanentemente.');
         carregarClientes();
         carregarDashboard();
