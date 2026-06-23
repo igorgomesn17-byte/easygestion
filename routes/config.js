@@ -181,6 +181,10 @@ router.post('/focus-token', (req, res) => {
   if (!req.session || !req.session.logado) {
     return res.status(401).json({ erro: 'Não autenticado' });
   }
+  if (!req.tenantId) {
+    return res.status(400).json({ erro: 'Tenant ID não encontrado' });
+  }
+
   const { token, ambiente } = req.body;
   if (!token || !ambiente) {
     return res.status(400).json({ erro: 'Token e ambiente são obrigatórios' });
@@ -202,7 +206,7 @@ router.post('/focus-token', (req, res) => {
     res.json({ ok: true, mensagem: `Token de ${ambiente} salvo com segurança!` });
   } catch (e) {
     console.error('Erro ao salvar token:', e);
-    res.status(400).json({ erro: 'Erro ao salvar token: ' + e.message });
+    res.status(500).json({ erro: 'Erro ao salvar token: ' + e.message });
   }
 });
 
@@ -210,6 +214,9 @@ router.post('/focus-token', (req, res) => {
 router.get('/focus-token', (req, res) => {
   if (!req.session || !req.session.logado) {
     return res.status(401).json({ erro: 'Não autenticado' });
+  }
+  if (!req.tenantId) {
+    return res.status(400).json({ erro: 'Tenant ID não encontrado' });
   }
   const stmt = db.prepare('SELECT valor FROM config WHERE chave = ? AND tenant_id = ?');
   const tokenHomolog = stmt.get('focus_token_homologacao', req.tenantId);
@@ -225,6 +232,9 @@ router.get('/focus-token', (req, res) => {
 router.delete('/focus-token/:ambiente', (req, res) => {
   if (!req.session || !req.session.logado) {
     return res.status(401).json({ erro: 'Não autenticado' });
+  }
+  if (!req.tenantId) {
+    return res.status(400).json({ erro: 'Tenant ID não encontrado' });
   }
   const { ambiente } = req.params;
   if (!['homologacao', 'producao'].includes(ambiente)) {
