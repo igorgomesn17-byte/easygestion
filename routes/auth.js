@@ -52,7 +52,13 @@ router.post('/admin/login', (req, res) => {
     return res.status(400).json({ erro: 'Senha é obrigatória' });
   }
 
-  if (verificarSenha(senha, hashAdmin())) {
+  console.log(`[AUTH] Testando senha. Comprimento: ${String(senha).length}`);
+  const hash = hashAdmin();
+  console.log(`[AUTH] Hash do admin: ${hash.substring(0, 30)}...`);
+  const match = verificarSenha(senha, hash);
+  console.log(`[AUTH] Verificação: ${match}`);
+
+  if (match) {
     req.session.logado = true;
     req.session.usuario = usuarioAdmin();
     req.session.papel = 'admin';
