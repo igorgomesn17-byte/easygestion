@@ -164,13 +164,11 @@ class SQLiteSessionStore extends session.Store {
   }
 }
 
-const { db } = require('./db/database');
-const store = new SQLiteSessionStore(db);
-
+// Temporariamente usar MemoryStore (teste)
 app.use(session({
   name: 'ds.sid',
   secret: process.env.SESSION_SECRET,
-  store: store,
+  // store: store,  // TODO: reativar após debug
   resave: false,
   saveUninitialized: false,
   cookie: {
