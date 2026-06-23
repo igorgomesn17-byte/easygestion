@@ -57,13 +57,14 @@ router.post('/admin/login', (req, res) => {
     req.session.usuario = usuarioAdmin();
     req.session.papel = 'admin';
     req.session.tenant_id = 1;
-    console.log(`[ADMIN LOGIN OK] ${usuarioAdmin()} • ${req.ip} • ${new Date().toISOString()}`);
+    console.log(`[ADMIN LOGIN OK] ${usuarioAdmin()} • ${req.ip} • SESSION ID: ${req.sessionID}`);
     return req.session.save((err) => {
       if (err) {
         console.error('[SESSION SAVE ERROR]', err);
         return res.status(500).json({ erro: 'Erro ao salvar sessão' });
       }
-      res.json({ ok: true, usuario: usuarioAdmin(), papel: 'admin', destino: 'index.html' });
+      console.log(`[SESSION SAVED] ${req.sessionID} → ${usuarioAdmin()}`);
+      return res.json({ ok: true, usuario: usuarioAdmin(), papel: 'admin', destino: 'index.html' });
     });
   }
 
