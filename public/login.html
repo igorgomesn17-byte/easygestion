@@ -27,9 +27,9 @@
     input:focus{outline:none;border-color:var(--marca);box-shadow:0 0 0 3px rgba(26,111,94,.15)}
     .password-wrapper{position:relative}
     .password-wrapper input{padding-right:40px}
-    .toggle-senha{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:0;border:0;cursor:pointer;font-size:16px;color:#aaa;padding:6px;margin:0;transition:color .2s}
+    .toggle-senha{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:0;border:0;cursor:pointer;font-size:16px;color:#aaa;padding:6px;margin:0;transition:color .2s;z-index:10}
     .toggle-senha:hover{color:var(--marca)}
-    button{width:100%;min-height:52px;margin-top:22px;border:none;border-radius:12px;background:var(--marca);color:#fff;
+    button:not(.toggle-senha){width:100%;min-height:52px;margin-top:22px;border:none;border-radius:12px;background:var(--marca);color:#fff;
       font-family:inherit;font-weight:600;font-size:1rem;cursor:pointer;transition:background .2s}
     button:hover{background:var(--marca-escura)}
     button:disabled{opacity:.6;cursor:wait}

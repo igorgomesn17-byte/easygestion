@@ -84,9 +84,24 @@
       padding: 6px;
       margin: 0;
       transition: color 0.2s;
+      z-index: 10;
     }
     .toggle-senha:hover {
       color: #1a6f5e;
+    }
+    button:not(.toggle-senha) {
+      width: 100%;
+      padding: 13px;
+      background: linear-gradient(135deg, #1a6f5e 0%, #0d3d35 100%);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
     input[type="text"]:focus,
     input[type="email"]:focus,
@@ -148,7 +163,7 @@
     .checkbox-group a:hover {
       border-bottom-color: #1a6f5e;
     }
-    button {
+    button:not(.toggle-senha) {
       width: 100%;
       padding: 13px;
       background: linear-gradient(135deg, #1a6f5e 0%, #0d3d35 100%);
@@ -162,11 +177,11 @@
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
-    button:hover:not(:disabled) {
+    button:not(.toggle-senha):hover:not(:disabled) {
       transform: translateY(-2px);
       box-shadow: 0 8px 20px rgba(26, 111, 94, 0.3);
     }
-    button:disabled {
+    button:not(.toggle-senha):disabled {
       opacity: 0.5;
       cursor: not-allowed;
     }
