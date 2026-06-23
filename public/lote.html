@@ -13,14 +13,14 @@
       <p class="subtitulo">Importe ou cole um CSV para adicionar estoque de múltiplas peças de uma vez</p>
     </div>
 
-    <-- Seção 1: Download do template -->
+    
     <div class="card">
       <h2 style="margin-top:0;">📋 Passo 1: Baixar o template</h2>
       <button class="btn btn-fino" onclick="baixarTemplate()">⬇ Baixar template CSV</button>
       <p class="texto-cinza" style="font-size:0.82rem; margin-top:10px;">O arquivo contém colunas de exemplo. Você pode editar, duplicar linhas e preencher os dados. Só as colunas <strong>Codigo</strong>, <strong>Tamanho</strong> e <strong>Quantidade</strong> serão usadas. As demais são ignoradas.</p>
     </div>
 
-    <-- Seção 2: Upload ou colar CSV -->
+    
     <div class="card">
       <h2 style="margin-top:0;">📁 Passo 2: Enviar o arquivo ou colar o conteúdo</h2>
       <div class="linha">
@@ -37,7 +37,7 @@
       <button class="btn btn-bloco" onclick="processar()">▶ Processar</button>
     </div>
 
-    <-- Seção 3: Preview + Confirmar -->
+    
     <div class="card" id="secaoPreview" style="display:none;">
       <h2 style="margin-top:0;">✅ Passo 3: Confirmar entrada</h2>
       <p class="texto-cinza">Revise os itens abaixo. Linhas com erro não serão importadas.</p>
@@ -61,7 +61,7 @@
       <button class="btn btn-bloco btn-fantasma" onclick="cancelar()" style="margin-top:8px;">Cancelar</button>
     </div>
 
-    <-- Seção 4: Resultado -->
+    
     <div class="card" id="secaoResultado" style="display:none;">
       <h2 style="margin-top:0;">🎉 Pronto</h2>
       <div id="resultadoMsg"></div>

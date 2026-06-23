@@ -20,7 +20,7 @@
     <h1>Troca / devolução</h1>
     <p class="subtitulo">Cliente devolve uma peça e leva outra — o sistema ajusta estoque e caixa</p>
 
-    <-- 1. Buscar venda de origem -->
+    
     <div class="card">
       <h2 style="margin-top:0;">1. Venda de origem</h2>
       <div class="linha" style="align-items:flex-end;">
@@ -31,13 +31,13 @@
       <div id="infoVenda" class="mt"></div>
     </div>
 
-    <-- 2. Pecas devolvidas -->
+    
     <div class="card">
       <h2 style="margin-top:0;">2. Peças que voltam (devolução)</h2>
       <div id="devolvidos"><div class="texto-cinza">Nenhuma peça marcada para devolução.</div></div>
     </div>
 
-    <-- 3. Pecas levadas -->
+    
     <div class="card">
       <h2 style="margin-top:0;">3. Peças que o cliente leva (saída)</h2>
       <input type="search" id="buscaProd" placeholder="🔎 Buscar peça para adicionar..." oninput="buscarProd()">
@@ -45,7 +45,7 @@
       <div id="levados" class="mt"><div class="texto-cinza">Nenhuma peça adicionada.</div></div>
     </div>
 
-    <-- 4. Resumo / finalizar -->
+    
     <div class="card">
       <h2 style="margin-top:0;">4. Resumo</h2>
       <table style="box-shadow:none;"><tbody>
@@ -53,7 +53,7 @@
         <tr><td>Valor levado</td><td class="direita dinheiro" id="rLev">R$ 0</td></tr>
         <tr style="border-top:2px solid var(--dourado-claro);"><td><strong id="rDifLabel">Diferença</strong></td><td class="direita dinheiro"><strong id="rDif">R$ 0</strong></td></tr>
       </tbody></table>
-      <-- quando a cliente PAGA diferença -->
+      
       <div class="campo mt" id="areaFormaDif" style="display:none;">
         <label id="lblFormaDif">Forma de pagamento da diferença</label>
         <select id="formaDif">
@@ -61,7 +61,7 @@
           <option value="debito">Débito</option><option value="credito_vista">Crédito à vista</option>
         </select>
       </div>
-      <-- quando a cliente RECEBE de volta -->
+      
       <div class="campo mt" id="areaFormaDev" style="display:none;">
         <label id="lblFormaDev">Forma de devolução do valor</label>
         <select id="formaDev">

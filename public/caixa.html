@@ -23,7 +23,7 @@
       <div class="card card-metrica"><div class="valor" id="mVendas">0</div><div class="rotulo">Nº de vendas</div></div>
     </div>
 
-    <-- Status / abertura do caixa -->
+    
     <div class="card" id="cardAbertura">
       <div class="flex-entre">
         <h2 style="margin:0;">🔓 Abertura do caixa</h2>
@@ -39,11 +39,11 @@
       <p class="texto-cinza mt" style="font-size:0.8rem;">🏦 A conferência da conta bancária (saldo do banco) fica em <strong>Financeiro → Conciliação</strong>.</p>
     </div>
 
-    <-- Saídas do dia (=despesa) + Sangria/Suprimento puro -->
+    
     <div class="card" id="cardMov">
       <h2 style="margin-top:0;">💸 Saídas e movimentos do dia</h2>
 
-      <-- SAÍDA DO DIA = vira despesa no Financeiro -->
+      
       <h3 style="margin:4px 0 8px; font-size:1rem;">🧾 Saída / pagamento (vira despesa)</h3>
       <div class="linha" style="align-items:flex-end; flex-wrap:wrap;">
         <div class="campo" style="margin:0; max-width:130px;"><label>Valor (R$)</label><input type="number" id="saidaValor" step="0.01" placeholder="0,00"></div>
@@ -74,7 +74,7 @@
       </div>
       <p class="texto-cinza mt" style="font-size:0.8rem;">A saída entra no caixa <strong>e</strong> vira despesa no Financeiro automaticamente (não precisa lançar duas vezes).</p>
 
-      <-- SANGRIA / SUPRIMENTO puro (sem virar despesa) -->
+      
       <details style="margin-top:12px;">
         <summary style="cursor:pointer; font-weight:600; font-size:0.92rem;">↕️ Sangria / Suprimento puro (retirada pro banco, acerto de troco — não é despesa)</summary>
         <div class="linha mt" style="align-items:flex-end;">
@@ -103,7 +103,7 @@
       </table>
     </div>
 
-    <-- Fechamento -->
+    
     <div class="card" id="cardFechar">
       <h2 style="margin-top:0;">🔒 Fechamento do caixa</h2>
       <table style="box-shadow:none;">

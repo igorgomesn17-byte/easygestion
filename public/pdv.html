@@ -47,13 +47,13 @@
       <div class="card sticky-carrinho">
         <h2 style="margin-top:0;">🛒 Venda atual</h2>
 
-        <-- Vendedor -->
+        
         <div class="campo">
           <label>Vendedor(a)</label>
           <select id="vendedor"><option value="">— Selecione —</option></select>
         </div>
 
-        <-- Origem / canal da venda -->
+        
         <div class="campo">
           <label>Veio de onde?</label>
           <select id="origem"></select>
@@ -100,7 +100,7 @@
           </div>
           <div id="previewPgto" class="mt"></div>
 
-          <-- Troco (quando paga em dinheiro) -->
+          
           <div class="campo mt" id="areaTroco" style="display:none;">
             <label>Valor recebido (R$)</label>
             <input type="number" id="valorRecebido" step="0.01" placeholder="quanto a cliente entregou" oninput="calcTroco()">
@@ -116,14 +116,14 @@
             </div>
           </div>
 
-          <-- Comprovante (Pix por chave) -->
+          
           <div class="campo mt" id="areaComprovante" style="display:none;">
             <label>📎 Comprovante do Pix (opcional)</label>
             <input type="file" id="comprovanteFile" accept="image/png,image/jpeg,image/webp" onchange="previewComprovante()">
             <div id="comprovantePreview" class="mt"></div>
           </div>
 
-          <-- Dividir pagamento (split) -->
+          
           <button class="btn btn-fino mt" id="btnDividir" onclick="abrirSplit()" style="width:100%;">➕ Dividir pagamento (2+ formas)</button>
           <div id="areaSplit" class="campo mt" style="display:none; border:1.5px solid var(--dourado-claro); border-radius:10px; padding:12px;">
             <div class="flex-entre"><strong>Pagamento dividido</strong>
@@ -133,7 +133,7 @@
             <div id="splitResumo" class="mt" style="font-size:0.9rem;"></div>
           </div>
 
-          <-- Cliente com busca (lupa) -->
+          
           <div class="campo mt">
             <label>Cliente (opcional)</label>
             <div style="display:flex; gap:8px;">
@@ -156,7 +156,7 @@
     </div>
   </div>
 
-  <-- Modal tamanho -->
+  
   <div class="modal-fundo" id="modalTam">
     <div class="modal">
       <button class="modal-fechar" onclick="fecharTam()">&times;</button>
@@ -165,7 +165,7 @@
     </div>
   </div>
 
-  <-- Modal cadastro rápido de peça (no PDV) -->
+  
   <div class="modal-fundo" id="modalPecaNova">
     <div class="modal">
       <button class="modal-fechar" onclick="document.getElementById('modalPecaNova').classList.remove('aberto')">&times;</button>
@@ -180,7 +180,7 @@
     </div>
   </div>
 
-  <-- Modal novo cliente -->
+  
   <div class="modal-fundo" id="modalCli">
     <div class="modal">
       <button class="modal-fechar" onclick="document.getElementById('modalCli').classList.remove('aberto')">&times;</button>
@@ -199,7 +199,7 @@
     </div>
   </div>
 
-  <-- A19: Modal de abertura de caixa (bloqueia o PDV até abrir) -->
+  
   <div class="modal-fundo" id="modalCaixa" style="z-index:200;">
     <div class="modal">
       <h2>🔓 Abrir o caixa do dia</h2>
