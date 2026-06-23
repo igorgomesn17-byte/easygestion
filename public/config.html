@@ -170,7 +170,7 @@
           <div class="campo">
             <label>Token de Homologação (teste)</label>
             <div style="display:flex; gap:8px; align-items:flex-end;">
-              <input type="password" id="focus_token_homologacao" placeholder="Seu token de homologação" style="flex:1;">
+              <input type="text" id="focus_token_homologacao" placeholder="Seu token de homologação" style="flex:1; font-family:monospace; font-size:0.85rem;">
               <button type="button" class="btn btn-fino" onclick="salvarTokenFocus('homologacao')">Salvar</button>
               <button type="button" class="btn btn-fino btn-vermelho" id="btnRemoverTokenHomolog" onclick="removerTokenFocus('homologacao')" style="display:none;">Remover</button>
             </div>
@@ -181,7 +181,7 @@
           <div class="campo">
             <label>Token de Produção (real)</label>
             <div style="display:flex; gap:8px; align-items:flex-end;">
-              <input type="password" id="focus_token_producao" placeholder="Seu token de produção" style="flex:1;">
+              <input type="text" id="focus_token_producao" placeholder="Seu token de produção" style="flex:1; font-family:monospace; font-size:0.85rem;">
               <button type="button" class="btn btn-fino" onclick="salvarTokenFocus('producao')">Salvar</button>
               <button type="button" class="btn btn-fino btn-vermelho" id="btnRemoverTokenProd" onclick="removerTokenFocus('producao')" style="display:none;">Remover</button>
             </div>
@@ -576,14 +576,24 @@
       if (!token) { toast('Digite o token', 'erro'); return; }
 
       try {
-        await api('/config/focus-token', {
+        const resp = await fetch('/api/config/focus-token', {
           method: 'POST',
-          body: { token, ambiente }
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ token, ambiente })
         });
+
+        const data = await resp.json();
+        if (!resp.ok) {
+          toast(`Erro: ${data.erro || 'Falha ao salvar'}`, 'erro');
+          return;
+        }
+
         toast(`Token de ${ambiente} salvo com segurança 🔐`, 'sucesso');
         document.getElementById(inputId).value = '';
         verificarTokensFocus();
       } catch (e) {
+        console.error('Erro ao salvar token:', e);
         toast('Erro ao salvar: ' + e.message, 'erro');
       }
     }
@@ -591,17 +601,31 @@
     async function removerTokenFocus(ambiente) {
       if (!confirm(`Remover token de ${ambiente}?`)) return;
       try {
-        await api(`/config/focus-token/${ambiente}`, { method: 'DELETE' });
+        const resp = await fetch(`/api/config/focus-token/${ambiente}`, {
+          method: 'DELETE',
+          credentials: 'include'
+        });
+
+        const data = await resp.json();
+        if (!resp.ok) {
+          toast(`Erro: ${data.erro || 'Falha ao remover'}`, 'erro');
+          return;
+        }
+
         toast(`Token de ${ambiente} removido`, 'sucesso');
         verificarTokensFocus();
       } catch (e) {
+        console.error('Erro ao remover token:', e);
         toast('Erro ao remover: ' + e.message, 'erro');
       }
     }
 
     async function verificarTokensFocus() {
       try {
-        const status = await api('/config/focus-token');
+        const resp = await fetch('/api/config/focus-token', {
+          credentials: 'include'
+        });
+        const status = await resp.json();
         document.getElementById('btnRemoverTokenHomolog').style.display = status.tem_token_homologacao ? '' : 'none';
         document.getElementById('btnRemoverTokenProd').style.display = status.tem_token_producao ? '' : 'none';
       } catch (e) {
