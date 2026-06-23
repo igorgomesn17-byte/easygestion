@@ -1,4 +1,4 @@
-<***REMOVED***DOCTYPE html>
+<DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -302,7 +302,7 @@
 </head>
 <body>
   <div class="container">
-    <***REMOVED***-- Header -->
+    <-- Header -->
     <header>
       <div style="display: flex; align-items: center;">
         <img src="/img/marca/favicon.png" alt="Logo" style="height: 40px; margin-right: 15px;">
@@ -311,7 +311,7 @@
       <button class="btn-logout" onclick="logout()">Sair</button>
     </header>
 
-    <***REMOVED***-- Dashboard de Financeiro -->
+    <-- Dashboard de Financeiro -->
     <div class="dashboard" id="dashboard">
       <div class="card">
         <h3>Clientes Ativos</h3>
@@ -348,7 +348,7 @@
       </div>
     </div>
 
-    <***REMOVED***-- Widget de Alertas Ativos -->
+    <-- Widget de Alertas Ativos -->
     <div class="section" id="secao-alertas" style="display: none;">
       <h2>🚨 Alertas Ativos (Risco de Churn)</h2>
       <div id="tabela-alertas">
@@ -359,7 +359,7 @@
       </div>
     </div>
 
-    <***REMOVED***-- Tabela de Clientes -->
+    <-- Tabela de Clientes -->
     <div class="section">
       <h2>Clientes</h2>
       <div id="tabela-clientes">
@@ -371,12 +371,12 @@
     </div>
   </div>
 
-  <***REMOVED***-- Modal de Detalhes -->
+  <-- Modal de Detalhes -->
   <div class="modal" id="modal-detalhes">
     <div class="modal-content">
       <h3>Detalhes do Cliente</h3>
       <div id="modal-body">
-        <***REMOVED***-- Preenchido por JS -->
+        <-- Preenchido por JS -->
       </div>
       <div class="modal-actions">
         <button class="btn btn-secondary" onclick="fecharModal()">Fechar</button>
@@ -402,7 +402,7 @@
 
     // Formatar moeda
     function formatarMoeda(valor) {
-      if (typeof valor ***REMOVED***== 'number') return '—';
+      if (typeof valor == 'number') return '—';
       return new Intl.NumberFormat('pt-BR', {
         style: 'currency',
         currency: 'BRL'
@@ -411,7 +411,7 @@
 
     // Formatar data
     function formatarData(data) {
-      if (***REMOVED***data) return '—';
+      if (data) return '—';
       return new Date(data).toLocaleDateString('pt-BR');
     }
 
@@ -419,7 +419,7 @@
     async function carregarDashboard() {
       try {
         const res = await fetchAdmin('/financeiro');
-        if (***REMOVED***res.ok) throw new Error('Erro ao carregar');
+        if (res.ok) throw new Error('Erro ao carregar');
 
         const { financeiro } = await res.json();
 
@@ -439,7 +439,7 @@
     async function carregarAlertas() {
       try {
         const res = await fetchAdmin('/alertas');
-        if (***REMOVED***res.ok) throw new Error('Erro ao carregar');
+        if (res.ok) throw new Error('Erro ao carregar');
 
         const { alertas, sumario } = await res.json();
 
@@ -535,7 +535,7 @@
           headers: { 'Content-Type': 'application/json' }
         });
 
-        if (***REMOVED***res.ok) throw new Error('Erro');
+        if (res.ok) throw new Error('Erro');
         carregarAlertas();
       } catch (err) {
         alert('Erro ao resolver alerta: ' + err.message);
@@ -546,7 +546,7 @@
     async function carregarClientes() {
       try {
         const res = await fetchAdmin('/clientes');
-        if (***REMOVED***res.ok) throw new Error('Erro ao carregar');
+        if (res.ok) throw new Error('Erro ao carregar');
 
         const { clientes } = await res.json();
 
@@ -606,7 +606,7 @@
     async function verDetalhes(clienteId) {
       try {
         const res = await fetchAdmin(`/clientes/${clienteId}`);
-        if (***REMOVED***res.ok) throw new Error('Erro');
+        if (res.ok) throw new Error('Erro');
 
         const { tenant, assinaturas } = await res.json();
 
@@ -670,7 +670,7 @@
 
     // Bloquear cliente
     async function bloquearCliente(clienteId) {
-      if (***REMOVED***confirm('Tem certeza que deseja bloquear este cliente?')) return;
+      if (confirm('Tem certeza que deseja bloquear este cliente?')) return;
 
       try {
         const res = await fetchAdmin(`/clientes/${clienteId}`, {
@@ -679,7 +679,7 @@
           body: JSON.stringify({ status: 'bloqueado' })
         });
 
-        if (***REMOVED***res.ok) throw new Error('Erro');
+        if (res.ok) throw new Error('Erro');
         alert('Cliente bloqueado com sucesso.');
         carregarClientes();
         carregarDashboard();
@@ -690,7 +690,7 @@
 
     // Desbloquear cliente
     async function desbloquearCliente(clienteId) {
-      if (***REMOVED***confirm('Tem certeza que deseja desbloquear este cliente?')) return;
+      if (confirm('Tem certeza que deseja desbloquear este cliente?')) return;
 
       try {
         const res = await fetchAdmin(`/clientes/${clienteId}`, {
@@ -699,7 +699,7 @@
           body: JSON.stringify({ status: 'ativo' })
         });
 
-        if (***REMOVED***res.ok) throw new Error('Erro');
+        if (res.ok) throw new Error('Erro');
         alert('Cliente desbloqueado com sucesso.');
         carregarClientes();
         carregarDashboard();
@@ -710,8 +710,8 @@
 
     // Deletar cliente
     async function deletarCliente(clienteId) {
-      if (***REMOVED***confirm('⚠️ ATENÇÃO: Tem certeza que deseja DELETAR este cliente? Esta ação é IRREVERSÍVEL e apagará todos os dados.')) return;
-      if (***REMOVED***confirm('Tem certeza mesmo? Todos os dados do cliente serão perdidos permanentemente.')) return;
+      if (confirm('⚠️ ATENÇÃO: Tem certeza que deseja DELETAR este cliente? Esta ação é IRREVERSÍVEL e apagará todos os dados.')) return;
+      if (confirm('Tem certeza mesmo? Todos os dados do cliente serão perdidos permanentemente.')) return;
 
       try {
         const res = await fetchAdmin(`/clientes/${clienteId}`, {
@@ -719,7 +719,7 @@
           headers: { 'Content-Type': 'application/json' }
         });
 
-        if (***REMOVED***res.ok) throw new Error('Erro');
+        if (res.ok) throw new Error('Erro');
         alert('Cliente deletado permanentemente.');
         carregarClientes();
         carregarDashboard();

@@ -1,4 +1,4 @@
-<***REMOVED***DOCTYPE html>
+<DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -25,7 +25,7 @@
 
     @media print {
       @page { size: 210mm 297mm; margin: 0; }
-      .controles, .nao-imprime { display: none ***REMOVED***important; }
+      .controles, .nao-imprime { display: none important; }
       body { background: #fff; }
       .container-etiquetas { padding: 0; gap: 0; grid-template-columns: repeat(2, 105mm); }
       .etiqueta { border: none; border-radius: 0; margin: 0; page-break-inside: avoid; }
@@ -48,7 +48,7 @@
   <script src="js/comum.js"></script>
   <script>
     const produtoId = new URLSearchParams(location.search).get('id');
-    if (***REMOVED***produtoId) { alert('Produto não especificado'); location.href = 'produtos.html'; }
+    if (produtoId) { alert('Produto não especificado'); location.href = 'produtos.html'; }
 
     async function carregar() {
       try {

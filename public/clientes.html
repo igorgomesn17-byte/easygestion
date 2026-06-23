@@ -1,4 +1,4 @@
-<***REMOVED***DOCTYPE html>
+<DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -74,7 +74,7 @@
         const cfg = await api('/config');
         let ops = [];
         try { ops = JSON.parse(cfg.origens || '[]'); } catch(e) {}
-        if (***REMOVED***ops.length) ops = ['Passou na loja','Instagram','Indicação','Google','WhatsApp','Outro'];
+        if (ops.length) ops = ['Passou na loja','Instagram','Indicação','Google','WhatsApp','Outro'];
         document.getElementById('origem').innerHTML =
           '<option value="">— selecione —</option>' + ops.map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('');
       } catch(e) {}
@@ -128,7 +128,7 @@
 
     async function salvar() {
       const nome = document.getElementById('nome').value.trim();
-      if (***REMOVED***nome){ toast('Informe o nome','erro'); return; }
+      if (nome){ toast('Informe o nome','erro'); return; }
       const body = { nome, telefone:document.getElementById('tel').value,
         cidade:document.getElementById('cidade').value, aniversario:document.getElementById('aniv').value,
         origem:document.getElementById('origem').value };
@@ -143,7 +143,7 @@
       fechar(); carregar();
     }
     async function excluirCliente(id){
-      if (***REMOVED***confirm('Excluir este cliente?')) return;
+      if (confirm('Excluir este cliente?')) return;
       try {
         await api('/clientes/'+id, { method:'DELETE' });
         toast('Cliente excluído','sucesso'); fechar(); carregar();

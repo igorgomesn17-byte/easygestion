@@ -1,4 +1,4 @@
-<***REMOVED***DOCTYPE html>
+<DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -20,7 +20,7 @@
     <h1>Troca / devolução</h1>
     <p class="subtitulo">Cliente devolve uma peça e leva outra — o sistema ajusta estoque e caixa</p>
 
-    <***REMOVED***-- 1. Buscar venda de origem -->
+    <-- 1. Buscar venda de origem -->
     <div class="card">
       <h2 style="margin-top:0;">1. Venda de origem</h2>
       <div class="linha" style="align-items:flex-end;">
@@ -31,13 +31,13 @@
       <div id="infoVenda" class="mt"></div>
     </div>
 
-    <***REMOVED***-- 2. Pecas devolvidas -->
+    <-- 2. Pecas devolvidas -->
     <div class="card">
       <h2 style="margin-top:0;">2. Peças que voltam (devolução)</h2>
       <div id="devolvidos"><div class="texto-cinza">Nenhuma peça marcada para devolução.</div></div>
     </div>
 
-    <***REMOVED***-- 3. Pecas levadas -->
+    <-- 3. Pecas levadas -->
     <div class="card">
       <h2 style="margin-top:0;">3. Peças que o cliente leva (saída)</h2>
       <input type="search" id="buscaProd" placeholder="🔎 Buscar peça para adicionar..." oninput="buscarProd()">
@@ -45,7 +45,7 @@
       <div id="levados" class="mt"><div class="texto-cinza">Nenhuma peça adicionada.</div></div>
     </div>
 
-    <***REMOVED***-- 4. Resumo / finalizar -->
+    <-- 4. Resumo / finalizar -->
     <div class="card">
       <h2 style="margin-top:0;">4. Resumo</h2>
       <table style="box-shadow:none;"><tbody>
@@ -53,7 +53,7 @@
         <tr><td>Valor levado</td><td class="direita dinheiro" id="rLev">R$ 0</td></tr>
         <tr style="border-top:2px solid var(--dourado-claro);"><td><strong id="rDifLabel">Diferença</strong></td><td class="direita dinheiro"><strong id="rDif">R$ 0</strong></td></tr>
       </tbody></table>
-      <***REMOVED***-- quando a cliente PAGA diferença -->
+      <-- quando a cliente PAGA diferença -->
       <div class="campo mt" id="areaFormaDif" style="display:none;">
         <label id="lblFormaDif">Forma de pagamento da diferença</label>
         <select id="formaDif">
@@ -61,7 +61,7 @@
           <option value="debito">Débito</option><option value="credito_vista">Crédito à vista</option>
         </select>
       </div>
-      <***REMOVED***-- quando a cliente RECEBE de volta -->
+      <-- quando a cliente RECEBE de volta -->
       <div class="campo mt" id="areaFormaDev" style="display:none;">
         <label id="lblFormaDev">Forma de devolução do valor</label>
         <select id="formaDev">
@@ -89,13 +89,13 @@
     let prazoExpirado = false;
     async function buscarVenda() {
       const n = document.getElementById('vendaNum').value;
-      if (***REMOVED***n) return;
+      if (n) return;
       try {
         venda = await api('/vendas/' + n);
         // consulta o prazo de troca dessa venda (dias úteis seg-sáb)
         let prazo = { dentro_prazo: true, dias_passados: 0, prazo: 7 };
         try { prazo = await api('/trocas/prazo/' + venda.id); } catch(e){}
-        prazoExpirado = ***REMOVED***prazo.dentro_prazo;
+        prazoExpirado = prazo.dentro_prazo;
 
         const avisoPrazo = prazoExpirado
           ? `<div class="card" style="background:#fde8e8; border:1px solid var(--vermelho,#c62828); margin:8px 0;">
@@ -127,7 +127,7 @@
 
     function atualizarTravaPrazo() {
       const forcar = document.getElementById('forcarPrazo');
-      const bloqueado = prazoExpirado && ***REMOVED***(forcar && forcar.checked);
+      const bloqueado = prazoExpirado && (forcar && forcar.checked);
       const btn = document.getElementById('btnFinalizar');
       if (btn) {
         btn.disabled = bloqueado;
@@ -143,7 +143,7 @@
         devolvidos.push({ _key:key, variacao_id: it.variacao_id, produto_id: it.produto_id,
           descricao: it.descricao, qtd: it.qtd, valor_unit: it.preco_unitario });
       } else {
-        devolvidos = devolvidos.filter(d => d._key ***REMOVED***== key);
+        devolvidos = devolvidos.filter(d => d._key == key);
       }
       renderDevolvidos();
     }
@@ -166,7 +166,7 @@
       clearTimeout(buscaTimer);
       buscaTimer = setTimeout(async () => {
         const b = document.getElementById('buscaProd').value.trim();
-        if (***REMOVED***b) { document.getElementById('listaProd').innerHTML=''; return; }
+        if (b) { document.getElementById('listaProd').innerHTML=''; return; }
         const prods = await api('/produtos?busca=' + encodeURIComponent(b));
         prodBusca = prods;
         document.getElementById('listaProd').innerHTML = prods.length===0
@@ -188,7 +188,7 @@
     }
 
     function addLevado(pi, varId) {
-      const p = prodBusca[pi]; if (***REMOVED***p) return;
+      const p = prodBusca[pi]; if (p) return;
       const descricao = `${p.nome}`;
       const ex = levados.find(l => l.variacao_id === varId);
       if (ex) ex.qtd++;
@@ -237,7 +237,7 @@
     async function finalizar() {
       if (devolvidos.length===0 && levados.length===0) { toast('Marque o que volta e/ou o que sai','erro'); return; }
       const forcar = document.getElementById('forcarPrazo');
-      if (prazoExpirado && ***REMOVED***(forcar && forcar.checked)) {
+      if (prazoExpirado && (forcar && forcar.checked)) {
         toast('Troca fora do prazo (7 dias úteis). Marque a autorização de exceção pra prosseguir.','erro');
         return;
       }

@@ -1,4 +1,4 @@
-<***REMOVED***DOCTYPE html>
+<DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -36,7 +36,7 @@
       <button class="btn" onclick="abrirNova()">+ Nova despesa</button>
     </div>
 
-    <***REMOVED***-- ABA: Despesas do mes -->
+    <-- ABA: Despesas do mes -->
     <div id="abaMes">
       <div class="cards-grid">
         <div class="card card-metrica destaque"><div class="valor dinheiro" id="mTotal">R$ 0</div><div class="rotulo">Total do mês</div></div>
@@ -53,7 +53,7 @@
       </div>
     </div>
 
-    <***REMOVED***-- ABA: Contas a pagar -->
+    <-- ABA: Contas a pagar -->
     <div id="abaApagar" style="display:none;">
       <div class="card">
         <div style="margin-bottom:14px;">
@@ -64,7 +64,7 @@
       </div>
     </div>
 
-    <***REMOVED***-- ABA: Recorrentes -->
+    <-- ABA: Recorrentes -->
     <div id="abaRecorrentes" style="display:none;">
       <div class="card">
         <p class="texto-cinza">Despesas que se repetem todo mês (aluguel, luz, contador...). Cadastre uma vez e use o botão "Lançar despesas fixas" a cada mês.</p>
@@ -72,7 +72,7 @@
       </div>
     </div>
 
-    <***REMOVED***-- ABA: Conciliação bancária (bate o saldo da conta com o banco) -->
+    <-- ABA: Conciliação bancária (bate o saldo da conta com o banco) -->
     <div id="abaConciliacao" style="display:none;">
       <div class="card">
         <div class="flex-entre" style="flex-wrap:wrap; gap:10px;">
@@ -110,7 +110,7 @@
     </div>
   </div>
 
-  <***REMOVED***-- Modal pagar despesa -->
+  <-- Modal pagar despesa -->
   <div class="modal-fundo" id="modalPagar">
     <div class="modal">
       <button class="modal-fechar" onclick="fecharPagar()">&times;</button>
@@ -140,7 +140,7 @@
     </div>
   </div>
 
-  <***REMOVED***-- Modal nova/editar despesa -->
+  <-- Modal nova/editar despesa -->
   <div class="modal-fundo" id="modal">
     <div class="modal">
       <button class="modal-fechar" onclick="fechar()">&times;</button>
@@ -214,7 +214,7 @@
     }
 
     async function carregar() {
-      if (abaAtual === 'conciliacao') { if(***REMOVED***document.getElementById('concData').value) document.getElementById('concData').value = hojeLocalStr(); return carregarConciliacao(); }
+      if (abaAtual === 'conciliacao') { if(document.getElementById('concData').value) document.getElementById('concData').value = hojeLocalStr(); return carregarConciliacao(); }
       if (abaAtual === 'mes') await carregarMes();
       else if (abaAtual === 'apagar') await carregarApagar();
       else await carregarRecorrentes();
@@ -256,7 +256,7 @@
           ${mostrarStatus?`<td>${d.pago?'<span class="badge badge-verde">paga</span>':'<span class="badge badge-vermelho">a pagar</span>'}</td>`:''}
           <td class="direita dinheiro">${moeda(d.valor)}</td>
           <td class="direita" style="white-space:nowrap;">
-            ${(***REMOVED***d.pago && ***REMOVED***d.recorrente)?`<button class="btn btn-fino btn-verde" onclick="abrirPagar(${d.id})">pagar</button>`:''}
+            ${(d.pago && d.recorrente)?`<button class="btn btn-fino btn-verde" onclick="abrirPagar(${d.id})">pagar</button>`:''}
             <button class="btn btn-fino btn-escuro" onclick='editar(${JSON.stringify(d).replace(/'/g,"&#39;")})'>✏️</button>
             <button class="btn btn-fino btn-vermelho" onclick="remover(${d.id})">🗑️</button>
           </td>
@@ -293,7 +293,7 @@
       document.getElementById('pago').value = d.pago?'1':'0';
       document.getElementById('vencimento').value = d.vencimento||'';
       document.getElementById('data_pagamento').value = d.data_pagamento || hojeLocalStr();
-      document.getElementById('recorrente').checked = ***REMOVED******REMOVED***d.recorrente;
+      document.getElementById('recorrente').checked = d.recorrente;
       togglePagamento();
       document.getElementById('modal').classList.add('aberto');
     }
@@ -302,7 +302,7 @@
     async function salvar() {
       const descricao = document.getElementById('descricao').value.trim();
       const valor = parseFloat(document.getElementById('valor').value)||0;
-      if (***REMOVED***descricao){ toast('Informe a descrição','erro'); return; }
+      if (descricao){ toast('Informe a descrição','erro'); return; }
       if (valor<=0){ toast('Informe o valor','erro'); return; }
       const comp = document.getElementById('competencia').value;
       const body = {
@@ -348,7 +348,7 @@
       const id = document.getElementById('pagarId').value;
       const forma = document.getElementById('pagarForma').value;
       const data = document.getElementById('pagarData').value;
-      if (***REMOVED***forma || ***REMOVED***data) { toast('Informe forma e data','erro'); return; }
+      if (forma || data) { toast('Informe forma e data','erro'); return; }
       try {
         await api('/despesas/'+id+'/pagar', {
           method:'POST',
@@ -362,7 +362,7 @@
       }
     }
     async function remover(id) {
-      if (***REMOVED***confirm('Remover esta despesa?')) return;
+      if (confirm('Remover esta despesa?')) return;
       await api('/despesas/'+id, { method:'DELETE' });
       toast('Removida','sucesso'); carregar();
     }
@@ -374,7 +374,7 @@
     }
 
     function exportar() {
-      if (***REMOVED***despesasMes.length) { toast('Nenhuma despesa no mês para exportar','erro'); return; }
+      if (despesasMes.length) { toast('Nenhuma despesa no mês para exportar','erro'); return; }
       const linhas = despesasMes.map(d=>({
         Descricao:d.descricao, Valor:d.valor, Categoria:d.categoria||'',
         Tipo:d.tipo, Centro:d.centro,
@@ -391,9 +391,9 @@
       const data = document.getElementById('concData').value || hojeLocalStr();
       const c = await api('/financeiro/conciliacao?data=' + data);
       concAtual = c;
-      document.getElementById('concSaldoIni').value = c.saldo_conta_inicial ***REMOVED***= null ? c.saldo_conta_inicial : '';
-      document.getElementById('concConferido').value = c.conferido ***REMOVED***= null ? c.conferido : '';
-      const temSaldo = c.saldo_conta_inicial ***REMOVED***= null;
+      document.getElementById('concSaldoIni').value = c.saldo_conta_inicial = null ? c.saldo_conta_inicial : '';
+      document.getElementById('concConferido').value = c.conferido = null ? c.conferido : '';
+      const temSaldo = c.saldo_conta_inicial = null;
       const linhas = [];
       linhas.push(`<tr><td>Saldo inicial (informado)</td><td class="direita dinheiro">${temSaldo?moeda(c.saldo_conta_inicial):'<span class="texto-cinza">— informe acima</span>'}</td></tr>`);
       linhas.push(`<tr><td>+ Vendas Pix (caem na hora)</td><td class="direita dinheiro">${moeda(c.pix_dia)}</td></tr>`);
@@ -416,11 +416,11 @@
     }
     function previewConcDif() {
       const el = document.getElementById('concDif');
-      if (***REMOVED***concAtual || concAtual.esperado == null) { el.textContent='—'; el.className=''; return; }
+      if (concAtual || concAtual.esperado == null) { el.textContent='—'; el.className=''; return; }
       const conf = parseFloat(document.getElementById('concConferido').value);
       if (isNaN(conf)) { el.textContent='—'; el.className=''; return; }
       const dif = +(conf - concAtual.esperado).toFixed(2);
-      el.textContent = (dif>0?'+':'') + moeda(dif) + (Math.abs(dif)<0.01?' (bateu***REMOVED***)':dif>0?' (sobra)':' (falta)');
+      el.textContent = (dif>0?'+':'') + moeda(dif) + (Math.abs(dif)<0.01?' (bateu)':dif>0?' (sobra)':' (falta)');
       el.className = Math.abs(dif)<0.01 ? 'texto-verde' : 'texto-vermelho';
     }
     async function salvarConcSaldo() {

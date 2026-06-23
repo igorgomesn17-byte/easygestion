@@ -1,4 +1,4 @@
-<***REMOVED***DOCTYPE html>
+<DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -23,7 +23,7 @@
       <div class="card card-metrica"><div class="valor" id="mVendas">0</div><div class="rotulo">Nº de vendas</div></div>
     </div>
 
-    <***REMOVED***-- Status / abertura do caixa -->
+    <-- Status / abertura do caixa -->
     <div class="card" id="cardAbertura">
       <div class="flex-entre">
         <h2 style="margin:0;">🔓 Abertura do caixa</h2>
@@ -39,11 +39,11 @@
       <p class="texto-cinza mt" style="font-size:0.8rem;">🏦 A conferência da conta bancária (saldo do banco) fica em <strong>Financeiro → Conciliação</strong>.</p>
     </div>
 
-    <***REMOVED***-- Saídas do dia (=despesa) + Sangria/Suprimento puro -->
+    <-- Saídas do dia (=despesa) + Sangria/Suprimento puro -->
     <div class="card" id="cardMov">
       <h2 style="margin-top:0;">💸 Saídas e movimentos do dia</h2>
 
-      <***REMOVED***-- SAÍDA DO DIA = vira despesa no Financeiro -->
+      <-- SAÍDA DO DIA = vira despesa no Financeiro -->
       <h3 style="margin:4px 0 8px; font-size:1rem;">🧾 Saída / pagamento (vira despesa)</h3>
       <div class="linha" style="align-items:flex-end; flex-wrap:wrap;">
         <div class="campo" style="margin:0; max-width:130px;"><label>Valor (R$)</label><input type="number" id="saidaValor" step="0.01" placeholder="0,00"></div>
@@ -74,7 +74,7 @@
       </div>
       <p class="texto-cinza mt" style="font-size:0.8rem;">A saída entra no caixa <strong>e</strong> vira despesa no Financeiro automaticamente (não precisa lançar duas vezes).</p>
 
-      <***REMOVED***-- SANGRIA / SUPRIMENTO puro (sem virar despesa) -->
+      <-- SANGRIA / SUPRIMENTO puro (sem virar despesa) -->
       <details style="margin-top:12px;">
         <summary style="cursor:pointer; font-weight:600; font-size:0.92rem;">↕️ Sangria / Suprimento puro (retirada pro banco, acerto de troco — não é despesa)</summary>
         <div class="linha mt" style="align-items:flex-end;">
@@ -103,7 +103,7 @@
       </table>
     </div>
 
-    <***REMOVED***-- Fechamento -->
+    <-- Fechamento -->
     <div class="card" id="cardFechar">
       <h2 style="margin-top:0;">🔒 Fechamento do caixa</h2>
       <table style="box-shadow:none;">
@@ -149,7 +149,7 @@
       document.getElementById('mLiquido').textContent = moeda(c.total_liquido);
       document.getElementById('mLucro').textContent = moeda(c.lucro_dia);
       document.getElementById('mVendas').textContent = c.num_vendas;
-      document.getElementById('conciliado').checked = ***REMOVED******REMOVED***c.conciliado;
+      document.getElementById('conciliado').checked = c.conciliado;
       document.getElementById('obs').value = c.obs || '';
 
       // status
@@ -169,7 +169,7 @@
           <td>${x.tipo==='abertura'?'':rotuloFormaMov(x.forma)}</td>
           <td class="texto-cinza">${esc(x.motivo||'')}${x.despesa_id?' <span class="badge" style="font-size:0.65rem;">despesa</span>':''}</td>
           <td class="direita dinheiro">${moeda(x.valor)}</td>
-          <td class="direita">${x.tipo***REMOVED***=='abertura'?`<button class="btn btn-fino btn-vermelho" style="padding:2px 8px;" onclick="apagarMov(${x.id})">🗑️</button>`:''}</td></tr>`).join('')}</tbody></table>`;
+          <td class="direita">${x.tipo=='abertura'?`<button class="btn btn-fino btn-vermelho" style="padding:2px 8px;" onclick="apagarMov(${x.id})">🗑️</button>`:''}</td></tr>`).join('')}</tbody></table>`;
 
       // fechamento
       document.getElementById('fFundo').textContent = moeda(c.fundo_troco);
@@ -177,7 +177,7 @@
       document.getElementById('fSup').textContent = moeda(c.suprimentos);
       document.getElementById('fSang').textContent = moeda(c.sangrias);
       document.getElementById('fEsperado').textContent = moeda(c.dinheiro_esperado);
-      document.getElementById('dinContado').value = c.dinheiro_contado ***REMOVED***= null ? c.dinheiro_contado : '';
+      document.getElementById('dinContado').value = c.dinheiro_contado = null ? c.dinheiro_contado : '';
       previewDif();
       const av = document.getElementById('avisoFechado');
       if (c.fechado) {
@@ -208,19 +208,19 @@
     }
 
     function previewDif() {
-      if (***REMOVED***caixaAtual) return;
+      if (caixaAtual) return;
       const contado = parseFloat(document.getElementById('dinContado').value);
       const el = document.getElementById('difPreview');
       if (isNaN(contado)) { el.textContent = '—'; el.className = ''; return; }
       const dif = +(contado - caixaAtual.dinheiro_esperado).toFixed(2);
-      el.textContent = (dif>0?'+':'') + moeda(dif) + (dif===0?' (bateu***REMOVED***)':dif>0?' (sobra)':' (falta)');
+      el.textContent = (dif>0?'+':'') + moeda(dif) + (dif===0?' (bateu)':dif>0?' (sobra)':' (falta)');
       el.className = dif===0 ? 'texto-verde' : dif<0 ? 'texto-vermelho' : '';
     }
     async function lancarSaida() {
       const valor = parseFloat(document.getElementById('saidaValor').value);
       const descricao = document.getElementById('saidaDesc').value.trim();
-      if (***REMOVED***valor || valor<=0) { toast('Informe o valor','erro'); return; }
-      if (***REMOVED***descricao) { toast('Descreva a saída','erro'); return; }
+      if (valor || valor<=0) { toast('Informe o valor','erro'); return; }
+      if (descricao) { toast('Descreva a saída','erro'); return; }
       try {
         await api('/caixa/saida', { method:'POST', body:{
           data: document.getElementById('data').value, valor, descricao,
@@ -232,7 +232,7 @@
       } catch(e){ toast(e.message,'erro'); }
     }
     async function apagarMov(id) {
-      if (***REMOVED***confirm('Apagar este movimento? Se ele veio de uma despesa, a despesa também será apagada.')) return;
+      if (confirm('Apagar este movimento? Se ele veio de uma despesa, a despesa também será apagada.')) return;
       try { await api('/caixa/movimento/'+id, { method:'DELETE' }); toast('Movimento apagado','sucesso'); carregar(); }
       catch(e){ toast(e.message,'erro'); }
     }
@@ -247,7 +247,7 @@
     }
     async function mov(tipo) {
       const valor = parseFloat(document.getElementById('movValor').value);
-      if (***REMOVED***valor || valor<=0) { toast('Informe o valor','erro'); return; }
+      if (valor || valor<=0) { toast('Informe o valor','erro'); return; }
       try { await api('/caixa/'+tipo, { method:'POST', body:{ data:document.getElementById('data').value,
           valor, forma:document.getElementById('movForma').value, motivo:document.getElementById('movMotivo').value }});
         document.getElementById('movValor').value=''; document.getElementById('movMotivo').value='';
@@ -257,14 +257,14 @@
     async function fechar() {
       const contado = document.getElementById('dinContado').value;
       if (contado === '') { toast('Informe o dinheiro contado','erro'); return; }
-      if (***REMOVED***confirm('Fechar o caixa deste dia?')) return;
+      if (confirm('Fechar o caixa deste dia?')) return;
       try { await api('/caixa/fechar', { method:'POST', body:{ data:document.getElementById('data').value,
           dinheiro_contado:contado, obs:document.getElementById('obs').value }});
         toast('Caixa fechado','sucesso'); conciliar(true); carregar();
       } catch(e){ toast(e.message,'erro'); }
     }
     async function reabrir() {
-      if (***REMOVED***confirm('Reabrir o caixa?')) return;
+      if (confirm('Reabrir o caixa?')) return;
       await api('/caixa/reabrir', { method:'POST', body:{ data:document.getElementById('data').value }});
       toast('Caixa reaberto','sucesso'); carregar();
     }
@@ -273,7 +273,7 @@
         data: document.getElementById('data').value,
         conciliado: document.getElementById('conciliado').checked,
         obs: document.getElementById('obs').value }});
-      if (***REMOVED***silencioso) toast('Conciliação salva', 'sucesso');
+      if (silencioso) toast('Conciliação salva', 'sucesso');
     }
     document.getElementById('conciliado').addEventListener('change', ()=>conciliar(true));
 
@@ -282,7 +282,7 @@
     }
 
     async function cancelar(id) {
-      if (***REMOVED***confirm('Cancelar esta venda? O estoque será devolvido.')) return;
+      if (confirm('Cancelar esta venda? O estoque será devolvido.')) return;
       try { await api('/vendas/'+id, { method:'DELETE' }); toast('Venda cancelada','sucesso'); carregar(); }
       catch(e){ toast(e.message,'erro'); }
     }

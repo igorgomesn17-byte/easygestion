@@ -1,4 +1,4 @@
-<***REMOVED***DOCTYPE html>
+<DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -13,14 +13,14 @@
       <p class="subtitulo">Importe ou cole um CSV para adicionar estoque de múltiplas peças de uma vez</p>
     </div>
 
-    <***REMOVED***-- Seção 1: Download do template -->
+    <-- Seção 1: Download do template -->
     <div class="card">
       <h2 style="margin-top:0;">📋 Passo 1: Baixar o template</h2>
       <button class="btn btn-fino" onclick="baixarTemplate()">⬇ Baixar template CSV</button>
       <p class="texto-cinza" style="font-size:0.82rem; margin-top:10px;">O arquivo contém colunas de exemplo. Você pode editar, duplicar linhas e preencher os dados. Só as colunas <strong>Codigo</strong>, <strong>Tamanho</strong> e <strong>Quantidade</strong> serão usadas. As demais são ignoradas.</p>
     </div>
 
-    <***REMOVED***-- Seção 2: Upload ou colar CSV -->
+    <-- Seção 2: Upload ou colar CSV -->
     <div class="card">
       <h2 style="margin-top:0;">📁 Passo 2: Enviar o arquivo ou colar o conteúdo</h2>
       <div class="linha">
@@ -37,7 +37,7 @@
       <button class="btn btn-bloco" onclick="processar()">▶ Processar</button>
     </div>
 
-    <***REMOVED***-- Seção 3: Preview + Confirmar -->
+    <-- Seção 3: Preview + Confirmar -->
     <div class="card" id="secaoPreview" style="display:none;">
       <h2 style="margin-top:0;">✅ Passo 3: Confirmar entrada</h2>
       <p class="texto-cinza">Revise os itens abaixo. Linhas com erro não serão importadas.</p>
@@ -61,9 +61,9 @@
       <button class="btn btn-bloco btn-fantasma" onclick="cancelar()" style="margin-top:8px;">Cancelar</button>
     </div>
 
-    <***REMOVED***-- Seção 4: Resultado -->
+    <-- Seção 4: Resultado -->
     <div class="card" id="secaoResultado" style="display:none;">
-      <h2 style="margin-top:0;">🎉 Pronto***REMOVED***</h2>
+      <h2 style="margin-top:0;">🎉 Pronto</h2>
       <div id="resultadoMsg"></div>
       <div style="margin-top:16px;">
         <a href="estoque.html" class="btn btn-bloco">Ir para Estoque</a>
@@ -93,7 +93,7 @@
 
     function lerArquivo(input) {
       const file = input.files && input.files[0];
-      if (***REMOVED***file) return;
+      if (file) return;
       const reader = new FileReader();
       reader.onload = (e) => {
         document.getElementById('csvTexto').value = e.target.result;
@@ -103,7 +103,7 @@
 
     function processar() {
       const texto = document.getElementById('csvTexto').value.trim();
-      if (***REMOVED***texto) { toast('Cole ou carregue um CSV','erro'); return; }
+      if (texto) { toast('Cole ou carregue um CSV','erro'); return; }
 
       // parse CSV bem simples
       const linhas = texto.split('\n').map(l => l.trim()).filter(l => l.length > 0);
@@ -126,7 +126,7 @@
         const tamanho = campos[idxTamanho] || '';
         const quantidade = parseInt(campos[idxQtd], 10);
 
-        const valido = codigo.length > 0 && tamanho.length > 0 && ***REMOVED***isNaN(quantidade) && quantidade > 0;
+        const valido = codigo.length > 0 && tamanho.length > 0 && isNaN(quantidade) && quantidade > 0;
         csvParse.push({ codigo, tamanho, quantidade, valido });
       }
 
@@ -137,7 +137,7 @@
 
     function mostrarPreview() {
       const validos = csvParse.filter(c => c.valido);
-      const erros = csvParse.filter(c => ***REMOVED***c.valido);
+      const erros = csvParse.filter(c => c.valido);
 
       const html = csvParse.map(c => `
         <tr style="border-bottom:1px solid var(--linha);">
@@ -162,7 +162,7 @@
 
     async function confirmar() {
       const validos = csvParse.filter(c => c.valido);
-      if (***REMOVED***validos.length) { toast('Nenhum item válido','erro'); return; }
+      if (validos.length) { toast('Nenhum item válido','erro'); return; }
 
       const body = validos.map(c => ({ codigo: c.codigo, tamanho: c.tamanho, quantidade: c.quantidade, motivo:'entrada em lote' }));
 
@@ -179,7 +179,7 @@
 
     function mostrarResultado(processados, erros) {
       let html = `<div class="card" style="background:var(--verde-claro); border-left:4px solid var(--verde);">
-        <strong class="texto-verde">✅ ${processados} peça(s) adicionada(s) ao estoque***REMOVED***</strong>
+        <strong class="texto-verde">✅ ${processados} peça(s) adicionada(s) ao estoque</strong>
       </div>`;
 
       if (erros && erros.length > 0) {

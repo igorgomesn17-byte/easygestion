@@ -1,4 +1,4 @@
-<***REMOVED***DOCTYPE html>
+<DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -244,7 +244,7 @@
     <h2>Criar Conta</h2>
 
     <form id="formRegistro">
-      <***REMOVED***-- Email -->
+      <-- Email -->
       <div class="form-group">
         <label for="email">Email da Loja</label>
         <input
@@ -256,7 +256,7 @@
         >
       </div>
 
-      <***REMOVED***-- Nome da Loja -->
+      <-- Nome da Loja -->
       <div class="form-group">
         <label for="nome_loja">Nome da Loja</label>
         <input
@@ -268,7 +268,7 @@
         >
       </div>
 
-      <***REMOVED***-- Nome do Responsável -->
+      <-- Nome do Responsável -->
       <div class="form-group">
         <label for="nome_responsavel">Seu Nome Completo</label>
         <input
@@ -280,7 +280,7 @@
         >
       </div>
 
-      <***REMOVED***-- Telefone -->
+      <-- Telefone -->
       <div class="form-group">
         <label for="telefone">Telefone / WhatsApp</label>
         <input
@@ -292,7 +292,7 @@
         >
       </div>
 
-      <***REMOVED***-- Senha -->
+      <-- Senha -->
       <div class="form-group">
         <label for="senha">Senha (Mínimo 8 caracteres)</label>
         <div class="password-wrapper">
@@ -312,7 +312,7 @@
         <div class="strength-text" id="strengthText"></div>
       </div>
 
-      <***REMOVED***-- Confirmar Senha -->
+      <-- Confirmar Senha -->
       <div class="form-group">
         <label for="confirma_senha">Confirmar Senha</label>
         <div class="password-wrapper">
@@ -328,7 +328,7 @@
         </div>
       </div>
 
-      <***REMOVED***-- Termos (obrigatório no registro) -->
+      <-- Termos (obrigatório no registro) -->
       <div class="checkbox-group">
         <label for="termos">
           <input
@@ -341,17 +341,17 @@
         </label>
       </div>
 
-      <***REMOVED***-- Botão -->
+      <-- Botão -->
       <button type="submit" id="btnRegistrar">✨ Começar Teste de 14 Dias</button>
       <div id="mensagem" class="message"></div>
     </form>
 
-    <***REMOVED***-- Link para Login -->
+    <-- Link para Login -->
     <div class="login-link">
       Já tem conta? <a href="/login.html">Entre aqui</a>
     </div>
 
-    <***REMOVED***-- Footer -->
+    <-- Footer -->
     <div class="footer">
       © 2026 EasyGestão — Gestão inteligente para sua loja
     </div>
@@ -407,7 +407,7 @@
       const termos = document.getElementById('termos').checked;
 
       // Validações no frontend
-      if (***REMOVED***email.includes('@')) {
+      if (email.includes('@')) {
         mostrarMensagem('Email inválido', 'error');
         return;
       }
@@ -415,11 +415,11 @@
         mostrarMensagem('Senha precisa de no mínimo 8 caracteres', 'error');
         return;
       }
-      if (senha ***REMOVED***== confirma_senha) {
+      if (senha == confirma_senha) {
         mostrarMensagem('Senhas não coincidem', 'error');
         return;
       }
-      if (***REMOVED***termos) {
+      if (termos) {
         mostrarMensagem('Você precisa concordar com os termos de uso e política de privacidade', 'error');
         return;
       }
@@ -438,7 +438,7 @@
         const data = await res.json();
 
         if (res.ok && data.ok) {
-          mostrarMensagem('✓ Conta criada***REMOVED*** Redirecionando...', 'success');
+          mostrarMensagem('✓ Conta criada Redirecionando...', 'success');
           setTimeout(() => {
             window.location.href = data.destino || '/index.html';
           }, 1500);

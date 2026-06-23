@@ -1,4 +1,4 @@
-<***REMOVED***DOCTYPE html>
+<DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -277,10 +277,10 @@
   <div class="container-assinatura">
     <h1>Minha Assinatura</h1>
 
-    <***REMOVED***-- Alert de checkout -->
+    <-- Alert de checkout -->
     <div id="alertCheckout" style="display: none;"></div>
 
-    <***REMOVED***-- Card de Assinatura Atual -->
+    <-- Card de Assinatura Atual -->
     <div class="card-assinatura">
       <div class="titulo-secao">Plano Atual</div>
 
@@ -337,16 +337,16 @@
       </div>
     </div>
 
-    <***REMOVED***-- Card de Planos Disponíveis -->
+    <-- Card de Planos Disponíveis -->
     <div class="card-assinatura">
       <div class="titulo-secao">Planos Disponíveis</div>
 
       <div id="planos" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 20px;">
-        <***REMOVED***-- Preenchido por JS -->
+        <-- Preenchido por JS -->
       </div>
     </div>
 
-    <***REMOVED***-- Card de Histórico -->
+    <-- Card de Histórico -->
     <div class="card-assinatura historico-pagamentos">
       <div class="titulo-secao">Histórico de Pagamentos</div>
 
@@ -366,7 +366,7 @@
             </tr>
           </thead>
           <tbody id="corpoPagamentos">
-            <***REMOVED***-- Preenchido por JS -->
+            <-- Preenchido por JS -->
           </tbody>
         </table>
       </div>
@@ -409,7 +409,7 @@
 
         document.getElementById('loadingAssinatura').style.display = 'none';
 
-        if (***REMOVED***dados.assinatura) {
+        if (dados.assinatura) {
           document.getElementById('semAssinatura').style.display = 'block';
           return;
         }
@@ -445,7 +445,7 @@
           </div>`;
         } else if (diasRestantes <= 7 && diasRestantes > 0) {
           alertas.innerHTML += `<div class="alerta alerta-warning">
-            <strong>⏰ Sua assinatura vence em ${diasRestantes} dia${diasRestantes ***REMOVED***== 1 ? 's' : ''}</strong><br>
+            <strong>⏰ Sua assinatura vence em ${diasRestantes} dia${diasRestantes == 1 ? 's' : ''}</strong><br>
             Nenhuma ação necessária — renoveremos automaticamente.
           </div>`;
         }
@@ -463,7 +463,7 @@
 
         document.getElementById('loadingHistorico').style.display = 'none';
 
-        if (***REMOVED***cobracas || cobracas.length === 0) {
+        if (cobracas || cobracas.length === 0) {
           document.getElementById('semHistorico').style.display = 'block';
           return;
         }
@@ -574,7 +574,7 @@
         const alert = document.getElementById('alertCheckout');
         alert.innerHTML = `
           <div class="alerta alerta-info">
-            <strong>✅ Pagamento recebido***REMOVED***</strong><br>
+            <strong>✅ Pagamento recebido</strong><br>
             Sua assinatura foi ativada com sucesso. Você já pode usar todas as funcionalidades.
           </div>
         `;

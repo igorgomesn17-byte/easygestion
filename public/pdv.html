@@ -1,4 +1,4 @@
-<***REMOVED***DOCTYPE html>
+<DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -47,13 +47,13 @@
       <div class="card sticky-carrinho">
         <h2 style="margin-top:0;">🛒 Venda atual</h2>
 
-        <***REMOVED***-- Vendedor -->
+        <-- Vendedor -->
         <div class="campo">
           <label>Vendedor(a)</label>
           <select id="vendedor"><option value="">— Selecione —</option></select>
         </div>
 
-        <***REMOVED***-- Origem / canal da venda -->
+        <-- Origem / canal da venda -->
         <div class="campo">
           <label>Veio de onde?</label>
           <select id="origem"></select>
@@ -100,7 +100,7 @@
           </div>
           <div id="previewPgto" class="mt"></div>
 
-          <***REMOVED***-- Troco (quando paga em dinheiro) -->
+          <-- Troco (quando paga em dinheiro) -->
           <div class="campo mt" id="areaTroco" style="display:none;">
             <label>Valor recebido (R$)</label>
             <input type="number" id="valorRecebido" step="0.01" placeholder="quanto a cliente entregou" oninput="calcTroco()">
@@ -116,14 +116,14 @@
             </div>
           </div>
 
-          <***REMOVED***-- Comprovante (Pix por chave) -->
+          <-- Comprovante (Pix por chave) -->
           <div class="campo mt" id="areaComprovante" style="display:none;">
             <label>📎 Comprovante do Pix (opcional)</label>
             <input type="file" id="comprovanteFile" accept="image/png,image/jpeg,image/webp" onchange="previewComprovante()">
             <div id="comprovantePreview" class="mt"></div>
           </div>
 
-          <***REMOVED***-- Dividir pagamento (split) -->
+          <-- Dividir pagamento (split) -->
           <button class="btn btn-fino mt" id="btnDividir" onclick="abrirSplit()" style="width:100%;">➕ Dividir pagamento (2+ formas)</button>
           <div id="areaSplit" class="campo mt" style="display:none; border:1.5px solid var(--dourado-claro); border-radius:10px; padding:12px;">
             <div class="flex-entre"><strong>Pagamento dividido</strong>
@@ -133,7 +133,7 @@
             <div id="splitResumo" class="mt" style="font-size:0.9rem;"></div>
           </div>
 
-          <***REMOVED***-- Cliente com busca (lupa) -->
+          <-- Cliente com busca (lupa) -->
           <div class="campo mt">
             <label>Cliente (opcional)</label>
             <div style="display:flex; gap:8px;">
@@ -156,7 +156,7 @@
     </div>
   </div>
 
-  <***REMOVED***-- Modal tamanho -->
+  <-- Modal tamanho -->
   <div class="modal-fundo" id="modalTam">
     <div class="modal">
       <button class="modal-fechar" onclick="fecharTam()">&times;</button>
@@ -165,7 +165,7 @@
     </div>
   </div>
 
-  <***REMOVED***-- Modal cadastro rápido de peça (no PDV) -->
+  <-- Modal cadastro rápido de peça (no PDV) -->
   <div class="modal-fundo" id="modalPecaNova">
     <div class="modal">
       <button class="modal-fechar" onclick="document.getElementById('modalPecaNova').classList.remove('aberto')">&times;</button>
@@ -180,7 +180,7 @@
     </div>
   </div>
 
-  <***REMOVED***-- Modal novo cliente -->
+  <-- Modal novo cliente -->
   <div class="modal-fundo" id="modalCli">
     <div class="modal">
       <button class="modal-fechar" onclick="document.getElementById('modalCli').classList.remove('aberto')">&times;</button>
@@ -199,7 +199,7 @@
     </div>
   </div>
 
-  <***REMOVED***-- A19: Modal de abertura de caixa (bloqueia o PDV até abrir) -->
+  <-- A19: Modal de abertura de caixa (bloqueia o PDV até abrir) -->
   <div class="modal-fundo" id="modalCaixa" style="z-index:200;">
     <div class="modal">
       <h2>🔓 Abrir o caixa do dia</h2>
@@ -239,7 +239,7 @@
       try {
         await api('/caixa/abrir', { method:'POST', body:{ fundo_troco: fundo } });
         document.getElementById('modalCaixa').classList.remove('aberto');
-        toast('Caixa aberto***REMOVED*** Bora vender 🤎', 'sucesso');
+        toast('Caixa aberto Bora vender 🤎', 'sucesso');
         document.getElementById('busca').focus();
       } catch (e) { toast(e.message || 'Não consegui abrir o caixa', 'erro'); }
     }
@@ -253,7 +253,7 @@
       timer = setTimeout(async () => {
         const b = document.getElementById('busca').value.trim();
         const div = document.getElementById('resultados');
-        if (***REMOVED***b) { div.innerHTML = ''; return; }
+        if (b) { div.innerHTML = ''; return; }
         const lista = await api('/produtos?busca=' + encodeURIComponent(b));
         if (lista.length === 0) { div.innerHTML = '<div class="vazio">Nada encontrado — use "+ Cadastrar peça nova" abaixo</div>'; return; }
         div.innerHTML = lista.map(p => {
@@ -279,13 +279,13 @@
     // tenta casar o codigo_barras exato e joga direto pro carrinho (sem clique).
     async function lerCodigo() {
       const termo = document.getElementById('busca').value.trim();
-      if (***REMOVED***termo) return;
+      if (termo) return;
       const lista = await api('/produtos?busca=' + encodeURIComponent(termo));
       // casa por codigo_barras exato (leitura de pistola) ou codigo exato
       let p = lista.find(x => x.codigo_barras === termo || (x.codigo||'').toUpperCase() === termo.toUpperCase());
       // se não casou exato mas só veio 1 resultado, assume esse
-      if (***REMOVED***p && lista.length === 1) p = lista[0];
-      if (***REMOVED***p) { toast('Produto não encontrado pra esse código', 'erro'); return; }
+      if (p && lista.length === 1) p = lista[0];
+      if (p) { toast('Produto não encontrado pra esse código', 'erro'); return; }
 
       const disp = (p.grade||[]).filter(g => g.quantidade > 0);
       if (disp.length === 0) { toast('Sem estoque dessa peça', 'erro'); limparBusca(); return; }
@@ -345,7 +345,7 @@
       const nome = document.getElementById('pnNome').value.trim();
       const preco = parseFloat(document.getElementById('pnPreco').value) || 0;
       const tamanho = document.getElementById('pnTamanho').value.trim() || 'U';
-      if (***REMOVED***nome) { toast('Informe o nome da peça','erro'); return; }
+      if (nome) { toast('Informe o nome da peça','erro'); return; }
       if (preco <= 0) { toast('Informe o preço','erro'); return; }
       try {
         const p = await api('/produtos/rapido', { method:'POST', body:{ nome, preco_venda:preco, tamanho, quantidade:1 }});
@@ -453,12 +453,12 @@
 
       previewPgto(total, acrescimo);
       if (splitAtivo) renderSplitResumo();
-      if (formaSel === 'dinheiro' && ***REMOVED***splitAtivo) calcTroco(); // recalcula troco se o total mudou
+      if (formaSel === 'dinheiro' && splitAtivo) calcTroco(); // recalcula troco se o total mudou
     }
 
     async function comissaoVendedorSel() {
       const vid = document.getElementById('vendedor').value;
-      if (***REMOVED***vid) return 0;
+      if (vid) return 0;
       const v = vendedoresCache.find(x => x.id == vid);
       return v ? v.comissao_pct : 0;
     }
@@ -476,10 +476,10 @@
 
     function previewPgto(total, acrescimo) {
       const div = document.getElementById('previewPgto');
-      if (***REMOVED***formaSel || carrinho.length === 0) { div.innerHTML = ''; return; }
+      if (formaSel || carrinho.length === 0) { div.innerHTML = ''; return; }
       const parcelas = formaSel === 'credito_parcelado' ? parseInt(document.getElementById('parcelas').value) : 1;
       if (formaSel === 'pix' || formaSel === 'pix_chave') {
-        div.innerHTML = `<div class="pix-destaque">💚 Sem taxa***REMOVED*** Você recebe ${moeda(total)} em 1 dia útil.</div>`;
+        div.innerHTML = `<div class="pix-destaque">💚 Sem taxa Você recebe ${moeda(total)} em 1 dia útil.</div>`;
       } else if (formaSel === 'credito_parcelado' && parcelas > LIMITE_LOJA_ABSORVE) {
         const taxasParc = {4:6.85,5:7.57,6:8.28};
         if (repassarTaxaAtivo()) {
@@ -509,17 +509,17 @@
     }
     function atualizarAreaComprovante() {
       const area = document.getElementById('areaComprovante');
-      if (***REMOVED***area) return;
+      if (area) return;
       area.style.display = temPixChave() ? 'block' : 'none';
     }
 
     // ---------- Troco (só quando paga em dinheiro, forma única) ----------
     function atualizarAreaTroco() {
       const area = document.getElementById('areaTroco');
-      if (***REMOVED***area) return;
-      const mostra = ***REMOVED***splitAtivo && formaSel === 'dinheiro';
+      if (area) return;
+      const mostra = splitAtivo && formaSel === 'dinheiro';
       area.style.display = mostra ? 'block' : 'none';
-      if (***REMOVED***mostra) { document.getElementById('valorRecebido').value = ''; calcTroco(); }
+      if (mostra) { document.getElementById('valorRecebido').value = ''; calcTroco(); }
     }
     function trocoAtual() {
       const recebido = parseFloat(document.getElementById('valorRecebido').value) || 0;
@@ -529,7 +529,7 @@
     function calcTroco() {
       const info = document.getElementById('trocoInfo');
       const formaArea = document.getElementById('trocoFormaArea');
-      if (***REMOVED***info) return;
+      if (info) return;
       const recebido = parseFloat(document.getElementById('valorRecebido').value) || 0;
       const total = totalVenda();
       if (recebido <= 0) { info.innerHTML = ''; formaArea.style.display = 'none'; return; }
@@ -548,7 +548,7 @@
     function previewComprovante() {
       const f = document.getElementById('comprovanteFile').files[0];
       const div = document.getElementById('comprovantePreview');
-      if (***REMOVED***f) { comprovanteBase64 = null; div.innerHTML = ''; return; }
+      if (f) { comprovanteBase64 = null; div.innerHTML = ''; return; }
       if (f.size > 4 * 1024 * 1024) { toast('Imagem muito grande (máx 4MB)','erro'); document.getElementById('comprovanteFile').value=''; return; }
       const reader = new FileReader();
       reader.onload = e => {
@@ -614,7 +614,7 @@
     }
     function setSplitForma(i, v) {
       linhasSplit[i].forma = v;
-      if (v ***REMOVED***== 'credito_parcelado') linhasSplit[i].parcelas = 1;
+      if (v == 'credito_parcelado') linhasSplit[i].parcelas = 1;
       renderSplit();
       atualizarAreaComprovante();
     }
@@ -666,7 +666,7 @@
       timerCli = setTimeout(async () => {
         const b = document.getElementById('buscaCli').value.trim();
         const div = document.getElementById('listaCli');
-        if (***REMOVED***b) { div.style.display='none'; return; }
+        if (b) { div.style.display='none'; return; }
         const lista = await api('/clientes?busca=' + encodeURIComponent(b));
         if (lista.length === 0) { div.innerHTML='<div class="texto-cinza" style="padding:9px;">Nenhum cliente. Use + Novo.</div>'; div.style.display='block'; return; }
         div.innerHTML = lista.slice(0,20).map(c=>`<div data-id="${c.id}" data-nome="${esc(c.nome)}" onclick="selCliEl(this)">
@@ -693,7 +693,7 @@
         const cfg = await api('/config');
         let ops = [];
         try { ops = JSON.parse(cfg.origens_cliente || '[]'); } catch(e) {}
-        if (***REMOVED***ops.length) ops = ['Passou na loja','Instagram','Indicação','Google','WhatsApp','Influencer','Cliente Camacan','Outro'];
+        if (ops.length) ops = ['Passou na loja','Instagram','Indicação','Google','WhatsApp','Influencer','Cliente Camacan','Outro'];
         const sel = document.getElementById('cliOrigem');
         sel.innerHTML = '<option value="">— selecione —</option>' + ops.map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('');
       } catch(e) {}
@@ -701,7 +701,7 @@
     carregarOrigensCliente();
     async function salvarCliente() {
       const nome = document.getElementById('cliNome').value.trim();
-      if (***REMOVED***nome){ toast('Informe o nome','erro'); return; }
+      if (nome){ toast('Informe o nome','erro'); return; }
       const r = await api('/clientes', { method:'POST', body:{
         nome, telefone:document.getElementById('cliTel').value, cidade:document.getElementById('cliCidade').value,
         aniversario:document.getElementById('cliAniv').value.trim(),
@@ -742,7 +742,7 @@
           valor: +(parseFloat(l.valor)||0).toFixed(2)
         }));
       } else {
-        if (***REMOVED***formaSel) { toast('Escolha a forma de pagamento','erro'); return; }
+        if (formaSel) { toast('Escolha a forma de pagamento','erro'); return; }
         venda.forma_pagamento = formaSel;
         venda.parcelas = formaSel === 'credito_parcelado' ? parseInt(document.getElementById('parcelas').value) : 1;
         // 4x+: informa se repassa a taxa (default) ou a loja absorve (exceção)

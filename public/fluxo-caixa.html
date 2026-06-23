@@ -1,4 +1,4 @@
-<***REMOVED***DOCTYPE html>
+<DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -18,9 +18,9 @@
       </div>
     </div>
 
-    <***REMOVED***-- VISÃO DIÁRIA -->
+    <-- VISÃO DIÁRIA -->
     <div id="secaoDiaria">
-      <***REMOVED***-- Cards de resumo diário -->
+      <-- Cards de resumo diário -->
       <div class="cards-grid">
         <div class="card card-metrica destaque"><div class="valor dinheiro texto-verde" id="recebidoDia">R$ 0</div><div class="rotulo">Recebido hoje</div></div>
         <div class="card card-metrica"><div class="valor dinheiro texto-vermelho" id="pagoDia">R$ 0</div><div class="rotulo">Pago hoje</div></div>
@@ -28,13 +28,13 @@
         <div class="card card-metrica"><div class="valor dinheiro" id="saldoAcumuladoDia">R$ 0</div><div class="rotulo">Saldo acumulado</div></div>
       </div>
 
-      <***REMOVED***-- Seletor de data para visão diária -->
+      <-- Seletor de data para visão diária -->
       <div class="card">
         <label>Selecione o dia:</label>
         <input type="date" id="dataDiaria" onchange="carregarDia()" style="max-width:170px;">
       </div>
 
-      <***REMOVED***-- Detalhes do dia -->
+      <-- Detalhes do dia -->
       <div class="card">
         <h2 style="margin-top:0;">📋 Detalhes do dia</h2>
         <div style="overflow-x:auto;">
@@ -48,9 +48,9 @@
       </div>
     </div>
 
-    <***REMOVED***-- VISÃO SEMANAL -->
+    <-- VISÃO SEMANAL -->
     <div id="secaoSemanal" style="display:none;">
-      <***REMOVED***-- Seletor de semana -->
+      <-- Seletor de semana -->
       <div class="card">
         <label>Escolha a semana:</label>
         <div style="display:flex; gap:8px; align-items:center;">
@@ -60,14 +60,14 @@
         </div>
       </div>
 
-      <***REMOVED***-- Resumo semanal -->
+      <-- Resumo semanal -->
       <div class="cards-grid">
         <div class="card card-metrica destaque"><div class="valor dinheiro texto-verde" id="recebidoSem">R$ 0</div><div class="rotulo">Recebido na semana</div></div>
         <div class="card card-metrica"><div class="valor dinheiro texto-vermelho" id="pagoSem">R$ 0</div><div class="rotulo">Pago na semana</div></div>
         <div class="card card-metrica"><div class="valor dinheiro" id="saldoSem">R$ 0</div><div class="rotulo">Saldo da semana</div></div>
       </div>
 
-      <***REMOVED***-- Tabela semanal (seg-dom) -->
+      <-- Tabela semanal (seg-dom) -->
       <div class="card">
         <h2 style="margin-top:0;">📅 Semana (seg-dom)</h2>
         <div style="overflow-x:auto;">
@@ -86,9 +86,9 @@
       </div>
     </div>
 
-    <***REMOVED***-- VISÃO MENSAL -->
+    <-- VISÃO MENSAL -->
     <div id="secaoMensal" style="display:none;">
-      <***REMOVED***-- Cards de resumo mensal -->
+      <-- Cards de resumo mensal -->
       <div class="cards-grid">
         <div class="card card-metrica destaque"><div class="valor dinheiro texto-verde" id="recebido">R$ 0</div><div class="rotulo">Recebido no mês</div></div>
         <div class="card card-metrica"><div class="valor dinheiro texto-vermelho" id="pago">R$ 0</div><div class="rotulo">Pago em despesas</div></div>
@@ -96,7 +96,7 @@
         <div class="card card-metrica"><div class="valor dinheiro" id="aReceber">R$ 0</div><div class="rotulo">Ainda a receber</div></div>
       </div>
 
-      <***REMOVED***-- Linha do tempo dia a dia -->
+      <-- Linha do tempo dia a dia -->
       <div class="card">
         <h2 style="margin-top:0;">📅 Linha do tempo do mês</h2>
         <div style="overflow-x:auto;">
@@ -119,7 +119,7 @@
         <div id="aviso" class="texto-cinza" style="margin-top:10px; font-size:0.82rem;"></div>
       </div>
 
-      <***REMOVED***-- A receber por forma -->
+      <-- A receber por forma -->
       <div class="card">
         <h2 style="margin-top:0;">⏳ A receber (vendas que ainda não caíram na conta)</h2>
         <div class="cards-grid">
@@ -182,7 +182,7 @@
     }
 
     async function carregarSemanal() {
-      if (***REMOVED***fluxoCaixa) return;
+      if (fluxoCaixa) return;
       const dataSemanal = document.getElementById('dataSemanal').value;
       const segunda = obterSegundaDaSemana(dataSemanal);
 
@@ -218,11 +218,11 @@
     }
 
     async function carregarDia() {
-      if (***REMOVED***fluxoCaixa) return;
+      if (fluxoCaixa) return;
       const dia = document.getElementById('dataDiaria').value;
       const diaObj = fluxoCaixa.linha_do_tempo.find(d => d.data === dia);
 
-      if (***REMOVED***diaObj) {
+      if (diaObj) {
         document.getElementById('recebidoDia').textContent = 'R$ 0';
         document.getElementById('pagoDia').textContent = 'R$ 0';
         document.getElementById('saldoDia').textContent = 'R$ 0';

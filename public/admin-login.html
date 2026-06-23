@@ -1,4 +1,4 @@
-<***REMOVED***DOCTYPE html>
+<DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -175,8 +175,8 @@
     async function login() {
       const senha = senhaInput.value;
 
-      if (***REMOVED***senha) {
-        erroDiv.textContent = 'Digite a senha***REMOVED***';
+      if (senha) {
+        erroDiv.textContent = 'Digite a senha';
         erroDiv.classList.add('show');
         return;
       }
@@ -195,7 +195,7 @@
 
         const data = await res.json();
 
-        if (***REMOVED***res.ok) {
+        if (res.ok) {
           erroDiv.textContent = data.erro || 'Erro ao autenticar.';
           erroDiv.classList.add('show');
           botao.disabled = false;

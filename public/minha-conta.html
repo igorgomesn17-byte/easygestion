@@ -1,4 +1,4 @@
-<***REMOVED***DOCTYPE html>
+<DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -144,7 +144,7 @@
   <div class="container">
     <h1>Minha Conta</h1>
 
-    <***REMOVED***-- ALTERAR SENHA -->
+    <-- ALTERAR SENHA -->
     <div class="section">
       <h2>Alterar Senha</h2>
       <form id="formSenha">
@@ -165,7 +165,7 @@
             type="password"
             id="senha_nova"
             name="senha_nova"
-            placeholder="Ex: Abc123***REMOVED***@"
+            placeholder="Ex: Abc123@"
             minlength="8"
             required
           >
@@ -188,7 +188,7 @@
       </form>
     </div>
 
-    <***REMOVED***-- EXPORTAR DADOS -->
+    <-- EXPORTAR DADOS -->
     <div class="section">
       <h2>Exportar Meus Dados</h2>
       <p>Download de todos os seus dados em formato JSON (LGPD - direito de portabilidade).</p>
@@ -198,7 +198,7 @@
       <button id="btnExportar" class="secondary">Exportar Dados em JSON</button>
     </div>
 
-    <***REMOVED***-- DELETAR CONTA -->
+    <-- DELETAR CONTA -->
     <div class="section">
       <h2>Deletar Conta</h2>
       <p>
@@ -240,24 +240,24 @@
         showMessage('A nova senha deve ter no mínimo 8 caracteres', 'error', 'mensagemSenha');
         return;
       }
-      if (***REMOVED***/[A-Z]/.test(senhaNova)) {
+      if (/[A-Z]/.test(senhaNova)) {
         showMessage('Senha deve conter pelo menos uma letra maiúscula', 'error', 'mensagemSenha');
         return;
       }
-      if (***REMOVED***/[a-z]/.test(senhaNova)) {
+      if (/[a-z]/.test(senhaNova)) {
         showMessage('Senha deve conter pelo menos uma letra minúscula', 'error', 'mensagemSenha');
         return;
       }
-      if (***REMOVED***/\d/.test(senhaNova)) {
+      if (/\d/.test(senhaNova)) {
         showMessage('Senha deve conter pelo menos um número', 'error', 'mensagemSenha');
         return;
       }
-      if (***REMOVED***/[***REMOVED***@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(senhaNova)) {
-        showMessage('Senha deve conter pelo menos um símbolo especial (***REMOVED***@#$%^&* etc)', 'error', 'mensagemSenha');
+      if (/[@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(senhaNova)) {
+        showMessage('Senha deve conter pelo menos um símbolo especial (@#$%^&* etc)', 'error', 'mensagemSenha');
         return;
       }
 
-      if (senhaNova ***REMOVED***== confirmaSenha) {
+      if (senhaNova == confirmaSenha) {
         showMessage('As senhas não coincidem', 'error', 'mensagemSenha');
         return;
       }
@@ -276,7 +276,7 @@
         const data = await res.json();
 
         if (res.ok && data.ok) {
-          showMessage('✓ Senha alterada com sucesso***REMOVED***', 'success', 'mensagemSenha');
+          showMessage('✓ Senha alterada com sucesso', 'success', 'mensagemSenha');
           document.getElementById('formSenha').reset();
         } else {
           showMessage(data.erro || 'Erro ao alterar senha', 'error', 'mensagemSenha');
@@ -331,7 +331,7 @@
         'Tem certeza?'
       );
 
-      if (***REMOVED***confirmacao) return;
+      if (confirmacao) return;
 
       const senhaDelete = document.getElementById('senha_delete').value.trim();
 

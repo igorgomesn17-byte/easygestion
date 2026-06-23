@@ -1,4 +1,4 @@
-<***REMOVED***DOCTYPE html>
+<DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -23,7 +23,7 @@
       </div>
     </div>
 
-    <***REMOVED***-- Resumo do fluxo -->
+    <-- Resumo do fluxo -->
     <div class="cards-grid">
       <div class="card card-metrica"><div class="valor dinheiro texto-verde" id="fEntradas">R$ 0</div><div class="rotulo">Entrou (vendas)</div></div>
       <div class="card card-metrica"><div class="valor dinheiro texto-vermelho" id="fSaidas">R$ 0</div><div class="rotulo">Saiu (despesas)</div></div>
@@ -32,14 +32,14 @@
     </div>
 
     <div class="cards-grid" style="grid-template-columns:1fr 1fr;">
-      <***REMOVED***-- DRE -->
+      <-- DRE -->
       <div class="card">
         <h2 style="margin-top:0;">📊 DRE — Resultado do mês</h2>
         <div id="dre"><div class="texto-cinza">Carregando...</div></div>
         <button class="btn btn-bloco mt" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
       </div>
 
-      <***REMOVED***-- Despesas por categoria -->
+      <-- Despesas por categoria -->
       <div class="card">
         <h2 style="margin-top:0;">Para onde foi o dinheiro</h2>
         <div id="porCategoria"><div class="texto-cinza">Sem despesas neste mês.</div></div>
@@ -87,7 +87,7 @@
         <div class="texto-cinza centro mt" style="font-size:0.85rem;">${dre.num_vendas} vendas no mês • o que sobra depois de você se pagar</div>
         ${dre.resultado_operacional < 0 ? '<div class="card mt" style="background:#FBE6E3;border-left:4px solid var(--vermelho);"><strong class="texto-vermelho">⚠️ A loja operou no vermelho.</strong> As despesas da operação superaram o que sobrou das vendas — antes mesmo das suas retiradas. Veja onde cortar ou quanto precisa vender a mais.</div>'
           : dre.resultado_final < 0 ? '<div class="card mt" style="background:#FFF3CD;border-left:4px solid var(--dourado);"><strong style="color:#7a5d00;">⚠️ A loja deu lucro, mas as retiradas consumiram tudo.</strong> A operação é saudável; ajuste o tamanho das retiradas pessoais pra sobrar caixa.</div>'
-          : '<div class="card mt" style="background:#E3F4EA;border-left:4px solid var(--verde);"><strong class="texto-verde">🎉 Mês no azul***REMOVED***</strong> A loja deu lucro e ainda sobrou caixa depois das suas retiradas.</div>'}`;
+          : '<div class="card mt" style="background:#E3F4EA;border-left:4px solid var(--verde);"><strong class="texto-verde">🎉 Mês no azul</strong> A loja deu lucro e ainda sobrou caixa depois das suas retiradas.</div>'}`;
 
       // por categoria
       const cats = fluxo.por_categoria;
@@ -101,7 +101,7 @@
     }
 
     function exportar() {
-      if (***REMOVED***dreAtual) { toast('Carregando...','erro'); return; }
+      if (dreAtual) { toast('Carregando...','erro'); return; }
       const mes = document.getElementById('mes').value;
       // DRE em formato linha-valor + despesas por categoria
       const linhas = [

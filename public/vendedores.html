@@ -1,4 +1,4 @@
-<***REMOVED***DOCTYPE html>
+<DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -79,7 +79,7 @@
 
     async function salvar() {
       const nome = document.getElementById('nome').value.trim();
-      if (***REMOVED***nome){ toast('Informe o nome','erro'); return; }
+      if (nome){ toast('Informe o nome','erro'); return; }
       const id = document.getElementById('vid').value;
       const body = { nome, telefone:document.getElementById('tel').value, comissao_pct:document.getElementById('com').value };
       if (id) await api('/vendedores/'+id, { method:'PUT', body });
@@ -88,7 +88,7 @@
     }
     async function remover() {
       const id = document.getElementById('vid').value;
-      if (***REMOVED***confirm('Remover este vendedor? As vendas dele continuam no histórico.')) return;
+      if (confirm('Remover este vendedor? As vendas dele continuam no histórico.')) return;
       await api('/vendedores/'+id, { method:'DELETE' });
       toast('Vendedor removido','sucesso'); fechar(); carregar();
     }

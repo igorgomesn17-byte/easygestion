@@ -1,4 +1,4 @@
-<***REMOVED***DOCTYPE html>
+<DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -195,15 +195,15 @@
   </style>
 </head>
 <body>
-  <***REMOVED***-- Modal de Onboarding (Bem-vindo) -->
+  <-- Modal de Onboarding (Bem-vindo) -->
   <div class="onboarding-modal" id="onboardingWelcome">
     <div class="onboarding-content">
-      <h1>🎉 Bem-vindo ao EasyGestão***REMOVED***</h1>
-      <p>Que bom ter você aqui***REMOVED*** Vamos começar configurando o essencial para sua loja funcionar?</p>
+      <h1>🎉 Bem-vindo ao EasyGestão</h1>
+      <p>Que bom ter você aqui Vamos começar configurando o essencial para sua loja funcionar?</p>
       <p style="font-size: 12px; color: #999;">Leva menos de 5 minutos, e você pode pular a qualquer momento.</p>
       <div class="onboarding-buttons">
         <button class="btn-skip" onclick="skipOnboarding()">Agora não</button>
-        <button class="btn-start" onclick="startOnboarding()">Vamos lá***REMOVED*** ▶️</button>
+        <button class="btn-start" onclick="startOnboarding()">Vamos lá ▶️</button>
       </div>
     </div>
   </div>
@@ -219,7 +219,7 @@
       </div>
     </div>
 
-    <***REMOVED***-- Checklist de Onboarding (aparece quando alguém começa) -->
+    <-- Checklist de Onboarding (aparece quando alguém começa) -->
     <div class="onboarding-checklist" id="onboardingChecklist">
       <div class="checklist-titulo">✅ Primeiros Passos</div>
       <div class="checklist-item" id="check-config">
@@ -244,7 +244,7 @@
       </div>
     </div>
 
-    <***REMOVED***-- Metas (anéis circulares estilo Phibo) -->
+    <-- Metas (anéis circulares estilo Phibo) -->
     <div class="metas-aneis">
       <div class="anel-card">
         <div class="anel-titulo">🎯 Meta do dia</div>
@@ -286,7 +286,7 @@
 
 
     <div id="semMeta" class="card" style="display:none; border-left:4px solid var(--dourado);">
-      <strong>Defina suas metas***REMOVED***</strong>
+      <strong>Defina suas metas</strong>
       <div class="texto-cinza mt">Vá em <a href="config.html">⚙️ Config</a> e defina a meta de venda do dia e do mês para acompanhar seu progresso aqui.</div>
     </div>
   </div>
@@ -300,7 +300,7 @@
     function anel(elAnel, elPct, valor, meta) {
       const arco = document.getElementById(elAnel);
       const txt = document.getElementById(elPct);
-      if (***REMOVED***meta || meta <= 0) {
+      if (meta || meta <= 0) {
         arco.style.strokeDashoffset = ANEL_CIRC; // vazio
         arco.classList.remove('batida');
         txt.textContent = '—';
@@ -332,7 +332,7 @@
         document.getElementById('metaMesTxt').textContent = `${moeda(d.mes.bruto)} de ${moeda(d.meta.mensal)}`;
         temMeta = true;
       } else { anel('anelMes','pctMes', 0, 0); document.getElementById('metaMesTxt').textContent = 'não definida'; }
-      if (***REMOVED***temMeta) document.getElementById('semMeta').style.display = 'block';
+      if (temMeta) document.getElementById('semMeta').style.display = 'block';
 
       // Aniversariantes
       document.getElementById('aniversariantes').innerHTML = d.aniversariantes.length === 0
@@ -384,7 +384,7 @@
     }
 
     async function carregarDadosDemo() {
-      if (***REMOVED***confirm('Isso vai carregar 5 produtos de exemplo e 2 clientes fake. Continuar?')) {
+      if (confirm('Isso vai carregar 5 produtos de exemplo e 2 clientes fake. Continuar?')) {
         return;
       }
 
@@ -399,16 +399,16 @@
           headers: { 'Content-Type': 'application/json' }
         });
 
-        if (***REMOVED***resp.ok) {
+        if (resp.ok) {
           throw new Error('Erro ao carregar dados de demo');
         }
 
         const data = await resp.json();
-        alert(`✅ Dados de exemplo carregados***REMOVED***\n${data.produtos} produtos + ${data.clientes} clientes`);
+        alert(`✅ Dados de exemplo carregados\n${data.produtos} produtos + ${data.clientes} clientes`);
 
         // Marcar como feito
         document.getElementById('check-demo').classList.add('done');
-        btn.textContent = '✅ Pronto***REMOVED***';
+        btn.textContent = '✅ Pronto';
         btn.disabled = true;
 
         // Recarregar dashboard
@@ -426,7 +426,7 @@
       const foiMostrado = localStorage.getItem('onboarding_shown') === 'true';
       const estaEmProgresso = localStorage.getItem('onboarding_in_progress') === 'true';
 
-      if (***REMOVED***foiMostrado) {
+      if (foiMostrado) {
         setTimeout(() => mostrarModalBemVindo(), 1000);
       } else if (estaEmProgresso) {
         document.getElementById('onboardingChecklist').classList.add('show');

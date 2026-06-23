@@ -1,4 +1,4 @@
-<***REMOVED***DOCTYPE html>
+<DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -169,7 +169,7 @@
             type="password"
             id="nova_senha"
             name="nova_senha"
-            placeholder="Ex: Abc123***REMOVED***@"
+            placeholder="Ex: Abc123@"
             required
             minlength="8"
           >
@@ -234,7 +234,7 @@
     }
 
     TOKEN = extrairToken();
-    if (***REMOVED***TOKEN) {
+    if (TOKEN) {
       formDiv.style.display = 'none';
       invalidDiv.style.display = 'block';
     }
@@ -248,7 +248,7 @@
       if (/[a-z]/.test(senha)) atendidos++;
       if (/[A-Z]/.test(senha)) atendidos++;
       if (/\d/.test(senha)) atendidos++;
-      if (/[***REMOVED***@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(senha)) atendidos++;
+      if (/[@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(senha)) atendidos++;
 
       const cores = ['#f44336', '#ff9800', '#ffc107', '#8bc34a', '#4caf50'];
       const textos = ['Não atende requisitos', 'Parcialmente forte', 'Quase lá', 'Forte', 'Muito Forte ✓'];
@@ -269,24 +269,24 @@
         showMessage('A senha deve ter pelo menos 8 caracteres', 'error');
         return;
       }
-      if (***REMOVED***/[A-Z]/.test(novaSenha)) {
+      if (/[A-Z]/.test(novaSenha)) {
         showMessage('Senha deve conter pelo menos uma letra maiúscula', 'error');
         return;
       }
-      if (***REMOVED***/[a-z]/.test(novaSenha)) {
+      if (/[a-z]/.test(novaSenha)) {
         showMessage('Senha deve conter pelo menos uma letra minúscula', 'error');
         return;
       }
-      if (***REMOVED***/\d/.test(novaSenha)) {
+      if (/\d/.test(novaSenha)) {
         showMessage('Senha deve conter pelo menos um número', 'error');
         return;
       }
-      if (***REMOVED***/[***REMOVED***@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(novaSenha)) {
-        showMessage('Senha deve conter pelo menos um símbolo especial (***REMOVED***@#$%^&* etc)', 'error');
+      if (/[@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(novaSenha)) {
+        showMessage('Senha deve conter pelo menos um símbolo especial (@#$%^&* etc)', 'error');
         return;
       }
 
-      if (novaSenha ***REMOVED***== confirmaSenha) {
+      if (novaSenha == confirmaSenha) {
         showMessage('As senhas não coincidem', 'error');
         return;
       }
@@ -306,7 +306,7 @@
         const data = await res.json();
 
         if (res.ok && data.ok) {
-          showMessage('✓ Senha redefinida com sucesso***REMOVED*** Redirecionando...', 'success');
+          showMessage('✓ Senha redefinida com sucesso Redirecionando...', 'success');
           setTimeout(() => {
             window.location.href = '/login.html';
           }, 2000);

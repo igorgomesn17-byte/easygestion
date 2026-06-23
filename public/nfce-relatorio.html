@@ -1,4 +1,4 @@
-<***REMOVED***DOCTYPE html>
+<DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -7,8 +7,8 @@
   <link rel="stylesheet" href="css/ds.css">
   <style>
     @media print {
-      .nav, .btn, .no-print, .ds-sidebar, .ds-topbar { display: none ***REMOVED***important; }
-      .conteudo { margin: 0 ***REMOVED***important; padding: 0 ***REMOVED***important; }
+      .nav, .btn, .no-print, .ds-sidebar, .ds-topbar { display: none important; }
+      .conteudo { margin: 0 important; padding: 0 important; }
       body { background: #fff; }
     }
   </style>
@@ -92,7 +92,7 @@
         `<strong>DS STORE — Relatório de NFC-e</strong><br>${per}`;
 
       notasCache = r.notas;
-      if (***REMOVED***r.notas.length) {
+      if (r.notas.length) {
         document.getElementById('tabela').innerHTML = '<p class="texto-cinza">Nenhuma nota no período.</p>';
         return;
       }
@@ -114,7 +114,7 @@
     }
 
     function exportar() {
-      if (***REMOVED***notasCache.length) { toast('Nada para exportar','erro'); return; }
+      if (notasCache.length) { toast('Nada para exportar','erro'); return; }
       const linhas = notasCache.map(n=>({
         Data: n.emitido_em ? n.emitido_em.slice(0,10).split('-').reverse().join('/') : '',
         Numero: n.numero||'', Serie: n.serie||'', Status: n.status,

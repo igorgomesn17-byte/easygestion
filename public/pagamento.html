@@ -1,4 +1,4 @@
-<***REMOVED***DOCTYPE html>
+<DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -339,7 +339,7 @@
     // ✅ Verificar status do pagamento após retorno
     async function verificarStatusPagamento() {
       if (pagamentoStatus === 'sucesso' && params.get('session_id')) {
-        mostrarMensagem('success', '✅ Pagamento realizado com sucesso***REMOVED*** Você já pode usar a plataforma.');
+        mostrarMensagem('success', '✅ Pagamento realizado com sucesso Você já pode usar a plataforma.');
         btnPagar.textContent = 'Ir para Dashboard';
         btnPagar.onclick = () => window.location.href = '/dashboard';
         return;

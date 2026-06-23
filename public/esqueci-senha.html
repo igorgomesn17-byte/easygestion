@@ -1,4 +1,4 @@
-<***REMOVED***DOCTYPE html>
+<DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -184,7 +184,7 @@
       e.preventDefault();
 
       const email = emailInput.value.trim();
-      if (***REMOVED***email) {
+      if (email) {
         showMessage('Por favor, digite seu email', 'error');
         return;
       }
@@ -204,7 +204,7 @@
         const data = await res.json();
 
         if (res.ok && data.ok) {
-          showMessage('✓ Link de recuperação enviado para seu email***REMOVED*** Verifique sua caixa de entrada.', 'success');
+          showMessage('✓ Link de recuperação enviado para seu email Verifique sua caixa de entrada.', 'success');
           emailInput.value = '';
           setTimeout(() => {
             window.location.href = '/login.html';

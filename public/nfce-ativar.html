@@ -1,4 +1,4 @@
-<***REMOVED***DOCTYPE html>
+<DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -304,13 +304,13 @@
       <p>Emita NFC-e automaticamente nas suas vendas</p>
     </div>
 
-    <***REMOVED***-- Alert de Status -->
+    <-- Alert de Status -->
     <div id="alertStatus" class="alert"></div>
 
-    <***REMOVED***-- Verificar configuração atual -->
+    <-- Verificar configuração atual -->
     <div id="statusAtual"></div>
 
-    <***REMOVED***-- Formulário de Ativação -->
+    <-- Formulário de Ativação -->
     <form id="formNfce" style="display: none;">
       <div class="steps">
         <strong>📌 Como funciona:</strong>
@@ -318,7 +318,7 @@
           <li>Você cria uma conta <a href="https://focusnfe.com.br" target="_blank" class="link">na Focus NFe</a> (grátis)</li>
           <li>Copia o TOKEN e CSC ID do seu painel</li>
           <li>Cola aqui embaixo</li>
-          <li>Pronto***REMOVED*** NFC-e ativada</li>
+          <li>Pronto NFC-e ativada</li>
         </ol>
       </div>
 
@@ -394,10 +394,10 @@
       </button>
     </form>
 
-    <***REMOVED***-- Estado: Já Ativado -->
+    <-- Estado: Já Ativado -->
     <div id="estadoAtivado" style="display: none;">
       <div class="alert success">
-        <strong>✅ NFC-e Ativada***REMOVED***</strong>
+        <strong>✅ NFC-e Ativada</strong>
         Você pode emitir notas fiscais automaticamente nas suas vendas.
       </div>
 
@@ -427,7 +427,7 @@
       </button>
     </div>
 
-    <***REMOVED***-- Estado: Carregando -->
+    <-- Estado: Carregando -->
     <div id="estadoCarregando" style="text-align: center; display: none;">
       <div class="loading"></div>
       <p style="color: #999; margin-top: 15px;">Verificando configuração...</p>
@@ -446,7 +446,7 @@
     </div>
   </div>
 
-  <***REMOVED***-- Modal de Confirmação -->
+  <-- Modal de Confirmação -->
   <div id="modalConfirm" class="modal">
     <div class="modal-content">
       <h2 id="modalTitle">Confirmar</h2>
@@ -525,12 +525,12 @@
       const ambiente = document.getElementById('ambiente').value;
       const serie = document.getElementById('serie').value;
 
-      if (***REMOVED***token || token.length < 10) {
+      if (token || token.length < 10) {
         mostrarErro('TOKEN inválido. Deve ter pelo menos 10 caracteres.');
         return;
       }
 
-      if (***REMOVED***csc_id || csc_id.length < 3) {
+      if (csc_id || csc_id.length < 3) {
         mostrarErro('CSC ID inválido. Deve ter pelo menos 3 caracteres.');
         return;
       }
@@ -550,7 +550,7 @@
         const data = await res.json();
 
         if (res.ok) {
-          mostrarAlerta('✅ NFC-e ativada com sucesso***REMOVED***', 'success');
+          mostrarAlerta('✅ NFC-e ativada com sucesso', 'success');
           setTimeout(() => inicializar(), 1000);
         } else {
           mostrarErro(data.erro || 'Erro ao ativar');
