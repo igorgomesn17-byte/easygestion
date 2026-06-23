@@ -203,7 +203,16 @@ app.get('/api/loja-publica', configRouter.lojaPublica);
 app.use('/api/admin', require('./routes/admin')); // POST /login, POST /logout SEM autenticação
 app.use('/admin', require('./routes/admin'));     // GET / com autenticação de session
 
-// ✅ Rota de token (ANTES de exigirLogin, faz sua própria autenticação)
+// ✅ Middleware de tenant (injeta req.tenantId ANTES das rotas de token)
+app.use('/api/config/focus-token', injetarTenant);
+app.use('/api/config/focus-token', (req, res, next) => {
+  if (!req.session || !req.session.logado) {
+    return res.status(401).json({ erro: 'Não autenticado' });
+  }
+  next();
+});
+
+// ✅ Rota de token (com tenant já injetado)
 app.post('/api/config/focus-token', (req, res) => {
   if (!req.session || !req.session.logado) {
     return res.status(401).json({ erro: 'Não autenticado' });
@@ -233,13 +242,6 @@ app.post('/api/config/focus-token', (req, res) => {
 });
 
 app.get('/api/config/focus-token', (req, res) => {
-  if (!req.session || !req.session.logado) {
-    return res.status(401).json({ erro: 'Não autenticado' });
-  }
-  if (!req.tenantId) {
-    return res.status(400).json({ erro: 'Tenant ID não encontrado' });
-  }
-
   const stmt = db.prepare('SELECT valor FROM config WHERE chave = ? AND tenant_id = ?');
   const tokenHomolog = stmt.get('focus_token_homologacao', req.tenantId);
   const tokenProd = stmt.get('focus_token_producao', req.tenantId);
@@ -251,13 +253,6 @@ app.get('/api/config/focus-token', (req, res) => {
 });
 
 app.delete('/api/config/focus-token/:ambiente', (req, res) => {
-  if (!req.session || !req.session.logado) {
-    return res.status(401).json({ erro: 'Não autenticado' });
-  }
-  if (!req.tenantId) {
-    return res.status(400).json({ erro: 'Tenant ID não encontrado' });
-  }
-
   const { ambiente } = req.params;
   if (!['homologacao', 'producao'].includes(ambiente)) {
     return res.status(400).json({ erro: 'Ambiente inválido' });
