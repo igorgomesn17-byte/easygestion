@@ -408,7 +408,7 @@
       const termos = document.getElementById('termos').checked;
 
       // Validações no frontend
-      if (email.includes('@')) {
+      if (!email.includes('@')) {
         mostrarMensagem('Email inválido', 'error');
         return;
       }
@@ -416,11 +416,11 @@
         mostrarMensagem('Senha precisa de no mínimo 8 caracteres', 'error');
         return;
       }
-      if (senha == confirma_senha) {
+      if (senha !== confirma_senha) {
         mostrarMensagem('Senhas não coincidem', 'error');
         return;
       }
-      if (termos) {
+      if (!termos) {
         mostrarMensagem('Você precisa concordar com os termos de uso e política de privacidade', 'error');
         return;
       }
