@@ -12,9 +12,10 @@
       background: linear-gradient(135deg, #1a6f5e 0%, #0d3d35 100%);
       min-height: 100vh;
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: center;
       padding: 20px;
+      overflow-y: auto;
     }
     .container {
       max-width: 900px;
@@ -22,6 +23,8 @@
       border-radius: 20px;
       padding: 50px 40px;
       box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      margin: 20px auto;
+      width: 100%;
     }
     .header {
       text-align: center;
@@ -198,7 +201,7 @@
     <div class="header">
       <h1>👋 Bem-vinda ao EasyGestão</h1>
       <p>Sua loja está pronta. Vamos colocar ela no ar?</p>
-      <p class="subheader">Siga estes 3 passos simples para começar a vender</p>
+      <p class="subheader">Siga estes 2 passos simples para começar a vender</p>
     </div>
 
     
@@ -222,24 +225,10 @@
         <button class="step-btn" onclick="irPara('produtos.html')">Cadastrar Produtos →</button>
       </div>
 
-      
-      <div class="step" id="step2">
-        <div class="emoji">💳</div>
-        <div class="step-number">2</div>
-        <div class="step-title">Configure Pagamentos</div>
-        <div class="step-description">Conecte sua conta Stripe para receber</div>
-        <div class="step-items">
-          <div class="step-item">Chave de API Stripe</div>
-          <div class="step-item">Webhook automático</div>
-          <div class="step-item">Teste o pagamento</div>
-        </div>
-        <button class="step-btn" onclick="irPara('config.html')">Configurar Stripe →</button>
-      </div>
 
-      
-      <div class="step" id="step3">
+      <div class="step" id="step2">
         <div class="emoji">🎉</div>
-        <div class="step-number">3</div>
+        <div class="step-number">2</div>
         <div class="step-title">Faça Primeira Venda</div>
         <div class="step-description">Teste o sistema vendendo para você mesmo</div>
         <div class="step-items">
@@ -261,19 +250,18 @@
   <script>
     // Carregar progresso do localStorage
     function carregarProgresso() {
-      const progresso = JSON.parse(localStorage.getItem('easygestion_onboarding_progress') || '{"step1": false, "step2": false, "step3": false}');
+      const progresso = JSON.parse(localStorage.getItem('easygestion_onboarding_progress') || '{"step1": false, "step2": false}');
 
       // Marcar passos concluídos
       if (progresso.step1) document.getElementById('step1').classList.add('step-completed');
       if (progresso.step2) document.getElementById('step2').classList.add('step-completed');
-      if (progresso.step3) document.getElementById('step3').classList.add('step-completed');
 
       // Atualizar barra de progresso
-      const concluidos = [progresso.step1, progresso.step2, progresso.step3].filter(Boolean).length;
-      document.getElementById('progressFill').style.width = (concluidos / 3 * 100) + '%';
+      const concluidos = [progresso.step1, progresso.step2].filter(Boolean).length;
+      document.getElementById('progressFill').style.width = (concluidos / 2 * 100) + '%';
 
       // Se todos concluídos, redirecionar
-      if (concluidos === 3) {
+      if (concluidos === 2) {
         setTimeout(() => {
           localStorage.removeItem('easygestion_onboarding_progress');
           localStorage.setItem('easygestion_onboarding_completo', '1');
@@ -301,7 +289,7 @@
     // Quando voltar de produtos.html, marcar step1 como completo
     const beforeUnload = () => {
       if (location.href.includes('produtos.html')) {
-        let progresso = JSON.parse(localStorage.getItem('easygestion_onboarding_progress') || '{"step1": false, "step2": false, "step3": false}');
+        let progresso = JSON.parse(localStorage.getItem('easygestion_onboarding_progress') || '{"step1": false, "step2": false}');
         progresso.step1 = true;
         localStorage.setItem('easygestion_onboarding_progress', JSON.stringify(progresso));
       }
