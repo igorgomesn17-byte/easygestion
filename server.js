@@ -206,7 +206,9 @@ app.get('/painel', (req, res) => {
 });
 
 // HTML/JS sem cache (garante que o navegador sempre pegue a versão nova das telas)
+// IMPORTANTE: index=false para nao servir index.html automaticamente na raiz
 app.use(express.static(path.join(__dirname, 'public'), {
+  index: false,
   setHeaders: (res, filePath) => {
     if (filePath.endsWith('.html') || filePath.endsWith('.js')) {
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
