@@ -203,65 +203,14 @@ app.get('/api/loja-publica', configRouter.lojaPublica);
 app.use('/api/admin', require('./routes/admin')); // POST /login, POST /logout SEM autenticação
 app.use('/admin', require('./routes/admin'));     // GET / com autenticação de session
 
-// ✅ Middleware de tenant (injeta req.tenantId ANTES das rotas de token)
-app.use('/api/config/focus-token', injetarTenant);
-app.use('/api/config/focus-token', (req, res, next) => {
+// ✅ Rotas de token (ANTES de exigirLogin + com injetarTenant)
+app.use('/api/config/focus-token', injetarTenant, (req, res, next) => {
   if (!req.session || !req.session.logado) {
     return res.status(401).json({ erro: 'Não autenticado' });
   }
   next();
 });
-
-// ✅ Rota de token (com tenant já injetado)
-app.post('/api/config/focus-token', (req, res) => {
-  if (!req.session || !req.session.logado) {
-    return res.status(401).json({ erro: 'Não autenticado' });
-  }
-  if (!req.tenantId) {
-    return res.status(400).json({ erro: 'Tenant ID não encontrado' });
-  }
-
-  const { token, ambiente } = req.body;
-  if (!token || !ambiente) {
-    return res.status(400).json({ erro: 'Token e ambiente são obrigatórios' });
-  }
-
-  if (!['homologacao', 'producao'].includes(ambiente)) {
-    return res.status(400).json({ erro: 'Ambiente deve ser homologacao ou producao' });
-  }
-
-  try {
-    const chave = `focus_token_${ambiente}`;
-    db.prepare('INSERT INTO config (chave, valor, tenant_id) VALUES (?, ?, ?) ON CONFLICT(chave, tenant_id) DO UPDATE SET valor=excluded.valor')
-      .run(chave, token, req.tenantId);
-    res.json({ ok: true, mensagem: `Token de ${ambiente} salvo com segurança!` });
-  } catch (e) {
-    console.error('[TOKEN SAVE ERROR]', e);
-    res.status(500).json({ erro: 'Erro ao salvar: ' + e.message });
-  }
-});
-
-app.get('/api/config/focus-token', (req, res) => {
-  const stmt = db.prepare('SELECT valor FROM config WHERE chave = ? AND tenant_id = ?');
-  const tokenHomolog = stmt.get('focus_token_homologacao', req.tenantId);
-  const tokenProd = stmt.get('focus_token_producao', req.tenantId);
-
-  res.json({
-    tem_token_homologacao: !!(tokenHomolog && tokenHomolog.valor),
-    tem_token_producao: !!(tokenProd && tokenProd.valor)
-  });
-});
-
-app.delete('/api/config/focus-token/:ambiente', (req, res) => {
-  const { ambiente } = req.params;
-  if (!['homologacao', 'producao'].includes(ambiente)) {
-    return res.status(400).json({ erro: 'Ambiente inválido' });
-  }
-
-  const chave = `focus_token_${ambiente}`;
-  db.prepare("DELETE FROM config WHERE chave=? AND tenant_id = ?").run(chave, req.tenantId);
-  res.json({ ok: true, mensagem: `Token de ${ambiente} removido` });
-});
+app.use('/api/config/focus-token', require('./routes/focus-token'));
 
 // ✅ Rotas de config (cada rota faz sua própria autenticação)
 app.use('/api/config', configRouter);
