@@ -170,7 +170,7 @@ app.use(session({
   secret: process.env.SESSION_SECRET,
   // store: store,  // TODO: reativar após debug
   resave: false,
-  saveUninitialized: false,
+  saveUninitialized: true,  // CRITICAL: permite criar sessão vazia no início pra setar cookie
   cookie: {
     httpOnly: true,
     secure: EM_PRODUCAO,            // só via HTTPS em produção
