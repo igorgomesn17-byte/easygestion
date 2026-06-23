@@ -176,8 +176,10 @@ router.delete('/certificado-a1', apenasAdmin, (req, res) => {
 });
 
 // ---------- Token Focus NFe ----------
-// POST /config/focus-token — recebe { token, ambiente } e salva criptografado
+// POST /focus-token — recebe { token, ambiente } e salva criptografado
 router.post('/focus-token', (req, res) => {
+  console.log('[FOCUS TOKEN POST] Chegou na rota', { body: req.body, session: !!req.session, logado: req.session?.logado });
+
   if (!req.session || !req.session.logado) {
     return res.status(401).json({ erro: 'Não autenticado' });
   }
@@ -196,11 +198,13 @@ router.post('/focus-token', (req, res) => {
 
   try {
     const chave = `focus_token_${ambiente}`;
+    console.log('[FOCUS TOKEN] Salvando', { chave, tenant_id: req.tenantId });
 
     // Salvar o token (temporariamente em plain, depois será criptografado)
     db.prepare('INSERT INTO config (chave, valor, tenant_id) VALUES (?, ?, ?) ON CONFLICT(chave, tenant_id) DO UPDATE SET valor=excluded.valor')
       .run(chave, token, req.tenantId);
 
+    console.log('[FOCUS TOKEN] Salvo com sucesso');
     res.json({ ok: true, mensagem: `Token de ${ambiente} salvo com segurança!` });
   } catch (e) {
     console.error('[TOKEN SAVE ERROR]', e);
