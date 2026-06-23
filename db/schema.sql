@@ -610,7 +610,9 @@ CREATE TABLE IF NOT EXISTS tenants (
   data_aceito_termos TEXT,
   aceito_privacidade INTEGER DEFAULT 0,
   data_aceito_privacidade TEXT,
-  observacoes TEXT
+  observacoes TEXT,
+  stripe_customer_id TEXT,
+  stripe_subscription_id TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_tenants_email ON tenants(email);
@@ -630,6 +632,12 @@ CREATE TABLE IF NOT EXISTS assinaturas (
   cancelada_em TEXT,
   cancelado_por TEXT,
   motivo_cancelamento TEXT,
+  em_teste INTEGER NOT NULL DEFAULT 0,
+  data_inicio_teste TEXT,
+  data_fim_teste TEXT,
+  cartao_salvo INTEGER NOT NULL DEFAULT 0,
+  stripe_subscription_id TEXT,
+  tentativas_pagamento INTEGER DEFAULT 0,
   FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
 );
 

@@ -5,7 +5,7 @@
 const express = require('express');
 const router = express.Router();
 const { db, getConfig } = require('../db/database');
-const { hashSenha, verificarSenha, validarSenha, validarNaoReutilizada, limiteForgotPassword, limiteResetSenha } = require('../middleware/seguranca');
+const { hashSenha, verificarSenha, validarSenha, validarNaoReutilizada, limiteForgotPassword, limiteResetSenha, limiteAdminPassword } = require('../middleware/seguranca');
 const jwt = require('jsonwebtoken');
 const { enviarEmail, templateResetSenha } = require('../lib/email');
 
@@ -40,6 +40,28 @@ function hashAdmin() {
 }
 
 function usuarioAdmin() { return getConfig('admin_usuario', 'igor'); }
+
+// POST /api/admin/login  body: { senha }
+// Login admin (apenas senha — sem email)
+router.post('/admin/login', limiteAdminPassword, (req, res) => {
+  const { senha } = req.body || {};
+
+  if (***REMOVED***senha) {
+    return res.status(400).json({ erro: 'Senha é obrigatória' });
+  }
+
+  if (verificarSenha(senha, hashAdmin())) {
+    req.session.logado = true;
+    req.session.usuario = usuarioAdmin();
+    req.session.papel = 'admin';
+    req.session.tenant_id = 1;
+    console.log(`[ADMIN LOGIN OK] ${usuarioAdmin()} • ${req.ip} • ${new Date().toISOString()}`);
+    return res.json({ ok: true, usuario: usuarioAdmin(), papel: 'admin', destino: 'index.html' });
+  }
+
+  console.warn(`[ADMIN LOGIN FALHA] ${req.ip} • ${new Date().toISOString()}`);
+  return res.status(401).json({ erro: 'Senha de admin incorreta' });
+});
 
 // POST /api/login  body: { email, senha }
 // Login por email + senha (para SaaS multi-tenant)
@@ -144,8 +166,15 @@ router.post('/registro', (req, res) => {
       `).run(nomeLoja, email.trim(), tenantId, hashSenha(senha));
       const userId = infoUser.lastInsertRowid;
 
-      // (3) Fazer login automático
-      // (será feito após transação)
+      // (3) Criar assinatura em TESTE (14 dias grátis)
+      const hoje = new Date();
+      const dataInicio = hoje.toISOString().split('T')[0];
+      const dataFim = new Date(hoje.getTime() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      db.prepare(`
+        INSERT INTO assinaturas (tenant_id, plano, valor_mensal, data_inicio, data_proxima_renovacao, em_teste, data_inicio_teste, data_fim_teste)
+        VALUES (?, 'basico', 79.90, ?, ?, 1, ?, ?)
+      `).run(tenantId, dataInicio, dataFim, dataInicio, dataFim);
+
       return { tenantId, userId };
     });
 
@@ -163,7 +192,7 @@ router.post('/registro', (req, res) => {
       usuario: nome_loja.trim(),
       email: email.trim(),
       papel: 'admin',
-      destino: 'index.html'
+      destino: 'adicionar-cartao.html'
     });
   } catch (e) {
     console.error('Erro ao registrar:', e.message);
@@ -326,7 +355,8 @@ router.get('/me/dados', (req, res) => {
 });
 
 // DELETE /api/me/conta { senha }
-// Usuário deleta sua conta (LGPD - direito ao esquecimento)
+// Usuário solicita deleção de conta (LGPD - direito ao esquecimento)
+// Grace period: 30 dias antes da deleção efetiva (cancelável nesse período)
 router.delete('/me/conta', (req, res) => {
   if (***REMOVED***req.session || ***REMOVED***req.session.logado) {
     return res.status(401).json({ erro: 'Não autenticado' });
@@ -340,14 +370,27 @@ router.delete('/me/conta', (req, res) => {
     return res.status(403).json({ erro: 'Senha incorreta' });
   }
 
-  // Soft delete (anônimiza)
+  const tenantId = req.session.tenantId;
+  const dataDelecao = new Date();
+  dataDelecao.setDate(dataDelecao.getDate() + 30);
+  const agendadoPara = dataDelecao.toISOString();
+
   db.transaction(() => {
-    db.prepare('UPDATE usuarios SET nome = ?, email = ?, ativo = 0 WHERE id = ?')
-      .run(`[DELETADO] ${user.id}`, `[DELETADO-${user.id}@noreply.local]`, user.id);
+    // Marcar tenant como cancelado (acesso bloqueado imediatamente)
+    db.prepare('UPDATE tenants SET status = ? WHERE id = ?')
+      .run('cancelado', tenantId);
+
+    // Agendar hard-delete em 30 dias (LGPD grace period)
+    db.prepare('INSERT OR REPLACE INTO delecoes_agendadas (tenant_id, agendado_para) VALUES (?, ?)')
+      .run(tenantId, agendadoPara);
   })();
 
   req.session.destroy(() => {
-    res.json({ ok: true, mensagem: 'Conta deletada permanentemente' });
+    res.json({
+      ok: true,
+      mensagem: 'Deleção agendada para 30 dias. A conta será permanentemente deletada em ' + new Date(agendadoPara).toLocaleDateString('pt-BR'),
+      agendado_para: agendadoPara,
+    });
   });
 });
 

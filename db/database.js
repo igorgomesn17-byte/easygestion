@@ -180,6 +180,11 @@ garantirColuna('tenants', 'stripe_customer_id', 'TEXT');
 garantirColuna('tenants', 'stripe_subscription_id', 'TEXT');
 garantirColuna('assinaturas', 'stripe_subscription_id', 'TEXT');
 garantirColuna('assinaturas', 'tentativas_pagamento', 'INTEGER DEFAULT 0');
+// Trial/Teste grátis — 14 dias antes de cobrar
+garantirColuna('assinaturas', 'em_teste', 'INTEGER NOT NULL DEFAULT 0');
+garantirColuna('assinaturas', 'data_inicio_teste', 'TEXT');
+garantirColuna('assinaturas', 'data_fim_teste', 'TEXT');
+garantirColuna('assinaturas', 'cartao_salvo', 'INTEGER NOT NULL DEFAULT 0');
 
 // Criar indices de tenant_id (performance) — safe porque colunas ja foram adicionadas
 raw.exec(`

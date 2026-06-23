@@ -89,6 +89,11 @@ if (***REMOVED***ORIGIN && EM_PRODUCAO) {
 }
 app.use(cors({ origin: ORIGIN, credentials: true }));
 
+// ---------- Health check (público, sem autenticação) ----------
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', ts: new Date().toISOString(), uptime: process.uptime() });
+});
+
 // ---------- Webhooks Stripe (ANTES do json parser — precisa do raw body) ----------
 app.use('/api/webhooks/stripe', express.raw({type: 'application/json'}), (req, res, next) => {
   req.rawBody = req.body.toString('utf8');
