@@ -29,21 +29,21 @@ const EM_PRODUCAO = process.env.NODE_ENV === 'production';
 console.log(`\n🚀 Iniciando EasyGestão em modo ${EM_PRODUCAO ? 'PRODUÇÃO' : 'DESENVOLVIMENTO'}...\n`);
 
 // 1. ADMIN_SENHA_HASH obrigatório em produção
-if (EM_PRODUCAO && ***REMOVED***process.env.ADMIN_SENHA_HASH && ***REMOVED***process.env.ADMIN_SENHA) {
+if (EM_PRODUCAO && !process.env.ADMIN_SENHA_HASH && !process.env.ADMIN_SENHA) {
   console.error(`
-❌ ERRO CRÍTICO: Senha do admin não está configurada***REMOVED***
+❌ ERRO CRÍTICO: Senha do admin não está configurada!
 
 Em produção, você DEVE definir uma das variáveis de ambiente:
   • ADMIN_SENHA_HASH  (recomendado: já em hash scrypt)
   • ADMIN_SENHA       (alternativo: será hasheada ao boot)
 
 Exemplo com ADMIN_SENHA_HASH (seguro):
-  export ADMIN_SENHA_HASH="scrypt\$<salt>\$<hash>"
+  export ADMIN_SENHA_HASH="scrypt$<salt>$<hash>"
 
 Exemplo com ADMIN_SENHA (simples):
-  export ADMIN_SENHA="SuaSenhaForte123***REMOVED***@#"
+  export ADMIN_SENHA="SuaSenhaForte123!@#"
 
-NÃO use o fallback de desenvolvimento (dsstore) em produção***REMOVED***
+NÃO use o fallback de desenvolvimento (dsstore) em produção!
 `);
   process.exit(1);
 }
