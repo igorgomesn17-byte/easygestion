@@ -180,6 +180,7 @@ app.use(session({
 }));
 
 // ---------- Desabilitar cache pra APIs (garante respostas sempre frescas) ----------
+app.disable('etag');  // Desabilita ETag automaticamente
 app.use('/api', (req, res, next) => {
   res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
   res.set('Pragma', 'no-cache');
