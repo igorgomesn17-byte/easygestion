@@ -1,0 +1,318 @@
+<***REMOVED***DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bem-vinda • EasyGestão</title>
+  <link rel="icon" type="image/png" href="favicon.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #1a6f5e 0%, #0d3d35 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .container {
+      max-width: 900px;
+      background: white;
+      border-radius: 20px;
+      padding: 50px 40px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 50px;
+    }
+    .header h1 {
+      font-size: 32px;
+      color: #1a6f5e;
+      margin-bottom: 10px;
+    }
+    .header p {
+      color: #666;
+      font-size: 16px;
+      margin-bottom: 5px;
+    }
+    .subheader {
+      color: #999;
+      font-size: 14px;
+    }
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 30px;
+      margin-bottom: 50px;
+    }
+    .step {
+      background: #f9fbfa;
+      border: 2px solid #e0e8e5;
+      border-radius: 12px;
+      padding: 30px;
+      text-align: center;
+      transition: all 0.3s;
+      cursor: pointer;
+      position: relative;
+    }
+    .step:hover {
+      border-color: #1a6f5e;
+      box-shadow: 0 10px 30px rgba(26,111,94,0.15);
+      transform: translateY(-5px);
+    }
+    .step-number {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 50px;
+      height: 50px;
+      background: linear-gradient(135deg, #1a6f5e 0%, #0d3d35 100%);
+      color: white;
+      border-radius: 50%;
+      font-size: 24px;
+      font-weight: bold;
+      margin-bottom: 20px;
+    }
+    .step-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 12px;
+    }
+    .step-description {
+      color: #666;
+      font-size: 14px;
+      line-height: 1.6;
+      margin-bottom: 20px;
+    }
+    .step-items {
+      text-align: left;
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    .step-item {
+      font-size: 13px;
+      color: #666;
+      padding: 8px 0;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .step-item:last-child {
+      border-bottom: none;
+    }
+    .step-item:before {
+      content: "✓ ";
+      color: #4caf50;
+      font-weight: bold;
+      margin-right: 6px;
+    }
+    .step-btn {
+      width: 100%;
+      padding: 12px 20px;
+      background: linear-gradient(135deg, #1a6f5e 0%, #0d3d35 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .step-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(26,111,94,0.3);
+    }
+    .step-btn.secondary {
+      background: #f5f5f5;
+      color: #333;
+      border: 1px solid #ddd;
+    }
+    .step-btn.secondary:hover {
+      background: #eeeeee;
+    }
+    .step-completed {
+      opacity: 0.6;
+      position: relative;
+    }
+    .step-completed:after {
+      content: "✓ Concluído";
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: #4caf50;
+      color: white;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+    .footer {
+      text-align: center;
+      padding-top: 30px;
+      border-top: 1px solid #e0e8e5;
+    }
+    .footer-text {
+      color: #999;
+      font-size: 14px;
+      margin-bottom: 15px;
+    }
+    .btn-skip {
+      display: inline-block;
+      color: #1a6f5e;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 14px;
+      transition: color 0.3s;
+    }
+    .btn-skip:hover {
+      color: #0d3d35;
+    }
+    .progress-bar {
+      width: 100%;
+      height: 6px;
+      background: #e0e8e5;
+      border-radius: 3px;
+      margin-bottom: 40px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #1a6f5e 0%, #0d3d35 100%);
+      border-radius: 3px;
+      transition: width 0.3s;
+    }
+    .emoji {
+      font-size: 40px;
+      margin-bottom: 15px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <***REMOVED***-- Header -->
+    <div class="header">
+      <h1>👋 Bem-vinda ao EasyGestão***REMOVED***</h1>
+      <p>Sua loja está pronta. Vamos colocar ela no ar?</p>
+      <p class="subheader">Siga estes 3 passos simples para começar a vender</p>
+    </div>
+
+    <***REMOVED***-- Progress -->
+    <div class="progress-bar">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+
+    <***REMOVED***-- Steps -->
+    <div class="steps">
+      <***REMOVED***-- Passo 1: Produtos -->
+      <div class="step" id="step1">
+        <div class="emoji">📦</div>
+        <div class="step-number">1</div>
+        <div class="step-title">Cadastre 3 Produtos</div>
+        <div class="step-description">Comece com seus produtos mais vendidos</div>
+        <div class="step-items">
+          <div class="step-item">Nome e descrição</div>
+          <div class="step-item">Preço e estoque</div>
+          <div class="step-item">Foto (opcional)</div>
+        </div>
+        <button class="step-btn" onclick="irPara('produtos.html')">Cadastrar Produtos →</button>
+      </div>
+
+      <***REMOVED***-- Passo 2: Configurar Stripe -->
+      <div class="step" id="step2">
+        <div class="emoji">💳</div>
+        <div class="step-number">2</div>
+        <div class="step-title">Configure Pagamentos</div>
+        <div class="step-description">Conecte sua conta Stripe para receber</div>
+        <div class="step-items">
+          <div class="step-item">Chave de API Stripe</div>
+          <div class="step-item">Webhook automático</div>
+          <div class="step-item">Teste o pagamento</div>
+        </div>
+        <button class="step-btn" onclick="irPara('config.html')">Configurar Stripe →</button>
+      </div>
+
+      <***REMOVED***-- Passo 3: Primeira Venda -->
+      <div class="step" id="step3">
+        <div class="emoji">🎉</div>
+        <div class="step-number">3</div>
+        <div class="step-title">Faça Primeira Venda</div>
+        <div class="step-description">Teste o sistema vendendo para você mesmo</div>
+        <div class="step-items">
+          <div class="step-item">Venda de teste no PDV</div>
+          <div class="step-item">Confirmar pagamento</div>
+          <div class="step-item">Ver no histórico</div>
+        </div>
+        <button class="step-btn" onclick="irPara('pdv.html')">Ir para PDV →</button>
+      </div>
+    </div>
+
+    <***REMOVED***-- Footer -->
+    <div class="footer">
+      <p class="footer-text">Pode pular esses passos e explorar a plataforma livremente</p>
+      <a href="index.html" class="btn-skip">Ir para Dashboard →</a>
+    </div>
+  </div>
+
+  <script>
+    // Carregar progresso do localStorage
+    function carregarProgresso() {
+      const progresso = JSON.parse(localStorage.getItem('easygestion_onboarding_progress') || '{"step1": false, "step2": false, "step3": false}');
+
+      // Marcar passos concluídos
+      if (progresso.step1) document.getElementById('step1').classList.add('step-completed');
+      if (progresso.step2) document.getElementById('step2').classList.add('step-completed');
+      if (progresso.step3) document.getElementById('step3').classList.add('step-completed');
+
+      // Atualizar barra de progresso
+      const concluidos = [progresso.step1, progresso.step2, progresso.step3].filter(Boolean).length;
+      document.getElementById('progressFill').style.width = (concluidos / 3 * 100) + '%';
+
+      // Se todos concluídos, redirecionar
+      if (concluidos === 3) {
+        setTimeout(() => {
+          localStorage.removeItem('easygestion_onboarding_progress');
+          localStorage.setItem('easygestion_onboarding_completo', '1');
+          window.location.href = 'index.html';
+        }, 1000);
+      }
+    }
+
+    function irPara(pagina) {
+      window.location.href = pagina;
+    }
+
+    // Ao voltar do cadastro de produtos/config/venda, marcar como completo
+    window.addEventListener('pageshow', (e) => {
+      // Se voltou de volta (history), recarregar progresso
+      if (e.persisted) {
+        carregarProgresso();
+      }
+    });
+
+    // Carregar progresso ao entrar
+    carregarProgresso();
+
+    // Interceptar navegação para produtos.html
+    // Quando voltar de produtos.html, marcar step1 como completo
+    const beforeUnload = () => {
+      if (location.href.includes('produtos.html')) {
+        let progresso = JSON.parse(localStorage.getItem('easygestion_onboarding_progress') || '{"step1": false, "step2": false, "step3": false}');
+        progresso.step1 = true;
+        localStorage.setItem('easygestion_onboarding_progress', JSON.stringify(progresso));
+      }
+    };
+
+    // Monitorar quando a aba ganha foco novamente (voltou de produtos.html)
+    document.addEventListener('visibilitychange', () => {
+      if (***REMOVED***document.hidden) {
+        carregarProgresso();
+      }
+    });
+  </script>
+</body>
+</html>

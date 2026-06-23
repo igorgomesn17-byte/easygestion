@@ -159,11 +159,11 @@ router.post('/registro', (req, res) => {
       `).run(nomeLoja, email.trim(), hashSenha(senha), nomeResponsavel, telefoneLimpo);
       const tenantId = infoTenant.lastInsertRowid;
 
-      // (2) Criar usuário admin do tenant
+      // (2) Criar usuário admin do tenant (usar email como nome, pois é único por tenant)
       const infoUser = db.prepare(`
         INSERT INTO usuarios (nome, email, tenant_id, papel, senha_hash, ativo)
         VALUES (?, ?, ?, 'admin', ?, 1)
-      `).run(nomeLoja, email.trim(), tenantId, hashSenha(senha));
+      `).run(email.trim(), email.trim(), tenantId, hashSenha(senha));
       const userId = infoUser.lastInsertRowid;
 
       // (3) Criar assinatura em TESTE (14 dias grátis)
@@ -192,7 +192,7 @@ router.post('/registro', (req, res) => {
       usuario: nome_loja.trim(),
       email: email.trim(),
       papel: 'admin',
-      destino: 'adicionar-cartao.html'
+      destino: 'onboarding.html'
     });
   } catch (e) {
     console.error('Erro ao registrar:', e.message);
