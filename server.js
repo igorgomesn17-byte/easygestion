@@ -196,15 +196,17 @@ const COMPROVANTES_DIR = process.env.UPLOADS_DIR
 app.use('/img/comprovantes', express.static(COMPROVANTES_DIR));
 
 // Landing page pública (raiz para visitantes não-autenticados)
-app.get('/', (req, res, next) => {
-  res.sendFile(path.join(__dirname, 'public', 'landing.html'), (err) => {
-    if (err) next(err);
-  });
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'landing.html'));
+});
+
+// Servir o painel em /painel em vez da raiz
+app.get('/painel', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // HTML/JS sem cache (garante que o navegador sempre pegue a versão nova das telas)
 app.use(express.static(path.join(__dirname, 'public'), {
-  index: false, // Não sirva index.html automaticamente (nós controlamos a raiz)
   setHeaders: (res, filePath) => {
     if (filePath.endsWith('.html') || filePath.endsWith('.js')) {
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
