@@ -58,13 +58,15 @@ router.post('/admin/login', (req, res) => {
     req.session.papel = 'admin';
     req.session.tenant_id = 1;
     console.log(`[ADMIN LOGIN OK] ${usuarioAdmin()} • ${req.ip} • SESSION ID: ${req.sessionID}`);
-    return req.session.save((err) => {
+    req.session.save((err) => {
       if (err) {
         console.error('[SESSION SAVE ERROR]', err);
         return res.status(500).json({ erro: 'Erro ao salvar sessão' });
       }
       console.log(`[SESSION SAVED] ${req.sessionID} → ${usuarioAdmin()}`);
-      return res.json({ ok: true, usuario: usuarioAdmin(), papel: 'admin', destino: 'index.html' });
+      // Force set cookie header manually
+      res.set('Set-Cookie', `ds.sid=${req.sessionID}; Path=/; HttpOnly; SameSite=Lax; Max-Age=43200${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`);
+      res.json({ ok: true, usuario: usuarioAdmin(), papel: 'admin', destino: 'index.html' });
     });
   }
 
