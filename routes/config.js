@@ -38,6 +38,9 @@ function ehSensivel(chave) {
 }
 
 router.get('/', (req, res) => {
+  if (!req.tenantId) {
+    return res.status(400).json({ erro: 'Tenant ID não encontrado' });
+  }
   const ehAdmin = req.session && req.session.papel === 'admin';
   const rows = db.prepare('SELECT chave, valor FROM config WHERE tenant_id = ?').all(req.tenantId);
   const obj = {};
@@ -57,6 +60,9 @@ const CHAVES_PUBLICAS = [
 
 // Gravar config é exclusivo do admin (taxas, markup, preço, dados da loja).
 router.post('/', apenasAdmin, (req, res) => {
+  if (!req.tenantId) {
+    return res.status(400).json({ erro: 'Tenant ID não encontrado' });
+  }
   const updates = req.body; // { chave: valor, ... }
   const stmt = db.prepare('INSERT INTO config (chave, valor, tenant_id) VALUES (?, ?, ?) ON CONFLICT(chave, tenant_id) DO UPDATE SET valor=excluded.valor');
   const tx = db.transaction(() => {

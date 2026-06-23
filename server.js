@@ -2,6 +2,7 @@
 // DS SISTEMA - Servidor principal (com camada de segurança)
 // Inicie com:  node server.js  (ou npm start)
 // ============================================================
+require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const os = require('os');
@@ -203,7 +204,7 @@ app.get('/api/loja-publica', configRouter.lojaPublica);
 app.use('/api/admin', require('./routes/admin')); // POST /login, POST /logout SEM autenticação
 app.use('/admin', require('./routes/admin'));     // GET / com autenticação de session
 
-// ✅ Rotas de token (ANTES de exigirLogin + com injetarTenant)
+// ✅ Rotas públicas de token (ANTES de exigirLogin + com injetarTenant)
 app.use('/api/config/focus-token', injetarTenant, (req, res, next) => {
   if (!req.session || !req.session.logado) {
     return res.status(401).json({ erro: 'Não autenticado' });
@@ -212,14 +213,14 @@ app.use('/api/config/focus-token', injetarTenant, (req, res, next) => {
 });
 app.use('/api/config/focus-token', require('./routes/focus-token'));
 
-// ✅ Rotas de config (cada rota faz sua própria autenticação)
-app.use('/api/config', configRouter);
-
 // ---------- Middleware de autenticação (protege o resto) ----------
 app.use('/api', exigirLogin);
 
 // ---------- Middleware de tenant (injeta req.tenantId em rotas protegidas) ----------
 app.use('/api', injetarTenant);
+
+// ✅ Rotas de config (DEPOIS de injetarTenant, recebem req.tenantId)
+app.use('/api/config', configRouter);
 
 // ✅ CRÍTICO: Garante que req.tenantId foi injetado (previne cross-tenant attacks)
 // Rotas públicas são excluídas automaticamente
