@@ -711,4 +711,14 @@ CREATE TABLE IF NOT EXISTS delecoes_agendadas (
   FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
 );
 
+-- ============================================================
+-- SESSIONS — Express-session store (persist em SQLite)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS sessions (
+  sid TEXT PRIMARY KEY,
+  sess TEXT NOT NULL,              -- JSON serializado
+  expire INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_sessions_expire ON sessions(expire);
+
 CREATE INDEX IF NOT EXISTS idx_delecoes_agendado ON delecoes_agendadas(agendado_para);

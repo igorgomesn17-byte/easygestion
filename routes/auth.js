@@ -52,13 +52,7 @@ router.post('/admin/login', (req, res) => {
     return res.status(400).json({ erro: 'Senha é obrigatória' });
   }
 
-  console.log(`[AUTH] Testando senha. Comprimento: ${String(senha).length}`);
-  const hash = hashAdmin();
-  console.log(`[AUTH] Hash do admin: ${hash.substring(0, 30)}...`);
-  const match = verificarSenha(senha, hash);
-  console.log(`[AUTH] Verificação: ${match}`);
-
-  if (match) {
+  if (verificarSenha(senha, hashAdmin())) {
     req.session.logado = true;
     req.session.usuario = usuarioAdmin();
     req.session.papel = 'admin';
@@ -69,9 +63,6 @@ router.post('/admin/login', (req, res) => {
         console.error('[SESSION SAVE ERROR]', err);
         return res.status(500).json({ erro: 'Erro ao salvar sessão' });
       }
-      console.log(`[SESSION SAVED] ${req.sessionID} → ${usuarioAdmin()}`);
-      // Force set cookie header manually ANTES de res.json()
-      res.set('Set-Cookie', `ds.sid=${req.sessionID}; Path=/; HttpOnly; SameSite=Lax; Max-Age=43200${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`);
       return res.json({ ok: true, usuario: usuarioAdmin(), papel: 'admin', destino: 'index.html' });
     });
   }
@@ -97,7 +88,6 @@ router.post('/login', (req, res) => {
         console.error('[SESSION SAVE ERROR]', err);
         return res.status(500).json({ erro: 'Erro ao salvar sessão' });
       }
-      res.set('Set-Cookie', `ds.sid=${req.sessionID}; Path=/; HttpOnly; SameSite=Lax; Max-Age=43200${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`);
       return res.json({ ok: true, usuario: usuarioAdmin(), papel: 'admin', destino: 'index.html' });
     });
   }
@@ -136,7 +126,6 @@ router.post('/login', (req, res) => {
         console.error('[SESSION SAVE ERROR]', err);
         return res.status(500).json({ erro: 'Erro ao salvar sessão' });
       }
-      res.set('Set-Cookie', `ds.sid=${req.sessionID}; Path=/; HttpOnly; SameSite=Lax; Max-Age=43200${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`);
       return res.json({ ok: true, usuario: u.nome, email: u.email, papel: u.papel, destino });
     });
   }

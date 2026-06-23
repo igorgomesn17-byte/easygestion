@@ -106,14 +106,65 @@ app.use('/api/webhooks', require('./routes/webhooks'));
 app.use(express.json({ limit: '8mb', verify: (req, _res, buf) => { req.rawBody = buf.toString('utf8'); } }));
 app.use(express.urlencoded({ extended: true, limit: '8mb' }));
 
-// ---------- Sessão ----------
+// ---------- Sessão com Store SQLite (persist entre restarts) ----------
 if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32) {
   console.error('❌ ERRO: SESSION_SECRET deve ter no mínimo 32 caracteres!');
   process.exit(1);
 }
+
+// Store customizado: SQLite para express-session
+class SQLiteSessionStore extends session.Store {
+  constructor(db) {
+    super();
+    this.db = db;
+  }
+
+  get(sid, callback) {
+    try {
+      const row = this.db.prepare('SELECT sess FROM sessions WHERE sid = ? AND expire > ?').get(sid, Math.floor(Date.now() / 1000));
+      if (!row) return callback(null, null);
+      callback(null, JSON.parse(row.sess));
+    } catch (err) {
+      callback(err);
+    }
+  }
+
+  set(sid, sess, callback) {
+    try {
+      const expire = Math.floor(Date.now() / 1000) + (sess.cookie.maxAge ? Math.floor(sess.cookie.maxAge / 1000) : 12 * 60 * 60);
+      this.db.prepare('INSERT OR REPLACE INTO sessions (sid, sess, expire) VALUES (?, ?, ?)').run(sid, JSON.stringify(sess), expire);
+      callback(null);
+    } catch (err) {
+      callback(err);
+    }
+  }
+
+  destroy(sid, callback) {
+    try {
+      this.db.prepare('DELETE FROM sessions WHERE sid = ?').run(sid);
+      callback(null);
+    } catch (err) {
+      callback(err);
+    }
+  }
+
+  clear(callback) {
+    try {
+      this.db.prepare('DELETE FROM sessions').run();
+      callback(null);
+    } catch (err) {
+      callback(err);
+    }
+  }
+}
+
+const { db } = require('./db/database');
+const store = new SQLiteSessionStore(db);
+
 app.use(session({
   name: 'ds.sid',
   secret: process.env.SESSION_SECRET,
+  store: store,
   resave: false,
   saveUninitialized: false,
   cookie: {
