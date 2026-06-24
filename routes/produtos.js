@@ -293,15 +293,32 @@ router.delete('/:id', (req, res) => {
 // POST /api/produtos/sugerir-preco  body: { custo }
 router.post('/sugerir-preco', (req, res) => {
   const custo = parseFloat(req.body.custo) || 0;
-  const preco = sugerirPreco(custo);
-  res.json({ preco, analise: analisarPreco(custo, preco) });
+  const preco = sugerirPreco(custo, req.tenantId);
+  res.json({ preco, analise: analisarPreco(custo, preco, { tenantId: req.tenantId }) });
 });
 
 // POST /api/produtos/analisar-preco  body: { custo, preco_venda }
 router.post('/analisar-preco', (req, res) => {
   const custo = parseFloat(req.body.custo) || 0;
   const preco = parseFloat(req.body.preco_venda) || 0;
-  res.json(analisarPreco(custo, preco));
+  res.json(analisarPreco(custo, preco, { tenantId: req.tenantId }));
+});
+
+// DELETE /api/produtos/:id — deleta um produto e suas variações
+router.delete('/:id', (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const p = db.prepare('SELECT tenant_id FROM produtos WHERE id = ?').get(id);
+  if (!p || p.tenant_id !== req.tenantId) {
+    return res.status(404).json({ erro: 'Produto não encontrado' });
+  }
+  const tx = db.transaction(() => {
+    db.prepare('DELETE FROM movimentos_estoque WHERE variacao_id IN (SELECT id FROM variacoes WHERE produto_id = ?)').run(id);
+    db.prepare('DELETE FROM variacoes WHERE produto_id = ?').run(id);
+    db.prepare('DELETE FROM produto_fotos WHERE produto_id = ?').run(id);
+    db.prepare('DELETE FROM produtos WHERE id = ?').run(id);
+  });
+  tx();
+  res.json({ ok: true });
 });
 
 module.exports = router;

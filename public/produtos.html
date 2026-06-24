@@ -97,6 +97,23 @@
     </div>
   </div>
 
+  <div class="modal-fundo" id="modalEstoque">
+    <div class="modal">
+      <button class="modal-fechar" onclick="fecharEditarEstoque()">&times;</button>
+      <h2>Editar estoque: <span id="estoqueNome"></span></h2>
+      <p class="texto-cinza">Clique em um tamanho para editar a quantidade</p>
+      <div id="gradeEstoque" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(90px,1fr)); gap:12px; margin:16px 0;"></div>
+      <div class="modal" id="subModalEstoque" style="display:none; margin-top:16px; padding:16px; background:var(--surface-2); border-radius:8px;">
+        <label>Quantidade para <strong id="subTamanho"></strong></label>
+        <input type="number" id="subQtd" min="0" style="margin:8px 0;">
+        <div style="display:flex; gap:8px; margin-top:12px;">
+          <button class="btn btn-verde" onclick="salvarEstoque()" style="flex:1;">Salvar</button>
+          <button class="btn btn-fantasma" onclick="document.getElementById('subModalEstoque').style.display='none'">Cancelar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="js/comum.js"></script>
   <script>
     montarLayout('produtos');
@@ -206,7 +223,7 @@
       const grade = [];
       document.querySelectorAll('#gradeBuilder input[data-tam]').forEach(inp => {
         const q = parseInt(inp.value, 10);
-        if (isNaN(q) && q > 0) grade.push({ tamanho: inp.dataset.tam, quantidade: q });
+        if (!isNaN(q) && q > 0) grade.push({ tamanho: inp.dataset.tam, quantidade: q });
       });
       return grade;
     }
@@ -218,7 +235,7 @@
       if (custo <= 0 || preco <= 0) { div.innerHTML = 'Preencha custo e preço para ver o lucro real.'; return; }
       try {
         const a = await api('/produtos/analisar-preco', { method: 'POST', body: { custo, preco_venda: preco } });
-        if (a) { div.innerHTML = 'Erro ao calcular.'; return; }
+        if (!a) { div.innerHTML = 'Erro ao calcular.'; return; }
         const cor = a.lucro > 0 ? 'texto-verde' : 'texto-vermelho';
         div.innerHTML = `
           <div class="linha" style="gap:18px; align-items:flex-start;">
@@ -363,16 +380,64 @@
             <span class="texto-cinza" style="font-size:0.85rem;">Total em estoque: <strong>${p.estoque_total}</strong> peças</span>
             <div style="display:flex; gap:8px;">
               <a class="btn btn-fino btn-escuro" href="etiquetas.html?id=${p.id}">🏷️ Etiqueta</a>
+              <button class="btn btn-fino" onclick="abrirEditarEstoque(${p.id}, '${esc(p.nome)}', ${JSON.stringify(p.grade).replace(/'/g, "\\'")})">📦 Estoque</button>
               <button class="btn btn-fino" onclick="editar(${p.id})">Editar</button>
+              <button class="btn btn-fino btn-vermelho" onclick="deletar(${p.id}, '${esc(p.codigo)}')">🗑️</button>
             </div>
           </div>
         </div>`;
       }).join('');
     }
 
+    // Editar estoque por tamanho
+    let editandoVariacaoId = null;
+    function abrirEditarEstoque(prodId, nome, grade) {
+      document.getElementById('estoqueNome').textContent = nome;
+      const div = document.getElementById('gradeEstoque');
+      div.innerHTML = grade.map(g => `
+        <button class="btn btn-fino" style="padding:12px; text-align:center;" onclick="abrirEditarTamanho(${g.id}, '${esc(g.tamanho)}', ${g.quantidade})">
+          <strong>${esc(g.tamanho)}</strong><br><small>${g.quantidade} un</small>
+        </button>`).join('');
+      document.getElementById('modalEstoque').classList.add('aberto');
+    }
+    function fecharEditarEstoque() {
+      document.getElementById('modalEstoque').classList.remove('aberto');
+      document.getElementById('subModalEstoque').style.display = 'none';
+    }
+    function abrirEditarTamanho(varId, tam, qtd) {
+      editandoVariacaoId = varId;
+      document.getElementById('subTamanho').textContent = tam;
+      document.getElementById('subQtd').value = qtd;
+      document.getElementById('subModalEstoque').style.display = 'block';
+      document.getElementById('subQtd').focus();
+    }
+    async function salvarEstoque() {
+      const nova = parseInt(document.getElementById('subQtd').value, 10);
+      if (isNaN(nova) || nova < 0) { toast('Quantidade inválida', 'erro'); return; }
+      try {
+        await api('/estoque/ajuste', { method: 'POST', body: { variacao_id: editandoVariacaoId, nova_quantidade: nova, motivo: 'ajuste via produtos' } });
+        toast('Estoque atualizado', 'sucesso');
+        fecharEditarEstoque();
+        carregar();
+      } catch(e) { toast(e.message, 'erro'); }
+    }
+
+    // Deletar produto
+    async function deletar(id, codigo) {
+      if (!confirm(`Deletar produto ${codigo}? Esta ação não pode ser desfeita.`)) return;
+      try {
+        await api('/produtos/' + id, { method: 'DELETE' });
+        toast('Produto deletado', 'sucesso');
+        carregar();
+      } catch(e) { toast(e.message, 'erro'); }
+    }
+
     // Fecha modal ao clicar fora
     document.getElementById('modalCad').addEventListener('click', (e) => {
       if (e.target.id === 'modalCad') fecharCadastro();
+    });
+    document.getElementById('modalEstoque').addEventListener('click', (e) => {
+      if (e.target.id === 'modalEstoque') fecharEditarEstoque();
     });
 
     carregar();

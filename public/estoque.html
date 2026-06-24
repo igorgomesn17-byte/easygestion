@@ -84,7 +84,7 @@
       const b = document.getElementById('busca').value.toLowerCase();
       // agrupa por produto
       const grupos = {};
-      dados.filter(d => b || d.nome.toLowerCase().includes(b) || d.codigo.toLowerCase().includes(b))
+      dados.filter(d => !b || d.nome.toLowerCase().includes(b) || d.codigo.toLowerCase().includes(b))
            .forEach(d => { (grupos[d.produto_id] = grupos[d.produto_id] || { nome:d.nome, codigo:d.codigo, cor:d.cor, vars:[] }).vars.push(d); });
       const arr = Object.values(grupos);
       const div = document.getElementById('tabela');
@@ -130,7 +130,7 @@
     async function salvarEntrada() {
       const id = document.getElementById('ajVarId').value;
       const qtd = document.getElementById('entradaQtd').value;
-      if (qtd || qtd<=0) { toast('Informe a quantidade','erro'); return; }
+      if (!qtd || qtd<=0) { toast('Informe a quantidade','erro'); return; }
       try {
         await api('/estoque/entrada', { method:'POST', body:{ variacao_id:+id, qtd:+qtd, motivo:'entrada de mercadoria' }});
         toast('Entrada registrada', 'sucesso');
@@ -140,7 +140,7 @@
     }
 
     function exportar() {
-      if (dados.length) { toast('Nada para exportar','erro'); return; }
+      if (!dados.length) { toast('Nada para exportar','erro'); return; }
       const linhas = dados.map(d=>({
         Codigo:d.codigo, Produto:d.nome, Categoria:d.categoria||'', Cor:d.cor||'',
         Tamanho:d.tamanho, Quantidade:d.quantidade,
