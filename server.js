@@ -102,6 +102,9 @@ app.use('/api/webhooks/stripe', express.raw({type: 'application/json'}), (req, r
 });
 app.use('/api/webhooks', require('./routes/webhooks'));
 
+// ---------- Webhook de Deploy (puxar código + reiniciar) ----------
+app.use('/api/deploy', require('./routes/deploy'));
+
 // ---------- Body parsers ----------
 // guarda o corpo cru (raw) p/ validar a assinatura HMAC dos webhooks da Meta
 app.use(express.json({ limit: '8mb', verify: (req, _res, buf) => { req.rawBody = buf.toString('utf8'); } }));
