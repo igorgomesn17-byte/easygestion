@@ -20,8 +20,11 @@
       <div class="card card-metrica"><div class="valor dinheiro texto-verde" id="eVenda">R$ 0</div><div class="rotulo">Valor a venda</div></div>
     </div>
 
-    <div class="card">
-      <input type="search" id="busca" placeholder="🔎 Filtrar por nome ou código..." oninput="render()">
+    <div class="card" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+      <input type="search" id="busca" placeholder="🔎 Filtrar por nome ou código..." oninput="render()" style="flex:1; min-width:200px;">
+      <select id="filtroColecao" onchange="render()" style="max-width:220px;">
+        <option value="">📦 Todas as coleções</option>
+      </select>
     </div>
 
     <div id="alertaBaixo"></div>
@@ -60,8 +63,19 @@
   <script>
     montarLayout('estoque');
     let dados = [];
+    let COLECOES = [];
+
+    async function carregarColecoes(){
+      try {
+        const cfg = await api('/config');
+        try { COLECOES = JSON.parse(cfg.colecoes || '[]'); } catch(e) { COLECOES = []; }
+        const opts = COLECOES.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+        document.getElementById('filtroColecao').innerHTML = '<option value="">📦 Todas as coleções</option>' + opts;
+      } catch(e) {}
+    }
 
     async function carregar() {
+      await carregarColecoes();
       dados = await api('/estoque');
       // cards de resumo
       const resumo = await api('/estoque/resumo');
@@ -82,10 +96,11 @@
 
     function render() {
       const b = document.getElementById('busca').value.toLowerCase();
+      const col = document.getElementById('filtroColecao').value;
       // agrupa por produto
       const grupos = {};
-      dados.filter(d => !b || d.nome.toLowerCase().includes(b) || d.codigo.toLowerCase().includes(b))
-           .forEach(d => { (grupos[d.produto_id] = grupos[d.produto_id] || { nome:d.nome, codigo:d.codigo, cor:d.cor, vars:[] }).vars.push(d); });
+      dados.filter(d => (!b || d.nome.toLowerCase().includes(b) || d.codigo.toLowerCase().includes(b)) && (!col || d.colecao === col))
+           .forEach(d => { (grupos[d.produto_id] = grupos[d.produto_id] || { nome:d.nome, codigo:d.codigo, cor:d.cor, colecao:d.colecao, vars:[] }).vars.push(d); });
       const arr = Object.values(grupos);
       const div = document.getElementById('tabela');
       if (arr.length === 0) { div.innerHTML = '<div class="vazio">Nenhuma peça encontrada.</div>'; return; }
@@ -98,7 +113,8 @@
         return `<div class="card">
           <div class="flex-entre">
             <div><strong>${g.nome}</strong> <span class="badge badge-dourado">${g.codigo}</span>
-                 ${g.cor?`<span class="texto-cinza"> • ${g.cor}</span>`:''}</div>
+                 ${g.cor?`<span class="texto-cinza"> • ${g.cor}</span>`:''}<br>
+                 ${g.colecao?`<span class="badge" style="background:var(--marrom,#6B5849);color:#fff;font-size:0.7rem;">📦 ${esc(g.colecao)}</span>`:''}</div>
             <span class="texto-cinza">Total: <strong>${total}</strong></span>
           </div>
           <div class="grade-chips mt">${chips}</div>

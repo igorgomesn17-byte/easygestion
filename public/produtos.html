@@ -97,30 +97,14 @@
     </div>
   </div>
 
-  <div class="modal-fundo" id="modalEstoque">
-    <div class="modal">
-      <button class="modal-fechar" onclick="fecharEditarEstoque()">&times;</button>
-      <h2>Editar estoque: <span id="estoqueNome"></span></h2>
-      <p class="texto-cinza">Clique em um tamanho para editar a quantidade</p>
-      <div id="gradeEstoque" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(90px,1fr)); gap:12px; margin:16px 0;"></div>
-      <div class="modal" id="subModalEstoque" style="display:none; margin-top:16px; padding:16px; background:var(--surface-2); border-radius:8px;">
-        <label>Quantidade para <strong id="subTamanho"></strong></label>
-        <input type="number" id="subQtd" min="0" style="margin:8px 0;">
-        <div style="display:flex; gap:8px; margin-top:12px;">
-          <button class="btn btn-verde" onclick="salvarEstoque()" style="flex:1;">Salvar</button>
-          <button class="btn btn-fantasma" onclick="document.getElementById('subModalEstoque').style.display='none'">Cancelar</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <script src="js/comum.js"></script>
   <script>
     montarLayout('produtos');
     popularSelectCategorias('categoria');
 
     const TAMANHOS_LETRA = ['PP','P','M','G','GG','U'];
-    const TAMANHOS_NUM = ['36','38','40','42','44','46'];
+    const TAMANHOS_NUM = ['34','36','38','40','42','44','46'];
+    console.log('TAMANHOS_NUM carregado:', TAMANHOS_NUM);
 
     // coleções (do config): popula o select do modal e o filtro da lista
     let COLECOES = [];
@@ -205,7 +189,7 @@
 
     function montarGradeBuilder(valores = {}) {
       const render = (lista) => lista.map(t => {
-        const q = valores[t] = null ? valores[t] : '';
+        const q = valores[t] != null ? valores[t] : '';
         return `<div class="chip-tam" style="cursor:default;">
           <span class="t">${t}</span>
           <input type="number" min="0" data-tam="${t}" value="${q}" placeholder="0"
@@ -223,7 +207,12 @@
       const grade = [];
       document.querySelectorAll('#gradeBuilder input[data-tam]').forEach(inp => {
         const q = parseInt(inp.value, 10);
-        if (!isNaN(q) && q > 0) grade.push({ tamanho: inp.dataset.tam, quantidade: q });
+        // ao editar: envia TODAS as quantidades (inclusive 0, pra zerar estoque)
+        // ao criar: envia só > 0 (só cria variacoes com estoque)
+        const ehEdicao = editandoId != null;
+        if (!isNaN(q) && (q > 0 || ehEdicao)) {
+          grade.push({ tamanho: inp.dataset.tam, quantidade: q });
+        }
       });
       return grade;
     }
@@ -294,8 +283,8 @@
       const nome = document.getElementById('nome').value.trim();
       const custo = parseFloat(document.getElementById('custo').value) || 0;
       const preco = parseFloat(document.getElementById('preco').value) || 0;
-      // nome opcional (A14): se vazio numa peça nova, o sistema usa o código como nome
-      if (nome && editandoId) { toast('Informe o nome da peça', 'erro'); return; }
+      // nome obrigatório só em cadastro novo; em edição é opcional (mantém o existente)
+      if (!nome && !editandoId) { toast('Informe o nome da peça', 'erro'); return; }
       if (preco <= 0) { toast('Informe o preço de venda', 'erro'); return; }
       const dados = {
         nome, categoria: document.getElementById('categoria').value,
@@ -334,8 +323,6 @@
       renderGaleria();
       const valores = {}; p.grade.forEach(g => valores[g.tamanho] = g.quantidade);
       montarGradeBuilder(valores);
-      // ao editar, a grade fica so de referencia (estoque se ajusta na tela Estoque)
-      document.querySelectorAll('#gradeBuilder input').forEach(i => i.disabled = true);
       recalcular();
       document.getElementById('modalCad').classList.add('aberto');
     }
@@ -380,46 +367,12 @@
             <span class="texto-cinza" style="font-size:0.85rem;">Total em estoque: <strong>${p.estoque_total}</strong> peças</span>
             <div style="display:flex; gap:8px;">
               <a class="btn btn-fino btn-escuro" href="etiquetas.html?id=${p.id}">🏷️ Etiqueta</a>
-              <button class="btn btn-fino" onclick="abrirEditarEstoque(${p.id}, '${esc(p.nome)}', ${JSON.stringify(p.grade).replace(/'/g, "\\'")})">📦 Estoque</button>
               <button class="btn btn-fino" onclick="editar(${p.id})">Editar</button>
               <button class="btn btn-fino btn-vermelho" onclick="deletar(${p.id}, '${esc(p.codigo)}')">🗑️</button>
             </div>
           </div>
         </div>`;
       }).join('');
-    }
-
-    // Editar estoque por tamanho
-    let editandoVariacaoId = null;
-    function abrirEditarEstoque(prodId, nome, grade) {
-      document.getElementById('estoqueNome').textContent = nome;
-      const div = document.getElementById('gradeEstoque');
-      div.innerHTML = grade.map(g => `
-        <button class="btn btn-fino" style="padding:12px; text-align:center;" onclick="abrirEditarTamanho(${g.id}, '${esc(g.tamanho)}', ${g.quantidade})">
-          <strong>${esc(g.tamanho)}</strong><br><small>${g.quantidade} un</small>
-        </button>`).join('');
-      document.getElementById('modalEstoque').classList.add('aberto');
-    }
-    function fecharEditarEstoque() {
-      document.getElementById('modalEstoque').classList.remove('aberto');
-      document.getElementById('subModalEstoque').style.display = 'none';
-    }
-    function abrirEditarTamanho(varId, tam, qtd) {
-      editandoVariacaoId = varId;
-      document.getElementById('subTamanho').textContent = tam;
-      document.getElementById('subQtd').value = qtd;
-      document.getElementById('subModalEstoque').style.display = 'block';
-      document.getElementById('subQtd').focus();
-    }
-    async function salvarEstoque() {
-      const nova = parseInt(document.getElementById('subQtd').value, 10);
-      if (isNaN(nova) || nova < 0) { toast('Quantidade inválida', 'erro'); return; }
-      try {
-        await api('/estoque/ajuste', { method: 'POST', body: { variacao_id: editandoVariacaoId, nova_quantidade: nova, motivo: 'ajuste via produtos' } });
-        toast('Estoque atualizado', 'sucesso');
-        fecharEditarEstoque();
-        carregar();
-      } catch(e) { toast(e.message, 'erro'); }
     }
 
     // Deletar produto
@@ -435,9 +388,6 @@
     // Fecha modal ao clicar fora
     document.getElementById('modalCad').addEventListener('click', (e) => {
       if (e.target.id === 'modalCad') fecharCadastro();
-    });
-    document.getElementById('modalEstoque').addEventListener('click', (e) => {
-      if (e.target.id === 'modalEstoque') fecharEditarEstoque();
     });
 
     carregar();

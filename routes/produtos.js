@@ -258,7 +258,7 @@ router.post('/', limiteUploadPorTenant, limiteUploadFrequencia, (req, res) => {
 // PUT /api/produtos/:id -> edita dados (nao mexe na grade aqui; estoque e via /api/estoque)
 router.put('/:id', limiteUploadPorTenant, limiteUploadFrequencia, (req, res) => {
   const tenantId = req.tenantId;
-  const { nome, categoria, descricao, cor, custo, preco_venda, foto, fotos, colecao } = req.body;
+  const { nome, categoria, descricao, cor, custo, preco_venda, foto, fotos, grade, colecao } = req.body;
   const p = db.prepare('SELECT id, codigo, foto FROM produtos WHERE id = ? AND tenant_id = ?').get(req.params.id, tenantId);
   if (!p) return res.status(404).json({ erro: 'Produto nao encontrado' });
 
@@ -278,6 +278,22 @@ router.put('/:id', limiteUploadPorTenant, limiteUploadFrequencia, (req, res) => 
       parseFloat(custo) || 0, parseFloat(preco_venda) || 0, fotoPath, colecao || null, req.params.id, tenantId);
     // só mexe na galeria se 'fotos' foi enviado (undefined = não alterar)
     if (Array.isArray(fotos)) salvarFotosExtras(p.id, p.codigo, fotos);
+    // atualizar grade de tamanhos/quantidades se enviada
+    if (Array.isArray(grade)) {
+      const updateVar = db.prepare('UPDATE variacoes SET quantidade = ? WHERE produto_id = ? AND tamanho = ?');
+      const insertVar = db.prepare('INSERT INTO variacoes (produto_id, tamanho, quantidade, tenant_id) VALUES (?, ?, ?, ?)');
+      for (const g of grade) {
+        if (!g.tamanho) continue;
+        const qtd = parseInt(g.quantidade, 10) || 0;
+        const tamanho = String(g.tamanho).toUpperCase();
+        // tenta atualizar; se não encontrar, cria nova variação
+        const updated = db.prepare('UPDATE variacoes SET quantidade = ? WHERE produto_id = ? AND tamanho = ?')
+          .run(qtd, req.params.id, tamanho);
+        if (updated.changes === 0) {
+          insertVar.run(req.params.id, tamanho, qtd, tenantId);
+        }
+      }
+    }
   });
   tx();
   res.json({ ok: true });
