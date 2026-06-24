@@ -1,0 +1,28 @@
+name: Deploy para AWS EC2
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          port: 22
+          script: |
+            cd /opt/easygestion
+            git pull origin main
+            npm install --production
+            pm2 restart easygestion
+            pm2 save
+            echo "✅ Deploy concluído em $(date)"
