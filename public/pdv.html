@@ -253,7 +253,7 @@
       timer = setTimeout(async () => {
         const b = document.getElementById('busca').value.trim();
         const div = document.getElementById('resultados');
-        if (b) { div.innerHTML = ''; return; }
+        if (!b) { div.innerHTML = ''; return; }
         const lista = await api('/produtos?busca=' + encodeURIComponent(b));
         if (lista.length === 0) { div.innerHTML = '<div class="vazio">Nada encontrado — use "+ Cadastrar peça nova" abaixo</div>'; return; }
         div.innerHTML = lista.map(p => {
@@ -279,13 +279,13 @@
     // tenta casar o codigo_barras exato e joga direto pro carrinho (sem clique).
     async function lerCodigo() {
       const termo = document.getElementById('busca').value.trim();
-      if (termo) return;
+      if (!termo) return;
       const lista = await api('/produtos?busca=' + encodeURIComponent(termo));
       // casa por codigo_barras exato (leitura de pistola) ou codigo exato
       let p = lista.find(x => x.codigo_barras === termo || (x.codigo||'').toUpperCase() === termo.toUpperCase());
       // se não casou exato mas só veio 1 resultado, assume esse
       if (p && lista.length === 1) p = lista[0];
-      if (p) { toast('Produto não encontrado pra esse código', 'erro'); return; }
+      if (!p) { toast('Produto não encontrado pra esse código', 'erro'); return; }
 
       const disp = (p.grade||[]).filter(g => g.quantidade > 0);
       if (disp.length === 0) { toast('Sem estoque dessa peça', 'erro'); limparBusca(); return; }
