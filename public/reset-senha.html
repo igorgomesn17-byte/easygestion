@@ -269,24 +269,24 @@
         showMessage('A senha deve ter pelo menos 8 caracteres', 'error');
         return;
       }
-      if (/[A-Z]/.test(novaSenha)) {
+      if (!/[A-Z]/.test(novaSenha)) {
         showMessage('Senha deve conter pelo menos uma letra maiúscula', 'error');
         return;
       }
-      if (/[a-z]/.test(novaSenha)) {
+      if (!/[a-z]/.test(novaSenha)) {
         showMessage('Senha deve conter pelo menos uma letra minúscula', 'error');
         return;
       }
-      if (/\d/.test(novaSenha)) {
+      if (!/\d/.test(novaSenha)) {
         showMessage('Senha deve conter pelo menos um número', 'error');
         return;
       }
-      if (/[@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(novaSenha)) {
+      if (!/[@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(novaSenha)) {
         showMessage('Senha deve conter pelo menos um símbolo especial (@#$%^&* etc)', 'error');
         return;
       }
 
-      if (novaSenha == confirmaSenha) {
+      if (novaSenha !== confirmaSenha) {
         showMessage('As senhas não coincidem', 'error');
         return;
       }
