@@ -335,8 +335,12 @@ const MARCA_DIR = process.env.UPLOADS_DIR
   ? path.join(process.env.UPLOADS_DIR, 'marca')
   : path.join(__dirname, 'public', 'img', 'marca');
 app.use('/img/marca', express.static(MARCA_DIR));
+
 // comprovantes (print do Pix por chave) — disco persistente em produção
 const COMPROVANTES_DIR = process.env.UPLOADS_DIR
+  ? path.join(process.env.UPLOADS_DIR, 'comprovantes')
+  : path.join(__dirname, 'public', 'img', 'comprovantes');
+app.use('/img/comprovantes', express.static(COMPROVANTES_DIR));
 
 // ---------- Monitoring & Métricas ----------
 const { getMonitor, getMetrics, getAlerts } = require('./lib/monitoring');
@@ -357,11 +361,6 @@ app.get('/api/monitoring/alerts', (req, res) => {
   const { type, severity } = req.query;
   res.json(getMonitor().getAlerts(type, severity));
 });
-
-const COMPROVANTES_DIR = process.env.UPLOADS_DIR
-  ? path.join(process.env.UPLOADS_DIR, 'comprovantes')
-  : path.join(__dirname, 'public', 'img', 'comprovantes');
-app.use('/img/comprovantes', express.static(COMPROVANTES_DIR));
 
 // Landing page pública (raiz para visitantes não-autenticados)
 app.get('/', (req, res, next) => {

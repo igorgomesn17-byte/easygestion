@@ -3,6 +3,7 @@
 // ============================================================
 const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
+const { ipKeyGenerator } = require('express-rate-limit');
 
 // --- Hash de senha (scrypt nativo — sem libs de build nativo) ---
 // formato armazenado: scrypt$<salt-hex>$<hash-hex>
@@ -211,10 +212,7 @@ const limiteAdminPassword = rateLimit({
   legacyHeaders: false,
   message: { erro: 'Muitas tentativas de login admin. Aguarde 15 minutos.' },
   skip: (req, res) => false, // Não pular nenhuma requisição
-  keyGenerator: (req) => {
-    // Use IP real se atrás de proxy, senão use IP da conexão
-    return req.ip || req.connection.remoteAddress || 'unknown';
-  }
+  keyGenerator: ipKeyGenerator // Use IPv6-safe helper
 });
 
 // Forgot password: previne email enumeration

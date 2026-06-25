@@ -1,0 +1,51 @@
+🔴 AUDITORIA EASYGESTION — TL;DR
+
+STATUS: NÃO PRONTO PARA VENDER (5.5/10)
+
+3 CRÍTICOS (HOJE — 45 MIN):
+✗ Rate limit admin desabilitado (brute force ilimitado)
+✗ TOKEN_SECRET fallback 'dev-secret' (JWT forjável)
+✗ CERT_CIPHER_KEY fallback exposed (certificado desprotegido)
+✗ DEPLOY_TOKEN fallback public (RCE possível)
+✗ .env commitado (credenciais vazadas — check memory)
+
+7 ALTOS (PRÓXIMA SEMANA — 5 HRS):
+✗ Desconto/qtd sem validação (dados inválidos)
+✗ Email cliente não capturado (password reset impossível)
+✗ Imposto hardcoded 17% (cálculo fiscal errado)
+✗ NODE_ENV pode ser 'dev' em produção
+✗ CORS ORIGIN não validado
+✗ Limite upload inexistente (DDoS)
+✗ CPF/CNPJ não validado (fraude)
+
+BOM:
+✅ SQL seguro (zero SQL injection)
+✅ Autenticação forte (scrypt)
+✅ Auditoria LGPD
+✅ Multi-tenant isolado
+
+RUIM:
+❌ UX nunca testada
+❌ SQLite não escala >100 lojas
+❌ 39 arquivos com console.log em produção
+
+TIMELINE:
+- P0 (críticos): 45 min → pronto pra staging
+- P1 (altos): 5h → MVP testável
+- Testes + escala: 2-4 semanas → pronto vender
+
+DOCUMENTOS CRIADOS:
+1. AUDITORIA-COMPLETA-PRODUCAO-2026-06-25.md (20 pág, detalhado)
+2. EXECUTIVO-5-MINUTOS.md (resumo com scores)
+3. PLANO-CORRECAO-PASO-A-PASO.md (código + instruções)
+4. ARQUIVOS-PARA-EDITAR.md (lista exata de edits)
+5. TLDR-1-MINUTO.txt (este)
+
+AÇÃO AGORA:
+Chamar Claude Code:
+"Fazer fase 1 crítico em middleware/seguranca.js, server.js, routes/auth.js, routes/config.js, routes/deploy.js"
+
+Depois: Deploy em staging → testar → iteração
+
+---
+Score: 5.5/10 — NÃO VENDER
