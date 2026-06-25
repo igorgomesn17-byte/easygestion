@@ -97,26 +97,107 @@
     async function verDetalhes(id) {
       const v = await api('/vendas/' + id);
       document.getElementById('vendaTitulo').textContent = `Venda #${v.id}`;
-      const itens = v.itens ? v.itens.map(i => `<div class="linha" style="padding:8px 0; border-bottom:1px solid #EEE;">
-        <div>${i.qtd}x ${esc(i.descricao)}</div>
-        <strong>${moeda(i.preco_unit)}</strong>
-      </div>`).join('') : '';
+
+      const itens = v.itens ? v.itens.map(i => `
+        <div class="linha" style="padding:8px 0; border-bottom:1px solid #EEE;">
+          <div>${i.qtd}x ${esc(i.descricao)}</div>
+          <strong>${moeda(i.preco_unit)}</strong>
+        </div>`).join('') : '';
+
       document.getElementById('vendaDetalhes').innerHTML = `
-        <div class="card" style="box-shadow:none; border:none; padding:0; margin-bottom:12px;">
-          <strong>Cliente:</strong> ${v.cliente_nome ? esc(v.cliente_nome) : 'não cadastrado'}
-          <div class="mt"><strong>Data:</strong> ${v.data_hora.slice(0,10).split('-').reverse().join('/')} ${v.data_hora.slice(11,16)}</div>
-          <div class="mt"><strong>Forma de pagamento:</strong> ${rotuloPagamento(v.forma_pagamento)}</div>
-          ${v.itens && v.itens.length ? `<div class="mt"><strong>Itens:</strong></div><div>${itens}</div>` : ''}
-          <div class="mt" style="padding-top:12px; border-top:1px solid #EEE;">
-            <div class="flex-entre"><span>Subtotal:</span><strong>${moeda(v.subtotal || v.total)}</strong></div>
-            ${v.desconto > 0 ? `<div class="flex-entre texto-verde"><span>Desconto:</span><strong>-${moeda(v.desconto)}</strong></div>` : ''}
-            <div class="flex-entre" style="font-size:1.1rem; font-weight:700; padding-top:8px;">
-              <span>Total:</span><strong>${moeda(v.total)}</strong></div>
+        <div style="padding:0;">
+          <div style="padding:12px 0; border-bottom:1px solid #EEE; margin-bottom:12px;">
+            <div style="font-size:0.9rem; color:#666;">
+              ${v.data_hora.slice(0,10).split('-').reverse().join('/')} às ${v.data_hora.slice(11,16)}
+            </div>
           </div>
-        </div>
-        <div class="linha" style="gap:8px;">
-          <button class="btn btn-fino btn-azul" onclick="emitirNfce(${v.id})">📄 Emitir NFC-e</button>
-          <button class="btn btn-fino" style="background:#E74C3C; color:#fff;" onclick="abrirTroca(${v.id})">🔄 Registrar troca</button>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+            <div>
+              <strong style="color:#666; font-size:0.85rem;">Cliente</strong>
+              <div style="margin-top:4px;">${v.cliente_nome ? esc(v.cliente_nome) : '—'}</div>
+            </div>
+            <div>
+              <strong style="color:#666; font-size:0.85rem;">Vendedor</strong>
+              <div style="margin-top:4px;">${v.vendedor_nome ? esc(v.vendedor_nome) : '—'}</div>
+            </div>
+            <div>
+              <strong style="color:#666; font-size:0.85rem;">Canal</strong>
+              <div style="margin-top:4px;">Loja física</div>
+            </div>
+            <div>
+              <strong style="color:#666; font-size:0.85rem;">Pagamento</strong>
+              <div style="margin-top:4px;">${rotuloPagamento(v.forma_pagamento)}</div>
+            </div>
+          </div>
+
+          <div style="border:1px solid #EEE; border-radius:6px; padding:12px; margin-bottom:16px;">
+            <strong style="display:block; margin-bottom:8px;">Itens</strong>
+            <table style="width:100%; font-size:0.9rem;">
+              <thead style="background:#f5f5f5;">
+                <tr>
+                  <th style="text-align:left; padding:6px;">PEÇA</th>
+                  <th style="text-align:center; padding:6px;">QTD</th>
+                  <th style="text-align:right; padding:6px;">VALOR</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${v.itens ? v.itens.map(i => `
+                  <tr style="border-bottom:1px solid #EEE;">
+                    <td style="padding:6px;">${esc(i.descricao)}</td>
+                    <td style="text-align:center; padding:6px;">${i.qtd}</td>
+                    <td style="text-align:right; padding:6px;">${moeda(i.preco_unit)}</td>
+                  </tr>
+                `).join('') : ''}
+              </tbody>
+            </table>
+          </div>
+
+          <div style="border:1px solid #EEE; border-radius:6px; padding:12px; margin-bottom:16px; font-size:0.9rem;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+              <span>Subtotal:</span>
+              <strong>${moeda(v.subtotal || v.total)}</strong>
+            </div>
+            ${v.taxa_aplicada > 0 ? `
+              <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                <span>Taxa ${v.taxa_aplicada.toFixed(1)}%:</span>
+                <strong style="color:#E74C3C;">-${moeda(v.valor_liquido ? (v.subtotal - v.valor_liquido) : 0)}</strong>
+              </div>
+            ` : ''}
+            ${v.desconto > 0 ? `
+              <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                <span>Desconto:</span>
+                <strong style="color:#27ae60;">-${moeda(v.desconto)}</strong>
+              </div>
+            ` : ''}
+            ${v.imposto > 0 ? `
+              <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                <span>Imposto (${(v.imposto / v.total * 100).toFixed(2)}%):</span>
+                <strong style="color:#E74C3C;">-${moeda(v.imposto)}</strong>
+              </div>
+            ` : ''}
+            ${v.comissao_valor > 0 ? `
+              <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                <span>Comissão:</span>
+                <strong style="color:#E74C3C;">-${moeda(v.comissao_valor)}</strong>
+              </div>
+            ` : ''}
+            ${v.custo_total > 0 ? `
+              <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                <span>Custo das peças:</span>
+                <strong style="color:#E74C3C;">-${moeda(v.custo_total)}</strong>
+              </div>
+            ` : ''}
+            <div style="border-top:1px solid #EEE; padding-top:8px; display:flex; justify-content:space-between; font-weight:700; font-size:1.1rem;">
+              <span>Lucro líquido:</span>
+              <strong style="color:#27ae60;">${moeda(v.lucro)}</strong>
+            </div>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+            <button class="btn" style="background:#27ae60; color:white;" onclick="emitirNfce(${v.id})">📄 Emitir NFC-e</button>
+            <button class="btn" style="background:#E74C3C; color:white;" onclick="abrirTroca(${v.id})">🔄 Registrar troca</button>
+          </div>
         </div>
       `;
       document.getElementById('modalVenda').classList.add('aberto');
