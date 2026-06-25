@@ -28,16 +28,22 @@ if (!bankExists) {
   const schema = fs.readFileSync(SCHEMA_PATH, 'utf8');
   raw.exec(schema);
   console.log(`✅ Novo banco criado em ${DB_PATH}`);
-} else {
-  // Banco já existe com dados: apenas garante que as tabelas críticas estão lá
-  const tabelas = raw.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(t => t.name);
-  const vendas = raw.prepare('SELECT COUNT(*) as cnt FROM vendas').get().cnt;
-  console.log(`✅ Banco existente mantido (${tabelas.length} tabelas, ${vendas} vendas)`);
 }
 
 // Executar migrations (nunca deletam dados, apenas atualizam schema)
 const { executarMigrations } = require('./migrations');
 executarMigrations(raw);
+
+// Agora sim, banco tá pronto — mostrar status
+if (bankExists) {
+  const tabelas = raw.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(t => t.name);
+  try {
+    const vendas = raw.prepare('SELECT COUNT(*) as cnt FROM vendas').get().cnt;
+    console.log(`✅ Banco existente mantido (${tabelas.length} tabelas, ${vendas} vendas)`);
+  } catch (e) {
+    console.log(`✅ Banco existente mantido (${tabelas.length} tabelas)`);
+  }
+}
 
 // --- Migracoes idempotentes (para bancos ja existentes ganharem colunas novas) ---
 function colunasDe(tabela) {
