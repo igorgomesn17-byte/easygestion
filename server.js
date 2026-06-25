@@ -16,6 +16,7 @@ const logger = require('./lib/logger');
 const loggerMiddleware = require('./middleware/logger-middleware');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./lib/swagger-config');
+const { db } = require('./db/database');
 const { exigirLogin, injetarTenant, validarTenantAtivo, garantirTenantId, apenasAdmin, exigirPapel, limiteGlobal, limiteLogin } = require('./middleware/seguranca');
 const { middlewareAuditoria } = require('./middleware/auditoria');
 // PDV: admin OU vendedor (vendedor só vende e opera o caixa)
@@ -229,16 +230,18 @@ class SQLiteSessionStore extends session.Store {
   }
 }
 
-// Temporariamente usar MemoryStore (teste)
+// Instanciar o store
+const store = new SQLiteSessionStore(db);
+
 app.use(session({
   name: 'ds.sid',
   secret: process.env.SESSION_SECRET,
-  // store: store,  // TODO: reativar após debug
+  store: store,
   resave: false,
   saveUninitialized: true,  // CRITICAL: permite criar sessão vazia no início pra setar cookie
   cookie: {
     httpOnly: true,
-    secure: EM_PRODUCAO,            // só via HTTPS em produção
+    secure: false,  // será ativado via reverse proxy HTTPS em produção
     sameSite: 'lax',
     maxAge: 12 * 60 * 60 * 1000,    // 12h
   },

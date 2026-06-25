@@ -748,7 +748,25 @@
     }
 
     // Carregar ao abrir a página
-    document.addEventListener('DOMContentLoaded', () => {
+    // Verificar autenticação antes de carregar
+    async function verificarAutenticacao() {
+      try {
+        const res = await fetch('/api/me', { credentials: 'include' });
+        if (!res.ok) {
+          window.location.href = '/admin-login.html';
+          return false;
+        }
+        return true;
+      } catch (err) {
+        window.location.href = '/admin-login.html';
+        return false;
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      const autenticado = await verificarAutenticacao();
+      if (!autenticado) return;
+
       carregarDashboard();
       carregarAlertas();
       carregarClientes();
