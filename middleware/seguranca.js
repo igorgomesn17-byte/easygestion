@@ -68,9 +68,7 @@ function ehPublica(caminho) {
 function exigirLogin(req, res, next) {
   // req.path aqui é relativo ao mount /api (ex: '/financeiro/dre')
   const full = '/api' + req.path;
-  const ehPublico = ehPublica(full);
-  if (process.env.DEBUG_AUTH) console.log('[DEBUG AUTH]', full, 'público?', ehPublico, 'logado?', req.session?.logado);
-  if (ehPublico) return next();
+  if (ehPublica(full)) return next();
   if (req.session && req.session.logado) return next();
   return res.status(401).json({ erro: 'Não autenticado', login: true });
 }
