@@ -1,10 +1,11 @@
-<DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Bem-vinda • EasyGestão</title>
   <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="stylesheet" href="css/ds.css">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -28,7 +29,7 @@
     }
     .header {
       text-align: center;
-      margin-bottom: 50px;
+      margin-bottom: 40px;
     }
     .header h1 {
       font-size: 32px;
@@ -40,83 +41,296 @@
       font-size: 16px;
       margin-bottom: 5px;
     }
-    .subheader {
-      color: #999;
-      font-size: 14px;
-    }
-    .steps {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 30px;
+    .progress-indicators {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
       margin-bottom: 50px;
+      gap: 20px;
     }
-    .step {
-      background: #f9fbfa;
-      border: 2px solid #e0e8e5;
-      border-radius: 12px;
-      padding: 30px;
-      text-align: center;
-      transition: all 0.3s;
-      cursor: pointer;
+    .progress-step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex: 1;
       position: relative;
     }
-    .step:hover {
-      border-color: #1a6f5e;
-      box-shadow: 0 10px 30px rgba(26,111,94,0.15);
-      transform: translateY(-5px);
-    }
-    .step-number {
-      display: inline-flex;
+    .progress-circle {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: #e0e8e5;
+      display: flex;
       align-items: center;
       justify-content: center;
-      width: 50px;
-      height: 50px;
+      font-weight: bold;
+      color: #666;
+      margin-bottom: 8px;
+      transition: all 0.3s;
+    }
+    .progress-step.active .progress-circle {
       background: linear-gradient(135deg, #1a6f5e 0%, #0d3d35 100%);
       color: white;
-      border-radius: 50%;
-      font-size: 24px;
-      font-weight: bold;
-      margin-bottom: 20px;
+      transform: scale(1.1);
     }
+    .progress-step.completed .progress-circle {
+      background: #4caf50;
+      color: white;
+    }
+    .progress-label {
+      font-size: 12px;
+      color: #999;
+      text-align: center;
+      max-width: 80px;
+      transition: color 0.3s;
+    }
+    .progress-step.active .progress-label {
+      color: #1a6f5e;
+      font-weight: 600;
+    }
+    .progress-connector {
+      position: absolute;
+      height: 2px;
+      background: #e0e8e5;
+      top: 20px;
+      left: 50%;
+      right: -50%;
+      z-index: -1;
+    }
+    .progress-step.completed .progress-connector {
+      background: #4caf50;
+    }
+    .progress-step:last-child .progress-connector {
+      display: none;
+    }
+
+    .step-content {
+      display: none;
+      animation: fadeIn 0.3s ease-in;
+    }
+    .step-content.active {
+      display: block;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
     .step-title {
-      font-size: 18px;
+      font-size: 24px;
       font-weight: 600;
       color: #333;
-      margin-bottom: 12px;
+      margin-bottom: 30px;
     }
-    .step-description {
-      color: #666;
+
+    .form-group {
+      margin-bottom: 25px;
+    }
+    .form-label {
+      display: block;
       font-size: 14px;
-      line-height: 1.6;
-      margin-bottom: 20px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 8px;
     }
-    .step-items {
-      text-align: left;
-      background: white;
-      padding: 15px;
+    .form-label .optional {
+      font-weight: 400;
+      color: #999;
+      font-size: 12px;
+    }
+    .form-label .required {
+      color: #d64545;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    input[type="color"],
+    input[type="file"],
+    select {
+      width: 100%;
+      padding: 12px 15px;
+      border: 1px solid #ddd;
       border-radius: 8px;
+      font-size: 14px;
+      font-family: inherit;
+      transition: border-color 0.3s;
+    }
+    input[type="text"]:focus,
+    input[type="number"]:focus,
+    input[type="color"]:focus,
+    select:focus {
+      outline: none;
+      border-color: #1a6f5e;
+      box-shadow: 0 0 0 3px rgba(26, 111, 94, 0.1);
+    }
+    input[type="file"] {
+      padding: 8px;
+    }
+
+    .color-swatches {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 15px;
+      flex-wrap: wrap;
+    }
+    .color-swatch {
+      width: 50px;
+      height: 50px;
+      border-radius: 8px;
+      border: 3px solid #ddd;
+      cursor: pointer;
+      transition: all 0.3s;
+      flex-shrink: 0;
+    }
+    .color-swatch:hover {
+      transform: scale(1.1);
+    }
+    .color-swatch.selected {
+      border-color: #1a6f5e;
+      box-shadow: 0 0 0 2px white, 0 0 0 5px #1a6f5e;
+    }
+
+    .color-preview {
+      width: 100%;
+      height: 8px;
+      background: #1a6f5e;
+      border-radius: 4px;
       margin-bottom: 20px;
+      transition: background 0.3s;
     }
-    .step-item {
-      font-size: 13px;
+
+    .section-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #1a6f5e;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 20px;
+      margin-top: 30px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #e0e8e5;
+    }
+    .section-title:first-child {
+      margin-top: 0;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+    }
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 15px;
+    }
+    @media (max-width: 600px) {
+      .grid-2, .grid-3 {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .tooltip-icon {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      background: #999;
+      color: white;
+      border-radius: 50%;
+      text-align: center;
+      line-height: 16px;
+      font-size: 12px;
+      font-weight: bold;
+      cursor: help;
+      margin-left: 5px;
+      position: relative;
+    }
+    .tooltip-icon:hover::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      bottom: 125%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #333;
+      color: white;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      white-space: nowrap;
+      z-index: 10;
+      font-weight: 400;
+    }
+
+    .products-list {
+      background: #f9fbfa;
+      border: 1px solid #e0e8e5;
+      border-radius: 8px;
+      padding: 20px;
+      margin-top: 20px;
+    }
+    .product-item {
+      padding: 12px 0;
+      border-bottom: 1px solid #e0e8e5;
+      font-size: 14px;
       color: #666;
-      padding: 8px 0;
-      border-bottom: 1px solid #f0f0f0;
     }
-    .step-item:last-child {
+    .product-item:last-child {
       border-bottom: none;
     }
-    .step-item:before {
+    .product-item:before {
       content: "✓ ";
       color: #4caf50;
       font-weight: bold;
       margin-right: 6px;
     }
-    .step-btn {
-      width: 100%;
-      padding: 12px 20px;
-      background: linear-gradient(135deg, #1a6f5e 0%, #0d3d35 100%);
-      color: white;
+
+    .manual-products {
+      background: #f9fbfa;
+      border: 1px solid #e0e8e5;
+      border-radius: 8px;
+      padding: 25px;
+      margin-top: 25px;
+    }
+    .manual-product {
+      background: white;
+      border: 1px solid #e0e8e5;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 15px;
+    }
+    .manual-product:last-child {
+      margin-bottom: 0;
+    }
+    .manual-product-num {
+      font-size: 12px;
+      font-weight: 600;
+      color: #1a6f5e;
+      text-transform: uppercase;
+      margin-bottom: 15px;
+    }
+    .btn-remove-product {
+      background: none;
+      border: none;
+      color: #d64545;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      text-transform: uppercase;
+      margin-top: 10px;
+      padding: 0;
+    }
+    .btn-remove-product:hover {
+      text-decoration: underline;
+    }
+
+    .step-actions {
+      display: flex;
+      gap: 15px;
+      margin-top: 40px;
+      justify-content: space-between;
+    }
+    .btn {
+      padding: 12px 24px;
       border: none;
       border-radius: 8px;
       font-size: 14px;
@@ -125,43 +339,68 @@
       transition: all 0.3s;
       text-transform: uppercase;
       letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
-    .step-btn:hover {
+    .btn-primary {
+      background: linear-gradient(135deg, #1a6f5e 0%, #0d3d35 100%);
+      color: white;
+      flex: 1;
+    }
+    .btn-primary:hover {
       transform: translateY(-2px);
       box-shadow: 0 8px 20px rgba(26,111,94,0.3);
     }
-    .step-btn.secondary {
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .btn-secondary {
+      background: white;
+      color: #1a6f5e;
+      border: 2px solid #1a6f5e;
+    }
+    .btn-secondary:hover {
+      background: #f9fbfa;
+    }
+    .btn-tertiary {
       background: #f5f5f5;
-      color: #333;
+      color: #666;
       border: 1px solid #ddd;
     }
-    .step-btn.secondary:hover {
+    .btn-tertiary:hover {
       background: #eeeeee;
     }
-    .step-completed {
-      opacity: 0.6;
-      position: relative;
-    }
-    .step-completed:after {
-      content: "✓ Concluído";
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      background: #4caf50;
-      color: white;
-      padding: 4px 8px;
-      border-radius: 4px;
+    .btn-small {
+      padding: 8px 16px;
       font-size: 12px;
-      font-weight: bold;
+      flex: none;
     }
+
+    .loading-spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
     .footer {
       text-align: center;
       padding-top: 30px;
+      margin-top: 40px;
       border-top: 1px solid #e0e8e5;
     }
     .footer-text {
       color: #999;
-      font-size: 14px;
+      font-size: 13px;
       margin-bottom: 15px;
     }
     .btn-skip {
@@ -169,138 +408,826 @@
       color: #1a6f5e;
       text-decoration: none;
       font-weight: 600;
-      font-size: 14px;
+      font-size: 13px;
       transition: color 0.3s;
     }
     .btn-skip:hover {
       color: #0d3d35;
     }
-    .progress-bar {
-      width: 100%;
-      height: 6px;
-      background: #e0e8e5;
-      border-radius: 3px;
-      margin-bottom: 40px;
-      overflow: hidden;
+
+    .summary-box {
+      background: linear-gradient(135deg, #f9fbfa 0%, #f5f3f0 100%);
+      border: 1px solid #e0e8e5;
+      border-radius: 12px;
+      padding: 25px;
+      text-align: center;
+      margin-bottom: 30px;
     }
-    .progress-fill {
-      height: 100%;
-      background: linear-gradient(90deg, #1a6f5e 0%, #0d3d35 100%);
-      border-radius: 3px;
-      transition: width 0.3s;
+    .summary-store-name {
+      font-size: 28px;
+      font-weight: 600;
+      color: #1a6f5e;
+      margin-bottom: 10px;
     }
-    .emoji {
-      font-size: 40px;
-      margin-bottom: 15px;
+    .summary-products {
+      font-size: 16px;
+      color: #666;
+      margin-bottom: 20px;
+    }
+
+    .error-message {
+      background: #fff3cd;
+      border: 1px solid #ffc107;
+      color: #856404;
+      padding: 12px 15px;
+      border-radius: 8px;
+      font-size: 13px;
+      margin-bottom: 20px;
+      display: none;
+    }
+    .error-message.show {
+      display: block;
+    }
+
+    .success-message {
+      background: #d4edda;
+      border: 1px solid #4caf50;
+      color: #155724;
+      padding: 12px 15px;
+      border-radius: 8px;
+      font-size: 13px;
+      margin-bottom: 20px;
+      display: none;
+    }
+    .success-message.show {
+      display: block;
+    }
+
+    .hidden {
+      display: none !important;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    
+
     <div class="header">
       <h1>👋 Bem-vinda ao EasyGestão</h1>
       <p>Sua loja está pronta. Vamos colocar ela no ar?</p>
-      <p class="subheader">Siga estes 2 passos simples para começar a vender</p>
     </div>
 
-    
-    <div class="progress-bar">
-      <div class="progress-fill" id="progressFill"></div>
-    </div>
-
-    
-    <div class="steps">
-      
-      <div class="step" id="step1">
-        <div class="emoji">📦</div>
-        <div class="step-number">1</div>
-        <div class="step-title">Cadastre 3 Produtos</div>
-        <div class="step-description">Comece com seus produtos mais vendidos</div>
-        <div class="step-items">
-          <div class="step-item">Nome e descrição</div>
-          <div class="step-item">Preço e estoque</div>
-          <div class="step-item">Foto (opcional)</div>
-        </div>
-        <button class="step-btn" onclick="irPara('produtos.html')">Cadastrar Produtos →</button>
+    <!-- Progress Indicators -->
+    <div class="progress-indicators">
+      <div class="progress-step active" data-step="1">
+        <div class="progress-circle">1</div>
+        <div class="progress-label">Identidade</div>
+        <div class="progress-connector"></div>
       </div>
-
-
-      <div class="step" id="step2">
-        <div class="emoji">🎉</div>
-        <div class="step-number">2</div>
-        <div class="step-title">Faça Primeira Venda</div>
-        <div class="step-description">Teste o sistema vendendo para você mesmo</div>
-        <div class="step-items">
-          <div class="step-item">Venda de teste no PDV</div>
-          <div class="step-item">Confirmar pagamento</div>
-          <div class="step-item">Ver no histórico</div>
-        </div>
-        <button class="step-btn" onclick="irPara('pdv.html')">Ir para PDV →</button>
+      <div class="progress-step" data-step="2">
+        <div class="progress-circle">2</div>
+        <div class="progress-label">Financeiro</div>
+        <div class="progress-connector"></div>
+      </div>
+      <div class="progress-step" data-step="3">
+        <div class="progress-circle">3</div>
+        <div class="progress-label">Produtos</div>
+        <div class="progress-connector"></div>
+      </div>
+      <div class="progress-step" data-step="4">
+        <div class="progress-circle">4</div>
+        <div class="progress-label">Pronto</div>
       </div>
     </div>
 
-    
+    <!-- Step 1: Identity -->
+    <div class="step-content active" data-step="1">
+      <div class="step-title">Identidade da sua loja</div>
+      <p style="color: #666; margin-bottom: 30px;">Configure como sua loja aparece aos clientes.</p>
+
+      <div class="error-message" id="error-step1"></div>
+
+      <div class="form-group">
+        <label class="form-label">Nome da loja <span class="required">*</span></label>
+        <input type="text" id="loja_nome" placeholder="ex: Boutique Maria" value="">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Cor da marca</label>
+        <div class="color-preview" id="colorPreview"></div>
+        <div class="color-swatches">
+          <div class="color-swatch selected" data-color="#1a6f5e" style="background: #1a6f5e;"></div>
+          <div class="color-swatch" data-color="#1e4c3e" style="background: #1e4c3e;"></div>
+          <div class="color-swatch" data-color="#8b3a3a" style="background: #8b3a3a;"></div>
+          <div class="color-swatch" data-color="#2d5a6f" style="background: #2d5a6f;"></div>
+          <div class="color-swatch" data-color="#5a4a8f" style="background: #5a4a8f;"></div>
+          <div class="color-swatch" data-color="#d4a574" style="background: #d4a574;"></div>
+        </div>
+        <div style="border-top: 1px solid #ddd; padding-top: 15px;">
+          <label class="form-label" style="margin-bottom: 8px;">Ou escolha uma cor personalizada</label>
+          <input type="color" id="marca_cor" value="#1a6f5e">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Logo da loja <span class="optional">(opcional)</span></label>
+        <input type="file" id="loja_logo" accept="image/png,image/jpeg,image/webp">
+        <p style="font-size: 12px; color: #999; margin-top: 8px;">PNG, JPG ou WEBP. Até 2MB.</p>
+      </div>
+
+      <div class="step-actions">
+        <button class="btn btn-primary" onclick="app.avancarPasso(1)">Salvar e continuar →</button>
+      </div>
+    </div>
+
+    <!-- Step 2: Financial -->
+    <div class="step-content" data-step="2">
+      <div class="step-title">Configuração financeira</div>
+      <p style="color: #666; margin-bottom: 30px;">Defina como o sistema calcula preços e impostos.</p>
+
+      <div class="error-message" id="error-step2"></div>
+
+      <div class="section-title">Precificação</div>
+
+      <div class="form-group">
+        <label class="form-label">Markup padrão <span class="required">*</span> <span class="tooltip-icon" data-tooltip="Multiplicador do custo. Ex: custo R$10, markup 2.5 = preço R$25">?</span></label>
+        <input type="number" id="markup" step="0.1" min="1" value="2.5" placeholder="2.5">
+      </div>
+
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Embalagem por peça (R$)</label>
+          <input type="number" id="embalagem_unit" step="0.01" min="0" value="0" placeholder="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Frete por peça (R$)</label>
+          <input type="number" id="frete_unit" step="0.01" min="0" value="0" placeholder="0">
+        </div>
+      </div>
+
+      <div class="section-title">Regime fiscal</div>
+
+      <div class="form-group">
+        <label class="form-label">Regime <span class="required">*</span></label>
+        <select id="regime_fiscal">
+          <option value="">Selecione...</option>
+          <option value="mei">MEI (Microempreendedor Individual)</option>
+          <option value="simples">Simples Nacional</option>
+        </select>
+      </div>
+
+      <div class="form-group hidden" id="grupo-imposto-simples">
+        <label class="form-label">Alíquota Simples Nacional (%) <span class="required">*</span></label>
+        <input type="number" id="imposto_simples" step="0.01" min="0" value="7.3" placeholder="7.3">
+        <p style="font-size: 12px; color: #999; margin-top: 8px;">Consulte sua alíquota em portal.sefaz.rs.gov.br</p>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Comissão padrão (%)</label>
+        <input type="number" id="comissao_padrao" step="0.1" min="0" value="0" placeholder="0">
+      </div>
+
+      <div class="section-title">Taxas de pagamento</div>
+      <p style="font-size: 13px; color: #666; margin-bottom: 20px;">Defina as taxas da sua maquininha para cálculo correto de margem.</p>
+
+      <div class="form-group">
+        <label class="form-label">Pix (%)</label>
+        <input type="number" id="taxa_pix" step="0.01" min="0" value="0" placeholder="0">
+      </div>
+
+      <div class="grid-3">
+        <div class="form-group">
+          <label class="form-label">Débito (%)</label>
+          <input type="number" id="taxa_debito" step="0.01" min="0" value="0" placeholder="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Crédito à vista (%)</label>
+          <input type="number" id="taxa_credito_vista" step="0.01" min="0" value="0" placeholder="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Até quantas parcelas? <span class="tooltip-icon" data-tooltip="A loja absorve taxa até essa parcela">?</span></label>
+          <input type="number" id="parcelas_loja_absorve" step="1" min="0" max="6" value="0" placeholder="0">
+        </div>
+      </div>
+
+      <p style="font-size: 13px; color: #666; margin: 20px 0; padding: 15px; background: #f9fbfa; border-radius: 8px;">
+        <strong>Taxas de parcelamento:</strong> As próximas linhas são para débito 2x a 6x. Deixe em branco se não oferece parcelamento.
+      </p>
+
+      <div class="grid-3">
+        <div class="form-group">
+          <label class="form-label">2x (%)</label>
+          <input type="number" id="taxa_credito_2x" step="0.01" min="0" value="0" placeholder="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">3x (%)</label>
+          <input type="number" id="taxa_credito_3x" step="0.01" min="0" value="0" placeholder="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">4x (%)</label>
+          <input type="number" id="taxa_credito_4x" step="0.01" min="0" value="0" placeholder="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">5x (%)</label>
+          <input type="number" id="taxa_credito_5x" step="0.01" min="0" value="0" placeholder="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">6x (%)</label>
+          <input type="number" id="taxa_credito_6x" step="0.01" min="0" value="0" placeholder="0">
+        </div>
+      </div>
+
+      <div class="step-actions">
+        <button class="btn btn-secondary" onclick="app.voltarPasso(2)">← Voltar</button>
+        <button class="btn btn-primary" onclick="app.avancarPasso(2)">Salvar e continuar →</button>
+      </div>
+    </div>
+
+    <!-- Step 3: Products -->
+    <div class="step-content" data-step="3">
+      <div class="step-title">Seus primeiros produtos</div>
+      <p style="color: #666; margin-bottom: 30px;">Escolha carregar exemplos ou cadastrar manualmente.</p>
+
+      <div class="error-message" id="error-step3"></div>
+
+      <div style="background: #e8f5e9; border: 2px solid #4caf50; border-radius: 12px; padding: 25px; text-align: center; margin-bottom: 30px;">
+        <div style="font-size: 24px; margin-bottom: 10px;">⚡</div>
+        <div style="font-size: 16px; font-weight: 600; color: #2e7d32; margin-bottom: 8px;">Forma mais rápida: Produtos de exemplo</div>
+        <p style="font-size: 14px; color: #558b2f; margin-bottom: 15px;">Carregamos 5 produtos + 2 clientes + 1 venda de exemplo. Perfeito pra conhecer o sistema.</p>
+        <button class="btn btn-primary" onclick="app.carregarDemoData()" id="btn-demo">
+          <span id="demo-text">Carregar produtos de exemplo</span>
+          <span id="demo-spinner" class="loading-spinner hidden"></span>
+        </button>
+      </div>
+
+      <div style="position: relative; margin-bottom: 30px;">
+        <div style="border-top: 2px solid #e0e8e5; position: absolute; width: 100%; top: 50%; transform: translateY(-1px);"></div>
+        <div style="position: relative; text-align: center; background: white;">
+          <span style="background: white; padding: 0 15px; color: #999; font-size: 13px; font-weight: 600;">OU</span>
+        </div>
+      </div>
+
+      <div style="background: #f9fbfa; border: 2px solid #e0e8e5; border-radius: 12px; padding: 25px;">
+        <div style="font-size: 16px; font-weight: 600; color: #333; margin-bottom: 8px;">Cadastrar seus próprios produtos</div>
+        <p style="font-size: 13px; color: #666; margin-bottom: 20px;">Você pode adicionar até 3 produtos agora e mais depois no menu.</p>
+
+        <div id="manual-products-container" class="manual-products hidden">
+          <!-- Produtos adicionados aparecem aqui -->
+        </div>
+
+        <button class="btn btn-secondary btn-small" onclick="app.adicionarProdutoManual()" id="btn-add-manual">
+          + Adicionar produto
+        </button>
+      </div>
+
+      <div class="step-actions">
+        <button class="btn btn-secondary" onclick="app.voltarPasso(3)">← Voltar</button>
+        <button class="btn btn-primary" onclick="app.avancarPasso(3)" id="btn-continuar-passo3">Continuar →</button>
+      </div>
+    </div>
+
+    <!-- Step 4: Ready -->
+    <div class="step-content" data-step="4">
+      <div class="step-title">Pronta para vender! 🎉</div>
+
+      <div class="summary-box">
+        <div class="summary-store-name" id="summary-name">Sua loja</div>
+        <div class="summary-products">
+          <span id="summary-products-count">0</span> produtos cadastrados e prontos para vender.
+        </div>
+      </div>
+
+      <div style="text-align: center; color: #666; margin-bottom: 40px;">
+        <p>A configuração da sua loja está concluída. Você pode ajustar tudo depois no menu de <strong>Configurações</strong>.</p>
+      </div>
+
+      <div class="step-actions" style="margin-top: 30px;">
+        <button class="btn btn-secondary" onclick="window.location.href='index.html'">Ver Dashboard →</button>
+        <button class="btn btn-primary" onclick="window.location.href='pdv.html'">Abrir PDV e vender →</button>
+      </div>
+    </div>
+
+    <!-- Footer -->
     <div class="footer">
-      <p class="footer-text">Pode pular esses passos e explorar a plataforma livremente</p>
+      <p class="footer-text">Pode pular tudo isso se preferir explorar livremente</p>
       <a href="index.html" class="btn-skip">Ir para Dashboard →</a>
     </div>
   </div>
 
   <script>
-    // Carregar progresso do localStorage
-    function carregarProgresso() {
-      const progresso = JSON.parse(localStorage.getItem('easygestion_onboarding_progress') || '{"step1": false, "step2": false}');
+    const app = {
+      currentStep: 1,
+      storeData: {},
+      manualProductsCount: 0,
 
-      // Marcar passos concluídos
-      if (progresso.step1) document.getElementById('step1').classList.add('step-completed');
-      if (progresso.step2) document.getElementById('step2').classList.add('step-completed');
+      async init() {
+        await this.carregarDados();
+        this.setupEventListeners();
+        this.restaurarPasso();
+      },
 
-      // Atualizar barra de progresso
-      const concluidos = [progresso.step1, progresso.step2].filter(Boolean).length;
-      document.getElementById('progressFill').style.width = (concluidos / 2 * 100) + '%';
+      async carregarDados() {
+        try {
+          // Carrega dados do usuário e config existente
+          const [meRes, configRes] = await Promise.all([
+            fetch('/api/me'),
+            fetch('/api/config')
+          ]);
 
-      // Se todos concluídos, redirecionar
-      if (concluidos === 2) {
-        setTimeout(() => {
-          localStorage.removeItem('easygestion_onboarding_progress');
-          localStorage.setItem('easygestion_onboarding_completo', '1');
-          window.location.href = 'index.html';
-        }, 1000);
-      }
-    }
+          if (!meRes.ok || !configRes.ok) throw new Error('Erro ao carregar dados');
 
-    function irPara(pagina) {
-      window.location.href = pagina;
-    }
+          const me = await meRes.json();
+          const config = await configRes.json();
 
-    // Ao voltar do cadastro de produtos/config/venda, marcar como completo
-    window.addEventListener('pageshow', (e) => {
-      // Se voltou de volta (history), recarregar progresso
-      if (e.persisted) {
-        carregarProgresso();
-      }
-    });
+          this.storeData = config;
 
-    // Carregar progresso ao entrar
-    carregarProgresso();
+          // Pré-preenche nome da loja
+          if (me.usuario) {
+            document.getElementById('loja_nome').value = me.usuario;
+          }
 
-    // Interceptar navegação para produtos.html
-    // Quando voltar de produtos.html, marcar step1 como completo
-    const beforeUnload = () => {
-      if (location.href.includes('produtos.html')) {
-        let progresso = JSON.parse(localStorage.getItem('easygestion_onboarding_progress') || '{"step1": false, "step2": false}');
-        progresso.step1 = true;
-        localStorage.setItem('easygestion_onboarding_progress', JSON.stringify(progresso));
+          // Restaura valores salvos
+          this.restaurarValores();
+
+          // Se onboarding já concluído, redireciona
+          if (this.storeData.onboarding_completo === '1') {
+            window.location.href = 'index.html';
+          }
+        } catch (e) {
+          console.error('Erro ao carregar dados:', e);
+        }
+      },
+
+      restaurarValores() {
+        const campos = [
+          'loja_nome', 'marca_cor', 'markup', 'embalagem_unit', 'frete_unit',
+          'regime_fiscal', 'imposto_simples', 'comissao_padrao',
+          'taxa_pix', 'taxa_debito', 'taxa_credito_vista', 'taxa_credito_2x',
+          'taxa_credito_3x', 'taxa_credito_4x', 'taxa_credito_5x', 'taxa_credito_6x',
+          'parcelas_loja_absorve'
+        ];
+
+        campos.forEach(campo => {
+          const el = document.getElementById(campo);
+          if (el && this.storeData[campo]) {
+            el.value = this.storeData[campo];
+          }
+        });
+
+        // Restaura cor
+        if (this.storeData.marca_cor) {
+          const cor = this.storeData.marca_cor;
+          document.getElementById('marca_cor').value = cor;
+          document.getElementById('colorPreview').style.background = cor;
+          document.querySelectorAll('.color-swatch').forEach(el => {
+            if (el.dataset.color === cor) {
+              el.classList.add('selected');
+            } else {
+              el.classList.remove('selected');
+            }
+          });
+        }
+
+        // Mostra/esconde campo de imposto conforme regime
+        this.atualizarVisibilidadeImposto();
+      },
+
+      restaurarPasso() {
+        const passo = parseInt(this.storeData.onboarding_step || '1');
+        this.irParaPasso(passo);
+      },
+
+      setupEventListeners() {
+        // Color swatches
+        document.querySelectorAll('.color-swatch').forEach(el => {
+          el.addEventListener('click', () => {
+            const cor = el.dataset.color;
+            document.getElementById('marca_cor').value = cor;
+            this.atualizarCorPreview(cor);
+          });
+        });
+
+        // Color input
+        document.getElementById('marca_cor').addEventListener('change', (e) => {
+          this.atualizarCorPreview(e.target.value);
+        });
+
+        // Regime fiscal
+        document.getElementById('regime_fiscal').addEventListener('change', () => {
+          this.atualizarVisibilidadeImposto();
+        });
+
+        // Logo file
+        document.getElementById('loja_logo').addEventListener('change', (e) => {
+          const file = e.target.files[0];
+          if (file && file.size > 2 * 1024 * 1024) {
+            this.mostrarErro('step1', 'Arquivo muito grande. Máximo 2MB.');
+            e.target.value = '';
+          }
+        });
+      },
+
+      atualizarCorPreview(cor) {
+        document.getElementById('colorPreview').style.background = cor;
+        document.querySelectorAll('.color-swatch').forEach(el => {
+          if (el.dataset.color === cor) {
+            el.classList.add('selected');
+          } else {
+            el.classList.remove('selected');
+          }
+        });
+      },
+
+      atualizarVisibilidadeImposto() {
+        const regime = document.getElementById('regime_fiscal').value;
+        const grupo = document.getElementById('grupo-imposto-simples');
+        if (regime === 'simples') {
+          grupo.classList.remove('hidden');
+        } else {
+          grupo.classList.add('hidden');
+        }
+      },
+
+      irParaPasso(numero) {
+        this.currentStep = numero;
+
+        // Atualiza UI de passos
+        document.querySelectorAll('.step-content').forEach(el => {
+          el.classList.remove('active');
+        });
+        document.querySelector(`[data-step="${numero}"].step-content`).classList.add('active');
+
+        // Atualiza indicadores de progresso
+        document.querySelectorAll('.progress-step').forEach(el => {
+          const step = parseInt(el.dataset.step);
+          el.classList.remove('active', 'completed');
+          if (step === numero) {
+            el.classList.add('active');
+          } else if (step < numero) {
+            el.classList.add('completed');
+          }
+        });
+
+        // Se chegou no passo 4, carregar contagem de produtos
+        if (numero === 4) {
+          this.atualizarSumario();
+        }
+
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      },
+
+      voltarPasso(numeroAtual) {
+        this.irParaPasso(numeroAtual - 1);
+      },
+
+      async avancarPasso(numeroAtual) {
+        const erros = this.validarPasso(numeroAtual);
+        if (erros.length > 0) {
+          this.mostrarErro(`step${numeroAtual}`, erros.join('\n'));
+          return;
+        }
+
+        this.limparErro(`step${numeroAtual}`);
+
+        try {
+          if (numeroAtual === 1) {
+            await this.salvarPasso1();
+          } else if (numeroAtual === 2) {
+            await this.salvarPasso2();
+          } else if (numeroAtual === 3) {
+            await this.salvarPasso3();
+          }
+
+          this.irParaPasso(numeroAtual + 1);
+        } catch (e) {
+          this.mostrarErro(`step${numeroAtual}`, e.message);
+        }
+      },
+
+      validarPasso(numero) {
+        const erros = [];
+
+        if (numero === 1) {
+          const nome = document.getElementById('loja_nome').value.trim();
+          if (!nome) erros.push('Nome da loja é obrigatório');
+        }
+
+        if (numero === 2) {
+          const markup = parseFloat(document.getElementById('markup').value);
+          if (!markup || markup < 1) erros.push('Markup deve ser maior que 1');
+
+          const regime = document.getElementById('regime_fiscal').value;
+          if (!regime) erros.push('Selecione um regime fiscal');
+
+          if (regime === 'simples') {
+            const imposto = parseFloat(document.getElementById('imposto_simples').value);
+            if (!imposto || imposto < 0) erros.push('Alíquota Simples deve ser um valor válido');
+          }
+        }
+
+        if (numero === 3) {
+          // Passo 3: validar se tem produtos
+          // A validação real acontece antes de avançar
+        }
+
+        return erros;
+      },
+
+      async salvarPasso1() {
+        const nome = document.getElementById('loja_nome').value.trim();
+        const cor = document.getElementById('marca_cor').value;
+        const logoFile = document.getElementById('loja_logo').files[0];
+
+        const payload = {
+          loja_nome: nome,
+          marca_cor: cor,
+          onboarding_step: '1'
+        };
+
+        const res = await fetch('/api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) throw new Error('Erro ao salvar dados da loja');
+
+        // Upload de logo se tiver
+        if (logoFile) {
+          const reader = new FileReader();
+          reader.onload = async (e) => {
+            const base64 = e.target.result;
+            await fetch('/api/config/logo', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ logo: base64 })
+            });
+          };
+          reader.readAsDataURL(logoFile);
+        }
+
+        this.storeData = { ...this.storeData, ...payload };
+      },
+
+      async salvarPasso2() {
+        const payload = {
+          markup: document.getElementById('markup').value,
+          embalagem_unit: document.getElementById('embalagem_unit').value || '0',
+          frete_unit: document.getElementById('frete_unit').value || '0',
+          regime_fiscal: document.getElementById('regime_fiscal').value,
+          imposto_simples: document.getElementById('imposto_simples').value || '0',
+          comissao_padrao: document.getElementById('comissao_padrao').value || '0',
+          taxa_pix: document.getElementById('taxa_pix').value || '0',
+          taxa_debito: document.getElementById('taxa_debito').value || '0',
+          taxa_credito_vista: document.getElementById('taxa_credito_vista').value || '0',
+          taxa_credito_2x: document.getElementById('taxa_credito_2x').value || '0',
+          taxa_credito_3x: document.getElementById('taxa_credito_3x').value || '0',
+          taxa_credito_4x: document.getElementById('taxa_credito_4x').value || '0',
+          taxa_credito_5x: document.getElementById('taxa_credito_5x').value || '0',
+          taxa_credito_6x: document.getElementById('taxa_credito_6x').value || '0',
+          parcelas_loja_absorve: document.getElementById('parcelas_loja_absorve').value || '0',
+          onboarding_step: '2'
+        };
+
+        const res = await fetch('/api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) throw new Error('Erro ao salvar configuração financeira');
+
+        this.storeData = { ...this.storeData, ...payload };
+      },
+
+      async salvarPasso3() {
+        // Salvar apenas que completou o passo 3
+        // Os produtos já foram salvos individualmente
+        const payload = { onboarding_step: '3' };
+
+        const res = await fetch('/api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) throw new Error('Erro ao salvar progresso');
+
+        this.storeData = { ...this.storeData, ...payload };
+      },
+
+      async carregarDemoData() {
+        const btn = document.getElementById('btn-demo');
+        const spinner = document.getElementById('demo-spinner');
+        const text = document.getElementById('demo-text');
+
+        btn.disabled = true;
+        spinner.classList.remove('hidden');
+        text.textContent = 'Carregando...';
+
+        try {
+          const res = await fetch('/api/onboarding/demo-data', {
+            method: 'POST'
+          });
+
+          if (!res.ok) {
+            const data = await res.json();
+            throw new Error(data.erro || 'Erro ao carregar dados de exemplo');
+          }
+
+          // Aguarda um pouco e avança
+          await new Promise(r => setTimeout(r, 1500));
+
+          // Salva passo 3 e avança
+          await this.salvarPasso3();
+          this.irParaPasso(4);
+        } catch (e) {
+          this.mostrarErro('step3', e.message);
+          btn.disabled = false;
+          spinner.classList.add('hidden');
+          text.textContent = 'Carregar produtos de exemplo';
+        }
+      },
+
+      adicionarProdutoManual() {
+        const container = document.getElementById('manual-products-container');
+        if (container.classList.contains('hidden')) {
+          container.classList.remove('hidden');
+        }
+
+        const index = ++this.manualProductsCount;
+        const html = `
+          <div class="manual-product" data-product-index="${index}">
+            <div class="manual-product-num">Produto ${index}</div>
+            <div class="grid-2">
+              <div class="form-group">
+                <label class="form-label">Nome <span class="required">*</span></label>
+                <input type="text" class="product-nome" placeholder="ex: Blusa branca">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Preço (R$) <span class="required">*</span></label>
+                <input type="number" class="product-preco" step="0.01" placeholder="0.00">
+              </div>
+            </div>
+            <div class="grid-2">
+              <div class="form-group">
+                <label class="form-label">Tamanho <span class="required">*</span></label>
+                <input type="text" class="product-tamanho" placeholder="ex: M">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Quantidade <span class="required">*</span></label>
+                <input type="number" class="product-quantidade" step="1" min="1" placeholder="1">
+              </div>
+            </div>
+            <button type="button" class="btn-remove-product" onclick="app.removerProdutoManual(${index})">
+              ✕ Remover
+            </button>
+          </div>
+        `;
+
+        container.insertAdjacentHTML('beforeend', html);
+
+        // Limita a 3 produtos
+        const produtosAdicionados = container.querySelectorAll('.manual-product').length;
+        const btnAdd = document.getElementById('btn-add-manual');
+        if (produtosAdicionados >= 3) {
+          btnAdd.disabled = true;
+        }
+      },
+
+      removerProdutoManual(index) {
+        const el = document.querySelector(`[data-product-index="${index}"]`);
+        el?.remove();
+
+        const container = document.getElementById('manual-products-container');
+        const produtosAdicionados = container.querySelectorAll('.manual-product').length;
+        if (produtosAdicionados === 0) {
+          container.classList.add('hidden');
+        }
+
+        const btnAdd = document.getElementById('btn-add-manual');
+        if (produtosAdicionados < 3) {
+          btnAdd.disabled = false;
+        }
+      },
+
+      async salvarProdutoManual(element) {
+        const nome = element.querySelector('.product-nome').value.trim();
+        const preco = parseFloat(element.querySelector('.product-preco').value);
+        const tamanho = element.querySelector('.product-tamanho').value.trim();
+        const quantidade = parseInt(element.querySelector('.product-quantidade').value);
+
+        if (!nome || !preco || !tamanho || !quantidade) {
+          throw new Error('Preencha todos os campos do produto');
+        }
+
+        const payload = {
+          nome,
+          preco_venda: preco,
+          tamanho,
+          quantidade
+        };
+
+        const res = await fetch('/api/produtos/rapido', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) throw new Error('Erro ao salvar produto');
+      },
+
+      async avancarPasso(numeroAtual) {
+        const erros = this.validarPasso(numeroAtual);
+        if (erros.length > 0) {
+          this.mostrarErro(`step${numeroAtual}`, erros.join('\n'));
+          return;
+        }
+
+        this.limparErro(`step${numeroAtual}`);
+
+        try {
+          if (numeroAtual === 1) {
+            await this.salvarPasso1();
+          } else if (numeroAtual === 2) {
+            await this.salvarPasso2();
+          } else if (numeroAtual === 3) {
+            // Se tem produtos manuais, salva eles
+            const container = document.getElementById('manual-products-container');
+            const produtosAdicionados = container.querySelectorAll('.manual-product');
+
+            for (const el of produtosAdicionados) {
+              await this.salvarProdutoManual(el);
+            }
+
+            // Verifica se tem produtos
+            const configRes = await fetch('/api/config');
+            const config = await configRes.json();
+
+            const prodRes = await fetch('/api/produtos');
+            if (!prodRes.ok) throw new Error('Erro ao verificar produtos');
+
+            const produtos = await prodRes.json();
+            if (!Array.isArray(produtos) || produtos.length === 0) {
+              throw new Error('Você precisa ter pelo menos 1 produto para continuar');
+            }
+
+            await this.salvarPasso3();
+          }
+
+          this.irParaPasso(numeroAtual + 1);
+        } catch (e) {
+          this.mostrarErro(`step${numeroAtual}`, e.message);
+        }
+      },
+
+      async atualizarSumario() {
+        try {
+          const [meRes, prodRes] = await Promise.all([
+            fetch('/api/me'),
+            fetch('/api/produtos')
+          ]);
+
+          if (meRes.ok) {
+            const me = await meRes.json();
+            document.getElementById('summary-name').textContent = me.usuario || 'Sua loja';
+          }
+
+          if (prodRes.ok) {
+            const produtos = await prodRes.json();
+            const count = Array.isArray(produtos) ? produtos.length : 0;
+            document.getElementById('summary-products-count').textContent = count;
+          }
+
+          // Marca onboarding como completo
+          await fetch('/api/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ onboarding_completo: '1' })
+          });
+        } catch (e) {
+          console.error('Erro ao atualizar sumário:', e);
+        }
+      },
+
+      mostrarErro(stepId, mensagem) {
+        const el = document.getElementById(`error-${stepId}`);
+        if (el) {
+          el.textContent = mensagem;
+          el.classList.add('show');
+        }
+      },
+
+      limparErro(stepId) {
+        const el = document.getElementById(`error-${stepId}`);
+        if (el) {
+          el.classList.remove('show');
+          el.textContent = '';
+        }
       }
     };
 
-    // Monitorar quando a aba ganha foco novamente (voltou de produtos.html)
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden) {
-        carregarProgresso();
-      }
-    });
+    // Inicia quando a página carrega
+    document.addEventListener('DOMContentLoaded', () => app.init());
   </script>
 </body>
 </html>
