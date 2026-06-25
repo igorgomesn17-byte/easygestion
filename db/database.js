@@ -14,19 +14,27 @@ const { DatabaseSync } = require('node:sqlite');
 const DB_DIR = process.env.DB_DIR || __dirname;
 if (!fs.existsSync(DB_DIR)) fs.mkdirSync(DB_DIR, { recursive: true });
 const DB_PATH = path.join(DB_DIR, 'dsstore.db');
-const SCHEMA_PATH = path.join(__dirname, 'schema.sql'); // schema sempre vem do código
+const SCHEMA_PATH = path.join(__dirname, 'schema.sql');
 
-// PROTEÇÃO: se o banco não existe, cria; se existe, NUNCA deleta dados
-const bankExists = fs.existsSync(DB_PATH) && fs.statSync(DB_PATH).size > 100; // arquivo real, não vazio
+// PROTEÇÃO CRÍTICA: verificar ANTES de abrir (DatabaseSync cria arquivo vazio!)
+const bankExistedBefore = fs.existsSync(DB_PATH) && fs.statSync(DB_PATH).size > 100;
+
+// Fazer backup se banco existir (segurança extra)
+if (bankExistedBefore && !process.env.SKIP_BACKUP) {
+  const backup = DB_PATH + '.backup-' + new Date().getTime();
+  fs.copyFileSync(DB_PATH, backup);
+  console.log(`💾 Backup criado: ${backup}`);
+}
+
 const raw = new DatabaseSync(DB_PATH);
 raw.exec('PRAGMA journal_mode = WAL;');
 raw.exec('PRAGMA foreign_keys = ON;');
 
-// Executa o schema (CREATE TABLE IF NOT EXISTS - seguro rodar SEMPRE)
-// Isso apenas CRIA se não existir — não deleta nada em bancos existentes
+// Executa schema (CREATE TABLE IF NOT EXISTS é idempotente e seguro)
 const schema = fs.readFileSync(SCHEMA_PATH, 'utf8');
 raw.exec(schema);
-if (!bankExists) {
+
+if (!bankExistedBefore) {
   console.log(`✅ Novo banco criado em ${DB_PATH}`);
 }
 
@@ -35,13 +43,13 @@ const { executarMigrations } = require('./migrations');
 executarMigrations(raw);
 
 // Agora sim, banco tá pronto — mostrar status
-if (bankExists) {
+if (bankExistedBefore) {
   const tabelas = raw.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(t => t.name);
   try {
     const vendas = raw.prepare('SELECT COUNT(*) as cnt FROM vendas').get().cnt;
-    console.log(`✅ Banco existente mantido (${tabelas.length} tabelas, ${vendas} vendas)`);
+    console.log(`✅ Banco existente PRESERVADO (${tabelas.length} tabelas, ${vendas} vendas)`);
   } catch (e) {
-    console.log(`✅ Banco existente mantido (${tabelas.length} tabelas)`);
+    console.log(`✅ Banco existente PRESERVADO (${tabelas.length} tabelas)`);
   }
 }
 
