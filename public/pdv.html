@@ -768,7 +768,7 @@
           valor: +(parseFloat(l.valor)||0).toFixed(2)
         }));
       } else {
-        if (formaSel) { toast('Escolha a forma de pagamento','erro'); return; }
+        if (!formaSel) { toast('Escolha a forma de pagamento','erro'); return; }
         venda.forma_pagamento = formaSel;
         venda.parcelas = formaSel === 'credito_parcelado' ? parseInt(document.getElementById('parcelas').value) : 1;
         // 4x+: informa se repassa a taxa (default) ou a loja absorve (exceção)
