@@ -9,10 +9,20 @@ const { hashSenha, verificarSenha, validarSenha, validarNaoReutilizada, limiteFo
 const jwt = require('jsonwebtoken');
 const { enviarEmail, templateResetSenha } = require('../lib/email');
 
-const TOKEN_SECRET = process.env.TOKEN_SECRET || (process.env.NODE_ENV !== 'production' ? 'dev-secret' : null);
+// ✅ CRÍTICO: TOKEN_SECRET é obrigatório em produção (sem fallback)
+const TOKEN_SECRET = process.env.TOKEN_SECRET || (process.env.NODE_ENV !== 'production' ? 'dev-secret-change-in-env' : null);
 
-if (!TOKEN_SECRET && process.env.NODE_ENV === 'production') {
-  throw new Error('TOKEN_SECRET não configurado em produção! Defina a variável de ambiente TOKEN_SECRET.');
+if (!TOKEN_SECRET) {
+  console.error(`
+❌ ERRO CRÍTICO: TOKEN_SECRET não está configurado!
+
+Em ${process.env.NODE_ENV || 'unknown'} mode, você DEVE definir:
+  export TOKEN_SECRET="<string-aleatória-de-32-caracteres>"
+
+Gere com:
+  node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+`);
+  process.exit(1);
 }
 
 // Validação de email (RFC 5322 simplificado)

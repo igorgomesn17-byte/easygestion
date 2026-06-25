@@ -3,13 +3,25 @@ const { execSync } = require('child_process');
 const router = express.Router();
 
 // ⚠️ WEBHOOK DE DEPLOY - Requer token secreto
+// ✅ CRÍTICO: DEPLOY_TOKEN é obrigatório (sem fallback padrão)
 router.post('/webhook', (req, res) => {
   const token = req.body.token || req.headers['x-deploy-token'];
-  const secretToken = process.env.DEPLOY_TOKEN || (process.env.NODE_ENV !== 'production' ? 'seu-token-secreto-aqui' : null);
+  const secretToken = process.env.DEPLOY_TOKEN || (process.env.NODE_ENV !== 'production' ? null : null);
 
-  // Validação em produção
-  if (!secretToken && process.env.NODE_ENV === 'production') {
-    console.error('[DEPLOY] ERRO: DEPLOY_TOKEN não configurado em produção!');
+  // Validação: DEPLOY_TOKEN obrigatório sempre
+  if (!secretToken) {
+    console.error('[DEPLOY] ERRO: DEPLOY_TOKEN não configurado!');
+    console.error(`
+❌ ERRO CRÍTICO: Webhook de deploy está desabilitado!
+
+Você DEVE definir:
+  export DEPLOY_TOKEN="<string-aleatória-de-32-caracteres>"
+
+Gere com:
+  node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+
+Sem isso, ninguém consegue disparar deploys (proteção contra RCE).
+`);
     return res.status(500).json({ erro: 'Deploy não configurado' });
   }
 

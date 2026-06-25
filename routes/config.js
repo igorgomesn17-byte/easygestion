@@ -91,10 +91,20 @@ router.delete('/logo', apenasAdmin, (req, res) => {
 
 // ---------- Certificado A1 ----------
 // Chave mestra para criptografia de certificados (deve ser derivada de .env ou secret)
-const CERT_CIPHER = process.env.CERT_CIPHER_KEY || (process.env.NODE_ENV !== 'production' ? 'change-this-secret-key-in-env' : null);
+const CERT_CIPHER = process.env.CERT_CIPHER_KEY || (process.env.NODE_ENV !== 'production' ? 'change-this-secret-key-in-env-dev' : null);
 
-if (!CERT_CIPHER && process.env.NODE_ENV === 'production') {
-  throw new Error('CERT_CIPHER_KEY não configurado em produção! Defina a variável de ambiente CERT_CIPHER_KEY.');
+// ✅ CRÍTICO: CERT_CIPHER_KEY é obrigatório em produção (sem fallback)
+if (!CERT_CIPHER) {
+  console.error(`
+❌ ERRO CRÍTICO: CERT_CIPHER_KEY não está configurado!
+
+Em ${process.env.NODE_ENV || 'unknown'} mode, você DEVE definir:
+  export CERT_CIPHER_KEY="<string-aleatória-de-32-caracteres>"
+
+Gere com:
+  node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+`);
+  process.exit(1);
 }
 
 function criptografarCertificado(buffer) {

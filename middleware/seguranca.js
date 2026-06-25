@@ -211,7 +211,7 @@ const limiteAdminPassword = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { erro: 'Muitas tentativas de login admin. Aguarde 15 minutos.' },
-  skip: (req, res) => false, // Não pular nenhuma requisição
+  skip: (req, res) => false,   // ✅ ATIVADO: protege contra brute force
   keyGenerator: ipKeyGenerator // Use IPv6-safe helper
 });
 
