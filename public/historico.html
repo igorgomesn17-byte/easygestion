@@ -48,7 +48,8 @@
         if (de && ate) url += '&';
         if (ate) url += 'ate=' + ate;
       }
-      dados = await api(url);
+      const resp = await api(url);
+      dados = resp.vendas || [];
       render();
     }
 
