@@ -3,8 +3,11 @@ node_modules/
 .env.local
 .env.*.local
 db/dsstore.db
+db/*.db
 db/*.db-shm
 db/*.db-wal
+easygestion.db
+easygestion-data/
 uploads/
 data/
 *.log
