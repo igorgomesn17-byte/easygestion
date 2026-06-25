@@ -5,6 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Histórico de Vendas • DS Store</title>
   <link rel="stylesheet" href="css/ds.css">
+  <style>
+    .tabela-vendas { width: 100%; border-collapse: collapse; margin-top: 16px; }
+    .tabela-vendas thead { background: var(--surface-2); font-weight: 600; font-size: 0.9rem; }
+    .tabela-vendas th, .tabela-vendas td { padding: 12px 8px; text-align: left; border-bottom: 1px solid var(--surface-2); }
+    .tabela-vendas tbody tr { cursor: pointer; transition: background 0.2s; }
+    .tabela-vendas tbody tr:hover { background: var(--surface-2); }
+    .tabela-vendas .num { text-align: center; font-weight: 600; }
+    .tabela-vendas .moeda { text-align: right; font-weight: 600; color: #27ae60; }
+  </style>
 </head>
 <body>
   <div class="conteudo">
@@ -21,10 +30,22 @@
       </div>
     </div>
 
-    <div id="lista"></div>
+    <table class="tabela-vendas" id="tabela">
+      <thead>
+        <tr>
+          <th style="width:12%;">DATA</th>
+          <th style="width:20%;">CLIENTE</th>
+          <th style="width:15%;">VENDEDOR</th>
+          <th style="width:15%;">PAGAMENTO</th>
+          <th style="width:12%;" class="moeda">TOTAL</th>
+          <th style="width:12%;" class="moeda">LUCRO</th>
+          <th style="width:4%;">›</th>
+        </tr>
+      </thead>
+      <tbody id="lista"></tbody>
+    </table>
   </div>
 
-  
   <div class="modal-fundo" id="modalVenda">
     <div class="modal">
       <button class="modal-fechar" onclick="fecharModal()">&times;</button>
@@ -57,31 +78,28 @@
       const b = document.getElementById('busca').value.toLowerCase();
       const arr = dados.filter(v => !b || (v.cliente_nome && v.cliente_nome.toLowerCase().includes(b)));
       const div = document.getElementById('lista');
-      if (arr.length === 0) { div.innerHTML = '<div class="vazio">Nenhuma venda encontrada.</div>'; return; }
+      if (arr.length === 0) {
+        div.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:32px;">Nenhuma venda encontrada.</td></tr>';
+        return;
+      }
       div.innerHTML = arr.map(v => `
-        <div class="card" style="cursor:pointer; transition:background 0.2s;" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='var(--surface)'" onclick="verDetalhes(${v.id})">
-          <div class="flex-entre">
-            <div>
-              <strong>#${v.id}</strong> ${v.cliente_nome ? '• ' + esc(v.cliente_nome) : '• Cliente não cadastrado'}
-              <div class="texto-cinza" style="font-size:0.85rem;">
-                ${v.data_hora.slice(0,10).split('-').reverse().join('/')} às ${v.data_hora.slice(11,16)}</div>
-            </div>
-            <div class="direita">
-              <div style="font-weight:700;">${moeda(v.total)}</div>
-              <div class="texto-cinza" style="font-size:0.8rem;">${v.num_itens} item(ns)</div>
-            </div>
-          </div>
-        </div>`).join('');
+        <tr onclick="verDetalhes(${v.id})">
+          <td>${v.data_hora.slice(0,10).split('-').reverse().join('/')}<br><span class="texto-cinza" style="font-size:0.85rem;">${v.data_hora.slice(11,16)}</span></td>
+          <td>${v.cliente_nome ? esc(v.cliente_nome) : '<em>não cadastrado</em>'}</td>
+          <td>${v.vendedor_nome ? esc(v.vendedor_nome) : '—'}</td>
+          <td>${rotuloPagamento(v.forma_pagamento)}</td>
+          <td class="moeda">${moeda(v.total)}</td>
+          <td class="moeda">${moeda(v.lucro)}</td>
+          <td class="num">›</td>
+        </tr>`).join('');
     }
 
-    let vendaAtualId = null;
     async function verDetalhes(id) {
-      vendaAtualId = id;
       const v = await api('/vendas/' + id);
       document.getElementById('vendaTitulo').textContent = `Venda #${v.id}`;
       const itens = v.itens ? v.itens.map(i => `<div class="linha" style="padding:8px 0; border-bottom:1px solid #EEE;">
         <div>${i.qtd}x ${esc(i.descricao)}</div>
-        <strong>${moeda(i.preco_unitario)}</strong>
+        <strong>${moeda(i.preco_unit)}</strong>
       </div>`).join('') : '';
       document.getElementById('vendaDetalhes').innerHTML = `
         <div class="card" style="box-shadow:none; border:none; padding:0; margin-bottom:12px;">
@@ -126,7 +144,7 @@
       const linhas = dados.map(v => ({
         ID: v.id, Cliente: v.cliente_nome||'', Data: v.data_hora.slice(0,10),
         Hora: v.data_hora.slice(11,16), Pagamento: v.forma_pagamento,
-        Subtotal: v.subtotal||v.total, Desconto: v.desconto||0, Total: v.total
+        Subtotal: v.subtotal||v.total, Desconto: v.desconto||0, Total: v.total, Lucro: v.lucro
       }));
       exportarCSV('historico-vendas-' + hojeLocalStr(), linhas);
     }
