@@ -399,16 +399,42 @@
     function mudarQtd(idx, delta) {
       const i = carrinho[idx];
       const nova = i.qtd + delta;
-      if (nova <= 0) carrinho.splice(idx, 1);
-      else if (nova > i.estoque) { toast('Estoque insuficiente', 'erro'); return; }
-      else i.qtd = nova;
+      if (nova <= 0) {
+        carrinho.splice(idx, 1);
+      } else if (nova > i.estoque) {
+        toast('Estoque insuficiente', 'erro');
+        return;
+      } else if (nova < 0) {
+        toast('Quantidade não pode ser negativa', 'erro');
+        return;
+      } else {
+        i.qtd = nova;
+      }
       renderCarrinho();
     }
 
     function calcDescontoReais() {
       const subtotal = carrinho.reduce((s, i) => s + i.preco * i.qtd, 0);
-      const val = parseFloat(document.getElementById('desconto').value) || 0;
+      let val = parseFloat(document.getElementById('desconto').value) || 0;
       const tipo = document.getElementById('tipoDesc').value;
+
+      // Validar desconto
+      if (val < 0) {
+        toast('Desconto não pode ser negativo', 'erro');
+        document.getElementById('desconto').value = '0';
+        return 0;
+      }
+      if (tipo === 'pct' && val > 100) {
+        toast('Desconto em % não pode ser maior que 100%', 'erro');
+        document.getElementById('desconto').value = '100';
+        val = 100;
+      }
+      if (tipo === 'reais' && val > subtotal) {
+        toast('Desconto não pode ser maior que o subtotal', 'erro');
+        document.getElementById('desconto').value = subtotal.toFixed(2);
+        val = subtotal;
+      }
+
       return tipo === 'pct' ? +(subtotal * val / 100).toFixed(2) : val;
     }
     // Repassar a taxa ao cliente (4x+)? default marcado; você desmarca pra absorver.
