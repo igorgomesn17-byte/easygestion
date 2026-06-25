@@ -13,19 +13,21 @@ jobs:
       uses: actions/checkout@v3
 
     - name: 🔑 Configurar SSH
-      uses: webfactory/ssh-agent@v0.8.0
-      with:
-        ssh-private-key: ${{ secrets.DEPLOY_PRIVATE_KEY }}
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.DEPLOY_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+        chmod 600 ~/.ssh/deploy_key
+        ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
 
     - name: 📦 Clonar/atualizar repositório na EC2
       run: |
-        ssh -o StrictHostKeyChecking=no ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} << 'EOF'
-        if [ ! -d ~/EASYGESTION ]; then
+        ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} << 'EOF'
+        if [ ! -d ~/easygestion ]; then
           echo "📥 Clonando repositório..."
-          git clone https://github.com/igorgomesn17-byte/easygestion.git ~/EASYGESTION
+          git clone https://github.com/igorgomesn17-byte/easygestion.git ~/easygestion
         else
           echo "🔄 Atualizando repositório..."
-          cd ~/EASYGESTION
+          cd ~/easygestion
           git fetch origin
           git reset --hard origin/main
         fi
@@ -33,24 +35,24 @@ jobs:
 
     - name: 📚 Instalar dependências
       run: |
-        ssh -o StrictHostKeyChecking=no ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} << 'EOF'
-        cd ~/EASYGESTION
+        ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} << 'EOF'
+        cd ~/easygestion
         echo "📚 Instalando dependências com npm ci..."
         npm ci
         EOF
 
     - name: 🧪 Rodar testes
       run: |
-        ssh -o StrictHostKeyChecking=no ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} << 'EOF'
-        cd ~/EASYGESTION
+        ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} << 'EOF'
+        cd ~/easygestion
         echo "🧪 Rodando golden path tests..."
         timeout 30 npm test || echo "⚠️ Testes podem falhar em CI - verificar manualmente"
         EOF
 
     - name: 🔄 Executar migrações (se houver)
       run: |
-        ssh -o StrictHostKeyChecking=no ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} << 'EOF'
-        cd ~/EASYGESTION
+        ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} << 'EOF'
+        cd ~/easygestion
         if [ -f scripts/executar-migracao.js ]; then
           echo "🗄️ Executando migrações..."
           node scripts/executar-migracao.js
@@ -59,8 +61,8 @@ jobs:
 
     - name: 🚀 Reiniciar aplicação com PM2
       run: |
-        ssh -o StrictHostKeyChecking=no ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} << 'EOF'
-        cd ~/EASYGESTION
+        ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} << 'EOF'
+        cd ~/easygestion
         echo "🚀 Reiniciando aplicação..."
 
         if pm2 info easygestion > /dev/null 2>&1; then
@@ -77,7 +79,7 @@ jobs:
 
     - name: ✅ Verificar saúde da aplicação
       run: |
-        ssh -o StrictHostKeyChecking=no ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} << 'EOF'
+        ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} << 'EOF'
         sleep 3
         echo "🏥 Verificando health check..."
 
