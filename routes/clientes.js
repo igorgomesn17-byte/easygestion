@@ -5,6 +5,19 @@ const express = require('express');
 const router = express.Router();
 const { db } = require('../db/database');
 
+// Validar email (RFC 5322 simplificado)
+function validarEmail(email) {
+  if (!email || email.trim() === '') return { valido: true, erro: null };
+  const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!regex.test(email)) {
+    return { valido: false, erro: 'Email inválido' };
+  }
+  if (email.length > 255) {
+    return { valido: false, erro: 'Email muito longo' };
+  }
+  return { valido: true, erro: null };
+}
+
 // Guard de papel: o VENDEDOR (PDV) só pode buscar (GET) e cadastrar (POST /) cliente.
 // Editar, excluir, arquivar, opt-out e rankings são de admin + relacionamento.
 router.use((req, res, next) => {
@@ -61,8 +74,12 @@ router.get('/:id', (req, res) => {
 // Anti-duplicado: se já existe cliente com o MESMO telefone (comparando só dígitos),
 // não cria de novo — devolve o existente com a flag `ja_existia` pro PDV já selecioná-lo.
 router.post('/', (req, res) => {
-  const { nome, telefone, cidade, aniversario, origem, indicada_por } = req.body;
+  const { nome, telefone, cidade, aniversario, origem, indicada_por, email } = req.body;
   if (!nome) return res.status(400).json({ erro: 'Nome obrigatorio' });
+
+  // Validar email (se fornecido)
+  const valEmail = validarEmail(email);
+  if (!valEmail.valido) return res.status(400).json({ erro: valEmail.erro });
 
   const telDigitos = String(telefone || '').replace(/\D/g, '');
   if (telDigitos.length >= 8) {
@@ -75,16 +92,41 @@ router.post('/', (req, res) => {
     }
   }
 
-  const info = db.prepare('INSERT INTO clientes (tenant_id, nome, telefone, cidade, aniversario, origem, indicada_por) VALUES (?, ?, ?, ?, ?, ?, ?)')
-    .run(req.tenantId, nome, telefone || null, cidade || null, aniversario || null, origem || null, indicada_por || null);
-  res.status(201).json({ id: info.lastInsertRowid, nome, ja_existia: false });
+  // Verificar email duplicado (se fornecido)
+  if (email && email.trim() !== '') {
+    const emailExistente = db.prepare(
+      'SELECT id FROM clientes WHERE email = ? AND tenant_id = ? AND id != ?'
+    ).get(email.toLowerCase(), req.tenantId, 0);
+    if (emailExistente) {
+      return res.status(400).json({ erro: 'Este email já está cadastrado' });
+    }
+  }
+
+  const info = db.prepare('INSERT INTO clientes (tenant_id, nome, telefone, cidade, aniversario, origem, indicada_por, email, email_verificado) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    .run(req.tenantId, nome, telefone || null, cidade || null, aniversario || null, origem || null, indicada_por || null, email ? email.toLowerCase() : null, 0);
+  res.status(201).json({ id: info.lastInsertRowid, nome, email: email || null, ja_existia: false });
 });
 
 // PUT /api/clientes/:id
 router.put('/:id', (req, res) => {
-  const { nome, telefone, cidade, aniversario, origem, indicada_por } = req.body;
-  db.prepare('UPDATE clientes SET nome=?, telefone=?, cidade=?, aniversario=?, origem=?, indicada_por=? WHERE id=? AND tenant_id=?')
-    .run(nome, telefone || null, cidade || null, aniversario || null, origem || null, indicada_por || null, req.params.id, req.tenantId);
+  const { nome, telefone, cidade, aniversario, origem, indicada_por, email } = req.body;
+
+  // Validar email (se fornecido)
+  const valEmail = validarEmail(email);
+  if (!valEmail.valido) return res.status(400).json({ erro: valEmail.erro });
+
+  // Verificar email duplicado (se fornecido)
+  if (email && email.trim() !== '') {
+    const emailExistente = db.prepare(
+      'SELECT id FROM clientes WHERE email = ? AND tenant_id = ? AND id != ?'
+    ).get(email.toLowerCase(), req.tenantId, req.params.id);
+    if (emailExistente) {
+      return res.status(400).json({ erro: 'Este email já está cadastrado' });
+    }
+  }
+
+  db.prepare('UPDATE clientes SET nome=?, telefone=?, cidade=?, aniversario=?, origem=?, indicada_por=?, email=? WHERE id=? AND tenant_id=?')
+    .run(nome, telefone || null, cidade || null, aniversario || null, origem || null, indicada_por || null, email ? email.toLowerCase() : null, req.params.id, req.tenantId);
   res.json({ ok: true });
 });
 

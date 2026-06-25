@@ -4,6 +4,7 @@
 const express = require('express');
 const router = express.Router();
 const { db } = require('../db/database');
+const { validarQuantidade } = require('../lib/validadores');
 
 // GET /api/estoque/resumo -> totais de estoque (cards)
 router.get('/resumo', (req, res) => {
@@ -71,8 +72,15 @@ router.post('/ajuste', (req, res) => {
     WHERE v.id = ? AND p.tenant_id = ?
   `).get(variacao_id, req.tenantId);
   if (!v) return res.status(404).json({ erro: 'Variacao nao encontrada' });
+
+  // Validar quantidade (aceita 0, diferente de entrada)
+  const valQtd = validarQuantidade(nova_quantidade, 'Nova quantidade');
+  if (!valQtd.valido) {
+    // Ajuste pode ser 0 (zerar estoque), então aceitar
+    const nova = parseInt(nova_quantidade, 10);
+    if (isNaN(nova) || nova < 0) return res.status(400).json({ erro: 'Quantidade deve ser um número >= 0' });
+  }
   const nova = parseInt(nova_quantidade, 10);
-  if (isNaN(nova) || nova < 0) return res.status(400).json({ erro: 'Quantidade invalida' });
   const diff = nova - v.quantidade;
   const tx = db.transaction(() => {
     db.prepare('UPDATE variacoes SET quantidade = ? WHERE id = ?').run(nova, variacao_id);
@@ -92,8 +100,11 @@ router.post('/entrada', (req, res) => {
     WHERE v.id = ? AND p.tenant_id = ?
   `).get(variacao_id, req.tenantId);
   if (!v) return res.status(404).json({ erro: 'Variacao nao encontrada' });
-  const add = parseInt(qtd, 10);
-  if (isNaN(add) || add <= 0) return res.status(400).json({ erro: 'Quantidade invalida' });
+
+  // Validar quantidade (entrada deve ser > 0)
+  const valQtd = validarQuantidade(qtd, 'Quantidade entrada');
+  if (!valQtd.valido) return res.status(400).json({ erro: valQtd.erro });
+  const add = valQtd.valor;
   const tx = db.transaction(() => {
     db.prepare('UPDATE variacoes SET quantidade = quantidade + ? WHERE id = ?').run(add, variacao_id);
     db.prepare("INSERT INTO movimentos_estoque (variacao_id, tipo, qtd, motivo) VALUES (?, 'entrada', ?, ?)")

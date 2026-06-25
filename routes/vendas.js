@@ -7,6 +7,8 @@ const { db, getConfig } = require('../db/database');
 const { resultadoVenda, acrescimoParcelamento, taxaPorForma } = require('../lib/calculos');
 const { hojeLocal } = require('../lib/datas');
 const { salvarComprovanteBase64 } = require('../lib/comprovantes');
+const { validarDesconto, validarQuantidade, validarParcelas, validarAcrescimo } = require('../lib/validadores');
+const { obterImposto } = require('./config');
 
 // O vendedor só pode CRIAR venda (POST /). Toda leitura/edição (histórico com
 // lucro/custo, detalhe, cancelamento) é exclusiva do admin. Bloqueia aqui dentro
@@ -22,10 +24,10 @@ router.use((req, res, next) => {
 // POST /api/vendas  -> registra uma venda completa
 // body: {
 //   itens: [{ variacao_id, qtd }],
-//   forma_pagamento, parcelas, desconto, cliente_id, observacao
+//   forma_pagamento, parcelas, desconto, cliente_id, observacao, estado (para imposto)
 // }
 router.post('/', (req, res) => {
-  const { itens, forma_pagamento, parcelas = 1, desconto = 0, cliente_id = null, vendedor_id = null, observacao = null, origem = 'loja', pagamentos = null, comprovante = null, troco = 0, troco_forma = null, repassar_taxa = true } = req.body;
+  const { itens, forma_pagamento, parcelas = 1, desconto = 0, cliente_id = null, vendedor_id = null, observacao = null, origem = 'loja', pagamentos = null, comprovante = null, troco = 0, troco_forma = null, repassar_taxa = true, estado = 'default', categoria = 'default' } = req.body;
   if (!Array.isArray(itens) || itens.length === 0) return res.status(400).json({ erro: 'Venda sem itens' });
   // pagamento: aceita split (array `pagamentos`) ou forma unica (compatibilidade).
   const temSplit = Array.isArray(pagamentos) && pagamentos.length > 0;
@@ -57,7 +59,12 @@ router.post('/', (req, res) => {
   for (const it of itens) {
     const v = getVar.get(it.variacao_id, req.tenantId);
     if (!v) return res.status(400).json({ erro: `Item invalido (id ${it.variacao_id})` });
-    const qtd = parseInt(it.qtd, 10) || 1;
+
+    // Validar quantidade de cada item
+    const valQtd = validarQuantidade(it.qtd, `Quantidade de ${v.nome}`);
+    if (!valQtd.valido) return res.status(400).json({ erro: valQtd.erro });
+    const qtd = valQtd.valor;
+
     if (v.quantidade < qtd) {
       return res.status(400).json({ erro: `Estoque insuficiente: ${v.nome} tam ${v.tamanho} (tem ${v.quantidade}, pediu ${qtd})` });
     }
@@ -66,11 +73,24 @@ router.post('/', (req, res) => {
 
   const qtdItens = linhas.reduce((s, l) => s + l.qtd, 0);
   const subtotal = linhas.reduce((s, l) => s + l.preco_unit * l.qtd, 0);
+
+  // Validar desconto
+  const valDesc = validarDesconto(desconto, subtotal);
+  if (!valDesc.valido) return res.status(400).json({ erro: valDesc.erro });
   const desc = parseFloat(desconto) || 0;
+
+  // Validar parcelas
+  const valParc = validarParcelas(parcelas);
+  if (!valParc.valido) return res.status(400).json({ erro: valParc.erro });
+  const parcelasValidas = valParc.valor;
   // acrescimo: parcelamento 4x+ repassa a taxa ao cliente (so na forma unica).
   // OPCIONAL: se repassar_taxa=false, a loja absorve (sem acrescimo; a taxa entra no lucro).
   const baseAposDesc = +(subtotal - desc).toFixed(2);
-  const acrescimo = (temSplit || repassar_taxa === false) ? 0 : acrescimoParcelamento(baseAposDesc, parcelas);
+  const acrescimo = (temSplit || repassar_taxa === false) ? 0 : acrescimoParcelamento(baseAposDesc, parcelasValidas);
+
+  // Validar acréscimo
+  const valAcr = validarAcrescimo(acrescimo);
+  if (!valAcr.valido) return res.status(400).json({ erro: valAcr.erro });
   const total = +(baseAposDesc + acrescimo).toFixed(2);
   const custoTotal = linhas.reduce((s, l) => s + l.custo_unit * l.qtd, 0);
   const embalagemTotal = +(embalagemUnit * qtdItens).toFixed(2);
@@ -97,9 +117,9 @@ router.post('/', (req, res) => {
       return res.status(400).json({ erro: `A soma dos pagamentos (${somaPartes.toFixed(2)}) nao bate com o total (${total.toFixed(2)})` });
     }
   } else {
-    const taxaPct = taxaPorForma(forma_pagamento, parcelas);
+    const taxaPct = taxaPorForma(forma_pagamento, parcelasValidas);
     const valorTaxa = +(total * taxaPct / 100).toFixed(2);
-    partes = [{ forma: forma_pagamento, parcelas, valor: total, taxaPct, valorTaxa, liquido: +(total - valorTaxa).toFixed(2) }];
+    partes = [{ forma: forma_pagamento, parcelas: parcelasValidas, valor: total, taxaPct, valorTaxa, liquido: +(total - valorTaxa).toFixed(2) }];
   }
 
   // forma "principal" gravada na venda: a unica forma, ou 'misto' no split
@@ -108,7 +128,9 @@ router.post('/', (req, res) => {
   // taxa total = soma das taxas das partes; resultado financeiro usa o liquido real
   const valorTaxaTotal = +partes.reduce((s, p) => s + p.valorTaxa, 0).toFixed(2);
   const liquidoTotal = +(total - valorTaxaTotal).toFixed(2);
-  const impostoPct = parseFloat(getConfig('imposto_simples', '7.30')) || 0;
+
+  // Imposto dinâmico por estado/categoria (fallback para config.imposto_simples se tabela vazia)
+  const impostoPct = obterImposto(req.tenantId, estado, categoria) || parseFloat(getConfig('imposto_simples', '7.30')) || 0;
   const imposto = +(total * impostoPct / 100).toFixed(2);
   const comissao = +(total * comissaoPct / 100).toFixed(2);
   const lucro = +(liquidoTotal - imposto - comissao - custoTotal - embalagemTotal).toFixed(2);

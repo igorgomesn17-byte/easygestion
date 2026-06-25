@@ -258,6 +258,81 @@ router.delete('/focus-token/:ambiente', (req, res) => {
   res.json({ ok: true, mensagem: `Token de ${ambiente} removido` });
 });
 
+// ---------- Impostos por Estado/Categoria ----------
+// GET /api/config/impostos -> lista impostos do tenant
+router.get('/impostos', apenasAdmin, (req, res) => {
+  if (!req.tenantId) return res.status(400).json({ erro: 'Tenant ID não encontrado' });
+
+  const rows = db.prepare(`
+    SELECT id, estado, categoria, icms_pct, ipi_pct, pis_pct, cofins_pct
+    FROM impostos WHERE tenant_id = ?
+    ORDER BY estado, categoria
+  `).all(req.tenantId);
+
+  res.json(rows);
+});
+
+// POST /api/config/impostos -> criar/atualizar imposto
+router.post('/impostos', apenasAdmin, (req, res) => {
+  if (!req.tenantId) return res.status(400).json({ erro: 'Tenant ID não encontrado' });
+
+  const { estado = 'default', categoria = 'default', icms_pct = 0, ipi_pct = 0, pis_pct = 0, cofins_pct = 0 } = req.body;
+
+  if (!estado || !categoria) {
+    return res.status(400).json({ erro: 'Estado e categoria são obrigatórios' });
+  }
+
+  // Validar que são números >= 0
+  const impostos = [icms_pct, ipi_pct, pis_pct, cofins_pct];
+  for (const imp of impostos) {
+    const val = parseFloat(imp);
+    if (isNaN(val) || val < 0) {
+      return res.status(400).json({ erro: 'Todas as alíquotas devem ser números >= 0' });
+    }
+  }
+
+  db.prepare(`
+    INSERT INTO impostos (tenant_id, estado, categoria, icms_pct, ipi_pct, pis_pct, cofins_pct)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(tenant_id, estado, categoria) DO UPDATE SET
+      icms_pct=excluded.icms_pct, ipi_pct=excluded.ipi_pct,
+      pis_pct=excluded.pis_pct, cofins_pct=excluded.cofins_pct,
+      atualizado_em=datetime('now','localtime')
+  `).run(req.tenantId, estado, categoria, parseFloat(icms_pct), parseFloat(ipi_pct), parseFloat(pis_pct), parseFloat(cofins_pct));
+
+  res.json({ ok: true, estado, categoria });
+});
+
+// DELETE /api/config/impostos/:id -> remover imposto
+router.delete('/impostos/:id', apenasAdmin, (req, res) => {
+  if (!req.tenantId) return res.status(400).json({ erro: 'Tenant ID não encontrado' });
+
+  db.prepare('DELETE FROM impostos WHERE id = ? AND tenant_id = ?').run(req.params.id, req.tenantId);
+  res.json({ ok: true });
+});
+
+// Helper: Obter imposto para uma venda (estado + categoria)
+function obterImposto(tenantId, estado = 'default', categoria = 'default') {
+  // Tenta imposto específico (estado + categoria)
+  let imposto = db.prepare(`
+    SELECT COALESCE(icms_pct + ipi_pct + pis_pct + cofins_pct, 0) AS total
+    FROM impostos WHERE tenant_id = ? AND estado = ? AND categoria = ?
+  `).get(tenantId, estado, categoria);
+
+  if (imposto && imposto.total > 0) return imposto.total;
+
+  // Fallback: estado genérico (default)
+  imposto = db.prepare(`
+    SELECT COALESCE(icms_pct + ipi_pct + pis_pct + cofins_pct, 0) AS total
+    FROM impostos WHERE tenant_id = ? AND estado = 'default' AND categoria = 'default'
+  `).get(tenantId);
+
+  if (imposto && imposto.total > 0) return imposto.total;
+
+  // Fallback final: 7.3% (padrão antigo)
+  return 7.3;
+}
+
 // Handler público: só as chaves seguras (montado em /api/loja-publica, SEM login)
 function lojaPublica(req, res) {
   const obj = {};
@@ -271,3 +346,4 @@ function lojaPublica(req, res) {
 
 module.exports = router;
 module.exports.lojaPublica = lojaPublica;
+module.exports.obterImposto = obterImposto;
