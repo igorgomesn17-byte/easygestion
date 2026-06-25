@@ -245,8 +245,8 @@ router.post('/forgot-password', limiteForgotPassword, async (req, res) => {
   }
 
   // Procura usuário
-  const user = db.prepare('SELECT * FROM usuarios WHERE LOWER(email) = LOWER(?)').get(email.trim());
-  if (!user) {
+  const user = db.prepare('SELECT id, nome, email FROM usuarios WHERE LOWER(email) = LOWER(?)').get(email.trim());
+  if (!user || !user.id) {
     // NÃO expor se existe ou não (segurança)
     return res.json({ ok: true, mensagem: 'Se existe uma conta com este email, um link foi enviado.' });
   }
@@ -260,10 +260,15 @@ router.post('/forgot-password', limiteForgotPassword, async (req, res) => {
 
   // Salva token no BD
   const expires = new Date(Date.now() + 3600000).toISOString();
-  db.prepare(`
-    INSERT INTO tokens_verificacao (usuario_id, token, tipo, criado_em, expires_em)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(user.id, token, 'reset-senha', new Date().toISOString(), expires);
+  try {
+    db.prepare(`
+      INSERT INTO tokens_verificacao (usuario_id, token, tipo, criado_em, expires_em)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(user.id, token, 'reset-senha', new Date().toISOString(), expires);
+  } catch (err) {
+    console.error('[FORGOT PASSWORD] Erro ao salvar token:', err.message, '| user.id:', user.id);
+    return res.status(500).json({ erro: 'Erro ao processar requisição' });
+  }
 
   // Envia email
   const resetLink = `${process.env.SITE_URL || 'http://localhost:3000'}/reset-senha.html?token=${token}`;
