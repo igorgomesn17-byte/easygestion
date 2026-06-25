@@ -234,7 +234,7 @@
     }
 
     TOKEN = extrairToken();
-    if (TOKEN) {
+    if (!TOKEN) {
       formDiv.style.display = 'none';
       invalidDiv.style.display = 'block';
     }
