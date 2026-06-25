@@ -14,6 +14,8 @@ const fs = require('fs');
 
 const logger = require('./lib/logger');
 const loggerMiddleware = require('./middleware/logger-middleware');
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./lib/swagger-config');
 const { exigirLogin, injetarTenant, validarTenantAtivo, garantirTenantId, apenasAdmin, exigirPapel, limiteGlobal, limiteLogin } = require('./middleware/seguranca');
 const { middlewareAuditoria } = require('./middleware/auditoria');
 // PDV: admin OU vendedor (vendedor só vende e opera o caixa)
@@ -145,6 +147,14 @@ app.use(cors({ origin: ORIGIN, credentials: true }));
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', ts: new Date().toISOString(), uptime: process.uptime() });
 });
+
+// ---------- Swagger/OpenAPI Documentation ----------
+app.use('/api/docs', swaggerUi.serve);
+app.get('/api/docs', swaggerUi.setup(swaggerSpec, {
+  swaggerOptions: {
+    persistAuthorization: true
+  }
+}));
 
 // ---------- Webhooks Stripe (ANTES do json parser — precisa do raw body) ----------
 app.use('/api/webhooks/stripe', express.raw({type: 'application/json'}), (req, res, next) => {
@@ -326,6 +336,28 @@ const MARCA_DIR = process.env.UPLOADS_DIR
   : path.join(__dirname, 'public', 'img', 'marca');
 app.use('/img/marca', express.static(MARCA_DIR));
 // comprovantes (print do Pix por chave) — disco persistente em produção
+const COMPROVANTES_DIR = process.env.UPLOADS_DIR
+
+// ---------- Monitoring & Métricas ----------
+const { getMonitor, getMetrics, getAlerts } = require('./lib/monitoring');
+
+app.get('/api/monitoring/metrics', (req, res) => {
+  // Apenas admin pode ver métricas
+  if (!req.session || req.session.papel !== 'admin') {
+    return res.status(403).json({ erro: 'Sem permissão' });
+  }
+  res.json(getMonitor().getMetrics());
+});
+
+app.get('/api/monitoring/alerts', (req, res) => {
+  // Apenas admin pode ver alertas
+  if (!req.session || req.session.papel !== 'admin') {
+    return res.status(403).json({ erro: 'Sem permissão' });
+  }
+  const { type, severity } = req.query;
+  res.json(getMonitor().getAlerts(type, severity));
+});
+
 const COMPROVANTES_DIR = process.env.UPLOADS_DIR
   ? path.join(process.env.UPLOADS_DIR, 'comprovantes')
   : path.join(__dirname, 'public', 'img', 'comprovantes');

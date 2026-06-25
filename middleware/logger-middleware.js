@@ -3,6 +3,7 @@
 // ============================================================
 
 const logger = require('../lib/logger');
+const { recordRequest, recordError } = require('../lib/monitoring');
 
 module.exports = (req, res, next) => {
   // Injetar logger na requisição
@@ -24,6 +25,7 @@ module.exports = (req, res, next) => {
       { statusCode: res.statusCode, duration: `${duration}ms` },
       `${req.method} ${req.path} → ${res.statusCode}`
     );
+    recordRequest(res.statusCode, duration);
     return originalJson(data);
   };
 
