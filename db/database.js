@@ -22,11 +22,11 @@ const raw = new DatabaseSync(DB_PATH);
 raw.exec('PRAGMA journal_mode = WAL;');
 raw.exec('PRAGMA foreign_keys = ON;');
 
-// Executa o schema (CREATE TABLE IF NOT EXISTS - seguro rodar sempre)
-// Mas APENAS se o banco está sendo criado PELA PRIMEIRA VEZ
+// Executa o schema (CREATE TABLE IF NOT EXISTS - seguro rodar SEMPRE)
+// Isso apenas CRIA se não existir — não deleta nada em bancos existentes
+const schema = fs.readFileSync(SCHEMA_PATH, 'utf8');
+raw.exec(schema);
 if (!bankExists) {
-  const schema = fs.readFileSync(SCHEMA_PATH, 'utf8');
-  raw.exec(schema);
   console.log(`✅ Novo banco criado em ${DB_PATH}`);
 }
 
