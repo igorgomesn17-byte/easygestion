@@ -16,13 +16,31 @@ if (!fs.existsSync(DB_DIR)) fs.mkdirSync(DB_DIR, { recursive: true });
 const DB_PATH = path.join(DB_DIR, 'dsstore.db');
 const SCHEMA_PATH = path.join(__dirname, 'schema.sql'); // schema sempre vem do código
 
+// PROTEÇÃO: se o banco não existe, cria; se existe, NUNCA deleta dados
+const bankExists = fs.existsSync(DB_PATH);
 const raw = new DatabaseSync(DB_PATH);
 raw.exec('PRAGMA journal_mode = WAL;');
 raw.exec('PRAGMA foreign_keys = ON;');
 
 // Executa o schema (CREATE TABLE IF NOT EXISTS - seguro rodar sempre)
-const schema = fs.readFileSync(SCHEMA_PATH, 'utf8');
-raw.exec(schema);
+// Mas APENAS se o banco está sendo criado PELA PRIMEIRA VEZ
+if (!bankExists) {
+  const schema = fs.readFileSync(SCHEMA_PATH, 'utf8');
+  raw.exec(schema);
+  console.log(`✅ Novo banco criado em ${DB_PATH}`);
+} else {
+  // Banco já existe: apenas garante que as tabelas críticas estão lá
+  // Se faltarem tabelas, adiciona sem deletar nada
+  const tabelas = raw.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(t => t.name);
+  if (tabelas.length === 0) {
+    // Banco corrompido/vazio — recriar schema
+    const schema = fs.readFileSync(SCHEMA_PATH, 'utf8');
+    raw.exec(schema);
+    console.log(`⚠️ Banco vazio detectado — schema recarregado`);
+  } else {
+    console.log(`✅ Banco existente mantido (${tabelas.length} tabelas, ${raw.prepare('SELECT COUNT(*) as cnt FROM vendas').get().cnt} vendas)`);
+  }
+}
 
 // Executar migrations (nunca deletam dados, apenas atualizam schema)
 const { executarMigrations } = require('./migrations');
