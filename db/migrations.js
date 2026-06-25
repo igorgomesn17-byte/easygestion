@@ -61,13 +61,34 @@ function executarMigrations(db) {
       nome: '003_seed_admin_tenant',
       hash: 'v3-seed',
       exec: (db) => {
-        // Se não tem tenant algum, criar tenant padrão (NUNCA deleta existentes)
-        const temTenant = db.prepare('SELECT COUNT(*) as cnt FROM tenants').get().cnt > 0;
-        if (!temTenant) {
+        // Garantir que Admin tenant existe (ID 1) - NUNCA deleta existentes
+        const temAdmin = db.prepare('SELECT 1 FROM tenants WHERE id = 1').get();
+        if (!temAdmin) {
           db.prepare(`
-            INSERT INTO tenants (nome_loja, email, senha_hash, nome_responsavel, telefone, plano)
-            VALUES (?, ?, ?, ?, ?, ?)
-          `).run('EasyGestão Admin', 'admin@easygestion.com', 'demo', 'Admin', '0000000000', 'admin');
+            INSERT INTO tenants (id, nome_loja, email, senha_hash, nome_responsavel, telefone, status, plano)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          `).run(1, 'EasyGestão Admin', 'admin@easygestion.com', 'admin', 'Admin', '00000000000', 'ativo', 'admin');
+        }
+      }
+    },
+    {
+      nome: '004_ensure_ds_store_exists',
+      hash: 'v4-ds-store',
+      exec: (db) => {
+        // Garantir que DS Store existe - NUNCA deleta, apenas cria se não existir
+        const temDSStore = db.prepare('SELECT 1 FROM tenants WHERE nome_loja = ?').get('DS Store');
+        if (!temDSStore) {
+          const infoTenant = db.prepare(`
+            INSERT INTO tenants (nome_loja, email, senha_hash, nome_responsavel, telefone, status, plano)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+          `).run('DS Store', 'offdsstore@gmail.com', 'hashed-password', 'Daisy', '73999999999', 'ativo', 'profissional');
+
+          // Criar usuário admin para a DS Store
+          const dsStoreId = infoTenant.lastInsertRowid;
+          db.prepare(`
+            INSERT INTO usuarios (nome, email, tenant_id, papel, senha_hash, ativo)
+            VALUES (?, ?, ?, ?, ?, 1)
+          `).run('Daisy', 'offdsstore@gmail.com', dsStoreId, 'admin', 'hashed-password');
         }
       }
     }
