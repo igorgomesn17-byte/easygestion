@@ -15,10 +15,13 @@
     .tam-btn:hover { background: var(--dourado-claro); }
     .tam-btn.zerado { opacity:0.35; pointer-events:none; }
     .carrinho-item { padding:10px 0; border-bottom:1px solid #EEE; }
-    .pgto-opcoes { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-    .pgto-btn { padding:12px; border:1.5px solid #DDD; border-radius:8px; background:#fff; cursor:pointer; font-weight:600; text-align:center; }
+    .pgto-opcoes { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px; }
+    .pgto-btn { padding:12px; border:1.5px solid #DDD; border-radius:8px; background:#fff; cursor:pointer; font-weight:600; text-align:center; transition:all 0.2s; }
+    .pgto-btn:hover { border-color:var(--dourado); background:var(--dourado-claro); }
     .pgto-btn.sel { border-color:var(--dourado); background:var(--dourado-claro); color:var(--taupe-escuro); }
-    .pgto-btn.pix.sel { border-color:var(--verde); background:#E3F4EA; color:var(--verde); }
+    .pgto-btn.pix.sel { border-color:var(--verde); background:#E3F4EA; color:var(--verde); font-weight:700; }
+    .pgto-btn.pix { border-color:var(--verde); }
+    .pgto-btn.pix:hover { background:#E3F4EA; }
     .lista-cli { max-height:180px; overflow-y:auto; border:1px solid #EEE; border-radius:8px; margin-top:4px; display:none; }
     .lista-cli div { padding:9px; cursor:pointer; border-bottom:1px solid #F0F0F0; }
     .lista-cli div:hover { background:var(--creme); }
@@ -85,19 +88,21 @@
             <div class="pgto-btn" data-forma="dinheiro" onclick="selPgto(this)">💵 Dinheiro</div>
             <div class="pgto-btn" data-forma="debito" onclick="selPgto(this)">💳 Débito</div>
             <div class="pgto-btn" data-forma="credito_vista" onclick="selPgto(this)">💳 Créd. à vista</div>
+            <div class="pgto-btn" data-forma="credito_parcelado" onclick="selPgto(this)">💳 Créd. parcelado</div>
           </div>
-          <div class="pgto-btn mt" data-forma="credito_parcelado" onclick="selPgto(this)" style="width:100%;">💳 Crédito parcelado</div>
+
           <div class="campo mt" id="areaParcelas" style="display:none;">
             <label>Parcelas</label>
             <select id="parcelas" onchange="atualizarTotais()">
               <option value="2">2x</option><option value="3">3x</option><option value="4">4x</option>
-              <option value="5">5x</option><option value="6">6x</option>
+              <option value="5">5x</option><option value="6">6x</option><option value="7">7x</option><option value="8">8x</option>
             </select>
-            <label id="areaRepassar" style="display:none; align-items:center; gap:7px; margin-top:8px; font-weight:600; cursor:pointer;">
+            <label id="areaRepassar" style="display:none; align-items:center; gap:7px; margin-top:12px; padding:10px; background:#F5F5F5; border-radius:8px; font-weight:600; cursor:pointer;">
               <input type="checkbox" id="repassarTaxa" checked onchange="atualizarTotais()" style="width:auto;">
               Repassar a taxa ao cliente
             </label>
           </div>
+
           <div id="previewPgto" class="mt"></div>
 
           
@@ -502,28 +507,55 @@
 
     function previewPgto(total, acrescimo) {
       const div = document.getElementById('previewPgto');
-      if (formaSel || carrinho.length === 0) { div.innerHTML = ''; return; }
+      if (!formaSel || carrinho.length === 0) { div.innerHTML = ''; return; }
       const parcelas = formaSel === 'credito_parcelado' ? parseInt(document.getElementById('parcelas').value) : 1;
+
+      const taxasUnitarias = {pix:0, pix_chave:0, dinheiro:0, debito:1.37, credito_vista:3.15};
+      const taxasParceladas = {2:5.39, 3:6.12, 4:6.85, 5:7.57, 6:8.28, 7:8.99, 8:9.7};
+
+      let html = '';
+
       if (formaSel === 'pix' || formaSel === 'pix_chave') {
-        div.innerHTML = `<div class="pix-destaque">💚 Sem taxa Você recebe ${moeda(total)} em 1 dia útil.</div>`;
-      } else if (formaSel === 'credito_parcelado' && parcelas > LIMITE_LOJA_ABSORVE) {
-        const taxasParc = {4:6.85,5:7.57,6:8.28};
+        html = `<div style="background:#E3F4EA; border:1px solid var(--verde); padding:12px; border-radius:8px; font-size:0.9rem;">
+          <strong style="color:var(--verde);">💚 Sem taxa! Você recebe ${moeda(total)} em 1 dia útil.</strong>
+        </div>`;
+      } else if (formaSel === 'dinheiro') {
+        html = `<div style="background:#E3F4EA; border:1px solid var(--verde); padding:12px; border-radius:8px; font-size:0.9rem;">
+          <strong style="color:var(--verde);">💵 Recebe na hora: ${moeda(total)}</strong>
+        </div>`;
+      } else if (formaSel === 'credito_parcelado') {
+        const taxaPct = taxasParceladas[parcelas] || 8.28;
+        const valorTaxa = +(total * taxaPct / 100).toFixed(2);
+        const liquido = +(total - valorTaxa).toFixed(2);
+        const parcelaPaga = +(total / parcelas).toFixed(2);
+
         if (repassarTaxaAtivo()) {
-          div.innerHTML = `<div style="background:#FCF3E3;border:1px solid var(--dourado-claro);padding:9px;border-radius:8px;font-size:0.85rem;">
-            ${parcelas}x: taxa repassada ao cliente (+${moeda(acrescimo)}). Você recebe o valor cheio.</div>`;
+          const totalComTaxa = +(total + acrescimo).toFixed(2);
+          const parcelaCliente = +(totalComTaxa / parcelas).toFixed(2);
+          html = `<div style="background:#FCF3E3; border:1px solid var(--dourado-claro); padding:12px; border-radius:8px; font-size:0.9rem;">
+            <strong>${parcelas}x: taxa repassada ao cliente (+${moeda(acrescimo)})</strong>
+            <div class="mt" style="font-size:0.85rem;">Você recebe o valor cheio: ${moeda(total)}</div>
+            <div style="background:#FFF; padding:8px; border-radius:6px; margin-top:8px; font-size:0.85rem;">
+              Cliente pagará 3 parcelas de ${moeda(parcelaCliente)}
+            </div>
+          </div>`;
         } else {
-          const t = taxasParc[parcelas]||8.28;
-          const liq = total - total*t/100;
-          div.innerHTML = `<div style="background:var(--creme);padding:9px;border-radius:8px;font-size:0.85rem;">
-            ${parcelas}x: <strong>a loja absorve a taxa</strong> (${t}%) → você recebe ${moeda(liq)}.</div>`;
+          html = `<div style="background:#F5F5F5; border:1px solid #DDD; padding:12px; border-radius:8px; font-size:0.9rem;">
+            <div><strong>${parcelas}x:</strong> taxa ${taxaPct}% − você recebe <strong>${moeda(liquido)}</strong> (a loja absorve)</div>
+          </div>`;
         }
       } else {
-        const taxas={pix:0,pix_chave:0,dinheiro:0,debito:1.37,credito_vista:3.15};
-        const taxasParc={2:5.39,3:6.12};
-        const t = formaSel==='credito_parcelado'?(taxasParc[parcelas]||0):(taxas[formaSel]||0);
-        const liq = total - total*t/100;
-        div.innerHTML = t>0 ? `<div style="background:var(--creme);padding:9px;border-radius:8px;font-size:0.85rem;">Taxa ${t}% → você recebe ${moeda(liq)} (a loja absorve)</div>` : '';
+        const taxaPct = taxasUnitarias[formaSel] || 0;
+        if (taxaPct > 0) {
+          const valorTaxa = +(total * taxaPct / 100).toFixed(2);
+          const liquido = +(total - valorTaxa).toFixed(2);
+          html = `<div style="background:#F5F5F5; border:1px solid #DDD; padding:12px; border-radius:8px; font-size:0.9rem;">
+            Taxa ${taxaPct}% − você recebe <strong>${moeda(liquido)}</strong> (a loja absorve)
+          </div>`;
+        }
       }
+
+      div.innerHTML = html;
     }
 
     // ---------- Comprovante (Pix por chave) ----------
