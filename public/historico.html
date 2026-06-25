@@ -55,7 +55,7 @@
 
     function render() {
       const b = document.getElementById('busca').value.toLowerCase();
-      const arr = dados.filter(v => b || (v.cliente_nome && v.cliente_nome.toLowerCase().includes(b)));
+      const arr = dados.filter(v => !b || (v.cliente_nome && v.cliente_nome.toLowerCase().includes(b)));
       const div = document.getElementById('lista');
       if (arr.length === 0) { div.innerHTML = '<div class="vazio">Nenhuma venda encontrada.</div>'; return; }
       div.innerHTML = arr.map(v => `
@@ -122,7 +122,7 @@
     }
 
     function exportar() {
-      if (dados.length) { toast('Nada para exportar','erro'); return; }
+      if (!dados.length) { toast('Nada para exportar','erro'); return; }
       const linhas = dados.map(v => ({
         ID: v.id, Cliente: v.cliente_nome||'', Data: v.data_hora.slice(0,10),
         Hora: v.data_hora.slice(11,16), Pagamento: v.forma_pagamento,

@@ -252,7 +252,8 @@ function atualizarCaixaDia(data, tenantId = 1) {
 // GET /api/vendas -> lista com filtros (data, de/ate, vendedor, cliente, forma)
 router.get('/', (req, res) => {
   const { data, de, ate, vendedor_id, cliente_id, forma, origem, agrupado } = req.query;
-  let sql = `SELECT v.*, c.nome AS cliente_nome, vd.nome AS vendedor_nome
+  let sql = `SELECT v.*, c.nome AS cliente_nome, vd.nome AS vendedor_nome,
+                    (SELECT COUNT(*) FROM venda_itens WHERE venda_id = v.id) AS num_itens
              FROM vendas v
              LEFT JOIN clientes c ON c.id = v.cliente_id
              LEFT JOIN vendedores vd ON vd.id = v.vendedor_id WHERE v.tenant_id = ?`;
