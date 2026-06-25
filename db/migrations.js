@@ -1,0 +1,105 @@
+// ============================================================
+// MIGRATIONS - Sistema de versionamento do banco
+// NUNCA rodam 2x. NUNCA deletam dados. NUNCA perdem clientes.
+// Cada migration tem: nome único, hash, data de execução
+// ============================================================
+const { DatabaseSync } = require('node:sqlite');
+const path = require('path');
+const fs = require('fs');
+
+const DB_DIR = process.env.DB_DIR || path.join(__dirname);
+const DB_PATH = path.join(DB_DIR, 'easygestion.db');
+
+function executarMigrations(db) {
+  // 1. Criar tabela de controle (se não existir)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS migrations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      nome TEXT UNIQUE NOT NULL,
+      hash TEXT,
+      executada_em DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
+  // 2. Lista de todas as migrations (idempotentes)
+  const migrations = [
+    {
+      nome: '001_create_tables',
+      hash: 'v1-schema',
+      exec: (db) => {
+        // Schema já foi criado por schema.sql
+        // Apenas garantir que impostos existe
+        db.exec(`
+          CREATE TABLE IF NOT EXISTS impostos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tenant_id INTEGER NOT NULL,
+            estado TEXT NOT NULL,
+            categoria TEXT,
+            icms_pct REAL DEFAULT 0,
+            ipi_pct REAL DEFAULT 0,
+            pis_pct REAL DEFAULT 0,
+            cofins_pct REAL DEFAULT 0,
+            criado_em DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(tenant_id, estado, categoria),
+            FOREIGN KEY(tenant_id) REFERENCES tenants(id)
+          );
+        `);
+      }
+    },
+    {
+      nome: '002_add_audit_columns',
+      hash: 'v2-audit',
+      exec: (db) => {
+        // Adicionar colunas de auditoria se não existirem
+        const colunas = db.prepare(`PRAGMA table_info(vendas)`).all().map(c => c.name);
+        if (!colunas.includes('auditoria_id')) {
+          db.exec(`ALTER TABLE vendas ADD COLUMN auditoria_id INTEGER`);
+        }
+      }
+    },
+    {
+      nome: '003_seed_admin_tenant',
+      hash: 'v3-seed',
+      exec: (db) => {
+        // Se não tem tenant algum, criar tenant padrão (NUNCA deleta existentes)
+        const temTenant = db.prepare('SELECT COUNT(*) as cnt FROM tenants').get().cnt > 0;
+        if (!temTenant) {
+          db.prepare(`
+            INSERT INTO tenants (nome_loja, email, senha_hash, nome_responsavel, telefone, plano)
+            VALUES (?, ?, ?, ?, ?, ?)
+          `).run('EasyGestão Admin', 'admin@easygestion.com', 'demo', 'Admin', '0000000000', 'admin');
+        }
+      }
+    }
+  ];
+
+  // 3. Executar migrations que ainda não rodaram
+  for (const mig of migrations) {
+    const jáFez = db.prepare('SELECT 1 FROM migrations WHERE nome = ?').get(mig.nome);
+    if (!jáFez) {
+      try {
+        mig.exec(db);
+        db.prepare('INSERT INTO migrations (nome, hash) VALUES (?, ?)').run(mig.nome, mig.hash);
+        console.log(`✅ Migration: ${mig.nome}`);
+      } catch (err) {
+        console.error(`❌ Migration ${mig.nome} falhou:`, err.message);
+        throw err; // Interrompe boot se migration falhar
+      }
+    }
+  }
+
+  // 4. Validar integridade (tabelas críticas)
+  const tabelasCriticas = ['tenants', 'usuarios', 'produtos', 'vendas', 'migrations'];
+  for (const tabela of tabelasCriticas) {
+    const existe = db.prepare(
+      `SELECT name FROM sqlite_master WHERE type='table' AND name=?`
+    ).get(tabela);
+    if (!existe) {
+      throw new Error(`❌ INTEGRIDADE: Tabela crítica ${tabela} desapareceu!`);
+    }
+  }
+
+  console.log('✅ Todas as migrations executadas com sucesso');
+}
+
+module.exports = { executarMigrations };

@@ -24,6 +24,10 @@ raw.exec('PRAGMA foreign_keys = ON;');
 const schema = fs.readFileSync(SCHEMA_PATH, 'utf8');
 raw.exec(schema);
 
+// Executar migrations (nunca deletam dados, apenas atualizam schema)
+const { executarMigrations } = require('./migrations');
+executarMigrations(raw);
+
 // --- Migracoes idempotentes (para bancos ja existentes ganharem colunas novas) ---
 function colunasDe(tabela) {
   return raw.prepare(`PRAGMA table_info(${tabela})`).all().map(c => c.name);
