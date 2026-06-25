@@ -188,7 +188,11 @@ const limiteGlobal = rateLimit({
     const ip = req.ip || req.connection.remoteAddress || '';
     return `${ip}-${tenant}`;
   },
-  skip: (req) => false,
+  skip: (req) => {
+    // Pula o rate limit global para /api/admin/login (tem seu próprio limite)
+    // req.path aqui é relativo ao mount `/api`, então será `/admin/login`
+    return req.path?.startsWith('/admin/login');
+  },
 });
 // Login: estrito contra brute force
 const limiteLogin = rateLimit({
@@ -200,8 +204,18 @@ const limiteLogin = rateLimit({
 });
 
 // Admin password: estrito contra brute force
-// Temporariamente desabilitado para testes
-const limiteAdminPassword = (req, res, next) => next();
+const limiteAdminPassword = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 6,                      // 6 tentativas / 15min por IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { erro: 'Muitas tentativas de login admin. Aguarde 15 minutos.' },
+  skip: (req, res) => false, // Não pular nenhuma requisição
+  keyGenerator: (req) => {
+    // Use IP real se atrás de proxy, senão use IP da conexão
+    return req.ip || req.connection.remoteAddress || 'unknown';
+  }
+});
 
 // Forgot password: previne email enumeration
 const limiteForgotPassword = rateLimit({

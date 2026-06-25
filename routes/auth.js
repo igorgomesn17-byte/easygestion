@@ -9,7 +9,11 @@ const { hashSenha, verificarSenha, validarSenha, validarNaoReutilizada, limiteFo
 const jwt = require('jsonwebtoken');
 const { enviarEmail, templateResetSenha } = require('../lib/email');
 
-const TOKEN_SECRET = process.env.TOKEN_SECRET || 'dev-secret';
+const TOKEN_SECRET = process.env.TOKEN_SECRET || (process.env.NODE_ENV !== 'production' ? 'dev-secret' : null);
+
+if (!TOKEN_SECRET && process.env.NODE_ENV === 'production') {
+  throw new Error('TOKEN_SECRET não configurado em produção! Defina a variável de ambiente TOKEN_SECRET.');
+}
 
 // Validação de email (RFC 5322 simplificado)
 function validarEmail(email) {
@@ -43,8 +47,7 @@ function usuarioAdmin() { return getConfig('admin_usuario', 'igor'); }
 
 // POST /api/admin/login  body: { senha }
 // Login admin (apenas senha — sem email)
-// Nota: rate limit temporariamente removido para testes (TODO: reativar após beta)
-router.post('/admin/login', (req, res) => {
+router.post('/admin/login', limiteAdminPassword, (req, res) => {
   console.log('[AUTH] POST /admin/login chegou na rota!');
   const { senha } = req.body || {};
 

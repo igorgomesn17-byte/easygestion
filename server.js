@@ -9,6 +9,8 @@ const os = require('os');
 const session = require('express-session');
 const helmet = require('helmet');
 const cors = require('cors');
+const https = require('https');
+const fs = require('fs');
 
 const { exigirLogin, injetarTenant, validarTenantAtivo, garantirTenantId, apenasAdmin, exigirPapel, limiteGlobal, limiteLogin } = require('./middleware/seguranca');
 const { middlewareAuditoria } = require('./middleware/auditoria');
@@ -49,8 +51,36 @@ NÃO use o fallback de desenvolvimento (dsstore) em produção!
   process.exit(1);
 }
 
-// 2. SESSION_SECRET obrigatório (validado depois)
-// 3. ORIGIN obrigatório em produção (validado depois)
+// ============================================================
+// ✅ VALIDAÇÃO 2: Secrets de Produção (TOKEN_SECRET, CERT_CIPHER_KEY, DEPLOY_TOKEN)
+// ============================================================
+if (EM_PRODUCAO) {
+  const SECRETS_OBRIGATORIOS = ['TOKEN_SECRET', 'CERT_CIPHER_KEY', 'DEPLOY_TOKEN'];
+
+  SECRETS_OBRIGATORIOS.forEach(secret => {
+    if (!process.env[secret]) {
+      console.error(`
+❌ ERRO CRÍTICO: Secret não configurado!
+
+Faltando variável de ambiente: ${secret}
+
+Em produção, TODOS os secrets abaixo são obrigatórios:
+  • TOKEN_SECRET (mínimo 32 caracteres aleatórios, para JWT)
+  • CERT_CIPHER_KEY (mínimo 32 caracteres aleatórios, para certificado A1)
+  • DEPLOY_TOKEN (token secreto para webhook de deploy)
+
+Gere com:
+  node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+
+Adicione ao .env em produção.
+      `);
+      process.exit(1);
+    }
+  });
+}
+
+// 2. ORIGIN obrigatório em produção
+// 3. SESSION_SECRET validado depois
 
 app.set('trust proxy', 1); // atrás do proxy do Render/Cloudflare (IP real p/ rate limit)
 
@@ -192,19 +222,22 @@ app.use('/api', (req, res, next) => {
   next();
 });
 
-// ---------- Rate limit global ----------
-app.use('/api', limiteGlobal);
+// ---------- Rate limit específicos (ANTES do global) ----------
+app.use('/api/login', limiteLogin);              // brute force na rota /login
+// Nota: /api/admin/login tem rate limit específico na rota (limiteAdminPassword)
 
 // ---------- Rotas PÚBLICAS (sem login) ----------
-app.use('/api/login', limiteLogin);              // brute force
 app.use('/api', require('./routes/auth'));        // /login /logout /me (auth decide)
 app.get('/api/loja-publica', configRouter.lojaPublica);
 
 // ✅ Admin login PÚBLICO (mas com rate limit agressivo)
-// POST /api/admin/login → autentica admin via senha
+// POST /api/admin/login → autentica admin via senha (rate limited em routes/admin.js)
 // POST /api/admin/logout → encerra sessão admin
 // GET /admin → redireciona pra login se não está autenticado
 app.use('/api/admin', require('./routes/admin')); // POST /login, POST /logout SEM autenticação
+
+// ---------- Rate limit global (DEPOIS dos específicos) ----------
+app.use('/api', limiteGlobal);
 app.use('/admin', require('./routes/admin'));     // GET / com autenticação de session
 
 // ✅ Rotas públicas de token (ANTES de exigirLogin + com injetarTenant)
@@ -325,18 +358,56 @@ function getLocalIP() {
   return 'localhost';
 }
 
-app.listen(PORT, '0.0.0.0', () => {
-  const ip = getLocalIP();
-  console.log('\n========================================');
-  console.log('   DS SISTEMA no ar' + (EM_PRODUCAO ? ' (produção)' : ' (local)'));
-  console.log('========================================');
-  console.log(`   Neste PC:     http://localhost:${PORT}`);
-  if (!EM_PRODUCAO) console.log(`   No celular:   http://${ip}:${PORT}`);
-  console.log('========================================\n');
+// ============================================================
+// Iniciar servidor com HTTPS se certificados existem
+// ============================================================
+const CERT_PATH = path.join(__dirname, 'certs', 'cert.pem');
+const KEY_PATH = path.join(__dirname, 'certs', 'key.pem');
+const USE_HTTPS = fs.existsSync(CERT_PATH) && fs.existsSync(KEY_PATH);
 
-  // Iniciar agendadores automáticos
-  iniciar_backup_scheduler();
-  iniciar_alertas_scheduler();
-  iniciar_renovacao_scheduler();
-  iniciar_cobranca_scheduler();
-});
+if (USE_HTTPS) {
+  const httpsOptions = {
+    cert: fs.readFileSync(CERT_PATH),
+    key: fs.readFileSync(KEY_PATH)
+  };
+  https.createServer(httpsOptions, app).listen(443, '0.0.0.0', () => {
+    const ip = getLocalIP();
+    console.log('\n========================================');
+    console.log('   DS SISTEMA no ar (HTTPS)' + (EM_PRODUCAO ? ' (produção)' : ' (local)'));
+    console.log('========================================');
+    console.log(`   Neste PC:     https://localhost`);
+    if (!EM_PRODUCAO) console.log(`   No celular:   https://${ip}`);
+    console.log('========================================\n');
+
+    // Iniciar agendadores automáticos
+    iniciar_backup_scheduler();
+    iniciar_alertas_scheduler();
+    iniciar_renovacao_scheduler();
+    iniciar_cobranca_scheduler();
+  });
+
+  // Redirecionar HTTP → HTTPS
+  const redirectApp = express();
+  redirectApp.all('*', (req, res) => {
+    res.redirect(`https://${req.hostname}${req.url}`);
+  });
+  redirectApp.listen(PORT, '0.0.0.0', () => {
+    console.log(`   Redirecionamento HTTP:3001 → HTTPS:443 ativo`);
+  });
+} else {
+  app.listen(PORT, '0.0.0.0', () => {
+    const ip = getLocalIP();
+    console.log('\n========================================');
+    console.log('   DS SISTEMA no ar (HTTP)' + (EM_PRODUCAO ? ' (produção)' : ' (local)'));
+    console.log('========================================');
+    console.log(`   Neste PC:     http://localhost:${PORT}`);
+    if (!EM_PRODUCAO) console.log(`   No celular:   http://${ip}:${PORT}`);
+    console.log('========================================\n');
+
+    // Iniciar agendadores automáticos
+    iniciar_backup_scheduler();
+    iniciar_alertas_scheduler();
+    iniciar_renovacao_scheduler();
+    iniciar_cobranca_scheduler();
+  });
+}

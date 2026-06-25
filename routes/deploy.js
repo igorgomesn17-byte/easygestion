@@ -5,7 +5,13 @@ const router = express.Router();
 // ⚠️ WEBHOOK DE DEPLOY - Requer token secreto
 router.post('/webhook', (req, res) => {
   const token = req.body.token || req.headers['x-deploy-token'];
-  const secretToken = process.env.DEPLOY_TOKEN || 'seu-token-secreto-aqui';
+  const secretToken = process.env.DEPLOY_TOKEN || (process.env.NODE_ENV !== 'production' ? 'seu-token-secreto-aqui' : null);
+
+  // Validação em produção
+  if (!secretToken && process.env.NODE_ENV === 'production') {
+    console.error('[DEPLOY] ERRO: DEPLOY_TOKEN não configurado em produção!');
+    return res.status(500).json({ erro: 'Deploy não configurado' });
+  }
 
   // Verificar token
   if (!token || token !== secretToken) {

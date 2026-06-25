@@ -90,7 +90,11 @@ router.delete('/logo', apenasAdmin, (req, res) => {
 
 // ---------- Certificado A1 ----------
 // Chave mestra para criptografia de certificados (deve ser derivada de .env ou secret)
-const CERT_CIPHER = process.env.CERT_CIPHER_KEY || 'change-this-secret-key-in-env';
+const CERT_CIPHER = process.env.CERT_CIPHER_KEY || (process.env.NODE_ENV !== 'production' ? 'change-this-secret-key-in-env' : null);
+
+if (!CERT_CIPHER && process.env.NODE_ENV === 'production') {
+  throw new Error('CERT_CIPHER_KEY não configurado em produção! Defina a variável de ambiente CERT_CIPHER_KEY.');
+}
 
 function criptografarCertificado(buffer) {
   const iv = crypto.randomBytes(16);
