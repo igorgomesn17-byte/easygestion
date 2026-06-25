@@ -345,7 +345,7 @@
       const nome = document.getElementById('pnNome').value.trim();
       const preco = parseFloat(document.getElementById('pnPreco').value) || 0;
       const tamanho = document.getElementById('pnTamanho').value.trim() || 'U';
-      if (nome) { toast('Informe o nome da peça','erro'); return; }
+      if (!nome) { toast('Informe o nome da peça','erro'); return; }
       if (preco <= 0) { toast('Informe o preço','erro'); return; }
       try {
         const p = await api('/produtos/rapido', { method:'POST', body:{ nome, preco_venda:preco, tamanho, quantidade:1 }});
