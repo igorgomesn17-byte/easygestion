@@ -204,8 +204,9 @@ router.post('/rapido', (req, res) => {
     const r = tx();
     // devolve no formato que o PDV usa pra adicionar ao carrinho
     res.status(201).json({
-      produto_id: r.produtoId, variacao_id: r.variacaoId, codigo,
-      nome, preco_venda: preco, custo: 0, tamanho, quantidade: qtd
+      id: r.produtoId, produto_id: r.produtoId, variacao_id: r.variacaoId, codigo,
+      nome, preco_venda: preco, custo: 0, tamanho, quantidade: qtd, estoque: qtd,
+      grade: [{ id: r.variacaoId, tamanho, quantidade: qtd }]
     });
   } catch (e) {
     res.status(500).json({ erro: e.message });
