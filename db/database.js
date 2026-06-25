@@ -17,9 +17,10 @@ const DB_PATH = path.join(DB_DIR, 'dsstore.db');
 const SCHEMA_PATH = path.join(__dirname, 'schema.sql');
 
 // PROTEÇÃO CRÍTICA: verificar ANTES de abrir (DatabaseSync cria arquivo vazio!)
-const bankExistedBefore = fs.existsSync(DB_PATH) && fs.statSync(DB_PATH).size > 100;
+// Considerar "existe" se o arquivo tem > 1000 bytes (banco real, não vazio)
+const bankExistedBefore = fs.existsSync(DB_PATH) && fs.statSync(DB_PATH).size > 1000;
 
-// Fazer backup se banco existir (segurança extra)
+// Fazer backup se banco existir e tiver dados reais (segurança extra)
 if (bankExistedBefore && !process.env.SKIP_BACKUP) {
   const backup = DB_PATH + '.backup-' + new Date().getTime();
   fs.copyFileSync(DB_PATH, backup);
@@ -32,10 +33,16 @@ raw.exec('PRAGMA foreign_keys = ON;');
 
 // Executa schema (CREATE TABLE IF NOT EXISTS é idempotente e seguro)
 const schema = fs.readFileSync(SCHEMA_PATH, 'utf8');
-raw.exec(schema);
-
-if (!bankExistedBefore) {
-  console.log(`✅ Novo banco criado em ${DB_PATH}`);
+try {
+  raw.exec(schema);
+  if (!bankExistedBefore) {
+    console.log(`✅ Novo banco criado em ${DB_PATH}`);
+  }
+} catch (err) {
+  console.error('❌ Erro ao executar schema:', err.message);
+  console.error('Tentando criar tabelas novamente...');
+  // Tentar de novo com mais cuidado
+  raw.exec(schema);
 }
 
 // Executar migrations (nunca deletam dados, apenas atualizam schema)
