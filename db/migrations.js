@@ -6,6 +6,14 @@
 const { DatabaseSync } = require('node:sqlite');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
+
+// Helper: hashear senha com scrypt (mesmo formato da app)
+function hashSenha(senha) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(String(senha), salt, 64).toString('hex');
+  return `scrypt$${salt}$${hash}`;
+}
 
 const DB_DIR = process.env.DB_DIR || path.join(__dirname);
 const DB_PATH = path.join(DB_DIR, 'easygestion.db');
@@ -78,17 +86,31 @@ function executarMigrations(db) {
         // Garantir que DS Store existe - NUNCA deleta, apenas cria se não existir
         const temDSStore = db.prepare('SELECT 1 FROM tenants WHERE nome_loja = ?').get('DS Store');
         if (!temDSStore) {
+          const senhaHasheada = hashSenha('Id172725D@');
           const infoTenant = db.prepare(`
             INSERT INTO tenants (nome_loja, email, senha_hash, nome_responsavel, telefone, status, plano)
             VALUES (?, ?, ?, ?, ?, ?, ?)
-          `).run('DS Store', 'offdsstore@gmail.com', 'hashed-password', 'Daisy', '73999999999', 'ativo', 'profissional');
+          `).run('DS Store', 'offdsstore@gmail.com', senhaHasheada, 'Daisy', '73999999999', 'ativo', 'profissional');
 
           // Criar usuário admin para a DS Store
           const dsStoreId = infoTenant.lastInsertRowid;
           db.prepare(`
             INSERT INTO usuarios (nome, email, tenant_id, papel, senha_hash, ativo)
             VALUES (?, ?, ?, ?, ?, 1)
-          `).run('Daisy', 'offdsstore@gmail.com', dsStoreId, 'admin', 'hashed-password');
+          `).run('Daisy', 'offdsstore@gmail.com', dsStoreId, 'admin', senhaHasheada);
+        }
+      }
+    },
+    {
+      nome: '005_fix_ds_store_password',
+      hash: 'v5-fix-password',
+      exec: (db) => {
+        // Se a DS Store existe mas tem senha errada, atualiza para a correta
+        const dsStore = db.prepare('SELECT id, senha_hash FROM tenants WHERE nome_loja = ?').get('DS Store');
+        if (dsStore && (!dsStore.senha_hash || dsStore.senha_hash === 'hashed-password')) {
+          const senhaCorreta = hashSenha('Id172725D@');
+          db.prepare('UPDATE tenants SET senha_hash = ? WHERE id = ?').run(senhaCorreta, dsStore.id);
+          db.prepare('UPDATE usuarios SET senha_hash = ? WHERE tenant_id = ?').run(senhaCorreta, dsStore.id);
         }
       }
     }
