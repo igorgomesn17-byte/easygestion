@@ -25,22 +25,22 @@ router.use((req, res, next) => {
 const DIR_FOTOS = process.env.UPLOADS_DIR || path.join(__dirname, '..', 'public', 'img', 'produtos');
 if (!fs.existsSync(DIR_FOTOS)) fs.mkdirSync(DIR_FOTOS, { recursive: true });
 
-const MAX_FOTO_BYTES = 3 * 1024 * 1024; // 3MB por foto
+const MAX_FOTO_BYTES = 2 * 1024 * 1024; // 2MB por foto
 
 // Salva uma foto base64 (data URL) com validação de segurança.
 // Aceita SÓ raster (png/jpg/webp) — BLOQUEIA svg (pode conter script) e limita tamanho.
 function salvarFotoBase64(dataUrl, codigo) {
-  if (!dataUrl || typeof dataUrl !== 'string') return null;
+  if (!dataUrl || typeof dataUrl !== 'string') return { ok: false, erro: 'Imagem inválida' };
   const m = dataUrl.match(/^data:image\/(png|jpe?g|webp);base64,([A-Za-z0-9+/=]+)$/i);
-  if (!m) return null; // formato não permitido (inclui svg, gif, etc.)
+  if (!m) return { ok: false, erro: 'Formato não suportado. Use PNG, JPG ou WEBP' };
   const buf = Buffer.from(m[2], 'base64');
-  if (buf.length === 0 || buf.length > MAX_FOTO_BYTES) return null;
+  if (buf.length === 0) return { ok: false, erro: 'Imagem vazia' };
+  if (buf.length > MAX_FOTO_BYTES) return { ok: false, erro: `Imagem muito grande (${(buf.length / 1024 / 1024).toFixed(1)}MB). Máximo: 2MB` };
   const ext = m[1].toLowerCase() === 'jpeg' ? 'jpg' : m[1].toLowerCase();
   const codigoLimpo = String(codigo).replace(/[^A-Za-z0-9_-]/g, ''); // evita path traversal no nome
-  // sufixo aleatório evita colisão quando várias fotos são salvas no mesmo ms
   const nome = `${codigoLimpo}-${Date.now()}-${Math.floor(Math.random()*1e6)}.${ext}`;
   fs.writeFileSync(path.join(DIR_FOTOS, nome), buf);
-  return 'img/produtos/' + nome;
+  return { ok: true, erro: null, caminho: 'img/produtos/' + nome };
 }
 
 const MAX_FOTOS = 5; // 1 capa + até 4 extras
@@ -48,16 +48,22 @@ const MAX_FOTOS = 5; // 1 capa + até 4 extras
 // Salva as fotos EXTRAS de um produto (galeria). Substitui as existentes.
 // fotosExtras: array de base64 (novas) ou caminhos (mantidas). Máx MAX_FOTOS-1 extras.
 function salvarFotosExtras(produtoId, codigo, fotosExtras) {
-  if (!Array.isArray(fotosExtras)) return;
+  if (!Array.isArray(fotosExtras)) return null;
   db.prepare('DELETE FROM produto_fotos WHERE produto_id = ?').run(produtoId);
   const ins = db.prepare('INSERT INTO produto_fotos (produto_id, caminho, ordem) VALUES (?, ?, ?)');
   let ordem = 0;
   for (const f of fotosExtras.slice(0, MAX_FOTOS - 1)) {
     let caminho = null;
-    if (typeof f === 'string' && f.startsWith('data:image')) caminho = salvarFotoBase64(f, codigo);
-    else if (typeof f === 'string' && f.startsWith('img/produtos/')) caminho = f; // mantida
+    if (typeof f === 'string' && f.startsWith('data:image')) {
+      const result = salvarFotoBase64(f, codigo);
+      if (!result.ok) return result; // erro ao salvar foto
+      caminho = result.caminho;
+    } else if (typeof f === 'string' && f.startsWith('img/produtos/')) {
+      caminho = f; // mantida
+    }
     if (caminho) ins.run(produtoId, caminho, ordem++);
   }
+  return { ok: true, erro: null };
 }
 
 // Retorna as fotos extras de um produto (array de caminhos)
@@ -222,7 +228,11 @@ router.post('/', limiteUploadPorTenant, limiteUploadFrequencia, (req, res) => {
 
   // salva foto principal/capa (se enviada em base64)
   let fotoPath = null;
-  if (foto) { try { fotoPath = salvarFotoBase64(foto, codigo); } catch (e) { /* ignora foto invalida */ } }
+  if (foto) {
+    const resultFoto = salvarFotoBase64(foto, codigo);
+    if (!resultFoto.ok) return res.status(400).json({ erro: resultFoto.erro });
+    fotoPath = resultFoto.caminho;
+  }
 
   const insertProduto = db.prepare(`
     INSERT INTO produtos (codigo, codigo_barras, nome, categoria, descricao, cor, custo, preco_venda, foto, colecao, tenant_id)
@@ -243,7 +253,11 @@ router.post('/', limiteUploadPorTenant, limiteUploadFrequencia, (req, res) => {
         if (qtd > 0) insertMov.run(vinfo.lastInsertRowid, qtd);
       }
     }
-    if (Array.isArray(fotos)) salvarFotosExtras(produtoId, codigo, fotos); // galeria
+    // galeria (fotos extras)
+    if (Array.isArray(fotos)) {
+      const resultFotos = salvarFotosExtras(produtoId, codigo, fotos);
+      if (!resultFotos.ok) throw new Error(resultFotos.erro);
+    }
     return produtoId;
   });
 

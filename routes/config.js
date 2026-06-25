@@ -19,15 +19,16 @@ const MAX_LOGO_BYTES = 2 * 1024 * 1024; // 2MB
 // Salva a logo base64 (data URL). Aceita SÓ raster (png/jpg/webp) — bloqueia svg
 // (pode conter script) e limita tamanho. Mesmo padrão das fotos de produto.
 function salvarLogoBase64(dataUrl) {
-  if (!dataUrl || typeof dataUrl !== 'string') return null;
+  if (!dataUrl || typeof dataUrl !== 'string') return { ok: false, erro: 'Logo inválida' };
   const m = dataUrl.match(/^data:image\/(png|jpe?g|webp);base64,([A-Za-z0-9+/=]+)$/i);
-  if (!m) return null;
+  if (!m) return { ok: false, erro: 'Formato não suportado. Use PNG, JPG ou WEBP' };
   const buf = Buffer.from(m[2], 'base64');
-  if (buf.length === 0 || buf.length > MAX_LOGO_BYTES) return null;
+  if (buf.length === 0) return { ok: false, erro: 'Logo vazia' };
+  if (buf.length > MAX_LOGO_BYTES) return { ok: false, erro: `Logo muito grande (${(buf.length / 1024 / 1024).toFixed(1)}MB). Máximo: 2MB` };
   const ext = m[1].toLowerCase() === 'jpeg' ? 'jpg' : m[1].toLowerCase();
   const nome = `logo-${Date.now()}.${ext}`;
   fs.writeFileSync(path.join(DIR_MARCA, nome), buf);
-  return 'img/marca/' + nome;
+  return { ok: true, erro: null, caminho: 'img/marca/' + nome };
 }
 
 // Prefixos de chaves SENSÍVEIS (financeiro/operacional) — só admin vê no GET.
@@ -75,11 +76,11 @@ router.post('/', apenasAdmin, (req, res) => {
 // Upload da LOGO da loja (só admin). Recebe { logo: dataURL base64 }, salva o arquivo
 // e grava o caminho em config.loja_logo. Devolve o caminho pra o front atualizar na hora.
 router.post('/logo', apenasAdmin, (req, res) => {
-  const caminho = salvarLogoBase64(req.body && req.body.logo);
-  if (!caminho) return res.status(400).json({ erro: 'Imagem inválida. Envie PNG, JPG ou WEBP de até 2MB.' });
+  const result = salvarLogoBase64(req.body && req.body.logo);
+  if (!result.ok) return res.status(400).json({ erro: result.erro });
   db.prepare('INSERT INTO config (chave, valor, tenant_id) VALUES (?, ?, ?) ON CONFLICT(chave, tenant_id) DO UPDATE SET valor=excluded.valor')
-    .run('loja_logo', caminho, req.tenantId);
-  res.json({ ok: true, loja_logo: caminho });
+    .run('loja_logo', result.caminho, req.tenantId);
+  res.json({ ok: true, loja_logo: result.caminho });
 });
 
 // Remove a logo (volta a mostrar o nome em texto).

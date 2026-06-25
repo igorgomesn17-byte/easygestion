@@ -4,6 +4,7 @@
 const express = require('express');
 const router = express.Router();
 const { db } = require('../db/database');
+const { cpf, cnpj } = require('cpf-cnpj-validator');
 
 // Validar email (RFC 5322 simplificado)
 function validarEmail(email) {
@@ -16,6 +17,32 @@ function validarEmail(email) {
     return { valido: false, erro: 'Email muito longo' };
   }
   return { valido: true, erro: null };
+}
+
+// Validar CPF ou CNPJ
+function validarCPFCNPJ(valor) {
+  if (!valor || valor.trim() === '') return { valido: true, erro: null, tipo: null };
+
+  // Remove caracteres especiais
+  const limpo = valor.replace(/\D/g, '');
+
+  // Testa CPF (11 dígitos)
+  if (limpo.length === 11) {
+    if (cpf.isValid(limpo)) {
+      return { valido: true, erro: null, tipo: 'CPF', valor: limpo };
+    }
+    return { valido: false, erro: 'CPF inválido', tipo: 'CPF' };
+  }
+
+  // Testa CNPJ (14 dígitos)
+  if (limpo.length === 14) {
+    if (cnpj.isValid(limpo)) {
+      return { valido: true, erro: null, tipo: 'CNPJ', valor: limpo };
+    }
+    return { valido: false, erro: 'CNPJ inválido', tipo: 'CNPJ' };
+  }
+
+  return { valido: false, erro: 'CPF ou CNPJ inválido (deve ter 11 ou 14 dígitos)', tipo: null };
 }
 
 // Guard de papel: o VENDEDOR (PDV) só pode buscar (GET) e cadastrar (POST /) cliente.
@@ -74,12 +101,17 @@ router.get('/:id', (req, res) => {
 // Anti-duplicado: se já existe cliente com o MESMO telefone (comparando só dígitos),
 // não cria de novo — devolve o existente com a flag `ja_existia` pro PDV já selecioná-lo.
 router.post('/', (req, res) => {
-  const { nome, telefone, cidade, aniversario, origem, indicada_por, email } = req.body;
+  const { nome, telefone, cidade, aniversario, origem, indicada_por, email, cpf_cnpj } = req.body;
   if (!nome) return res.status(400).json({ erro: 'Nome obrigatorio' });
 
   // Validar email (se fornecido)
   const valEmail = validarEmail(email);
   if (!valEmail.valido) return res.status(400).json({ erro: valEmail.erro });
+
+  // Validar CPF/CNPJ (se fornecido)
+  const valCPFCNPJ = validarCPFCNPJ(cpf_cnpj);
+  if (!valCPFCNPJ.valido) return res.status(400).json({ erro: valCPFCNPJ.erro });
+  const cpf_cnpj_limpo = valCPFCNPJ.valor || null;
 
   const telDigitos = String(telefone || '').replace(/\D/g, '');
   if (telDigitos.length >= 8) {
@@ -102,18 +134,23 @@ router.post('/', (req, res) => {
     }
   }
 
-  const info = db.prepare('INSERT INTO clientes (tenant_id, nome, telefone, cidade, aniversario, origem, indicada_por, email, email_verificado) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
-    .run(req.tenantId, nome, telefone || null, cidade || null, aniversario || null, origem || null, indicada_por || null, email ? email.toLowerCase() : null, 0);
-  res.status(201).json({ id: info.lastInsertRowid, nome, email: email || null, ja_existia: false });
+  const info = db.prepare('INSERT INTO clientes (tenant_id, nome, telefone, cidade, aniversario, origem, indicada_por, email, email_verificado, cpf_cnpj) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    .run(req.tenantId, nome, telefone || null, cidade || null, aniversario || null, origem || null, indicada_por || null, email ? email.toLowerCase() : null, 0, cpf_cnpj_limpo);
+  res.status(201).json({ id: info.lastInsertRowid, nome, email: email || null, cpf_cnpj: cpf_cnpj_limpo || null, ja_existia: false });
 });
 
 // PUT /api/clientes/:id
 router.put('/:id', (req, res) => {
-  const { nome, telefone, cidade, aniversario, origem, indicada_por, email } = req.body;
+  const { nome, telefone, cidade, aniversario, origem, indicada_por, email, cpf_cnpj } = req.body;
 
   // Validar email (se fornecido)
   const valEmail = validarEmail(email);
   if (!valEmail.valido) return res.status(400).json({ erro: valEmail.erro });
+
+  // Validar CPF/CNPJ (se fornecido)
+  const valCPFCNPJ = validarCPFCNPJ(cpf_cnpj);
+  if (!valCPFCNPJ.valido) return res.status(400).json({ erro: valCPFCNPJ.erro });
+  const cpf_cnpj_limpo = valCPFCNPJ.valor || null;
 
   // Verificar email duplicado (se fornecido)
   if (email && email.trim() !== '') {
@@ -125,8 +162,8 @@ router.put('/:id', (req, res) => {
     }
   }
 
-  db.prepare('UPDATE clientes SET nome=?, telefone=?, cidade=?, aniversario=?, origem=?, indicada_por=?, email=? WHERE id=? AND tenant_id=?')
-    .run(nome, telefone || null, cidade || null, aniversario || null, origem || null, indicada_por || null, email ? email.toLowerCase() : null, req.params.id, req.tenantId);
+  db.prepare('UPDATE clientes SET nome=?, telefone=?, cidade=?, aniversario=?, origem=?, indicada_por=?, email=?, cpf_cnpj=? WHERE id=? AND tenant_id=?')
+    .run(nome, telefone || null, cidade || null, aniversario || null, origem || null, indicada_por || null, email ? email.toLowerCase() : null, cpf_cnpj_limpo, req.params.id, req.tenantId);
   res.json({ ok: true });
 });
 

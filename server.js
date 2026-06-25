@@ -24,12 +24,19 @@ const { iniciar_cobranca_scheduler } = require('./lib/cobranca-scheduler');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const EM_PRODUCAO = process.env.NODE_ENV === 'production';
+const NODE_ENV = process.env.NODE_ENV || 'development';
+const EM_PRODUCAO = NODE_ENV === 'production';
 
 // ============================================================
 // ✅ VALIDAÇÃO DE BOOT: Verificar configurações obrigatórias
 // ============================================================
-console.log(`\n🚀 Iniciando EasyGestão em modo ${EM_PRODUCAO ? 'PRODUÇÃO' : 'DESENVOLVIMENTO'}...\n`);
+
+// Validar NODE_ENV em produção
+if (EM_PRODUCAO) {
+  console.log(`\n🚀 Iniciando EasyGestão em modo PRODUÇÃO...\n`);
+} else {
+  console.log(`\n⚠️  Iniciando EasyGestão em modo ${NODE_ENV}...\n`);
+}
 
 // 1. ADMIN_SENHA_HASH obrigatório em produção
 if (EM_PRODUCAO && !process.env.ADMIN_SENHA_HASH && !process.env.ADMIN_SENHA) {
@@ -114,8 +121,20 @@ app.use(helmet({
 
 // ---------- CORS (restrito ao próprio domínio) ----------
 const ORIGIN = process.env.ORIGIN || (EM_PRODUCAO ? false : 'http://localhost:3000');
-if (!ORIGIN && EM_PRODUCAO) {
-  console.error('❌ ERRO: ORIGIN deve estar configurado em produção!');
+if (EM_PRODUCAO && !ORIGIN) {
+  console.error(`
+❌ ERRO CRÍTICO: ORIGIN deve estar configurado em produção!
+
+Configure a variável de ambiente ORIGIN com seu domínio:
+  ORIGIN=https://oficialdsstore.com.br
+
+Exemplos:
+  - ORIGIN=https://oficialdsstore.com.br
+  - ORIGIN=https://api.easygestion.com.br
+  - ORIGIN=https://seu-dominio.com
+
+⚠️  A ausência de ORIGIN causará falhas de CORS em produção!
+  `);
   process.exit(1);
 }
 app.use(cors({ origin: ORIGIN, credentials: true }));
@@ -364,19 +383,20 @@ function getLocalIP() {
 const CERT_PATH = path.join(__dirname, 'certs', 'cert.pem');
 const KEY_PATH = path.join(__dirname, 'certs', 'key.pem');
 const USE_HTTPS = fs.existsSync(CERT_PATH) && fs.existsSync(KEY_PATH);
+const HTTPS_PORT = 3443;  // porta alternativa (não precisa de root)
 
 if (USE_HTTPS) {
   const httpsOptions = {
     cert: fs.readFileSync(CERT_PATH),
     key: fs.readFileSync(KEY_PATH)
   };
-  https.createServer(httpsOptions, app).listen(443, '0.0.0.0', () => {
+  https.createServer(httpsOptions, app).listen(HTTPS_PORT, '0.0.0.0', () => {
     const ip = getLocalIP();
     console.log('\n========================================');
     console.log('   DS SISTEMA no ar (HTTPS)' + (EM_PRODUCAO ? ' (produção)' : ' (local)'));
     console.log('========================================');
-    console.log(`   Neste PC:     https://localhost`);
-    if (!EM_PRODUCAO) console.log(`   No celular:   https://${ip}`);
+    console.log(`   Neste PC:     https://localhost:${HTTPS_PORT}`);
+    if (!EM_PRODUCAO) console.log(`   No celular:   https://${ip}:${HTTPS_PORT}`);
     console.log('========================================\n');
 
     // Iniciar agendadores automáticos
@@ -386,13 +406,11 @@ if (USE_HTTPS) {
     iniciar_cobranca_scheduler();
   });
 
-  // Redirecionar HTTP → HTTPS
-  const redirectApp = express();
-  redirectApp.all('*', (req, res) => {
-    res.redirect(`https://${req.hostname}${req.url}`);
-  });
-  redirectApp.listen(PORT, '0.0.0.0', () => {
-    console.log(`   Redirecionamento HTTP:3001 → HTTPS:443 ativo`);
+  // HTTP também roda pra compatibilidade
+  app.listen(PORT, '0.0.0.0', () => {
+    const ip = getLocalIP();
+    console.log(`   HTTP (compatibilidade): http://localhost:${PORT}`);
+    if (!EM_PRODUCAO) console.log(`                          http://${ip}:${PORT}`);
   });
 } else {
   app.listen(PORT, '0.0.0.0', () => {
