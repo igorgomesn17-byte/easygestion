@@ -12,6 +12,8 @@ const cors = require('cors');
 const https = require('https');
 const fs = require('fs');
 
+const logger = require('./lib/logger');
+const loggerMiddleware = require('./middleware/logger-middleware');
 const { exigirLogin, injetarTenant, validarTenantAtivo, garantirTenantId, apenasAdmin, exigirPapel, limiteGlobal, limiteLogin } = require('./middleware/seguranca');
 const { middlewareAuditoria } = require('./middleware/auditoria');
 // PDV: admin OU vendedor (vendedor só vende e opera o caixa)
@@ -31,11 +33,11 @@ const EM_PRODUCAO = NODE_ENV === 'production';
 // ✅ VALIDAÇÃO DE BOOT: Verificar configurações obrigatórias
 // ============================================================
 
-// Validar NODE_ENV em produção
+// Logger de inicialização
 if (EM_PRODUCAO) {
-  console.log(`\n🚀 Iniciando EasyGestão em modo PRODUÇÃO...\n`);
+  logger.info('🚀 Iniciando EasyGestão em modo PRODUÇÃO');
 } else {
-  console.log(`\n⚠️  Iniciando EasyGestão em modo ${NODE_ENV}...\n`);
+  logger.debug(`⚠️  Iniciando EasyGestão em modo ${NODE_ENV}`);
 }
 
 // 1. ADMIN_SENHA_HASH obrigatório em produção
@@ -267,6 +269,9 @@ app.use('/api/config/focus-token', injetarTenant, (req, res, next) => {
   next();
 });
 app.use('/api/config/focus-token', require('./routes/focus-token'));
+
+// ---------- Middleware de Logger (antes de autenticação) ----------
+app.use(loggerMiddleware);
 
 // ---------- Middleware de autenticação (protege o resto) ----------
 app.use('/api', exigirLogin);
