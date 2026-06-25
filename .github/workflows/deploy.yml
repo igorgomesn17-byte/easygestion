@@ -21,7 +21,7 @@ jobs:
 
     - name: 📦 Clonar/atualizar repositório na EC2
       run: |
-        ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} << 'EOF'
+        ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ubuntu@${{ secrets.DEPLOY_HOST }} << 'EOF'
         if [ ! -d ~/easygestion ]; then
           echo "📥 Clonando repositório..."
           git clone https://github.com/igorgomesn17-byte/easygestion.git ~/easygestion
