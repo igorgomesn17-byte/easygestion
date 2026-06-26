@@ -393,56 +393,52 @@ router.get('/fluxo-caixa', exigirPapel('admin'), (req, res) => {
       return d.toISOString().split('T')[0];
     }
 
-  // Vendas do mês com suas formas de pagamento
-  // Precisa recalcular porque precisa distribuir pelos dias de RECEBIMENTO, não de venda
-  const vendas = db.prepare(`
-    SELECT v.id, v.data_hora, v.total FROM vendas v
-    WHERE substr(v.data_hora,1,7) = ? AND v.tenant_id = ?
-    ORDER BY v.data_hora ASC
+  // Usa dados já processados do caixa_dia (garante consistência com Caixa do dia)
+  // O caixa_dia agrupa por DATA DA VENDA. Para prazos, recalcula a distribuição por data de recebimento.
+  const caixaDias = db.prepare(`
+    SELECT data, total_pix, total_dinheiro, total_debito, total_credito, total_vale
+    FROM caixa_dia
+    WHERE substr(data,1,7) = ? AND tenant_id = ?
+    ORDER BY data ASC
   `).all(mes, req.tenantId);
 
-  // Para cada venda, calcula quando o dinheiro cai por forma
   const recebimentos = {}; // data -> { pix_dinheiro: X, debito: X, credito_vista: X, credito_parc: [] }
   const aReceber = { credito_parcelado: 0, debito: 0, credito_vista: 0 }; // totais ainda não recebidos
 
-  for (const v of vendas) {
-    const dataPagtos = db.prepare(`
-      SELECT forma, parcelas, valor FROM venda_pagamentos WHERE venda_id = ? AND tenant_id = ?
-    `).all(v.id, req.tenantId);
+  // Para cada dia de vendas, distribui nos dias de recebimento
+  for (const cd of caixaDias) {
+    const dataDaVenda = cd.data;
 
-    for (const p of dataPagtos) {
-      let dataReceb;
-      if (p.forma === 'pix' || p.forma === 'pix_chave' || p.forma === 'dinheiro' || p.forma === 'vale') {
-        // Pix, dinheiro e vale caem no mesmo dia (recebimento imediato)
-        dataReceb = v.data_hora.split(' ')[0];
-        recebimentos[dataReceb] = recebimentos[dataReceb] || { pix_dinheiro: 0, debito: 0, credito_vista: 0, credito_parc: [] };
-        recebimentos[dataReceb].pix_dinheiro += p.valor;
-      } else if (p.forma === 'debito') {
-        // Débito: prazo configurado (dias úteis ou corridos)
-        dataReceb = tipoDebito === 'uteis'
-          ? adicionarDiasUteis(v.data_hora.split(' ')[0], prazoDeb)
-          : adicionarDiasCorretos(v.data_hora.split(' ')[0], prazoDeb);
-        recebimentos[dataReceb] = recebimentos[dataReceb] || { pix_dinheiro: 0, debito: 0, credito_vista: 0, credito_parc: [] };
-        recebimentos[dataReceb].debito += p.valor;
-      } else if (p.forma === 'credito_vista') {
-        // Crédito à vista: prazo configurado (dias úteis ou corridos)
-        dataReceb = tipoCredVista === 'uteis'
-          ? adicionarDiasUteis(v.data_hora.split(' ')[0], prazoCredVista)
-          : adicionarDiasCorretos(v.data_hora.split(' ')[0], prazoCredVista);
-        recebimentos[dataReceb] = recebimentos[dataReceb] || { pix_dinheiro: 0, debito: 0, credito_vista: 0, credito_parc: [] };
-        recebimentos[dataReceb].credito_vista += p.valor;
-      } else if (p.forma === 'credito_parcelado') {
-        // Crédito parcelado: cada parcela cai em sua data (dias úteis ou corridos)
-        const valorParcela = p.valor / p.parcelas;
-        for (let i = 1; i <= p.parcelas; i++) {
-          dataReceb = tipoCredParc === 'uteis'
-            ? adicionarDiasUteis(v.data_hora.split(' ')[0], prazoCredParc * i)
-            : adicionarDiasCorretos(v.data_hora.split(' ')[0], prazoCredParc * i);
-          recebimentos[dataReceb] = recebimentos[dataReceb] || { pix_dinheiro: 0, debito: 0, credito_vista: 0, credito_parc: [] };
-          recebimentos[dataReceb].credito_parc.push({ parcela: i, valor: +valorParcela.toFixed(2) });
-        }
-        aReceber.credito_parcelado += p.valor;
-      }
+    // Pix e dinheiro HOJE (sem prazo, recebimento imediato)
+    const pix_dinheiro = (cd.total_pix || 0) + (cd.total_dinheiro || 0);
+    if (pix_dinheiro > 0) {
+      recebimentos[dataDaVenda] = recebimentos[dataDaVenda] || { pix_dinheiro: 0, debito: 0, credito_vista: 0, credito_parc: [] };
+      recebimentos[dataDaVenda].pix_dinheiro += pix_dinheiro;
+    }
+
+    // Vale HOJE (recebimento imediato, mas separado de pix/dinheiro na tabela)
+    // Por enquanto vai em pix_dinheiro na "linha do tempo" porque não tem coluna específica
+    if (cd.total_vale > 0) {
+      recebimentos[dataDaVenda] = recebimentos[dataDaVenda] || { pix_dinheiro: 0, debito: 0, credito_vista: 0, credito_parc: [] };
+      recebimentos[dataDaVenda].pix_dinheiro += cd.total_vale;
+    }
+
+    // Débito: aplica prazo (próximo dia útil)
+    if (cd.total_debito > 0) {
+      const dataRecebDebito = tipoDebito === 'uteis'
+        ? adicionarDiasUteis(dataDaVenda, prazoDeb)
+        : adicionarDiasCorretos(dataDaVenda, prazoDeb);
+      recebimentos[dataRecebDebito] = recebimentos[dataRecebDebito] || { pix_dinheiro: 0, debito: 0, credito_vista: 0, credito_parc: [] };
+      recebimentos[dataRecebDebito].debito += cd.total_debito;
+    }
+
+    // Crédito (combinado vista+parcelado no caixa_dia): aplica prazo (próximo dia útil)
+    if (cd.total_credito > 0) {
+      const dataRecebCredito = tipoCredVista === 'uteis'
+        ? adicionarDiasUteis(dataDaVenda, prazoCredVista)
+        : adicionarDiasCorretos(dataDaVenda, prazoCredVista);
+      recebimentos[dataRecebCredito] = recebimentos[dataRecebCredito] || { pix_dinheiro: 0, debito: 0, credito_vista: 0, credito_parc: [] };
+      recebimentos[dataRecebCredito].credito_vista += cd.total_credito;
     }
   }
 
