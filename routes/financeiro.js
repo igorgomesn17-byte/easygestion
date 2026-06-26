@@ -374,21 +374,25 @@ router.get('/fluxo-caixa', exigirPapel('admin'), (req, res) => {
     // Helper: soma dias úteis (seg-sex, ignorando finais de semana)
     function adicionarDiasUteis(dataStr, dias) {
       if (!dataStr || dataStr.length < 10) throw new Error('Data inválida: ' + dataStr);
-      // Parse como data local (não UTC) para calcular o dia da semana correto
-      const [ano, mes, dia] = dataStr.split('-');
+      // Parse como data local - força interpretação correta da data
+      const parts = dataStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (!parts) throw new Error('Formato data inválido: ' + dataStr);
+      const [, ano, mes, dia] = parts;
       let d = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia));
+
+      // Percorre e conta apenas dias úteis (seg=1 a sex=5)
       let count = 0;
-      const nomesDia = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
-      console.log(`[adicionarDiasUteis] Entrada: ${dataStr} (${nomesDia[d.getDay()]}), +${dias} dias úteis`);
       while (count < dias) {
         d.setDate(d.getDate() + 1);
-        console.log(`  -> ${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} (${nomesDia[d.getDay()]}) getDay=${d.getDay()}`);
-        if (d.getDay() >= 1 && d.getDay() <= 5) count++;
+        const dayOfWeek = d.getDay();
+        if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+          count++;
+        }
       }
+
       const y = d.getFullYear();
       const m = String(d.getMonth() + 1).padStart(2, '0');
       const day = String(d.getDate()).padStart(2, '0');
-      console.log(`[adicionarDiasUteis] Saída: ${y}-${m}-${day}\n`);
       return `${y}-${m}-${day}`;
     }
 
@@ -437,22 +441,18 @@ router.get('/fluxo-caixa', exigirPapel('admin'), (req, res) => {
 
     // Débito: aplica prazo (próximo dia útil)
     if (cd.total_debito > 0) {
-      console.log(`[FLUXO] Dia ${dataDaVenda}: total_debito=${cd.total_debito}, tipo=${tipoDebito}, prazo=${prazoDeb}`);
       const dataRecebDebito = tipoDebito === 'uteis'
         ? adicionarDiasUteis(dataDaVenda, prazoDeb)
         : adicionarDiasCorretos(dataDaVenda, prazoDeb);
-      console.log(`[FLUXO] Débito vai para: ${dataRecebDebito}`);
       recebimentos[dataRecebDebito] = recebimentos[dataRecebDebito] || { pix_dinheiro: 0, debito: 0, credito_vista: 0, credito_parc: [] };
       recebimentos[dataRecebDebito].debito += cd.total_debito;
     }
 
     // Crédito (combinado vista+parcelado no caixa_dia): aplica prazo (próximo dia útil)
     if (cd.total_credito > 0) {
-      console.log(`[FLUXO] Dia ${dataDaVenda}: total_credito=${cd.total_credito}, tipo=${tipoCredVista}, prazo=${prazoCredVista}`);
       const dataRecebCredito = tipoCredVista === 'uteis'
         ? adicionarDiasUteis(dataDaVenda, prazoCredVista)
         : adicionarDiasCorretos(dataDaVenda, prazoCredVista);
-      console.log(`[FLUXO] Crédito vai para: ${dataRecebCredito}`);
       recebimentos[dataRecebCredito] = recebimentos[dataRecebCredito] || { pix_dinheiro: 0, debito: 0, credito_vista: 0, credito_parc: [] };
       recebimentos[dataRecebCredito].credito_vista += cd.total_credito;
     }
