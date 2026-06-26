@@ -357,34 +357,35 @@ router.post('/conciliacao', exigirPapel('admin'), (req, res) => {
 // GET /api/financeiro/fluxo-caixa?mes=YYYY-MM -> Fluxo de caixa real (regime de caixa)
 // Mostra quando o dinheiro realmente entra e sai (considerando prazos de cartão)
 router.get('/fluxo-caixa', exigirPapel('admin'), (req, res) => {
-  const mes = req.query.mes || hojeLocal().slice(0, 7);
-  const [ano, mesNum] = mes.split('-');
+  try {
+    const mes = req.query.mes || hojeLocal().slice(0, 7);
+    const [ano, mesNum] = mes.split('-');
 
-  // Lê prazos configurados
-  const prazoDeb = parseInt(getConfig('prazo_debito_dias', '1')) || 1;
-  const tipoDebito = getConfig('prazo_debito_tipo', 'uteis');
-  const prazoCredVista = parseInt(getConfig('prazo_credito_vista_dias', '30')) || 30;
-  const tipoCredVista = getConfig('prazo_credito_vista_tipo', 'corridos');
-  const prazoCredParc = parseInt(getConfig('prazo_credito_parc_dias', '30')) || 30;
-  const tipoCredParc = getConfig('prazo_credito_parc_tipo', 'corridos');
+    // Lê prazos configurados
+    const prazoDeb = parseInt(getConfig('prazo_debito_dias', '1')) || 1;
+    const tipoDebito = getConfig('prazo_debito_tipo', 'uteis');
+    const prazoCredVista = parseInt(getConfig('prazo_credito_vista_dias', '30')) || 30;
+    const tipoCredVista = getConfig('prazo_credito_vista_tipo', 'corridos');
+    const prazoCredParc = parseInt(getConfig('prazo_credito_parc_dias', '30')) || 30;
+    const tipoCredParc = getConfig('prazo_credito_parc_tipo', 'corridos');
 
-  // Helper: soma dias úteis (seg-sex, ignorando finais de semana)
-  function adicionarDiasUteis(dataStr, dias) {
-    let d = new Date(dataStr + 'T00:00:00');
-    let count = 0;
-    while (count < dias) {
-      d.setDate(d.getDate() + 1);
-      if (d.getDay() >= 1 && d.getDay() <= 5) count++;
+    // Helper: soma dias úteis (seg-sex, ignorando finais de semana)
+    function adicionarDiasUteis(dataStr, dias) {
+      let d = new Date(dataStr + 'T00:00:00');
+      let count = 0;
+      while (count < dias) {
+        d.setDate(d.getDate() + 1);
+        if (d.getDay() >= 1 && d.getDay() <= 5) count++;
+      }
+      return d.toISOString().split('T')[0];
     }
-    return d.toISOString().split('T')[0];
-  }
 
-  // Helper: soma dias corridos (seg-dom, incluindo finais de semana)
-  function adicionarDiasCorretos(dataStr, dias) {
-    let d = new Date(dataStr + 'T00:00:00');
-    d.setDate(d.getDate() + dias);
-    return d.toISOString().split('T')[0];
-  }
+    // Helper: soma dias corridos (seg-dom, incluindo finais de semana)
+    function adicionarDiasCorretos(dataStr, dias) {
+      let d = new Date(dataStr + 'T00:00:00');
+      d.setDate(d.getDate() + dias);
+      return d.toISOString().split('T')[0];
+    }
 
   // Vendas do mês com suas formas de pagamento
   const vendas = db.prepare(`
@@ -506,6 +507,10 @@ router.get('/fluxo-caixa', exigirPapel('admin'), (req, res) => {
     },
     linha_do_tempo: linhaDoTempo
   });
+  } catch (e) {
+    console.error('Erro em fluxo-caixa:', e.message);
+    res.status(500).json({ erro: 'Erro ao carregar fluxo de caixa: ' + e.message });
+  }
 });
 
 module.exports = router;
