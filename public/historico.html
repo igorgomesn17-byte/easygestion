@@ -194,7 +194,8 @@
             </div>
           </div>
 
-          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
+            <button class="btn" style="background:#8a7a6d; color:white;" onclick="reimprimirCupom(${v.id})">🖨️ Reimprimir cupom</button>
             <button class="btn" style="background:#27ae60; color:white;" onclick="emitirNfce(${v.id})">📄 Emitir NFC-e</button>
             <button class="btn" style="background:#E74C3C; color:white;" onclick="abrirTroca(${v.id})">🔄 Registrar troca</button>
           </div>
@@ -213,6 +214,11 @@
         toast('NFC-e emitida com sucesso','sucesso');
         fecharModal();
       } catch(e) { toast(e.message,'erro'); }
+    }
+
+    function reimprimirCupom(vendaId) {
+      fecharModal();
+      window.location.href = 'cupom.html?venda=' + vendaId;
     }
 
     function abrirTroca(vendaId) {
