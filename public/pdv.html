@@ -79,15 +79,6 @@
           </div>
           <div id="impactoDesc"></div>
 
-          <div class="campo mt" id="areaVale">
-            <label>Vale-crédito</label>
-            <div style="display:flex; gap:6px;">
-              <input type="text" id="codigoVale" placeholder="Ex: VALE-ABC123" style="flex:1;" oninput="buscarVale()">
-              <button class="btn" onclick="aplicarVale()" style="white-space:nowrap;">Aplicar</button>
-            </div>
-            <div id="infoVale" style="margin-top:8px;"></div>
-          </div>
-
           <div class="flex-entre" style="font-size:1.3rem;"><strong>TOTAL</strong><strong id="total" class="dinheiro texto-verde">R$ 0,00</strong></div>
 
           <h2>Pagamento</h2>
@@ -98,6 +89,16 @@
             <div class="pgto-btn" data-forma="debito" onclick="selPgto(this)">💳 Débito</div>
             <div class="pgto-btn" data-forma="credito_vista" onclick="selPgto(this)">💳 Créd. à vista</div>
             <div class="pgto-btn" data-forma="credito_parcelado" onclick="selPgto(this)">💳 Créd. parcelado</div>
+            <div class="pgto-btn" data-forma="vale" onclick="selPgtoVale(this)" style="background:var(--dourado-claro,#E8C547);">🎟️ Vale-crédito</div>
+          </div>
+
+          <div id="areaVale" style="display:none; margin-top:12px;">
+            <label>Código do vale</label>
+            <div style="display:flex; gap:6px;">
+              <input type="text" id="codigoVale" placeholder="Ex: VALE-ABC123" style="flex:1;" oninput="buscarVale()">
+              <button class="btn" onclick="aplicarVale()" style="white-space:nowrap;">Verificar</button>
+            </div>
+            <div id="infoVale" style="margin-top:8px;"></div>
           </div>
 
           <div class="campo mt" id="areaParcelas" style="display:none;">
@@ -509,6 +510,20 @@
       el.classList.add('sel');
       formaSel = el.dataset.forma;
       document.getElementById('areaParcelas').style.display = formaSel === 'credito_parcelado' ? 'block' : 'none';
+      document.getElementById('areaVale').style.display = 'none';
+      atualizarAreaComprovante();
+      atualizarAreaTroco();
+      atualizarTotais();
+    }
+
+    function selPgtoVale(el) {
+      if (splitAtivo) fecharSplit();
+      document.querySelectorAll('.pgto-btn').forEach(b => b.classList.remove('sel'));
+      el.classList.add('sel');
+      formaSel = 'vale';
+      document.getElementById('areaParcelas').style.display = 'none';
+      document.getElementById('areaVale').style.display = 'block';
+      document.getElementById('previewPgto').innerHTML = '';
       atualizarAreaComprovante();
       atualizarAreaTroco();
       atualizarTotais();
@@ -524,7 +539,19 @@
 
       let html = '';
 
-      if (formaSel === 'pix' || formaSel === 'pix_chave') {
+      if (formaSel === 'vale') {
+        if (valeAtual) {
+          html = `<div style="background:#FCF3E3; border:1px solid var(--dourado-claro); padding:12px; border-radius:8px; font-size:0.9rem;">
+            <strong style="color:var(--dourado-claro);">🎟️ Vale-crédito aplicado</strong>
+            <div class="mt" style="font-size:0.85rem;">Código: <strong>${valeAtual.codigo}</strong></div>
+            <div style="font-size:0.85rem;">Saldo disponível: ${moeda(valeAtual.saldo_disponivel)}</div>
+          </div>`;
+        } else {
+          html = `<div style="background:#FFF3CD; border:1px solid #FFC107; padding:12px; border-radius:8px; font-size:0.9rem;">
+            <strong style="color:#856404;">⚠️ Insira o código do vale</strong>
+          </div>`;
+        }
+      } else if (formaSel === 'pix' || formaSel === 'pix_chave') {
         html = `<div style="background:#E3F4EA; border:1px solid var(--verde); padding:12px; border-radius:8px; font-size:0.9rem;">
           <strong style="color:var(--verde);">💚 Sem taxa! Você recebe ${moeda(total)} em 1 dia útil.</strong>
         </div>`;
@@ -823,23 +850,29 @@
         }));
       } else {
         if (!formaSel) { toast('Escolha a forma de pagamento','erro'); return; }
-        venda.forma_pagamento = formaSel;
-        venda.parcelas = formaSel === 'credito_parcelado' ? parseInt(document.getElementById('parcelas').value) : 1;
-        // 4x+: informa se repassa a taxa (default) ou a loja absorve (exceção)
-        if (formaSel === 'credito_parcelado' && venda.parcelas > LIMITE_LOJA_ABSORVE) {
-          venda.repassar_taxa = repassarTaxaAtivo();
-        }
-        // troco (só dinheiro): valida recebido e anexa troco + forma de devolução
-        if (formaSel === 'dinheiro') {
-          const recebido = parseFloat(document.getElementById('valorRecebido').value) || 0;
-          if (recebido > 0 && recebido < totalVenda() - 0.01) {
-            toast('Valor recebido é menor que o total','erro'); return;
+        if (formaSel === 'vale') {
+          if (!valeAtual) { toast('Insira e verifique o código do vale','erro'); return; }
+          venda.forma_pagamento = 'vale';
+          venda.vale_codigo = valeAtual.codigo;
+        } else {
+          venda.forma_pagamento = formaSel;
+          venda.parcelas = formaSel === 'credito_parcelado' ? parseInt(document.getElementById('parcelas').value) : 1;
+          // 4x+: informa se repassa a taxa (default) ou a loja absorve (exceção)
+          if (formaSel === 'credito_parcelado' && venda.parcelas > LIMITE_LOJA_ABSORVE) {
+            venda.repassar_taxa = repassarTaxaAtivo();
           }
-          const troco = trocoAtual();
-          if (troco > 0) {
-            venda.troco = troco;
-            const sel = document.querySelector('input[name="trocoForma"]:checked');
-            venda.troco_forma = sel ? sel.value : 'dinheiro';
+          // troco (só dinheiro): valida recebido e anexa troco + forma de devolução
+          if (formaSel === 'dinheiro') {
+            const recebido = parseFloat(document.getElementById('valorRecebido').value) || 0;
+            if (recebido > 0 && recebido < totalVenda() - 0.01) {
+              toast('Valor recebido é menor que o total','erro'); return;
+            }
+            const troco = trocoAtual();
+            if (troco > 0) {
+              venda.troco = troco;
+              const sel = document.querySelector('input[name="trocoForma"]:checked');
+              venda.troco_forma = sel ? sel.value : 'dinheiro';
+            }
           }
         }
       }
