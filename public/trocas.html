@@ -168,11 +168,6 @@
              </div>`
           : `<div class="texto-verde" style="font-size:0.85rem; margin:4px 0;">✓ Dentro do prazo (${prazo.dias_passados} de ${prazo.prazo} dias úteis)</div>`;
 
-        // Calcular proporção de desconto (se houver)
-        const somaPrecoOriginal = venda.itens.reduce((s, i) => s + (i.preco_unit * i.qtd), 0);
-        const proporcaoDesconto = venda.subtotal > 0 ? venda.subtotal / somaPrecoOriginal : 1;
-        console.log('DEBUG DESCONTO:', { somaPrecoOriginal, subtotal: venda.subtotal, proporcaoDesconto, total: venda.total, desconto: venda.desconto, itens: venda.itens });
-
         document.getElementById('infoVenda').innerHTML = `
           <div class="texto-cinza">Venda #${venda.id} • ${venda.data_hora.slice(0,10).split('-').reverse().join('/')}
             • ${esc(venda.cliente_nome||'sem cliente')} • ${moeda(venda.total)}</div>
@@ -182,7 +177,7 @@
             <div class="item">
               <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
                 <input type="checkbox" style="width:auto;" onchange="toggleDevolvido(${idx}, this.checked)">
-                <span>${esc(it.descricao)} — <strong>${moeda(it.preco_unit * proporcaoDesconto)}</strong>${it.qtd>1?' (x'+it.qtd+')':''}
+                <span>${esc(it.descricao)} — <strong>${moeda(it.preco_unit)}</strong>${it.qtd>1?' (x'+it.qtd+')':''}
                 </span>
               </label>
             </div>`).join('')}</div>`;
@@ -205,15 +200,10 @@
       const it = venda.itens[idx];
       const key = it.variacao_id + '-' + idx;
       if (marcado) {
-        // Calcular valor real pago com desconto distribuído proporcionalmente
-        // Se desconto foi dado na venda: cada item recebe o desconto proporcional
-        // valor_com_desconto = preco_unit * (subtotal / soma_preco_original)
-        const somaPrecoOriginal = venda.itens.reduce((s, i) => s + (i.preco_unit * i.qtd), 0);
-        // Se não houve desconto, somaPrecoOriginal == subtotal, então proporcao == 1
-        const proporcao = venda.subtotal > 0 ? venda.subtotal / somaPrecoOriginal : 1;
-        const valorPagoUnitario = it.preco_unit * proporcao;
+        // preco_unit já é o valor que o cliente efetivamente pagou
+        // (se houve desconto na venda, cada item já tem desconto distribuído proporcionalmente)
         devolvidos.push({ _key:key, variacao_id: it.variacao_id, produto_id: it.produto_id,
-          descricao: it.descricao, qtd: it.qtd, valor_unit: +valorPagoUnitario.toFixed(2) });
+          descricao: it.descricao, qtd: it.qtd, valor_unit: it.preco_unit });
       } else {
         devolvidos = devolvidos.filter(d => d._key !== key);
       }
