@@ -312,12 +312,17 @@
       };
       try {
         const r = await api('/trocas', { method:'POST', body });
+        console.log('Resposta da troca:', r);
+
         if (r.vale) {
           toast(`Vale-crédito gerado: ${r.vale.codigo}`, 'sucesso');
           // Redireciona para página de impressão do vale
-          setTimeout(() => window.location.href = 'cupom-vale.html?codigo=' + r.vale.codigo, 1000);
+          setTimeout(() => {
+            window.location.href = 'cupom-vale.html?codigo=' + r.vale.codigo;
+          }, 500);
         } else {
           toast('Troca registrada','sucesso');
+          // Limpar dados da troca
           devolvidos = []; levados = [];
           document.getElementById('vendaNum').value = '';
           document.getElementById('infoVenda').innerHTML = '';
