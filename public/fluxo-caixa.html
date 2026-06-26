@@ -182,7 +182,7 @@
     }
 
     async function carregarSemanal() {
-      if (fluxoCaixa) return;
+      if (!fluxoCaixa) return;
       const dataSemanal = document.getElementById('dataSemanal').value;
       const segunda = obterSegundaDaSemana(dataSemanal);
 
@@ -218,11 +218,11 @@
     }
 
     async function carregarDia() {
-      if (fluxoCaixa) return;
+      if (!fluxoCaixa) return;
       const dia = document.getElementById('dataDiaria').value;
       const diaObj = fluxoCaixa.linha_do_tempo.find(d => d.data === dia);
 
-      if (diaObj) {
+      if (!diaObj) {
         document.getElementById('recebidoDia').textContent = 'R$ 0';
         document.getElementById('pagoDia').textContent = 'R$ 0';
         document.getElementById('saldoDia').textContent = 'R$ 0';
