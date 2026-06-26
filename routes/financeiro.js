@@ -437,18 +437,22 @@ router.get('/fluxo-caixa', exigirPapel('admin'), (req, res) => {
 
     // Débito: aplica prazo (próximo dia útil)
     if (cd.total_debito > 0) {
+      console.log(`[FLUXO] Dia ${dataDaVenda}: total_debito=${cd.total_debito}, tipo=${tipoDebito}, prazo=${prazoDeb}`);
       const dataRecebDebito = tipoDebito === 'uteis'
         ? adicionarDiasUteis(dataDaVenda, prazoDeb)
         : adicionarDiasCorretos(dataDaVenda, prazoDeb);
+      console.log(`[FLUXO] Débito vai para: ${dataRecebDebito}`);
       recebimentos[dataRecebDebito] = recebimentos[dataRecebDebito] || { pix_dinheiro: 0, debito: 0, credito_vista: 0, credito_parc: [] };
       recebimentos[dataRecebDebito].debito += cd.total_debito;
     }
 
     // Crédito (combinado vista+parcelado no caixa_dia): aplica prazo (próximo dia útil)
     if (cd.total_credito > 0) {
+      console.log(`[FLUXO] Dia ${dataDaVenda}: total_credito=${cd.total_credito}, tipo=${tipoCredVista}, prazo=${prazoCredVista}`);
       const dataRecebCredito = tipoCredVista === 'uteis'
         ? adicionarDiasUteis(dataDaVenda, prazoCredVista)
         : adicionarDiasCorretos(dataDaVenda, prazoCredVista);
+      console.log(`[FLUXO] Crédito vai para: ${dataRecebCredito}`);
       recebimentos[dataRecebCredito] = recebimentos[dataRecebCredito] || { pix_dinheiro: 0, debito: 0, credito_vista: 0, credito_parc: [] };
       recebimentos[dataRecebCredito].credito_vista += cd.total_credito;
     }
