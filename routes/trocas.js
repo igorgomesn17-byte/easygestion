@@ -60,12 +60,16 @@ function criarVale(tenantId, { cliente_id = null, troca_id = null, valor, obs = 
   }
 
   const validade = calcularValidade();
+  console.log('🎟️ Criando vale:', { tenantId, codigo, valor: v, troca_id, cliente_id, validade });
+
   const info = db.prepare(`
     INSERT INTO vales (tenant_id, codigo, valor, saldo, troca_id, cliente_id, validade, obs, ativo)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
   `).run(tenantId, codigo, v, v, troca_id, cliente_id, validade, obs);
 
-  return db.prepare('SELECT * FROM vales WHERE id = ?').get(info.lastInsertRowid);
+  const valeInserido = db.prepare('SELECT * FROM vales WHERE id = ?').get(info.lastInsertRowid);
+  console.log('✅ Vale criado:', valeInserido);
+  return valeInserido;
 }
 
 // GET /api/trocas -> lista (com filtros de data opcionais)
