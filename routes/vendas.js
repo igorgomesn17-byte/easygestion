@@ -267,7 +267,7 @@ router.get('/', (req, res) => {
                     (SELECT COUNT(*) FROM venda_itens WHERE venda_id = v.id) AS num_itens
              FROM vendas v
              LEFT JOIN clientes c ON c.id = v.cliente_id
-             LEFT JOIN vendedores vd ON vd.id = v.vendedor_id WHERE v.tenant_id = ? AND v.deletado = 0`;
+             LEFT JOIN vendedores vd ON vd.id = v.vendedor_id WHERE v.tenant_id = ?`;
   const params = [req.tenantId];
   if (data) { sql += ' AND date(v.data_hora) = ?'; params.push(data); }
   if (de)   { sql += ' AND date(v.data_hora) >= ?'; params.push(de); }
