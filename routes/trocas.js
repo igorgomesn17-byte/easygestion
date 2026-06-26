@@ -226,12 +226,41 @@ router.post('/', (req, res) => {
     }
 
     // 4. resolve a diferença (ajusta caixa se necessário)
-    if (diferenca > 0 && forma_pagamento === 'dinheiro') {
-      // cliente paga a diferenca em dinheiro -> entra no caixa
+    if (diferenca > 0) {
+      // Cliente paga a diferença -> registra como venda
+      const vendaInfo = db.prepare(`
+        INSERT INTO vendas (tenant_id, cliente_id, vendedor_id, subtotal, desconto, total, forma_pagamento, origem, parcelas, taxa_aplicada, valor_liquido, imposto, comissao_valor, custo_total, lucro, observacao)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        req.tenantId,
+        venda_id ? db.prepare('SELECT cliente_id FROM vendas WHERE id = ?').get(venda_id)?.cliente_id : null,
+        venda_id ? db.prepare('SELECT vendedor_id FROM vendas WHERE id = ?').get(venda_id)?.vendedor_id : null,
+        diferenca, 0, diferenca, forma_pagamento, 'loja', 1,
+        0, diferenca, 0, 0, 0, 0, `Diferença de troca #${trocaId}`
+      );
+      const vendaDifId = vendaInfo.lastInsertRowid;
+
+      // Registrar itens da venda de diferença (os levados)
+      const insVendaItem = db.prepare(`INSERT INTO venda_itens (venda_id, tenant_id, variacao_id, produto_id, descricao, qtd, preco_unit, custo_unit)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
+      for (const l of levadosResolv) {
+        insVendaItem.run(vendaDifId, req.tenantId, l.variacao_id, l.produto_id, l.descricao, l.qtd, l.valor_unit, l.custo);
+      }
+
+      // Ajustar caixa com a forma de pagamento
       db.prepare('INSERT OR IGNORE INTO caixa_dia (data, tenant_id) VALUES (?, ?)').run(hoje, req.tenantId);
-      db.prepare('UPDATE caixa_dia SET suprimentos = suprimentos + ? WHERE data = ? AND tenant_id = ?').run(diferenca, hoje, req.tenantId);
-      db.prepare(`INSERT INTO caixa_movimentos (data, tenant_id, tipo, valor, forma, motivo) VALUES (?, ?, 'suprimento', ?, ?, ?)`)
-        .run(hoje, req.tenantId, diferenca, 'dinheiro', `troca #${trocaId} (cliente pagou diferença)`);
+      if (forma_pagamento === 'dinheiro') {
+        db.prepare('UPDATE caixa_dia SET total_dinheiro = total_dinheiro + ?, suprimentos = suprimentos + ? WHERE data = ? AND tenant_id = ?')
+          .run(diferenca, diferenca, hoje, req.tenantId);
+        db.prepare(`INSERT INTO caixa_movimentos (data, tenant_id, tipo, valor, forma, motivo) VALUES (?, ?, 'suprimento', ?, ?, ?)`)
+          .run(hoje, req.tenantId, diferenca, 'dinheiro', `troca #${trocaId} (cliente pagou diferença)`);
+      } else if (forma_pagamento === 'pix') {
+        db.prepare('UPDATE caixa_dia SET total_pix = total_pix + ? WHERE data = ? AND tenant_id = ?').run(diferenca, hoje, req.tenantId);
+      } else if (forma_pagamento === 'debito') {
+        db.prepare('UPDATE caixa_dia SET total_debito = total_debito + ? WHERE data = ? AND tenant_id = ?').run(diferenca, hoje, req.tenantId);
+      } else if (forma_pagamento === 'credito_vista') {
+        db.prepare('UPDATE caixa_dia SET total_credito = total_credito + ? WHERE data = ? AND tenant_id = ?').run(diferenca, hoje, req.tenantId);
+      }
     } else if (diferenca < 0) {
       const aFavor = Math.abs(diferenca);
       // Cliente recebe em vale-crédito

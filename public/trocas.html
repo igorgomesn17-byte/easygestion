@@ -177,7 +177,7 @@
             <div class="item">
               <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
                 <input type="checkbox" style="width:auto;" onchange="toggleDevolvido(${idx}, this.checked)">
-                <span>${esc(it.descricao)} — <strong>${moeda(it.preco_unitario)}</strong>${it.qtd>1?' (x'+it.qtd+')':''}
+                <span>${esc(it.descricao)} — <strong>${moeda(it.preco_unit)}</strong>${it.qtd>1?' (x'+it.qtd+')':''}
                 </span>
               </label>
             </div>`).join('')}</div>`;
@@ -201,7 +201,7 @@
       const key = it.variacao_id + '-' + idx;
       if (marcado) {
         devolvidos.push({ _key:key, variacao_id: it.variacao_id, produto_id: it.produto_id,
-          descricao: it.descricao, qtd: it.qtd, valor_unit: it.preco_unitario });
+          descricao: it.descricao, qtd: it.qtd, valor_unit: it.preco_unit });
       } else {
         devolvidos = devolvidos.filter(d => d._key !== key);
       }
@@ -283,7 +283,7 @@
       const areaPag = document.getElementById('areaFormaDif');
       const areaDev = document.getElementById('areaFormaDev');
       if (dif > 0) {
-        lbl.textContent = 'Cliente paga';
+        lbl.textContent = 'Cliente paga (será registrado como venda)';
         areaPag.style.display='block';
       } else if (dif < 0) {
         lbl.innerHTML = '🎟️ Cliente recebe Vale-crédito';
