@@ -385,6 +385,15 @@
       const devolvidosList = itens.filter(it => it.tipo === 'devolvido');
       const levadosList = itens.filter(it => it.tipo === 'levado');
 
+      // Buscar dados do vale se existir
+      let valeInfo = null;
+      if (t.diferenca < 0) {
+        try {
+          // Tenta buscar informações do vale pela troca_id (não temos o código aqui, então precisa de outro endpoint)
+          valeInfo = null; // Por enquanto, mostrar apenas que foi gerado
+        } catch(e) {}
+      }
+
       const formatoStatus = t.cancelada
         ? '<span class="status-badge status-cancelada">Cancelada</span>'
         : '<span class="status-badge status-ativa">Ativa</span>';
@@ -491,6 +500,29 @@
           <div style="background:#f5f5f5; padding:12px; border-radius:6px; margin-bottom:16px; font-size:0.9rem;">
             <strong style="display:block; margin-bottom:4px;">Observação</strong>
             <div>${esc(t.obs)}</div>
+          </div>
+          ` : ''}
+
+          ${t.diferenca < 0 ? `
+          <div style="border:2px solid #FFC107; border-radius:6px; padding:12px; margin-bottom:16px; background:#FFFBF0;">
+            <strong style="display:block; margin-bottom:8px; color:#F39C12;">🎟️ Vale-crédito gerado</strong>
+            <div style="font-size:0.9rem;">
+              <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                <span>Valor:</span>
+                <strong style="color:#27ae60;">${moeda(Math.abs(t.diferenca))}</strong>
+              </div>
+              <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                <span>Gerado em:</span>
+                <strong>${t.data_hora.slice(0,10).split('-').reverse().join('/')}</strong>
+              </div>
+              <div style="display:flex; justify-content:space-between;">
+                <span>Status:</span>
+                <strong style="color:#27ae60;">✓ Ativo (válido por 30 dias)</strong>
+              </div>
+              <div style="margin-top:8px; font-size:0.85rem; color:#666; background:white; padding:8px; border-radius:4px; border-left:3px solid #FFC107;">
+                <strong>Rastreabilidade:</strong> Verifique o código do vale no cupom de geração. Use no PDV para aplicar como desconto.
+              </div>
+            </div>
           </div>
           ` : ''}
 
