@@ -171,7 +171,7 @@
         // Calcular proporção de desconto (se houver)
         const somaPrecoOriginal = venda.itens.reduce((s, i) => s + (i.preco_unit * i.qtd), 0);
         const proporcaoDesconto = venda.subtotal > 0 ? venda.subtotal / somaPrecoOriginal : 1;
-        console.log('DEBUG DESCONTO:', { somaPrecoOriginal, subtotal: venda.subtotal, proporcaoDesconto, total: venda.total, desconto: venda.desconto });
+        console.log('DEBUG DESCONTO:', { somaPrecoOriginal, subtotal: venda.subtotal, proporcaoDesconto, total: venda.total, desconto: venda.desconto, itens: venda.itens });
 
         document.getElementById('infoVenda').innerHTML = `
           <div class="texto-cinza">Venda #${venda.id} • ${venda.data_hora.slice(0,10).split('-').reverse().join('/')}
