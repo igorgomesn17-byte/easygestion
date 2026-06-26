@@ -44,33 +44,6 @@ function calcularValidade() {
   return d.toISOString().slice(0, 10);
 }
 
-// Helper: criar um vale (retorna o objeto completo)
-function criarVale(tenantId, { cliente_id = null, troca_id = null, valor, obs = null }) {
-  const v = +(parseFloat(valor) || 0).toFixed(2);
-  if (v <= 0) throw new Error('Valor do crédito precisa ser maior que zero');
-
-  let codigo, tentativas = 0;
-  do {
-    codigo = gerarCodigoVale();
-    tentativas++;
-  } while (db.prepare('SELECT 1 FROM vales WHERE codigo = ?').get(codigo) && tentativas < 10);
-
-  if (tentativas >= 10) {
-    throw new Error('Não conseguiu gerar código de vale único');
-  }
-
-  const validade = calcularValidade();
-  console.log('🎟️ Criando vale:', { tenantId, codigo, valor: v, troca_id, cliente_id, validade });
-
-  const info = db.prepare(`
-    INSERT INTO vales (tenant_id, codigo, valor, saldo, troca_id, cliente_id, validade, obs, ativo)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
-  `).run(tenantId, codigo, v, v, troca_id, cliente_id, validade, obs);
-
-  const valeInserido = db.prepare('SELECT * FROM vales WHERE id = ?').get(info.lastInsertRowid);
-  console.log('✅ Vale criado:', valeInserido);
-  return valeInserido;
-}
 
 // GET /api/trocas -> lista (com filtros de data opcionais)
 router.get('/', (req, res) => {
@@ -305,14 +278,33 @@ router.post('/', (req, res) => {
         clienteId = vendaInfo?.cliente_id || null;
       }
 
+      // Gera código único do vale
+      let codigoVale = '';
+      let tentativas = 0;
+      do {
+        codigoVale = gerarCodigoVale();
+        tentativas++;
+      } while (db.prepare('SELECT 1 FROM vales WHERE codigo = ?').get(codigoVale) && tentativas < 10);
+
+      if (tentativas >= 10) {
+        throw new Error('Não conseguiu gerar código único para vale');
+      }
+
+      const validade = calcularValidade();
+      console.log('🎟️ Criando vale na transação:', { codigo: codigoVale, valor: aFavor, troca_id: trocaId, validade });
+
+      // Insere o vale
+      const infoVale = db.prepare(`
+        INSERT INTO vales (tenant_id, codigo, valor, saldo, troca_id, cliente_id, validade, obs, ativo)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+      `).run(req.tenantId, codigoVale, aFavor, aFavor, trocaId, clienteId, validade, `Crédito da troca #${trocaId}`);
+
+      const valeGerado = db.prepare('SELECT * FROM vales WHERE id = ?').get(infoVale.lastInsertRowid);
+      console.log('✅ Vale criado na transação:', valeGerado);
+
       return {
         trocaId,
-        valeGerado: criarVale(req.tenantId, {
-          cliente_id: clienteId,
-          troca_id: trocaId,
-          valor: aFavor,
-          obs: `Crédito da troca #${trocaId}`,
-        }),
+        valeGerado,
       };
     }
 
