@@ -278,29 +278,27 @@ router.post('/', (req, res) => {
         clienteId = vendaInfo?.cliente_id || null;
       }
 
-      // Gera código único do vale
-      let codigoVale = '';
-      let tentativas = 0;
-      do {
-        codigoVale = gerarCodigoVale();
-        tentativas++;
-      } while (db.prepare('SELECT 1 FROM vales WHERE codigo = ?').get(codigoVale) && tentativas < 10);
+      // Gera código único do vale (simples)
+      const codigoVale = 'VALE-' + Math.random().toString(36).substr(2, 9).toUpperCase();
 
-      if (tentativas >= 10) {
-        throw new Error('Não conseguiu gerar código único para vale');
-      }
+      // Calcula validade: hoje + 30 dias
+      const hoje = new Date();
+      const validade30 = new Date(hoje.getTime() + 30 * 24 * 60 * 60 * 1000);
+      const validadeStr = validade30.toISOString().split('T')[0]; // YYYY-MM-DD
 
-      const validade = calcularValidade();
-      console.log('🎟️ Criando vale na transação:', { codigo: codigoVale, valor: aFavor, troca_id: trocaId, validade });
+      console.log('🎟️ Criando vale:', { tenantId: req.tenantId, codigo: codigoVale, valor: aFavor, trocaId, validadeStr });
 
-      // Insere o vale
+      // Insere o vale (direto no BD)
       const infoVale = db.prepare(`
         INSERT INTO vales (tenant_id, codigo, valor, saldo, troca_id, cliente_id, validade, obs, ativo)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
-      `).run(req.tenantId, codigoVale, aFavor, aFavor, trocaId, clienteId, validade, `Crédito da troca #${trocaId}`);
+      `).run(req.tenantId, codigoVale, aFavor, aFavor, trocaId, clienteId, validadeStr, `Crédito da troca #${trocaId}`);
 
-      const valeGerado = db.prepare('SELECT * FROM vales WHERE id = ?').get(infoVale.lastInsertRowid);
-      console.log('✅ Vale criado na transação:', valeGerado);
+      console.log('📍 Vale inserido com ID:', infoVale.lastInsertRowid);
+
+      // Busca o vale que foi criado
+      const valeGerado = db.prepare('SELECT id, codigo, valor, saldo, validade FROM vales WHERE id = ?').get(infoVale.lastInsertRowid);
+      console.log('✅ Vale buscado após INSERT:', valeGerado);
 
       return {
         trocaId,
