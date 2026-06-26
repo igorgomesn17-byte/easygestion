@@ -151,6 +151,57 @@ function executarMigrations(db) {
           db.exec(`ALTER TABLE trocas ADD COLUMN tenant_id INTEGER NOT NULL DEFAULT 1;`);
         }
       }
+    },
+    {
+      nome: '008_ensure_caixa_dia_unique_constraint',
+      hash: 'v8-caixa-dia-unique',
+      exec: (db) => {
+        // Garantir UNIQUE constraint em caixa_dia (data, tenant_id)
+        // SQLite não permite adicionar constraint via ALTER, então recria a tabela se necessário
+        try {
+          const constraint = db.prepare(`
+            SELECT sql FROM sqlite_master
+            WHERE type='table' AND name='caixa_dia' AND sql LIKE '%UNIQUE%tenant_id%data%'
+          `).get();
+          if (!constraint) {
+            // Tabela existe mas sem constraint — precisa recriar
+            db.exec(`
+              CREATE TABLE caixa_dia_new (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                tenant_id       INTEGER NOT NULL DEFAULT 1,
+                data            TEXT NOT NULL,
+                total_pix       REAL NOT NULL DEFAULT 0,
+                total_debito    REAL NOT NULL DEFAULT 0,
+                total_credito   REAL NOT NULL DEFAULT 0,
+                total_dinheiro  REAL NOT NULL DEFAULT 0,
+                total_bruto     REAL NOT NULL DEFAULT 0,
+                total_liquido   REAL NOT NULL DEFAULT 0,
+                lucro_dia       REAL NOT NULL DEFAULT 0,
+                num_vendas      INTEGER NOT NULL DEFAULT 0,
+                conciliado      INTEGER NOT NULL DEFAULT 0,
+                obs             TEXT,
+                saldo_conta_inicial REAL,
+                conta_conferida REAL,
+                fundo_troco     REAL NOT NULL DEFAULT 0,
+                sangrias        REAL NOT NULL DEFAULT 0,
+                suprimentos     REAL NOT NULL DEFAULT 0,
+                dinheiro_contado REAL,
+                diferenca       REAL,
+                aberto_em       TEXT,
+                fechado_em      TEXT,
+                aberto          INTEGER NOT NULL DEFAULT 0,
+                fechado         INTEGER NOT NULL DEFAULT 0,
+                UNIQUE(tenant_id, data)
+              );
+              INSERT INTO caixa_dia_new SELECT * FROM caixa_dia;
+              DROP TABLE caixa_dia;
+              ALTER TABLE caixa_dia_new RENAME TO caixa_dia;
+            `);
+          }
+        } catch (e) {
+          // Se tabela não existir, schema.sql a criará com constraint certo
+        }
+      }
     }
   ];
 
