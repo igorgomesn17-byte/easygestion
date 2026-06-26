@@ -445,10 +445,10 @@ router.get('/fluxo-caixa', exigirPapel('admin'), (req, res) => {
     }
   }
 
-  // Despesas pagas no mês (regime de caixa = data_pagamento)
+  // Despesas pagas no mês (regime de caixa = data_pagamento, não data_competencia)
   const despesas = db.prepare(`
     SELECT data_pagamento, valor, categoria FROM despesas
-    WHERE substr(data_competencia,1,7) = ? AND recorrente = 0 AND pago = 1 AND tenant_id = ?
+    WHERE substr(data_pagamento,1,7) = ? AND recorrente = 0 AND pago = 1 AND tenant_id = ?
     ORDER BY data_pagamento ASC
   `).all(mes, req.tenantId);
 
