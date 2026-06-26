@@ -512,6 +512,10 @@
                 <strong style="color:#27ae60;">${moeda(Math.abs(t.diferenca))}</strong>
               </div>
               <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                <span>Código:</span>
+                <strong style="font-family:monospace; background:#fff; padding:4px 8px; border-radius:3px; border:1px solid #FFC107;">${t.vale_codigo || '—'}</strong>
+              </div>
+              <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
                 <span>Gerado em:</span>
                 <strong>${t.data_hora.slice(0,10).split('-').reverse().join('/')}</strong>
               </div>
@@ -519,9 +523,9 @@
                 <span>Status:</span>
                 <strong style="color:#27ae60;">✓ Ativo (válido por 30 dias)</strong>
               </div>
-              <button class="btn" onclick="window.location.href='cupom-vale.html?codigo=${t.vale_codigo || ''}';" style="width:100%; background:#F39C12; color:white; margin-bottom:8px;">📋 Reimprimir comprovante</button>
+              ${t.vale_codigo ? `<button class="btn" onclick="window.location.href='cupom-vale.html?codigo=${t.vale_codigo}';" style="width:100%; background:#F39C12; color:white; margin-bottom:8px;">📋 Reimprimir comprovante</button>` : ''}
               <div style="font-size:0.85rem; color:#666; background:white; padding:8px; border-radius:4px; border-left:3px solid #FFC107;">
-                <strong>Rastreabilidade:</strong> Verifique o código do vale no cupom de geração. Use no PDV para aplicar como desconto.
+                <strong>📌 Dica:</strong> Copie o código acima e use no PDV para aplicar como desconto, ou clique em "Reimprimir" para gerar o comprovante novamente.
               </div>
             </div>
           </div>
