@@ -74,7 +74,7 @@
         const cfg = await api('/config');
         let ops = [];
         try { ops = JSON.parse(cfg.origens || '[]'); } catch(e) {}
-        if (!ops.length) ops = ['Passou na loja','Instagram','Indicação','Google','WhatsApp','Influencer','Cliente Camacan','Outro'];
+        if (!ops.length) ops = ['Passou na loja','Instagram','Indicação','Google','WhatsApp','Influencer','Outro'];
         document.getElementById('origem').innerHTML =
           '<option value="">— selecione —</option>' + ops.map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('');
       } catch(e) {}
