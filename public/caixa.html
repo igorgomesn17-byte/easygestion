@@ -191,8 +191,7 @@
         <tr><td>💵 Dinheiro</td><td class="direita dinheiro">${moeda(c.total_dinheiro)}</td></tr>
         <tr><td>💳 Débito</td><td class="direita dinheiro">${moeda(c.total_debito)}</td></tr>
         <tr><td>🎟️ Vale-crédito</td><td class="direita dinheiro">${moeda(c.total_vale)}</td></tr>
-        <tr><td>💳 Crédito à vista</td><td class="direita dinheiro">${moeda(c.total_credito_vista || c.total_credito || 0)}</td></tr>
-        <tr><td>💳 Crédito parcelado</td><td class="direita dinheiro">${moeda(c.total_credito_parcelado || 0)}</td></tr>`;
+        <tr><td>💳 Crédito</td><td class="direita dinheiro">${moeda(c.total_credito)}</td></tr>`;
 
       const v = c.vendas || [];
       document.getElementById('vendas').innerHTML = v.length === 0

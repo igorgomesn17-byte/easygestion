@@ -394,8 +394,10 @@ router.get('/fluxo-caixa', exigirPapel('admin'), (req, res) => {
     }
 
   // Caixa do dia (dados já consolidados com breakdown por forma)
+  // NOTA: Ainda estamos usando total_credito (combinado). A separação credito_vista/parcelado
+  // será feita quando a migration 013 rodar no banco (adiciona as colunas separadas)
   const caixaDias = db.prepare(`
-    SELECT data, total_pix, total_dinheiro, total_debito, total_credito_vista, total_credito_parcelado, total_vale
+    SELECT data, total_pix, total_dinheiro, total_debito, total_credito, total_vale
     FROM caixa_dia
     WHERE substr(data,1,7) = ? AND tenant_id = ?
     ORDER BY data ASC
@@ -407,16 +409,14 @@ router.get('/fluxo-caixa', exigirPapel('admin'), (req, res) => {
 
   for (const c of caixaDias) {
     // No caixa_dia, pix e dinheiro estão separados mas na "linha do tempo" somamos como pix_dinheiro
-    // Vale também entra como pix_dinheiro (recebimento imediato)
+    // Vale entra como pix_dinheiro (recebimento imediato, não é crédito)
     const pix_dinheiro = (c.total_pix || 0) + (c.total_dinheiro || 0) + (c.total_vale || 0);
     recebimentos[c.data] = {
       pix_dinheiro: pix_dinheiro,
       debito: c.total_debito || 0,
-      credito_vista: c.total_credito_vista || 0,
+      credito_vista: c.total_credito || 0,  // TODO: separar em credito_vista e credito_parcelado quando migration 013 rodar
       credito_parc: []
     };
-    // Vale à pagar de crédito parcelado (futuro)
-    aReceber.credito_parcelado += c.total_credito_parcelado || 0;
   }
 
   // Despesas pagas no mês (regime de caixa = data_pagamento, não data_competencia)
