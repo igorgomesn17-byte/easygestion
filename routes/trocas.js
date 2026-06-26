@@ -89,6 +89,18 @@ router.patch('/:id/cancelar', (req, res) => {
   if (!troca) return res.status(404).json({ erro: 'Troca não encontrada' });
   if (troca.cancelada) return res.status(400).json({ erro: 'Troca já foi cancelada' });
 
+  // Verificar se o vale desta troca foi utilizado
+  if (troca.diferenca < 0) {
+    const vale = db.prepare('SELECT id, venda_utilizacao_id FROM vales WHERE troca_id = ? AND tenant_id = ?').get(troca.id, req.tenantId);
+    if (vale && vale.venda_utilizacao_id) {
+      return res.status(422).json({
+        erro: 'Não é possível cancelar esta troca porque o vale foi utilizado na venda #' + vale.venda_utilizacao_id + '.',
+        vale_utilizado: true,
+        venda_utilizacao_id: vale.venda_utilizacao_id
+      });
+    }
+  }
+
   const tx = db.transaction(() => {
     const itens = db.prepare('SELECT * FROM troca_itens WHERE troca_id = ? AND tenant_id = ?').all(troca.id, req.tenantId);
     const baixa = db.prepare('UPDATE variacoes SET quantidade = quantidade - ? WHERE id = ?');
