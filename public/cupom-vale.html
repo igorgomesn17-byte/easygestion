@@ -115,7 +115,7 @@
 
         document.getElementById('codigo').textContent = codigo;
         document.getElementById('codigoSmall').textContent = codigo;
-        document.getElementById('valor').textContent = moeda(vale.valor_original);
+        document.getElementById('valor').textContent = moeda(vale.valor);
 
         const hoje = new Date();
         document.getElementById('data').textContent = hoje.toLocaleDateString('pt-BR');
@@ -123,7 +123,7 @@
 
         // Botão WhatsApp com mensagem
         document.getElementById('btnWhatsapp').onclick = () => {
-          const msg = `🎟️ *Vale-crédito DS Store*\n\n*Código:* ${codigo}\n*Valor:* ${moeda(vale.valor_original)}\n*Validade:* ${vale.validade ? vale.validade.split('-').reverse().join('/') : '30 dias'}\n\nUse em suas próximas compras!`;
+          const msg = `🎟️ *Vale-crédito DS Store*\n\n*Código:* ${codigo}\n*Valor:* ${moeda(vale.valor)}\n*Validade:* ${vale.validade ? vale.validade.split('-').reverse().join('/') : '30 dias'}\n\nUse em suas próximas compras!`;
           const link = `https://wa.me/?text=${encodeURIComponent(msg)}`;
           window.open(link, '_blank');
         };

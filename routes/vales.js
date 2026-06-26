@@ -36,9 +36,9 @@ router.get('/:codigo', (req, res) => {
     // Retornar saldo disponível
     const resposta = {
       codigo,
-      valor_original: vale.valor,
+      valor: vale.valor,
+      saldo: vale.saldo,
       utilizado: vale.utilizado,
-      saldo_disponivel: vale.saldo,
       validade: vale.validade,
       data_geracao: vale.data_geracao
     };
