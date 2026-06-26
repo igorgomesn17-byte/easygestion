@@ -446,6 +446,7 @@ router.get('/fluxo-caixa', exigirPapel('admin'), (req, res) => {
       const dataRecebDebito = tipoDebito === 'uteis'
         ? adicionarDiasUteis(dataDaVenda, prazoDeb)
         : adicionarDiasCorretos(dataDaVenda, prazoDeb);
+      console.log(`[FLUXO] Débito: ${dataDaVenda} + ${prazoDeb} dias úteis = ${dataRecebDebito}`);
       recebimentos[dataRecebDebito] = recebimentos[dataRecebDebito] || { pix_dinheiro: 0, debito: 0, credito_vista: 0, credito_parc: [] };
       recebimentos[dataRecebDebito].debito += cd.total_debito;
     }
@@ -455,6 +456,7 @@ router.get('/fluxo-caixa', exigirPapel('admin'), (req, res) => {
       const dataRecebCredito = tipoCredVista === 'uteis'
         ? adicionarDiasUteis(dataDaVenda, prazoCredVista)
         : adicionarDiasCorretos(dataDaVenda, prazoCredVista);
+      console.log(`[FLUXO] Crédito: ${dataDaVenda} + ${prazoCredVista} dias úteis = ${dataRecebCredito}`);
       recebimentos[dataRecebCredito] = recebimentos[dataRecebCredito] || { pix_dinheiro: 0, debito: 0, credito_vista: 0, credito_parc: [] };
       recebimentos[dataRecebCredito].credito_vista += cd.total_credito;
     }
