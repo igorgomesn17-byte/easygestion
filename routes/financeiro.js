@@ -452,12 +452,12 @@ router.get('/fluxo-caixa', exigirPapel('admin'), (req, res) => {
   }
 
   // Monta linha do tempo: 1º ao último dia do mês
-  const diasMes = new Date(ano, mesNum, 0).getDate();
+  const diasMes = new Date(parseInt(ano), parseInt(mesNum) - 1, 0).getDate();
   const linhaDoTempo = [];
   let saldoAcumulado = 0;
 
   for (let dia = 1; dia <= diasMes; dia++) {
-    const dataPad = `${ano}-${mesNum.padStart(2,'0')}-${String(dia).padStart(2,'0')}`;
+    const dataPad = `${ano}-${String(mesNum).padStart(2,'0')}-${String(dia).padStart(2,'0')}`;
     const entrada = recebimentos[dataPad] || { pix_dinheiro: 0, debito: 0, credito_vista: 0, credito_parc: [] };
     const totalEntrada = entrada.pix_dinheiro + entrada.debito + entrada.credito_vista +
       (entrada.credito_parc || []).reduce((s, p) => s + p.valor, 0);
