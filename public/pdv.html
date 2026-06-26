@@ -906,12 +906,20 @@
 
         // Registrar uso do vale se aplicado
         if (valeAtual) {
-          const desc = parseFloat(document.getElementById('desconto').value) || 0;
-          if (desc > 0) {
+          let valorUtilizado = 0;
+          // Se tem split, busca quanto foi usado do vale no split
+          if (splitAtivo) {
+            const linhaVale = linhasSplit.find(l => l.forma === 'vale');
+            if (linhaVale) valorUtilizado = linhaVale.valor || 0;
+          } else {
+            // Sem split: usa o desconto como aplicação do vale
+            valorUtilizado = parseFloat(document.getElementById('desconto').value) || 0;
+          }
+          if (valorUtilizado > 0) {
             try {
               await api('/vales/' + valeAtual.codigo + '/usar', {
                 method: 'POST',
-                body: { valor_a_usar: desc, venda_id: r.id }
+                body: { valor_a_usar: valorUtilizado, venda_id: r.id }
               });
             } catch(e) {
               console.error('Erro ao registrar uso do vale:', e);

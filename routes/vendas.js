@@ -107,7 +107,7 @@ router.post('/', (req, res) => {
       return { forma: p.forma, parcelas: parc, valor, taxaPct, valorTaxa, liquido: +(valor - valorTaxa).toFixed(2) };
     });
     // validacoes do split: formas validas e soma == total
-    const formasValidas = ['pix', 'pix_chave', 'dinheiro', 'debito', 'credito_vista', 'credito_parcelado'];
+    const formasValidas = ['pix', 'pix_chave', 'dinheiro', 'debito', 'credito_vista', 'credito_parcelado', 'vale'];
     for (const p of partes) {
       if (!formasValidas.includes(p.forma)) return res.status(400).json({ erro: `Forma de pagamento invalida: ${p.forma}` });
       if (p.valor <= 0) return res.status(400).json({ erro: 'Cada pagamento precisa ter valor maior que zero' });
