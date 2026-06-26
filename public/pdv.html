@@ -677,12 +677,6 @@
     function abrirSplit() {
       if (carrinho.length === 0) { toast('Carrinho vazio','erro'); return; }
       splitAtivo = true;
-      // deseleciona vale quando ativa split
-      if (formaSel === 'vale') {
-        formaSel = null;
-        document.querySelectorAll('.pgto-btn').forEach(b => b.classList.remove('sel'));
-        document.getElementById('areaVale').style.display = 'none';
-      }
       formaSel = null;
       document.querySelectorAll('.pgto-btn').forEach(b => b.classList.remove('sel'));
       document.getElementById('areaParcelas').style.display = 'none';
@@ -690,9 +684,20 @@
       document.getElementById('btnDividir').style.display = 'none';
       document.getElementById('areaSplit').style.display = 'block';
       atualizarAreaTroco(); // esconde troco (não se aplica no split)
-      // começa com 2 linhas; 1ª já preenchida com o total pra facilitar
+
+      // Se tem vale validado, usa ele como primeira linha
       const tot = totalVenda();
-      linhasSplit = [{ forma:'pix', parcelas:1, valor: tot }, { forma:'dinheiro', parcelas:1, valor: 0 }];
+      if (valeAtual && valeAtual.saldo_disponivel > 0) {
+        const valorVale = Math.min(valeAtual.saldo_disponivel, tot);
+        const restante = +(tot - valorVale).toFixed(2);
+        linhasSplit = [
+          { forma:'vale', parcelas:1, valor: valorVale },
+          { forma:'pix', parcelas:1, valor: restante > 0 ? restante : 0 }
+        ];
+      } else {
+        // Sem vale: começa com Pix + Dinheiro
+        linhasSplit = [{ forma:'pix', parcelas:1, valor: tot }, { forma:'dinheiro', parcelas:1, valor: 0 }];
+      }
       renderSplit();
       atualizarAreaComprovante();
     }
@@ -715,7 +720,10 @@
     function setSplitForma(i, v) {
       linhasSplit[i].forma = v;
       if (v == 'credito_parcelado') linhasSplit[i].parcelas = 1;
-      if (v == 'vale') linhasSplit[i].valor = 0; // limpa valor anterior para vale
+      if (v == 'vale' && valeAtual && valeAtual.saldo_disponivel > 0) {
+        // Se mudou pra vale, preenche com o saldo disponível
+        linhasSplit[i].valor = valeAtual.saldo_disponivel;
+      }
       renderSplit();
       atualizarAreaComprovante();
     }
@@ -742,10 +750,14 @@
         const parc = l.forma === 'credito_parcelado'
           ? `<select onchange="setSplitParcelas(${i}, this.value)" style="max-width:70px;">${
               [2,3,4,5,6].map(n=>`<option value="${n}" ${n===l.parcelas?'selected':''}>${n}x</option>`).join('')}</select>` : '';
+        // Vale: valor fica desabilitado (é o saldo disponível)
+        const inputValor = l.forma === 'vale'
+          ? `<input type="number" step="0.01" value="${l.valor||''}" placeholder="0,00" disabled style="max-width:100px; background:#f0f0f0; color:#666;">`
+          : `<input type="number" step="0.01" value="${l.valor||''}" placeholder="0,00" oninput="setSplitValor(${i}, this.value)" style="max-width:100px;">`;
         return `<div style="display:flex; gap:6px; align-items:center; margin-bottom:8px;">
           <select onchange="setSplitForma(${i}, this.value)" style="flex:1;">${opts}</select>
           ${parc}
-          <input type="number" step="0.01" value="${l.valor||''}" placeholder="0,00" oninput="setSplitValor(${i}, this.value)" style="max-width:100px;">
+          ${inputValor}
           <button class="btn btn-fino" style="padding:2px 8px;" onclick="removerLinhaSplit(${i})">✕</button>
         </div>`;
       }).join('');
