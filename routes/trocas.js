@@ -280,6 +280,8 @@ router.post('/', (req, res) => {
       }
     } else if (diferenca < 0) {
       const aFavor = Math.abs(diferenca);
+      console.log('Vale: diferenca=', diferenca, 'aFavor=', aFavor, 'tipo=', typeof aFavor);
+
       // Cliente recebe em vale-crédito
       let clienteId = null;
       if (venda_id) {
@@ -295,14 +297,19 @@ router.post('/', (req, res) => {
       const validade30 = new Date(hoje.getTime() + 30 * 24 * 60 * 60 * 1000);
       const validadeStr = validade30.toISOString().split('T')[0]; // YYYY-MM-DD
 
+      console.log('Inserindo vale:', { codigo: codigoVale, valor: aFavor, saldo: aFavor, validade: validadeStr });
+
       // Insere o vale (direto no BD)
       const infoVale = db.prepare(`
         INSERT INTO vales (tenant_id, codigo, valor, saldo, troca_id, cliente_id, validade, notas, ativo)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
       `).run(req.tenantId, codigoVale, aFavor, aFavor, trocaId, clienteId, validadeStr, `Crédito da troca #${trocaId}`);
 
+      console.log('Vale inserido com ID:', infoVale.lastInsertRowid);
+
       // Busca o vale que foi criado
       const valeGerado = db.prepare('SELECT id, codigo, valor, saldo, validade FROM vales WHERE id = ?').get(infoVale.lastInsertRowid);
+      console.log('Vale encontrado:', valeGerado);
 
       return {
         trocaId,
