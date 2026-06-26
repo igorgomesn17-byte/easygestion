@@ -276,10 +276,15 @@ router.post('/', (req, res) => {
 
       // Se conseguiu gerar código único, insere o vale
       if (tentativas < maxTentativas && codigoVale) {
+        let clienteId = null;
+        if (venda_id) {
+          const vendaInfo = db.prepare('SELECT cliente_id FROM vendas WHERE id = ? AND tenant_id = ?').get(venda_id, req.tenantId);
+          clienteId = vendaInfo?.cliente_id || null;
+        }
         db.prepare(`
           INSERT INTO vales (tenant_id, codigo, valor, saldo, troca_id, cliente_id, validade)
           VALUES (?, ?, ?, ?, ?, ?, date('now','localtime','+30 days'))
-        `).run(req.tenantId, codigoVale, aFavor, aFavor, trocaId, venda_id ? db.prepare('SELECT cliente_id FROM vendas WHERE id = ?').get(venda_id)?.cliente_id : null);
+        `).run(req.tenantId, codigoVale, aFavor, aFavor, trocaId, clienteId);
       }
     }
 
