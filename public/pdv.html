@@ -79,6 +79,15 @@
           </div>
           <div id="impactoDesc"></div>
 
+          <div class="campo mt" id="areaVale">
+            <label>Vale-crédito</label>
+            <div style="display:flex; gap:6px;">
+              <input type="text" id="codigoVale" placeholder="Ex: VALE-ABC123" style="flex:1;" oninput="buscarVale()">
+              <button class="btn" onclick="aplicarVale()" style="white-space:nowrap;">Aplicar</button>
+            </div>
+            <div id="infoVale" style="margin-top:8px;"></div>
+          </div>
+
           <div class="flex-entre" style="font-size:1.3rem;"><strong>TOTAL</strong><strong id="total" class="dinheiro texto-verde">R$ 0,00</strong></div>
 
           <h2>Pagamento</h2>
@@ -836,6 +845,22 @@
       }
       try {
         const r = await api('/vendas', { method:'POST', body: venda });
+
+        // Registrar uso do vale se aplicado
+        if (valeAtual) {
+          const desc = parseFloat(document.getElementById('desconto').value) || 0;
+          if (desc > 0) {
+            try {
+              await api('/vales/' + valeAtual.codigo + '/usar', {
+                method: 'POST',
+                body: { valor_a_usar: desc, venda_id: r.id }
+              });
+            } catch(e) {
+              console.error('Erro ao registrar uso do vale:', e);
+            }
+          }
+        }
+
         // Se pediu COM nota, emite a NFC-e antes de imprimir. A venda já existe,
         // então mesmo se a nota falhar não perdemos a venda — só avisamos.
         if (comNfce) {
@@ -857,6 +882,9 @@
       fecharSplit();
       limparComprovante();
       document.getElementById('desconto').value = 0;
+      document.getElementById('codigoVale').value = '';
+      document.getElementById('infoVale').innerHTML = '';
+      valeAtual = null;
       document.getElementById('tipoDesc').value = 'reais';
       document.querySelectorAll('.pgto-btn').forEach(b => b.classList.remove('sel'));
       document.getElementById('areaParcelas').style.display = 'none';
@@ -869,6 +897,51 @@
       document.getElementById('trocoInfo').innerHTML = '';
       limparCli();
       renderCarrinho();
+    }
+
+    // ===== VALES =====
+    let valeAtual = null;
+    async function buscarVale() {
+      const codigo = document.getElementById('codigoVale').value.toUpperCase().trim();
+      if (!codigo) {
+        document.getElementById('infoVale').innerHTML = '';
+        valeAtual = null;
+        atualizarTotais();
+        return;
+      }
+      try {
+        valeAtual = await api('/vales/' + codigo);
+        document.getElementById('infoVale').innerHTML = `
+          <div style="background:#e8f5e9; padding:8px; border-radius:4px; border-left:4px solid #27ae60;">
+            <strong style="color:#27ae60;">✓ Vale válido</strong>
+            <div style="font-size:0.9rem; margin-top:4px;">
+              Saldo disponível: <strong>${moeda(valeAtual.saldo_disponivel)}</strong>
+            </div>
+          </div>
+        `;
+        atualizarTotais();
+      } catch(e) {
+        valeAtual = null;
+        document.getElementById('infoVale').innerHTML = `
+          <div style="background:#ffebee; padding:8px; border-radius:4px; border-left:4px solid #e74c3c;">
+            <strong style="color:#e74c3c;">✗ ${e.message}</strong>
+          </div>
+        `;
+        atualizarTotais();
+      }
+    }
+
+    function aplicarVale() {
+      if (!valeAtual) {
+        toast('Vale não validado', 'erro');
+        return;
+      }
+      const total = parseFloat(document.getElementById('total').textContent.replace('R$ ', '').replace(',', '.')) || 0;
+      const aplicar = Math.min(valeAtual.saldo_disponivel, total);
+      document.getElementById('desconto').value = aplicar.toFixed(2);
+      document.getElementById('tipoDesc').value = 'reais';
+      atualizarTotais();
+      toast(`Vale de ${moeda(aplicar)} aplicado`, 'sucesso');
     }
 
     document.getElementById('modalTam').addEventListener('click', e=>{ if(e.target.id==='modalTam') fecharTam(); });

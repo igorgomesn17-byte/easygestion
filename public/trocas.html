@@ -3,9 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Troca / devolução • DS Store</title>
+  <title>Trocas / Devoluções • DS Store</title>
   <link rel="stylesheet" href="css/ds.css">
   <style>
+    .abas { display:flex; gap:0; border-bottom:2px solid var(--surface-2); margin-bottom:24px; }
+    .aba { padding:12px 16px; cursor:pointer; font-weight:600; border-bottom:3px solid transparent; color:#666; }
+    .aba.ativa { color:#000; border-bottom-color:var(--dourado); }
+    .aba:hover { background:var(--surface-2); }
+    .aba-conteudo { display:none; }
+    .aba-conteudo.ativa { display:block; }
     .item-linha { display:flex; align-items:center; gap:10px; padding:8px; border-top:1px solid #EEE; }
     .item-linha .desc { flex:1; }
     .lista-busca { max-height:240px; overflow:auto; }
@@ -13,89 +19,143 @@
     .lista-busca .item:hover { background:var(--cinza-claro,#F4F5F7); }
     .tam-chip { display:inline-block; border:1px solid var(--dourado-claro,#ccc); border-radius:6px; padding:2px 8px; margin:2px; cursor:pointer; font-size:0.85rem; }
     .tam-chip.zerado { opacity:0.4; cursor:not-allowed; }
+    .tabela-trocas { width: 100%; border-collapse: collapse; margin-top: 16px; }
+    .tabela-trocas thead { background: var(--surface-2); font-weight: 600; font-size: 0.9rem; }
+    .tabela-trocas th, .tabela-trocas td { padding: 12px 8px; text-align: left; border-bottom: 1px solid var(--surface-2); }
+    .tabela-trocas tbody tr { cursor: pointer; transition: background 0.2s; }
+    .tabela-trocas tbody tr:hover { background: var(--surface-2); }
+    .tabela-trocas .data { text-align: center; font-size: 0.9rem; }
+    .tabela-trocas .moeda { text-align: right; font-weight: 600; color: #27ae60; }
+    .status-badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; }
+    .status-ativa { background: #d4edda; color: #155724; }
+    .status-cancelada { background: #f8d7da; color: #721c24; }
   </style>
 </head>
 <body>
   <div class="conteudo">
-    <h1>Troca / devolução</h1>
-    <p class="subtitulo">Cliente devolve uma peça e leva outra — o sistema ajusta estoque e caixa</p>
+    <h1>Trocas / Devoluções</h1>
+    <p class="subtitulo">Registre e acompanhe trocas e devoluções de peças</p>
 
-    
-    <div class="card">
-      <h2 style="margin-top:0;">1. Venda de origem</h2>
-      <div class="linha" style="align-items:flex-end;">
-        <div class="campo" style="margin:0; max-width:200px;"><label>Nº da venda</label><input type="number" id="vendaNum" placeholder="Ex: 12"></div>
-        <button class="btn" onclick="buscarVenda()">Buscar venda</button>
-        <span class="texto-cinza" style="font-size:0.85rem;">Obrigatório — a troca vale só até 7 dias úteis da compra.</span>
+    <div class="card" style="padding:0; border:none;">
+      <div class="abas">
+        <div class="aba ativa" onclick="mudarAba('registrar')">📝 Registrar troca</div>
+        <div class="aba" onclick="mudarAba('historico')">📋 Histórico</div>
       </div>
-      <div id="infoVenda" class="mt"></div>
-    </div>
 
-    
-    <div class="card">
-      <h2 style="margin-top:0;">2. Peças que voltam (devolução)</h2>
-      <div id="devolvidos"><div class="texto-cinza">Nenhuma peça marcada para devolução.</div></div>
-    </div>
+      <!-- ABA 1: REGISTRAR TROCA -->
+      <div id="abas-registrar" class="aba-conteudo ativa" style="padding:24px;">
+        <div class="card">
+          <h2 style="margin-top:0;">1. Venda de origem</h2>
+          <div class="linha" style="align-items:flex-end;">
+            <div class="campo" style="margin:0; max-width:200px;"><label>Nº da venda</label><input type="number" id="vendaNum" placeholder="Ex: 12"></div>
+            <button class="btn" onclick="buscarVenda()">Buscar venda</button>
+            <span class="texto-cinza" style="font-size:0.85rem;">Obrigatório — a troca vale só até 7 dias úteis da compra.</span>
+          </div>
+          <div id="infoVenda" class="mt"></div>
+        </div>
 
-    
-    <div class="card">
-      <h2 style="margin-top:0;">3. Peças que o cliente leva (saída)</h2>
-      <input type="search" id="buscaProd" placeholder="🔎 Buscar peça para adicionar..." oninput="buscarProd()">
-      <div class="lista-busca" id="listaProd"></div>
-      <div id="levados" class="mt"><div class="texto-cinza">Nenhuma peça adicionada.</div></div>
-    </div>
+        <div class="card">
+          <h2 style="margin-top:0;">2. Peças que voltam (devolução)</h2>
+          <div id="devolvidos"><div class="texto-cinza">Nenhuma peça marcada para devolução.</div></div>
+        </div>
 
-    
-    <div class="card">
-      <h2 style="margin-top:0;">4. Resumo</h2>
-      <table style="box-shadow:none;"><tbody>
-        <tr><td>Valor devolvido</td><td class="direita dinheiro" id="rDev">R$ 0</td></tr>
-        <tr><td>Valor levado</td><td class="direita dinheiro" id="rLev">R$ 0</td></tr>
-        <tr style="border-top:2px solid var(--dourado-claro);"><td><strong id="rDifLabel">Diferença</strong></td><td class="direita dinheiro"><strong id="rDif">R$ 0</strong></td></tr>
-      </tbody></table>
-      
-      <div class="campo mt" id="areaFormaDif" style="display:none;">
-        <label id="lblFormaDif">Forma de pagamento da diferença</label>
-        <select id="formaDif">
-          <option value="dinheiro">Dinheiro</option><option value="pix">Pix</option>
-          <option value="debito">Débito</option><option value="credito_vista">Crédito à vista</option>
-        </select>
+        <div class="card">
+          <h2 style="margin-top:0;">3. Peças que o cliente leva (saída)</h2>
+          <input type="search" id="buscaProd" placeholder="🔎 Buscar peça para adicionar..." oninput="buscarProd()">
+          <div class="lista-busca" id="listaProd"></div>
+          <div id="levados" class="mt"><div class="texto-cinza">Nenhuma peça adicionada.</div></div>
+        </div>
+
+        <div class="card">
+          <h2 style="margin-top:0;">4. Resumo</h2>
+          <table style="box-shadow:none;"><tbody>
+            <tr><td>Valor devolvido</td><td class="direita dinheiro" id="rDev">R$ 0</td></tr>
+            <tr><td>Valor levado</td><td class="direita dinheiro" id="rLev">R$ 0</td></tr>
+            <tr style="border-top:2px solid var(--dourado-claro);"><td><strong id="rDifLabel">Diferença</strong></td><td class="direita dinheiro"><strong id="rDif">R$ 0</strong></td></tr>
+          </tbody></table>
+
+          <div class="campo mt" id="areaFormaDif" style="display:none;">
+            <label id="lblFormaDif">Forma de pagamento da diferença</label>
+            <select id="formaDif">
+              <option value="dinheiro">Dinheiro</option><option value="pix">Pix</option>
+              <option value="debito">Débito</option><option value="credito_vista">Crédito à vista</option>
+            </select>
+          </div>
+          <div class="campo"><label>Observação</label><input type="text" id="obsTroca" placeholder="Ex: motivo da troca"></div>
+          <button class="btn btn-bloco btn-verde" id="btnFinalizar" onclick="finalizar()">✓ Finalizar troca</button>
+        </div>
       </div>
-      
-      <div class="campo mt" id="areaFormaDev" style="display:none;">
-        <label id="lblFormaDev">Forma de devolução do valor</label>
-        <select id="formaDev">
-          <option value="dinheiro">Dinheiro</option><option value="pix">Pix</option>
-          <option value="credito_vista">Crédito à vista</option>
-        </select>
+
+      <!-- ABA 2: HISTÓRICO -->
+      <div id="abas-historico" class="aba-conteudo" style="padding:24px;">
+        <div class="card">
+          <div class="linha" style="gap:8px; flex-wrap:wrap;">
+            <input type="date" id="filtroDE" onchange="carregarHistorico()">
+            <input type="date" id="filtroATE" onchange="carregarHistorico()">
+            <input type="search" id="buscaHist" placeholder="🔎 Buscar por cliente ou venda..." oninput="renderHistorico()">
+            <button class="btn" onclick="exportarHistorico()">⬇ Exportar CSV</button>
+          </div>
+        </div>
+
+        <table class="tabela-trocas" id="tabela">
+          <thead>
+            <tr>
+              <th style="width:12%;">DATA</th>
+              <th style="width:15%;">VENDA</th>
+              <th style="width:20%;">CLIENTE</th>
+              <th style="width:12%;" class="moeda">VALOR DEV.</th>
+              <th style="width:12%;" class="moeda">VALOR LEV.</th>
+              <th style="width:12%;" class="moeda">DIFERENÇA</th>
+              <th style="width:12%;">STATUS</th>
+              <th style="width:5%;">›</th>
+            </tr>
+          </thead>
+          <tbody id="lista"></tbody>
+        </table>
       </div>
-      <div class="campo"><label>Observação</label><input type="text" id="obsTroca" placeholder="Ex: motivo da troca"></div>
-      <button class="btn btn-bloco btn-verde" id="btnFinalizar" onclick="finalizar()">✓ Finalizar troca</button>
+    </div>
+  </div>
+
+  <div class="modal-fundo" id="modalTroca">
+    <div class="modal">
+      <button class="modal-fechar" onclick="fecharModal()">&times;</button>
+      <h2 id="trocaTitulo">Troca #123</h2>
+      <div id="trocaDetalhes"></div>
     </div>
   </div>
 
   <script src="js/comum.js"></script>
   <script>
     montarLayout('trocas');
-    let venda = null;
-    let devolvidos = [];   // {variacao_id, produto_id, descricao, qtd, valor_unit, maxQtd}
-    let levados = [];      // {variacao_id, produto_id, descricao, qtd, valor_unit}
-    let prodBusca = [];    // resultado da última busca de produtos (addLevado pega por índice)
 
-    // pre-preenche se veio ?venda=N
+    // ===== GERENCIAMENTO DE ABAS =====
+    function mudarAba(aba) {
+      document.querySelectorAll('.aba').forEach(e => e.classList.remove('ativa'));
+      document.querySelectorAll('.aba-conteudo').forEach(e => e.classList.remove('ativa'));
+      event.target.classList.add('ativa');
+      document.getElementById('abas-' + aba).classList.add('ativa');
+      if (aba === 'historico') carregarHistorico();
+    }
+
+    // ===== REGISTRAR TROCA =====
+    let venda = null;
+    let devolvidos = [];
+    let levados = [];
+    let prodBusca = [];
+    let variacoesPorProd = {};
+
     const vParam = new URLSearchParams(location.search).get('venda');
     if (vParam) { document.getElementById('vendaNum').value = vParam; buscarVenda(); }
 
     let prazoExpirado = false;
     async function buscarVenda() {
       const n = document.getElementById('vendaNum').value;
-      if (n) return;
+      if (!n) return;
       try {
         venda = await api('/vendas/' + n);
-        // consulta o prazo de troca dessa venda (dias úteis seg-sáb)
         let prazo = { dentro_prazo: true, dias_passados: 0, prazo: 7 };
         try { prazo = await api('/trocas/prazo/' + venda.id); } catch(e){}
-        prazoExpirado = prazo.dentro_prazo;
+        prazoExpirado = !prazo.dentro_prazo;
 
         const avisoPrazo = prazoExpirado
           ? `<div class="card" style="background:#fde8e8; border:1px solid var(--vermelho,#c62828); margin:8px 0;">
@@ -143,7 +203,7 @@
         devolvidos.push({ _key:key, variacao_id: it.variacao_id, produto_id: it.produto_id,
           descricao: it.descricao, qtd: it.qtd, valor_unit: it.preco_unitario });
       } else {
-        devolvidos = devolvidos.filter(d => d._key == key);
+        devolvidos = devolvidos.filter(d => d._key !== key);
       }
       renderDevolvidos();
     }
@@ -166,7 +226,7 @@
       clearTimeout(buscaTimer);
       buscaTimer = setTimeout(async () => {
         const b = document.getElementById('buscaProd').value.trim();
-        if (b) { document.getElementById('listaProd').innerHTML=''; return; }
+        if (!b) { document.getElementById('listaProd').innerHTML=''; return; }
         const prods = await api('/produtos?busca=' + encodeURIComponent(b));
         prodBusca = prods;
         document.getElementById('listaProd').innerHTML = prods.length===0
@@ -175,10 +235,10 @@
               <div class="flex-entre"><strong>${esc(p.nome)}</strong> <span class="dinheiro">${moeda(p.preco_venda)}</span></div>
               <div id="grade-${pi}"></div>
             </div>`).join('');
-        // renderiza grade de tamanhos (pega variações do produto)
         for (let pi=0; pi<prods.length; pi++) {
           const p = prods[pi];
           const vars = await api('/estoque?produto=' + p.id).catch(() => ([]));
+          variacoesPorProd[p.id] = vars;
           const html = vars.map((g,gi)=>`<span class="tam-chip ${g.quantidade<=0?'zerado':''}"
                 ${g.quantidade>0?`onclick="addLevado(${pi}, ${g.variacao_id})"`:''}>
                 ${esc(g.tamanho)} <small>(${g.quantidade})</small></span>`).join('');
@@ -188,8 +248,11 @@
     }
 
     function addLevado(pi, varId) {
-      const p = prodBusca[pi]; if (p) return;
-      const descricao = `${p.nome}`;
+      const p = prodBusca[pi]; if (!p) return;
+      const vars = variacoesPorProd[p.id] || [];
+      const var_sel = vars.find(v => v.variacao_id === varId);
+      const tamanho = var_sel ? var_sel.tamanho : '';
+      const descricao = `${p.nome}${tamanho ? ' (' + tamanho + ')' : ''}`;
       const ex = levados.find(l => l.variacao_id === varId);
       if (ex) ex.qtd++;
       else levados.push({ variacao_id: varId, produto_id: p.id, descricao, qtd:1, valor_unit: p.preco_venda });
@@ -222,22 +285,19 @@
       if (dif > 0) {
         lbl.textContent = 'Cliente paga';
         areaPag.style.display='block';
-        areaDev.style.display='none';
       } else if (dif < 0) {
-        lbl.textContent = 'Cliente recebe de volta';
+        lbl.innerHTML = '🎟️ Cliente recebe Vale-crédito';
         areaPag.style.display='none';
-        areaDev.style.display='block';
       } else {
         lbl.textContent = 'Sem diferença';
         areaPag.style.display='none';
-        areaDev.style.display='none';
       }
     }
 
     async function finalizar() {
       if (devolvidos.length===0 && levados.length===0) { toast('Marque o que volta e/ou o que sai','erro'); return; }
       const forcar = document.getElementById('forcarPrazo');
-      if (prazoExpirado && (forcar && forcar.checked)) {
+      if (prazoExpirado && (!forcar || !forcar.checked)) {
         toast('Troca fora do prazo (7 dias úteis). Marque a autorização de exceção pra prosseguir.','erro');
         return;
       }
@@ -246,17 +306,223 @@
         venda_id: venda ? venda.id : null,
         devolvidos: devolvidos.map(d=>({ variacao_id:d.variacao_id, produto_id:d.produto_id, descricao:d.descricao, qtd:d.qtd, valor_unit:d.valor_unit })),
         levados: levados.map(l=>({ variacao_id:l.variacao_id, qtd:l.qtd })),
-        forma_pagamento: dif > 0 ? document.getElementById('formaDif').value : (dif < 0 ? document.getElementById('formaDev').value : null),
+        forma_pagamento: dif > 0 ? document.getElementById('formaDif').value : (dif < 0 ? 'vale' : null),
         obs: document.getElementById('obsTroca').value || null,
         forcar_excecao: prazoExpirado && forcar && forcar.checked,
       };
       try {
         const r = await api('/trocas', { method:'POST', body });
-        toast('Troca registrada','sucesso');
-        // limpa e volta pra histórico
-        setTimeout(() => window.location.href = 'historico.html', 800);
+        if (r.vale) {
+          toast(`Vale-crédito gerado: ${r.vale.codigo}`, 'sucesso');
+          alert(`🎟️ VALE-CRÉDITO GERADO\n\nCódigo: ${r.vale.codigo}\nValor: ${moeda(r.vale.valor)}\nValidade: ${r.vale.validade}\n\nCliente pode usar este código em futuras compras.`);
+        } else {
+          toast('Troca registrada','sucesso');
+        }
+        devolvidos = []; levados = [];
+        document.getElementById('vendaNum').value = '';
+        document.getElementById('infoVenda').innerHTML = '';
+        document.getElementById('devolvidos').innerHTML = '<div class="texto-cinza">Nenhuma peça marcada para devolução.</div>';
+        document.getElementById('levados').innerHTML = '<div class="texto-cinza">Nenhuma peça adicionada.</div>';
+        recalcular();
       } catch(e){ toast(e.message,'erro'); }
     }
+
+    // ===== HISTÓRICO =====
+    let dadosHist = [];
+
+    async function carregarHistorico() {
+      const de = document.getElementById('filtroDE').value;
+      const ate = document.getElementById('filtroATE').value;
+      let url = '/trocas';
+      if (de || ate) {
+        url += '?';
+        if (de) url += 'de=' + de;
+        if (de && ate) url += '&';
+        if (ate) url += 'ate=' + ate;
+      }
+      const resp = await api(url);
+      dadosHist = resp || [];
+      renderHistorico();
+    }
+
+    function renderHistorico() {
+      const b = document.getElementById('buscaHist').value.toLowerCase();
+      const arr = dadosHist.filter(t => {
+        const clienteMatch = !b || (t.cliente_nome && t.cliente_nome.toLowerCase().includes(b));
+        const vendaMatch = !b || (t.venda_id && String(t.venda_id).includes(b));
+        return clienteMatch || vendaMatch;
+      });
+      const div = document.getElementById('lista');
+      if (arr.length === 0) {
+        div.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:32px;">Nenhuma troca encontrada.</td></tr>';
+        return;
+      }
+      div.innerHTML = arr.map(t => `
+        <tr onclick="verDetalhes(${t.id})">
+          <td class="data">${t.data_hora.slice(0,10).split('-').reverse().join('/')}<br><span class="texto-cinza" style="font-size:0.85rem;">${t.data_hora.slice(11,16)}</span></td>
+          <td>#${t.venda_id || '—'}</td>
+          <td>${t.cliente_nome ? esc(t.cliente_nome) : '<em>não identificado</em>'}</td>
+          <td class="moeda">${moeda(t.valor_devolvido)}</td>
+          <td class="moeda">${moeda(t.valor_levado)}</td>
+          <td class="moeda" style="color:${t.diferenca > 0 ? '#e74c3c' : t.diferenca < 0 ? '#27ae60' : '#999'};">
+            ${t.diferenca > 0 ? '+' : ''}${moeda(t.diferenca)}
+          </td>
+          <td><span class="status-badge ${t.cancelada ? 'status-cancelada' : 'status-ativa'}">${t.cancelada ? 'Cancelada' : 'Ativa'}</span></td>
+          <td style="text-align:center;">›</td>
+        </tr>`).join('');
+    }
+
+    async function verDetalhes(id) {
+      const t = await api('/trocas/' + id);
+      document.getElementById('trocaTitulo').textContent = `Troca #${t.id}`;
+
+      const itens = t.itens || [];
+      const devolvidosList = itens.filter(it => it.tipo === 'devolvido');
+      const levadosList = itens.filter(it => it.tipo === 'levado');
+
+      const formatoStatus = t.cancelada
+        ? '<span class="status-badge status-cancelada">Cancelada</span>'
+        : '<span class="status-badge status-ativa">Ativa</span>';
+
+      const formaLabel = {
+        'dinheiro': '💵 Dinheiro',
+        'pix': '📱 Pix',
+        'debito': '💳 Débito',
+        'credito_vista': '💳 Crédito à vista',
+        'vale': '🎟️ Vale-crédito'
+      };
+
+      document.getElementById('trocaDetalhes').innerHTML = `
+        <div style="padding:0;">
+          <div style="padding:12px 0; border-bottom:1px solid #EEE; margin-bottom:12px;">
+            <div style="font-size:0.9rem; color:#666;">
+              ${t.data_hora.slice(0,10).split('-').reverse().join('/')} às ${t.data_hora.slice(11,16)}
+            </div>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+            <div>
+              <strong style="color:#666; font-size:0.85rem;">Venda de origem</strong>
+              <div style="margin-top:4px;">${t.venda_id ? '#' + t.venda_id : '—'}</div>
+            </div>
+            <div>
+              <strong style="color:#666; font-size:0.85rem;">Status</strong>
+              <div style="margin-top:4px;">${formatoStatus}</div>
+            </div>
+          </div>
+
+          ${devolvidosList.length > 0 ? `
+          <div style="border:1px solid #EEE; border-radius:6px; padding:12px; margin-bottom:16px;">
+            <strong style="display:block; margin-bottom:8px;">Peças devolvidas</strong>
+            <table style="width:100%; font-size:0.9rem;">
+              <thead style="background:#f5f5f5;">
+                <tr>
+                  <th style="text-align:left; padding:6px;">PEÇA</th>
+                  <th style="text-align:center; padding:6px;">QTD</th>
+                  <th style="text-align:right; padding:6px;">VALOR UNIT.</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${devolvidosList.map(i => `
+                  <tr style="border-bottom:1px solid #EEE;">
+                    <td style="padding:6px;">${esc(i.descricao || '—')}</td>
+                    <td style="text-align:center; padding:6px;">${i.qtd}</td>
+                    <td style="text-align:right; padding:6px;">${moeda(i.valor_unit)}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+          ` : ''}
+
+          ${levadosList.length > 0 ? `
+          <div style="border:1px solid #EEE; border-radius:6px; padding:12px; margin-bottom:16px;">
+            <strong style="display:block; margin-bottom:8px;">Peças levadas</strong>
+            <table style="width:100%; font-size:0.9rem;">
+              <thead style="background:#f5f5f5;">
+                <tr>
+                  <th style="text-align:left; padding:6px;">PEÇA</th>
+                  <th style="text-align:center; padding:6px;">QTD</th>
+                  <th style="text-align:right; padding:6px;">VALOR UNIT.</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${levadosList.map(i => `
+                  <tr style="border-bottom:1px solid #EEE;">
+                    <td style="padding:6px;">${esc(i.descricao || '—')}</td>
+                    <td style="text-align:center; padding:6px;">${i.qtd}</td>
+                    <td style="text-align:right; padding:6px;">${moeda(i.valor_unit)}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+          ` : ''}
+
+          <div style="border:1px solid #EEE; border-radius:6px; padding:12px; margin-bottom:16px; font-size:0.9rem;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+              <span>Valor devolvido:</span>
+              <strong>${moeda(t.valor_devolvido)}</strong>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+              <span>Valor levado:</span>
+              <strong>${moeda(t.valor_levado)}</strong>
+            </div>
+            <div style="border-top:1px solid #EEE; padding-top:8px; display:flex; justify-content:space-between; font-weight:700; font-size:1rem;">
+              <span>${t.diferenca > 0 ? 'Cliente paga' : t.diferenca < 0 ? 'Cliente recebe' : 'Sem diferença'}</span>
+              <strong style="color:${t.diferenca > 0 ? '#e74c3c' : t.diferenca < 0 ? '#27ae60' : '#999'};">
+                ${t.diferenca > 0 ? '+' : ''}${moeda(t.diferenca)}
+              </strong>
+            </div>
+            ${t.forma_pagamento_diferenca ? `
+            <div style="margin-top:8px; padding-top:8px; border-top:1px solid #EEE; display:flex; justify-content:space-between;">
+              <span>Forma:</span>
+              <strong>${formaLabel[t.forma_pagamento_diferenca] || t.forma_pagamento_diferenca}</strong>
+            </div>
+            ` : ''}
+          </div>
+
+          ${t.obs ? `
+          <div style="background:#f5f5f5; padding:12px; border-radius:6px; margin-bottom:16px; font-size:0.9rem;">
+            <strong style="display:block; margin-bottom:4px;">Observação</strong>
+            <div>${esc(t.obs)}</div>
+          </div>
+          ` : ''}
+
+          ${!t.cancelada ? `
+          <button class="btn" style="background:#E74C3C; color:white; width:100%;" onclick="cancelarTroca(${t.id})">🗑️ Cancelar troca</button>
+          ` : ''}
+        </div>
+      `;
+      document.getElementById('modalTroca').classList.add('aberto');
+    }
+
+    async function cancelarTroca(id) {
+      if (!confirm('Tem certeza? Isso vai reverter o estoque e o caixa.')) return;
+      try {
+        await api('/trocas/' + id + '/cancelar', { method:'PATCH', body:{} });
+        toast('Troca cancelada com sucesso','sucesso');
+        fecharModal();
+        carregarHistorico();
+      } catch(e) { toast(e.message,'erro'); }
+    }
+
+    function fecharModal() {
+      document.getElementById('modalTroca').classList.remove('aberto');
+    }
+
+    function exportarHistorico() {
+      if (!dadosHist.length) { toast('Nada para exportar','erro'); return; }
+      const linhas = dadosHist.map(t => ({
+        ID: t.id, 'Venda #': t.venda_id||'', Data: t.data_hora.slice(0,10),
+        Hora: t.data_hora.slice(11,16), 'Valor Devolvido': t.valor_devolvido,
+        'Valor Levado': t.valor_levado, Diferença: t.diferenca,
+        Forma: t.forma_pagamento_diferenca||'', Status: t.cancelada ? 'Cancelada' : 'Ativa'
+      }));
+      exportarCSV('historico-trocas-' + hojeLocalStr(), linhas);
+    }
+
+    document.getElementById('modalTroca').addEventListener('click', e => { if(e.target.id==='modalTroca') fecharModal(); });
   </script>
 </body>
 </html>

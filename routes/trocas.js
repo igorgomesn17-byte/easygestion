@@ -27,6 +27,16 @@ function hojeLocal() {
   return d.toISOString().split('T')[0];
 }
 
+// Helper: gerar código único de vale VALE-XXXXXX
+function gerarCodigoVale() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let codigo = 'VALE-';
+  for (let i = 0; i < 6; i++) {
+    codigo += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return codigo;
+}
+
 // GET /api/trocas -> lista (com filtros de data opcionais)
 router.get('/', (req, res) => {
   const { de, ate } = req.query;
@@ -224,14 +234,20 @@ router.post('/', (req, res) => {
         .run(hoje, req.tenantId, diferenca, 'dinheiro', `troca #${trocaId} (cliente pagou diferença)`);
     } else if (diferenca < 0) {
       const aFavor = Math.abs(diferenca);
-      if (forma_pagamento === 'dinheiro') {
-        // devolução em dinheiro (sai do caixa)
-        db.prepare('INSERT OR IGNORE INTO caixa_dia (data, tenant_id) VALUES (?, ?)').run(hoje, req.tenantId);
-        db.prepare('UPDATE caixa_dia SET sangrias = sangrias + ? WHERE data = ? AND tenant_id = ?').run(aFavor, hoje, req.tenantId);
-        db.prepare(`INSERT INTO caixa_movimentos (data, tenant_id, tipo, valor, forma, motivo) VALUES (?, ?, 'sangria', ?, ?, ?)`)
-          .run(hoje, req.tenantId, aFavor, 'dinheiro', `troca #${trocaId} (devolução em dinheiro)`);
+      // Cliente recebe em vale-crédito
+      let codigoVale = gerarCodigoVale();
+      let tentativas = 0;
+      // garantir que codigo é único
+      while (db.prepare('SELECT 1 FROM vales WHERE codigo = ?').get(codigoVale) && tentativas < 10) {
+        codigoVale = gerarCodigoVale();
+        tentativas++;
       }
-      // nota: Pix/débito/crédito deveriam ser processados via API do banco (fora do escopo MVP)
+      if (tentativas < 10) {
+        db.prepare(`
+          INSERT INTO vales (tenant_id, codigo, valor, saldo, troca_id, cliente_id, validade)
+          VALUES (?, ?, ?, ?, ?, ?, date('now','localtime','+30 days'))
+        `).run(req.tenantId, codigoVale, aFavor, aFavor, trocaId, venda_id ? db.prepare('SELECT cliente_id FROM vendas WHERE id = ?').get(venda_id)?.cliente_id : null);
+      }
     }
 
     return trocaId;
@@ -239,7 +255,15 @@ router.post('/', (req, res) => {
 
   try {
     const trocaId = tx();
-    res.status(201).json({ id: trocaId, valor_devolvido: valorDevolvido, valor_levado: valorLevado, diferenca });
+    const resp = { id: trocaId, valor_devolvido: valorDevolvido, valor_levado: valorLevado, diferenca };
+    // se gerou vale, adiciona o código na resposta
+    if (diferenca < 0) {
+      const vale = db.prepare('SELECT codigo, valor, validade FROM vales WHERE troca_id = ?').get(trocaId);
+      if (vale) {
+        resp.vale = { codigo: vale.codigo, valor: vale.valor, validade: vale.validade };
+      }
+    }
+    res.status(201).json(resp);
   } catch (e) {
     res.status(500).json({ erro: e.message });
   }

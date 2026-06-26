@@ -320,6 +320,7 @@ app.use('/api/vendas',        pdvOuAdmin, require('./routes/vendas'));   // vend
 app.use('/api/vendedores',    pdvOuAdmin, require('./routes/vendedores')); // PDV precisa da lista
 app.use('/api/caixa',         pdvOuAdmin, require('./routes/caixa'));      // vendedor opera o caixa
 app.use('/api/trocas',        apenasAdmin, require('./routes/trocas'));     // trocas e devoluções
+app.use('/api/vales',         pdvOuAdmin, require('./routes/vales'));       // vales usados no PDV
 app.use('/api/despesas',      apenasAdmin, require('./routes/despesas'));
 app.use('/api/financeiro',    apenasAdmin, require('./routes/financeiro'));
 app.use('/api/nfce',          apenasAdmin, require('./routes/nfce'));      // NFC-e fiscal

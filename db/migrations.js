@@ -113,6 +113,33 @@ function executarMigrations(db) {
           db.prepare('UPDATE usuarios SET senha_hash = ? WHERE tenant_id = ?').run(senhaCorreta, dsStore.id);
         }
       }
+    },
+    {
+      nome: '006_create_vales_table',
+      hash: 'v6-vales',
+      exec: (db) => {
+        db.exec(`
+          CREATE TABLE IF NOT EXISTS vales (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tenant_id INTEGER NOT NULL DEFAULT 1,
+            codigo TEXT UNIQUE NOT NULL,           -- VALE-XXXXXX (gerado)
+            valor REAL NOT NULL DEFAULT 0,         -- valor do crédito
+            saldo REAL NOT NULL DEFAULT 0,         -- saldo disponível (valor - utilizado)
+            utilizado REAL NOT NULL DEFAULT 0,     -- quanto já foi gasto
+            troca_id INTEGER,                      -- vem de qual troca
+            cliente_id INTEGER,                    -- cliente que recebeu o vale
+            data_geracao TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+            validade TEXT,                         -- data de expiração (opcional, ex: 30 dias)
+            ativo INTEGER NOT NULL DEFAULT 1,      -- 1 ativo, 0 cancelado
+            notas TEXT,
+            FOREIGN KEY (troca_id) REFERENCES trocas(id) ON DELETE SET NULL,
+            FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE SET NULL
+          );
+          CREATE INDEX IF NOT EXISTS idx_vales_codigo ON vales(codigo);
+          CREATE INDEX IF NOT EXISTS idx_vales_cliente ON vales(cliente_id);
+          CREATE INDEX IF NOT EXISTS idx_vales_ativo ON vales(ativo);
+        `);
+      }
     }
   ];
 
