@@ -194,10 +194,11 @@
             </div>
           </div>
 
-          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
+          <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:8px;">
             <button class="btn" style="background:#8a7a6d; color:white;" onclick="reimprimirCupom(${v.id})">🖨️ Reimprimir cupom</button>
             <button class="btn" style="background:#27ae60; color:white;" onclick="emitirNfce(${v.id})">📄 Emitir NFC-e</button>
             <button class="btn" style="background:#E74C3C; color:white;" onclick="abrirTroca(${v.id})">🔄 Registrar troca</button>
+            <button class="btn" style="background:#c0392b; color:white;" onclick="cancelarVenda(${v.id})">❌ Cancelar venda</button>
           </div>
         </div>
       `;
@@ -224,6 +225,16 @@
     function abrirTroca(vendaId) {
       fecharModal();
       window.location.href = 'trocas.html?venda=' + vendaId;
+    }
+
+    async function cancelarVenda(vendaId) {
+      if (!confirm('⚠️ Cancelar esta venda? O estoque será devolvido e o caixa será atualizado.')) return;
+      try {
+        await api('/vendas/' + vendaId, { method: 'DELETE' });
+        toast('Venda cancelada com sucesso', 'sucesso');
+        fecharModal();
+        carregar();
+      } catch(e) { toast(e.message, 'erro'); }
     }
 
     function exportar() {

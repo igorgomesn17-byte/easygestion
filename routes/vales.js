@@ -76,18 +76,20 @@ router.post('/:codigo/usar', (req, res) => {
     // Atualizar saldo do vale
     const novoSaldo = +(vale.saldo - valor_a_usar).toFixed(2);
     const novoUtilizado = +(vale.valor - novoSaldo).toFixed(2);
+    const estaInativo = novoSaldo <= 0 ? 0 : 1; // Marcar como inativo se saldo zerou
 
     db.prepare(`
       UPDATE vales
-      SET saldo = ?, utilizado = ?
+      SET saldo = ?, utilizado = ?, ativo = ?
       WHERE id = ? AND tenant_id = ?
-    `).run(novoSaldo, novoUtilizado, vale.id, req.tenantId);
+    `).run(novoSaldo, novoUtilizado, estaInativo, vale.id, req.tenantId);
 
     res.json({
       sucesso: true,
       codigo,
       valor_utilizado: valor_a_usar,
       novo_saldo: novoSaldo,
+      ativo: estaInativo,
       venda_id
     });
   } catch (e) {

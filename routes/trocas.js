@@ -121,6 +121,11 @@ router.patch('/:id/cancelar', (req, res) => {
 
     // marca como cancelada
     db.prepare('UPDATE trocas SET cancelada = 1 WHERE id = ? AND tenant_id = ?').run(troca.id, req.tenantId);
+
+    // liberar a venda pra poder fazer nova troca (se tinha)
+    if (troca.venda_id) {
+      db.prepare('UPDATE vendas SET venda_troca_id = NULL WHERE id = ? AND tenant_id = ?').run(troca.venda_id, req.tenantId);
+    }
   });
 
   try {
@@ -151,8 +156,16 @@ router.post('/', (req, res) => {
   if (!venda_id) {
     return res.status(400).json({ erro: 'Informe a venda de origem para registrar a troca.' });
   }
-  const venda = db.prepare('SELECT id, data_hora FROM vendas WHERE id = ? AND tenant_id = ?').get(venda_id, req.tenantId);
+  const venda = db.prepare('SELECT id, data_hora, venda_troca_id FROM vendas WHERE id = ? AND tenant_id = ?').get(venda_id, req.tenantId);
   if (!venda) return res.status(404).json({ erro: 'Venda de origem não encontrada.' });
+
+  // Verificar se essa venda já tem uma troca registrada
+  if (venda.venda_troca_id) {
+    return res.status(422).json({
+      erro: 'Esta venda já tem uma troca registrada. Cancele a troca anterior para registrar uma nova.',
+      troca_id_anterior: venda.venda_troca_id
+    });
+  }
 
   const diasPassados = diasUteisEntre(venda.data_hora.slice(0, 10), hojeLocal());
   const prazo = 7;
@@ -212,6 +225,11 @@ router.post('/', (req, res) => {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now','localtime'))
     `).run(req.tenantId, venda_id, +valorDevolvido.toFixed(2), +valorLevado.toFixed(2), diferenca, forma_pagamento, obs, +custoDevolv.toFixed(2), +custoLeva.toFixed(2), cmvrBruto);
     const trocaId = info.lastInsertRowid;
+
+    // Registrar a troca na venda (1 troca por venda)
+    if (venda_id) {
+      db.prepare('UPDATE vendas SET venda_troca_id = ? WHERE id = ? AND tenant_id = ?').run(trocaId, venda_id, req.tenantId);
+    }
 
     const insItem = db.prepare(`INSERT INTO troca_itens (troca_id, tenant_id, tipo, variacao_id, produto_id, descricao, qtd, valor_unit, custo_unit)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`);

@@ -214,6 +214,17 @@ function executarMigrations(db) {
           db.exec(`ALTER TABLE caixa_dia ADD COLUMN total_vale REAL NOT NULL DEFAULT 0;`);
         }
       }
+    },
+    {
+      nome: '010_add_troca_id_to_vendas',
+      hash: 'v10-vendas-troca-id',
+      exec: (db) => {
+        // Adicionar coluna venda_troca_id em vendas (rastreia se venda já tem troca)
+        const colunas = db.prepare(`PRAGMA table_info(vendas)`).all().map(c => c.name);
+        if (!colunas.includes('venda_troca_id')) {
+          db.exec(`ALTER TABLE vendas ADD COLUMN venda_troca_id INTEGER;`);
+        }
+      }
     }
   ];
 
