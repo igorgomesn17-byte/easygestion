@@ -296,7 +296,9 @@ router.post('/', (req, res) => {
     const resp = { id: trocaId, valor_devolvido: valorDevolvido, valor_levado: valorLevado, diferenca };
     // se gerou vale, adiciona o código na resposta
     if (diferenca < 0) {
+      console.log('Procurando vale para troca_id:', trocaId);
       const vale = db.prepare('SELECT codigo, valor, validade FROM vales WHERE troca_id = ?').get(trocaId);
+      console.log('Vale encontrado:', vale);
       if (vale) {
         resp.vale = { codigo: vale.codigo, valor: vale.valor, validade: vale.validade };
       }
