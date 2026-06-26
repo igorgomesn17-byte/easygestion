@@ -363,13 +363,13 @@ router.get('/fluxo-caixa', exigirPapel('admin'), (req, res) => {
     const [ano, mesNum] = mes.split('-');
     console.log('ano:', ano, 'mesNum:', mesNum);
 
-    // Lê prazos configurados
+    // Lê prazos configurados (usa valores do config, não hardcoded)
     const prazoDeb = parseInt(getConfig('prazo_debito_dias', '1')) || 1;
     const tipoDebito = getConfig('prazo_debito_tipo', 'uteis');
-    const prazoCredVista = parseInt(getConfig('prazo_credito_vista_dias', '30')) || 30;
-    const tipoCredVista = getConfig('prazo_credito_vista_tipo', 'corridos');
-    const prazoCredParc = parseInt(getConfig('prazo_credito_parc_dias', '30')) || 30;
-    const tipoCredParc = getConfig('prazo_credito_parc_tipo', 'corridos');
+    const prazoCredVista = parseInt(getConfig('prazo_credito_vista_dias', '1')) || 1;
+    const tipoCredVista = getConfig('prazo_credito_vista_tipo', 'uteis');
+    const prazoCredParc = parseInt(getConfig('prazo_credito_parc_dias', '1')) || 1;
+    const tipoCredParc = getConfig('prazo_credito_parc_tipo', 'uteis');
 
     // Helper: soma dias úteis (seg-sex, ignorando finais de semana)
     function adicionarDiasUteis(dataStr, dias) {
