@@ -422,6 +422,8 @@ router.get('/fluxo-caixa', exigirPapel('admin'), (req, res) => {
   const aReceber = { credito_parcelado: 0, debito: 0, credito_vista: 0 }; // totais ainda não recebidos
 
   // Para cada dia de vendas, distribui nos dias de recebimento
+  console.log('=== FLUXO-CAIXA DEBUG ===');
+  console.log('caixaDias:', caixaDias.map(c => ({ data: c.data, debito: c.total_debito, credito: c.total_credito })));
   for (const cd of caixaDias) {
     const dataDaVenda = cd.data;
 
