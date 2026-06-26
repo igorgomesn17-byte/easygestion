@@ -10,10 +10,10 @@ const { db } = require('../db/database');
 router.get('/:codigo', (req, res) => {
   const codigo = req.params.codigo.toUpperCase();
   const vale = db.prepare(`
-    SELECT id, valor, saldo, utilizado, validade, ativo, data_geracao
+    SELECT id, valor, saldo, utilizado, validade, ativo, data_geracao, valor_original
     FROM vales
-    WHERE codigo = ? AND ativo = 1
-  `).get(codigo);
+    WHERE codigo = ? AND tenant_id = ? AND ativo = 1
+  `).get(codigo, req.tenantId);
 
   if (!vale) {
     return res.status(404).json({ erro: 'Vale não encontrado ou já cancelado' });
@@ -51,8 +51,8 @@ router.post('/:codigo/usar', (req, res) => {
   const vale = db.prepare(`
     SELECT id, saldo, valor
     FROM vales
-    WHERE codigo = ? AND ativo = 1
-  `).get(codigo);
+    WHERE codigo = ? AND tenant_id = ? AND ativo = 1
+  `).get(codigo, req.tenantId);
 
   if (!vale) {
     return res.status(404).json({ erro: 'Vale não encontrado' });
@@ -74,8 +74,8 @@ router.post('/:codigo/usar', (req, res) => {
     db.prepare(`
       UPDATE vales
       SET saldo = ?, utilizado = ?
-      WHERE id = ?
-    `).run(novoSaldo, novoUtilizado, vale.id);
+      WHERE id = ? AND tenant_id = ?
+    `).run(novoSaldo, novoUtilizado, vale.id, req.tenantId);
 
     res.json({
       sucesso: true,
@@ -92,8 +92,8 @@ router.post('/:codigo/usar', (req, res) => {
 // GET /api/vales -> lista vales ativos (filtros opcionais)
 router.get('/', (req, res) => {
   const { ativo, cliente_id } = req.query;
-  let sql = 'SELECT id, codigo, valor, saldo, data_geracao, validade, cliente_id FROM vales WHERE 1=1';
-  const params = [];
+  let sql = 'SELECT id, codigo, valor, saldo, data_geracao, validade, cliente_id FROM vales WHERE tenant_id = ?';
+  const params = [req.tenantId];
 
   if (ativo !== undefined) {
     sql += ' AND ativo = ?';

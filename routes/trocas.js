@@ -29,12 +29,43 @@ function hojeLocal() {
 
 // Helper: gerar código único de vale VALE-XXXXXX
 function gerarCodigoVale() {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let codigo = 'VALE-';
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sem I,O,0,1 (confusão)
+  let codigo = '';
   for (let i = 0; i < 6; i++) {
     codigo += chars.charAt(Math.floor(Math.random() * chars.length));
   }
-  return codigo;
+  return 'VALE-' + codigo;
+}
+
+// Helper: calcular validade (30 dias por padrão)
+function calcularValidade() {
+  const d = new Date();
+  d.setDate(d.getDate() + 30);
+  return d.toISOString().slice(0, 10);
+}
+
+// Helper: criar um vale (retorna o objeto completo)
+function criarVale(tenantId, { cliente_id = null, troca_id = null, valor, obs = null }) {
+  const v = +(parseFloat(valor) || 0).toFixed(2);
+  if (v <= 0) throw new Error('Valor do crédito precisa ser maior que zero');
+
+  let codigo, tentativas = 0;
+  do {
+    codigo = gerarCodigoVale();
+    tentativas++;
+  } while (db.prepare('SELECT 1 FROM vales WHERE codigo = ?').get(codigo) && tentativas < 10);
+
+  if (tentativas >= 10) {
+    throw new Error('Não conseguiu gerar código de vale único');
+  }
+
+  const validade = calcularValidade();
+  const info = db.prepare(`
+    INSERT INTO vales (tenant_id, codigo, valor, saldo, troca_id, cliente_id, validade, obs, ativo)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+  `).run(tenantId, codigo, v, v, troca_id, cliente_id, validade, obs);
+
+  return db.prepare('SELECT * FROM vales WHERE id = ?').get(info.lastInsertRowid);
 }
 
 // GET /api/trocas -> lista (com filtros de data opcionais)
@@ -264,47 +295,35 @@ router.post('/', (req, res) => {
     } else if (diferenca < 0) {
       const aFavor = Math.abs(diferenca);
       // Cliente recebe em vale-crédito
-      let codigoVale = '';
-      let tentativas = 0;
-      let maxTentativas = 10;
-
-      // Gera código único
-      do {
-        codigoVale = gerarCodigoVale();
-        tentativas++;
-      } while (db.prepare('SELECT 1 FROM vales WHERE codigo = ?').get(codigoVale) && tentativas < maxTentativas);
-
-      // Se conseguiu gerar código único, insere o vale
-      if (tentativas < maxTentativas && codigoVale) {
-        let clienteId = null;
-        if (venda_id) {
-          const vendaInfo = db.prepare('SELECT cliente_id FROM vendas WHERE id = ? AND tenant_id = ?').get(venda_id, req.tenantId);
-          clienteId = vendaInfo?.cliente_id || null;
-        }
-        db.prepare(`
-          INSERT INTO vales (tenant_id, codigo, valor, saldo, troca_id, cliente_id, validade)
-          VALUES (?, ?, ?, ?, ?, ?, date('now','localtime','+30 days'))
-        `).run(req.tenantId, codigoVale, aFavor, aFavor, trocaId, clienteId);
+      let clienteId = null;
+      if (venda_id) {
+        const vendaInfo = db.prepare('SELECT cliente_id FROM vendas WHERE id = ? AND tenant_id = ?').get(venda_id, req.tenantId);
+        clienteId = vendaInfo?.cliente_id || null;
       }
+
+      return {
+        trocaId,
+        valeGerado: criarVale(req.tenantId, {
+          cliente_id: clienteId,
+          troca_id: trocaId,
+          valor: aFavor,
+          obs: `Crédito da troca #${trocaId}`,
+        }),
+      };
     }
 
-    return trocaId;
+    return { trocaId, valeGerado: null };
   });
 
   try {
-    const trocaId = tx();
-    const resp = { id: trocaId, valor_devolvido: valorDevolvido, valor_levado: valorLevado, diferenca };
-    // se gerou vale, adiciona o código na resposta
-    if (diferenca < 0) {
-      // Busca o vale que foi criado na transaction
-      const vale = db.prepare('SELECT codigo, valor, validade FROM vales WHERE troca_id = ? AND tenant_id = ?').get(trocaId, req.tenantId);
-      if (vale) {
-        resp.vale = { codigo: vale.codigo, valor: vale.valor, validade: vale.validade };
-      } else {
-        // Debug: lista todos os vales para ver o que foi criado
-        const todosVales = db.prepare('SELECT * FROM vales WHERE tenant_id = ? ORDER BY id DESC LIMIT 5').all(req.tenantId);
-        console.log('Vale não encontrado para troca_id', trocaId, 'Últimos vales:', todosVales);
-      }
+    const resultado = tx();
+    const resp = { id: resultado.trocaId, valor_devolvido: valorDevolvido, valor_levado: valorLevado, diferenca };
+    if (resultado.valeGerado) {
+      resp.vale = {
+        codigo: resultado.valeGerado.codigo,
+        valor: resultado.valeGerado.valor,
+        validade: resultado.valeGerado.validade,
+      };
     }
     res.status(201).json(resp);
   } catch (e) {
