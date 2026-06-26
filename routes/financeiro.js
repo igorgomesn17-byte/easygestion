@@ -374,23 +374,31 @@ router.get('/fluxo-caixa', exigirPapel('admin'), (req, res) => {
     // Helper: soma dias úteis (seg-sex, ignorando finais de semana)
     function adicionarDiasUteis(dataStr, dias) {
       if (!dataStr || dataStr.length < 10) throw new Error('Data inválida: ' + dataStr);
-      let d = new Date(dataStr + 'T00:00:00Z');
-      if (isNaN(d.getTime())) throw new Error('Data não parseável: ' + dataStr);
+      // Parse como data local (não UTC) para calcular o dia da semana correto
+      const [ano, mes, dia] = dataStr.split('-');
+      let d = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia));
       let count = 0;
       while (count < dias) {
         d.setDate(d.getDate() + 1);
         if (d.getDay() >= 1 && d.getDay() <= 5) count++;
       }
-      return d.toISOString().split('T')[0];
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
     }
 
     // Helper: soma dias corridos (seg-dom, incluindo finais de semana)
     function adicionarDiasCorretos(dataStr, dias) {
       if (!dataStr || dataStr.length < 10) throw new Error('Data inválida: ' + dataStr);
-      let d = new Date(dataStr + 'T00:00:00Z');
-      if (isNaN(d.getTime())) throw new Error('Data não parseável: ' + dataStr);
+      // Parse como data local
+      const [ano, mes, dia] = dataStr.split('-');
+      let d = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia));
       d.setDate(d.getDate() + dias);
-      return d.toISOString().split('T')[0];
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
     }
 
   // Usa dados já processados do caixa_dia (garante consistência com Caixa do dia)
