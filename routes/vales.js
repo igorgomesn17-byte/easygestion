@@ -34,6 +34,7 @@ router.get('/:codigo', (req, res) => {
       codigo,
       valor: vale.valor,
       saldo: vale.saldo,
+      saldo_disponivel: vale.saldo,
       utilizado: vale.utilizado,
       validade: vale.validade,
       data_geracao: vale.data_geracao
