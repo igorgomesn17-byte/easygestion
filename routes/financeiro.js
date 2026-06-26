@@ -454,7 +454,9 @@ router.get('/fluxo-caixa', exigirPapel('admin'), (req, res) => {
   }
 
   // Monta linha do tempo: 1º ao último dia do mês
-  const diasMes = new Date(parseInt(ano), parseInt(mesNum) - 1, 0).getDate();
+  const anoNum = parseInt(ano);
+  const mesNumInt = parseInt(mesNum);
+  const diasMes = new Date(anoNum, mesNumInt, 0).getDate(); // dia 0 do próximo mês = último dia deste mês
   const linhaDoTempo = [];
   let saldoAcumulado = 0;
 
