@@ -140,6 +140,17 @@ function executarMigrations(db) {
           CREATE INDEX IF NOT EXISTS idx_vales_ativo ON vales(ativo);
         `);
       }
+    },
+    {
+      nome: '007_add_tenant_to_trocas',
+      hash: 'v7-trocas-tenant',
+      exec: (db) => {
+        // Adicionar tenant_id à tabela trocas
+        const colunas = db.prepare(`PRAGMA table_info(trocas)`).all().map(c => c.name);
+        if (!colunas.includes('tenant_id')) {
+          db.exec(`ALTER TABLE trocas ADD COLUMN tenant_id INTEGER NOT NULL DEFAULT 1;`);
+        }
+      }
     }
   ];
 

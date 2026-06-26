@@ -264,14 +264,18 @@ router.post('/', (req, res) => {
     } else if (diferenca < 0) {
       const aFavor = Math.abs(diferenca);
       // Cliente recebe em vale-crédito
-      let codigoVale = gerarCodigoVale();
+      let codigoVale = '';
       let tentativas = 0;
-      // garantir que codigo é único
-      while (db.prepare('SELECT 1 FROM vales WHERE codigo = ?').get(codigoVale) && tentativas < 10) {
+      let maxTentativas = 10;
+
+      // Gera código único
+      do {
         codigoVale = gerarCodigoVale();
         tentativas++;
-      }
-      if (tentativas < 10) {
+      } while (db.prepare('SELECT 1 FROM vales WHERE codigo = ?').get(codigoVale) && tentativas < maxTentativas);
+
+      // Se conseguiu gerar código único, insere o vale
+      if (tentativas < maxTentativas && codigoVale) {
         db.prepare(`
           INSERT INTO vales (tenant_id, codigo, valor, saldo, troca_id, cliente_id, validade)
           VALUES (?, ?, ?, ?, ?, ?, date('now','localtime','+30 days'))
