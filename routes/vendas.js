@@ -238,15 +238,22 @@ function atualizarCaixaDia(data, tenantId = 1) {
       acumularForma(acc, v.forma_pagamento, v.total);
     }
   }
-  db.prepare(`
-    INSERT INTO caixa_dia (data, tenant_id, total_pix, total_debito, total_credito, total_dinheiro, total_bruto, total_liquido, lucro_dia, num_vendas)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT(data, tenant_id) DO UPDATE SET
-      total_pix=excluded.total_pix, total_debito=excluded.total_debito, total_credito=excluded.total_credito,
-      total_dinheiro=excluded.total_dinheiro, total_bruto=excluded.total_bruto, total_liquido=excluded.total_liquido,
-      lucro_dia=excluded.lucro_dia, num_vendas=excluded.num_vendas
-  `).run(data, tenantId, +acc.pix.toFixed(2), +acc.debito.toFixed(2), +acc.credito.toFixed(2), +acc.dinheiro.toFixed(2),
-         +acc.bruto.toFixed(2), +acc.liquido.toFixed(2), +acc.lucro.toFixed(2), acc.n);
+  // Tenta UPDATE; se não atualizar nada, INSERT
+  const update = db.prepare(`
+    UPDATE caixa_dia SET
+      total_pix=?, total_debito=?, total_credito=?, total_dinheiro=?,
+      total_bruto=?, total_liquido=?, lucro_dia=?, num_vendas=?
+    WHERE data=? AND tenant_id=?
+  `).run(+acc.pix.toFixed(2), +acc.debito.toFixed(2), +acc.credito.toFixed(2), +acc.dinheiro.toFixed(2),
+         +acc.bruto.toFixed(2), +acc.liquido.toFixed(2), +acc.lucro.toFixed(2), acc.n, data, tenantId);
+
+  if (update.changes === 0) {
+    db.prepare(`
+      INSERT INTO caixa_dia (data, tenant_id, total_pix, total_debito, total_credito, total_dinheiro, total_bruto, total_liquido, lucro_dia, num_vendas)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(data, tenantId, +acc.pix.toFixed(2), +acc.debito.toFixed(2), +acc.credito.toFixed(2), +acc.dinheiro.toFixed(2),
+           +acc.bruto.toFixed(2), +acc.liquido.toFixed(2), +acc.lucro.toFixed(2), acc.n);
+  }
 }
 
 // GET /api/vendas -> lista com filtros (data, de/ate, vendedor, cliente, forma)
