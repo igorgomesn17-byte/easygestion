@@ -166,12 +166,15 @@ router.post('/', (req, res) => {
     }
 
     // 2. itens + baixa de estoque + movimento
+    // Distribuir desconto proporcionalmente: cada item recebe desconto proporcional ao seu valor
+    const proporcaoDesconto = subtotal > 0 ? baseAposDesc / subtotal : 1;
     const insItem = db.prepare(`INSERT INTO venda_itens (venda_id, tenant_id, variacao_id, produto_id, descricao, qtd, preco_unit, custo_unit)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
     const baixa = db.prepare('UPDATE variacoes SET quantidade = quantidade - ? WHERE id = ?');
     const mov = db.prepare("INSERT INTO movimentos_estoque (variacao_id, tipo, qtd, motivo) VALUES (?, 'saida', ?, ?)");
     for (const l of linhas) {
-      insItem.run(vendaId, req.tenantId, l.variacao_id, l.produto_id, `${l.nome} (${l.tamanho})`, l.qtd, l.preco_unit, l.custo_unit);
+      const precoComDesconto = +(l.preco_unit * proporcaoDesconto).toFixed(2);
+      insItem.run(vendaId, req.tenantId, l.variacao_id, l.produto_id, `${l.nome} (${l.tamanho})`, l.qtd, precoComDesconto, l.custo_unit);
       baixa.run(l.qtd, l.variacao_id);
       mov.run(l.variacao_id, -l.qtd, `venda #${vendaId}`);
     }
