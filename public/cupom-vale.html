@@ -20,17 +20,17 @@
     }
     .logo { font-weight: bold; font-size: 1.1rem; margin-bottom: 16px; }
     .separador { border-top: 1px dashed #999; margin: 16px 0; }
-    .titulo { font-size: 1.3rem; font-weight: bold; margin: 16px 0; }
+    .titulo { font-size: 1rem; font-weight: bold; margin: 12px 0; }
     .codigo {
-      font-size: 2rem;
+      font-size: 1.3rem;
       font-weight: bold;
       border: 2px solid #000;
-      padding: 12px;
+      padding: 10px;
       border-radius: 4px;
-      margin: 16px 0;
-      letter-spacing: 2px;
+      margin: 12px 0;
+      letter-spacing: 1px;
     }
-    .valor { font-size: 1.5rem; font-weight: bold; margin: 16px 0; color: #27ae60; }
+    .valor { font-size: 1.1rem; font-weight: bold; margin: 12px 0; color: #27ae60; }
     .info { font-size: 0.9rem; color: #666; margin: 8px 0; }
     .aviso {
       background: #FFF3CD;
@@ -93,6 +93,7 @@
 
   <div class="botoes">
     <button class="btn btn-imprimir" onclick="window.print()">🖨️ Imprimir</button>
+    <button class="btn btn-imprimir" onclick="window.print(); setTimeout(() => window.location.href='trocas.html', 2000);">📋 Imprimir e Voltar</button>
     <button class="btn btn-whatsapp" id="btnWhatsapp" onclick="compartilharWhatsapp()">📱 WhatsApp</button>
     <button class="btn btn-voltar" onclick="window.location.href='trocas.html'">⬅️ Voltar</button>
   </div>

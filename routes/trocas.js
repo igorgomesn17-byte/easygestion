@@ -71,6 +71,15 @@ router.get('/:id', (req, res) => {
   if (!t) return res.status(404).json({ erro: 'Troca não encontrada' });
   const itens = db.prepare('SELECT * FROM troca_itens WHERE troca_id = ? AND tenant_id = ?').all(t.id, req.tenantId);
   t.itens = itens;
+
+  // Buscar código do vale se houver
+  if (t.diferenca < 0) {
+    const vale = db.prepare('SELECT codigo FROM vales WHERE troca_id = ? AND tenant_id = ? LIMIT 1').get(t.id, req.tenantId);
+    if (vale) {
+      t.vale_codigo = vale.codigo;
+    }
+  }
+
   res.json(t);
 });
 
