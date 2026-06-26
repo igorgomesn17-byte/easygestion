@@ -34,11 +34,12 @@
       <thead>
         <tr>
           <th style="width:12%;">DATA</th>
-          <th style="width:20%;">CLIENTE</th>
-          <th style="width:15%;">VENDEDOR</th>
-          <th style="width:15%;">PAGAMENTO</th>
-          <th style="width:12%;" class="moeda">TOTAL</th>
-          <th style="width:12%;" class="moeda">LUCRO</th>
+          <th style="width:18%;">CLIENTE</th>
+          <th style="width:13%;">VENDEDOR</th>
+          <th style="width:13%;">PAGAMENTO</th>
+          <th style="width:10%;" class="moeda">TOTAL</th>
+          <th style="width:10%;" class="moeda">LUCRO</th>
+          <th style="width:8%; text-align:center;">STATUS</th>
           <th style="width:4%;">›</th>
         </tr>
       </thead>
@@ -90,6 +91,7 @@
           <td>${rotuloPagamento(v.forma_pagamento)}</td>
           <td class="moeda">${moeda(v.total)}</td>
           <td class="moeda">${moeda(v.lucro)}</td>
+          <td style="text-align:center;">${v.deletado ? '<span style="color:#E74C3C; font-weight:600;">Cancelada</span>' : '<span style="color:#27ae60;">✓</span>'}</td>
           <td class="num">›</td>
         </tr>`).join('');
     }
@@ -194,10 +196,9 @@
             </div>
           </div>
 
-          <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:8px;">
+          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
             <button class="btn" style="background:#8a7a6d; color:white;" onclick="reimprimirCupom(${v.id})">🖨️ Reimprimir cupom</button>
             <button class="btn" style="background:#27ae60; color:white;" onclick="emitirNfce(${v.id})">📄 Emitir NFC-e</button>
-            <button class="btn" style="background:#E74C3C; color:white;" onclick="abrirTroca(${v.id})">🔄 Registrar troca</button>
             <button class="btn" style="background:#c0392b; color:white;" onclick="cancelarVenda(${v.id})">❌ Cancelar venda</button>
           </div>
         </div>

@@ -225,6 +225,17 @@ function executarMigrations(db) {
           db.exec(`ALTER TABLE vendas ADD COLUMN venda_troca_id INTEGER;`);
         }
       }
+    },
+    {
+      nome: '011_add_deletado_to_vendas',
+      hash: 'v11-vendas-deletado',
+      exec: (db) => {
+        // Adicionar coluna deletado em vendas (marca vendas canceladas)
+        const colunas = db.prepare(`PRAGMA table_info(vendas)`).all().map(c => c.name);
+        if (!colunas.includes('deletado')) {
+          db.exec(`ALTER TABLE vendas ADD COLUMN deletado INTEGER NOT NULL DEFAULT 0;`);
+        }
+      }
     }
   ];
 

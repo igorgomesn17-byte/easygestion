@@ -267,7 +267,7 @@ router.get('/', (req, res) => {
                     (SELECT COUNT(*) FROM venda_itens WHERE venda_id = v.id) AS num_itens
              FROM vendas v
              LEFT JOIN clientes c ON c.id = v.cliente_id
-             LEFT JOIN vendedores vd ON vd.id = v.vendedor_id WHERE v.tenant_id = ?`;
+             LEFT JOIN vendedores vd ON vd.id = v.vendedor_id WHERE v.tenant_id = ? AND v.deletado = 0`;
   const params = [req.tenantId];
   if (data) { sql += ' AND date(v.data_hora) = ?'; params.push(data); }
   if (de)   { sql += ' AND date(v.data_hora) >= ?'; params.push(de); }
@@ -384,7 +384,8 @@ router.delete('/:id', (req, res) => {
       db.prepare('UPDATE clientes SET total_gasto = total_gasto - ?, num_compras = MAX(num_compras - 1, 0) WHERE id = ? AND tenant_id = ?')
         .run(v.total, v.cliente_id, req.tenantId);
     }
-    db.prepare('DELETE FROM vendas WHERE id = ? AND tenant_id = ?').run(v.id, req.tenantId);
+    // Marcar como deletado em vez de apagar (auditoria)
+    db.prepare('UPDATE vendas SET deletado = 1 WHERE id = ? AND tenant_id = ?').run(v.id, req.tenantId);
     atualizarCaixaDia(hoje, req.tenantId);
   });
   tx();
