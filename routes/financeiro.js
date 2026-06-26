@@ -359,7 +359,9 @@ router.post('/conciliacao', exigirPapel('admin'), (req, res) => {
 router.get('/fluxo-caixa', exigirPapel('admin'), (req, res) => {
   try {
     const mes = req.query.mes || hojeLocal().slice(0, 7);
+    console.log('fluxo-caixa mes:', mes);
     const [ano, mesNum] = mes.split('-');
+    console.log('ano:', ano, 'mesNum:', mesNum);
 
     // Lê prazos configurados
     const prazoDeb = parseInt(getConfig('prazo_debito_dias', '1')) || 1;
@@ -508,7 +510,7 @@ router.get('/fluxo-caixa', exigirPapel('admin'), (req, res) => {
     linha_do_tempo: linhaDoTempo
   });
   } catch (e) {
-    console.error('Erro em fluxo-caixa:', e.message);
+    console.error('Erro em fluxo-caixa:', e.message, e.stack);
     res.status(500).json({ erro: 'Erro ao carregar fluxo de caixa: ' + e.message });
   }
 });
