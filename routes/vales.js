@@ -13,7 +13,7 @@ router.get('/:codigo', (req, res) => {
     console.log('🎟️ Buscando vale:', { codigo, tenantId: req.tenantId });
 
     const vale = db.prepare(`
-      SELECT id, valor, saldo, utilizado, validade, ativo, data_geracao, valor_original
+      SELECT id, valor, saldo, utilizado, validade, ativo, data_geracao
       FROM vales
       WHERE codigo = ? AND tenant_id = ? AND ativo = 1
     `).get(codigo, req.tenantId);
