@@ -312,17 +312,25 @@ router.post('/', (req, res) => {
   });
 
   try {
+    console.log('Iniciando transação de troca...');
     const resultado = tx();
+    console.log('✅ Transação concluída:', resultado);
+
     const resp = { id: resultado.trocaId, valor_devolvido: valorDevolvido, valor_levado: valorLevado, diferenca };
     if (resultado.valeGerado) {
+      console.log('Vale gerado na transação:', resultado.valeGerado);
       resp.vale = {
         codigo: resultado.valeGerado.codigo,
         valor: resultado.valeGerado.valor,
         validade: resultado.valeGerado.validade,
       };
+    } else {
+      console.log('❌ Vale NÃO foi gerado. Resultado:', resultado);
     }
+    console.log('Resposta final:', resp);
     res.status(201).json(resp);
   } catch (e) {
+    console.error('❌ ERRO na transação:', e.message, e.stack);
     res.status(500).json({ erro: e.message });
   }
 });
