@@ -378,13 +378,17 @@ router.get('/fluxo-caixa', exigirPapel('admin'), (req, res) => {
       const [ano, mes, dia] = dataStr.split('-');
       let d = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia));
       let count = 0;
+      const nomesDia = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
+      console.log(`[adicionarDiasUteis] Entrada: ${dataStr} (${nomesDia[d.getDay()]}), +${dias} dias úteis`);
       while (count < dias) {
         d.setDate(d.getDate() + 1);
+        console.log(`  -> ${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} (${nomesDia[d.getDay()]}) getDay=${d.getDay()}`);
         if (d.getDay() >= 1 && d.getDay() <= 5) count++;
       }
       const y = d.getFullYear();
       const m = String(d.getMonth() + 1).padStart(2, '0');
       const day = String(d.getDate()).padStart(2, '0');
+      console.log(`[adicionarDiasUteis] Saída: ${y}-${m}-${day}\n`);
       return `${y}-${m}-${day}`;
     }
 
