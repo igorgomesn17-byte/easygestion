@@ -214,18 +214,19 @@ router.post('/', (req, res) => {
 });
 
 // Mapeia uma forma de pagamento para o bucket do caixa do dia.
-// pix_chave conta como Pix; creditos contam como Credito.
+// pix_chave conta como Pix; vale em sua própria categoria; resto em crédito.
 function acumularForma(acc, forma, valor) {
   if (forma === 'pix' || forma === 'pix_chave') acc.pix += valor;
   else if (forma === 'debito') acc.debito += valor;
   else if (forma === 'dinheiro') acc.dinheiro += valor;
+  else if (forma === 'vale') acc.vale += valor;
   else acc.credito += valor; // credito_vista, credito_parcelado, link_pagamento
 }
 
 // Recalcula o caixa do dia a partir das vendas (idempotente)
 function atualizarCaixaDia(data, tenantId = 1) {
   const vendas = db.prepare("SELECT * FROM vendas WHERE date(data_hora) = ? AND tenant_id = ?").all(data, tenantId);
-  const acc = { pix: 0, debito: 0, credito: 0, dinheiro: 0, bruto: 0, liquido: 0, lucro: 0, n: 0 };
+  const acc = { pix: 0, debito: 0, credito: 0, dinheiro: 0, vale: 0, bruto: 0, liquido: 0, lucro: 0, n: 0 };
   // soma por forma a partir das partes de pagamento (cobre vendas 'misto' corretamente)
   const partesDe = db.prepare('SELECT forma, valor FROM venda_pagamentos WHERE venda_id = ? AND tenant_id = ?');
   for (const v of vendas) {
@@ -241,17 +242,17 @@ function atualizarCaixaDia(data, tenantId = 1) {
   // Tenta UPDATE; se não atualizar nada, INSERT
   const update = db.prepare(`
     UPDATE caixa_dia SET
-      total_pix=?, total_debito=?, total_credito=?, total_dinheiro=?,
+      total_pix=?, total_debito=?, total_credito=?, total_dinheiro=?, total_vale=?,
       total_bruto=?, total_liquido=?, lucro_dia=?, num_vendas=?
     WHERE data=? AND tenant_id=?
-  `).run(+acc.pix.toFixed(2), +acc.debito.toFixed(2), +acc.credito.toFixed(2), +acc.dinheiro.toFixed(2),
+  `).run(+acc.pix.toFixed(2), +acc.debito.toFixed(2), +acc.credito.toFixed(2), +acc.dinheiro.toFixed(2), +acc.vale.toFixed(2),
          +acc.bruto.toFixed(2), +acc.liquido.toFixed(2), +acc.lucro.toFixed(2), acc.n, data, tenantId);
 
   if (update.changes === 0) {
     db.prepare(`
-      INSERT INTO caixa_dia (data, tenant_id, total_pix, total_debito, total_credito, total_dinheiro, total_bruto, total_liquido, lucro_dia, num_vendas)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(data, tenantId, +acc.pix.toFixed(2), +acc.debito.toFixed(2), +acc.credito.toFixed(2), +acc.dinheiro.toFixed(2),
+      INSERT INTO caixa_dia (data, tenant_id, total_pix, total_debito, total_credito, total_dinheiro, total_vale, total_bruto, total_liquido, lucro_dia, num_vendas)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(data, tenantId, +acc.pix.toFixed(2), +acc.debito.toFixed(2), +acc.credito.toFixed(2), +acc.dinheiro.toFixed(2), +acc.vale.toFixed(2),
            +acc.bruto.toFixed(2), +acc.liquido.toFixed(2), +acc.lucro.toFixed(2), acc.n);
   }
 }

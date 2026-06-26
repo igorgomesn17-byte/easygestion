@@ -262,6 +262,7 @@ CREATE TABLE IF NOT EXISTS caixa_dia (
   total_debito    REAL NOT NULL DEFAULT 0,
   total_credito   REAL NOT NULL DEFAULT 0,
   total_dinheiro  REAL NOT NULL DEFAULT 0,
+  total_vale      REAL NOT NULL DEFAULT 0,
   total_bruto     REAL NOT NULL DEFAULT 0,
   total_liquido   REAL NOT NULL DEFAULT 0,
   lucro_dia       REAL NOT NULL DEFAULT 0,

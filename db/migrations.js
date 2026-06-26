@@ -174,6 +174,7 @@ function executarMigrations(db) {
                 total_debito    REAL NOT NULL DEFAULT 0,
                 total_credito   REAL NOT NULL DEFAULT 0,
                 total_dinheiro  REAL NOT NULL DEFAULT 0,
+                total_vale      REAL NOT NULL DEFAULT 0,
                 total_bruto     REAL NOT NULL DEFAULT 0,
                 total_liquido   REAL NOT NULL DEFAULT 0,
                 lucro_dia       REAL NOT NULL DEFAULT 0,
@@ -193,13 +194,24 @@ function executarMigrations(db) {
                 fechado         INTEGER NOT NULL DEFAULT 0,
                 UNIQUE(tenant_id, data)
               );
-              INSERT INTO caixa_dia_new SELECT * FROM caixa_dia;
+              INSERT INTO caixa_dia_new SELECT id, tenant_id, data, total_pix, total_debito, total_credito, total_dinheiro, 0, total_bruto, total_liquido, lucro_dia, num_vendas, conciliado, obs, saldo_conta_inicial, conta_conferida, fundo_troco, sangrias, suprimentos, dinheiro_contado, diferenca, aberto_em, fechado_em, aberto, fechado FROM caixa_dia;
               DROP TABLE caixa_dia;
               ALTER TABLE caixa_dia_new RENAME TO caixa_dia;
             `);
           }
         } catch (e) {
           // Se tabela não existir, schema.sql a criará com constraint certo
+        }
+      }
+    },
+    {
+      nome: '009_add_total_vale_to_caixa_dia',
+      hash: 'v9-caixa-dia-vale',
+      exec: (db) => {
+        // Adicionar coluna total_vale em caixa_dia (se não existir)
+        const colunas = db.prepare(`PRAGMA table_info(caixa_dia)`).all().map(c => c.name);
+        if (!colunas.includes('total_vale')) {
+          db.exec(`ALTER TABLE caixa_dia ADD COLUMN total_vale REAL NOT NULL DEFAULT 0;`);
         }
       }
     }
