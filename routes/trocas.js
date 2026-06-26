@@ -290,7 +290,7 @@ router.post('/', (req, res) => {
 
       // Insere o vale (direto no BD)
       const infoVale = db.prepare(`
-        INSERT INTO vales (tenant_id, codigo, valor, saldo, troca_id, cliente_id, validade, obs, ativo)
+        INSERT INTO vales (tenant_id, codigo, valor, saldo, troca_id, cliente_id, validade, notas, ativo)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
       `).run(req.tenantId, codigoVale, aFavor, aFavor, trocaId, clienteId, validadeStr, `Crédito da troca #${trocaId}`);
 
