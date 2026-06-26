@@ -247,6 +247,20 @@ function executarMigrations(db) {
           db.exec(`ALTER TABLE vales ADD COLUMN venda_utilizacao_id INTEGER;`);
         }
       }
+    },
+    {
+      nome: '013_split_credito_in_caixa_dia',
+      hash: 'v13-caixa-dia-credito-split',
+      exec: (db) => {
+        // Separar total_credito em total_credito_vista e total_credito_parcelado
+        const colunas = db.prepare(`PRAGMA table_info(caixa_dia)`).all().map(c => c.name);
+        if (!colunas.includes('total_credito_vista')) {
+          db.exec(`ALTER TABLE caixa_dia ADD COLUMN total_credito_vista REAL NOT NULL DEFAULT 0;`);
+        }
+        if (!colunas.includes('total_credito_parcelado')) {
+          db.exec(`ALTER TABLE caixa_dia ADD COLUMN total_credito_parcelado REAL NOT NULL DEFAULT 0;`);
+        }
+      }
     }
   ];
 

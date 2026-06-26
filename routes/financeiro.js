@@ -393,56 +393,30 @@ router.get('/fluxo-caixa', exigirPapel('admin'), (req, res) => {
       return d.toISOString().split('T')[0];
     }
 
-  // Vendas do mês com suas formas de pagamento
-  const vendas = db.prepare(`
-    SELECT v.id, v.data_hora, v.total FROM vendas v
-    WHERE substr(v.data_hora,1,7) = ? AND v.tenant_id = ?
-    ORDER BY v.data_hora ASC
+  // Caixa do dia (dados já consolidados com breakdown por forma)
+  const caixaDias = db.prepare(`
+    SELECT data, total_pix, total_dinheiro, total_debito, total_credito_vista, total_credito_parcelado, total_vale
+    FROM caixa_dia
+    WHERE substr(data,1,7) = ? AND tenant_id = ?
+    ORDER BY data ASC
   `).all(mes, req.tenantId);
 
-  // Para cada venda, calcula quando o dinheiro cai por forma
-  const recebimentos = {}; // data -> { pix: X, dinheiro: X, debito: X, credito_vista: X, credito_parc: [] }
+  // Monta recebimentos a partir do caixa_dia (evita recalcular)
+  const recebimentos = {}; // data -> { pix_dinheiro: X, debito: X, credito_vista: X, credito_parc: [] }
   const aReceber = { credito_parcelado: 0, debito: 0, credito_vista: 0 }; // totais ainda não recebidos
 
-  for (const v of vendas) {
-    const dataPagtos = db.prepare(`
-      SELECT forma, parcelas, valor FROM venda_pagamentos WHERE venda_id = ? AND tenant_id = ?
-    `).all(v.id, req.tenantId);
-
-    for (const p of dataPagtos) {
-      let dataReceb;
-      if (p.forma === 'pix' || p.forma === 'pix_chave' || p.forma === 'dinheiro') {
-        // Pix e dinheiro caem no mesmo dia
-        dataReceb = v.data_hora.split(' ')[0];
-        recebimentos[dataReceb] = recebimentos[dataReceb] || { pix_dinheiro: 0, debito: 0, credito_vista: 0, credito_parc: [] };
-        recebimentos[dataReceb].pix_dinheiro += p.valor;
-      } else if (p.forma === 'debito') {
-        // Débito: prazo configurado (dias úteis ou corridos)
-        dataReceb = tipoDebito === 'uteis'
-          ? adicionarDiasUteis(v.data_hora.split(' ')[0], prazoDeb)
-          : adicionarDiasCorretos(v.data_hora.split(' ')[0], prazoDeb);
-        recebimentos[dataReceb] = recebimentos[dataReceb] || { pix_dinheiro: 0, debito: 0, credito_vista: 0, credito_parc: [] };
-        recebimentos[dataReceb].debito += p.valor;
-      } else if (p.forma === 'credito_vista') {
-        // Crédito à vista: prazo configurado (dias úteis ou corridos)
-        dataReceb = tipoCredVista === 'uteis'
-          ? adicionarDiasUteis(v.data_hora.split(' ')[0], prazoCredVista)
-          : adicionarDiasCorretos(v.data_hora.split(' ')[0], prazoCredVista);
-        recebimentos[dataReceb] = recebimentos[dataReceb] || { pix_dinheiro: 0, debito: 0, credito_vista: 0, credito_parc: [] };
-        recebimentos[dataReceb].credito_vista += p.valor;
-      } else if (p.forma === 'credito_parcelado') {
-        // Crédito parcelado: cada parcela cai em sua data (dias úteis ou corridos)
-        const valorParcela = p.valor / p.parcelas;
-        for (let i = 1; i <= p.parcelas; i++) {
-          dataReceb = tipoCredParc === 'uteis'
-            ? adicionarDiasUteis(v.data_hora.split(' ')[0], prazoCredParc * i)
-            : adicionarDiasCorretos(v.data_hora.split(' ')[0], prazoCredParc * i);
-          recebimentos[dataReceb] = recebimentos[dataReceb] || { pix_dinheiro: 0, debito: 0, credito_vista: 0, credito_parc: [] };
-          recebimentos[dataReceb].credito_parc.push({ parcela: i, valor: +valorParcela.toFixed(2) });
-        }
-        aReceber.credito_parcelado += p.valor;
-      }
-    }
+  for (const c of caixaDias) {
+    // No caixa_dia, pix e dinheiro estão separados mas na "linha do tempo" somamos como pix_dinheiro
+    // Vale também entra como pix_dinheiro (recebimento imediato)
+    const pix_dinheiro = (c.total_pix || 0) + (c.total_dinheiro || 0) + (c.total_vale || 0);
+    recebimentos[c.data] = {
+      pix_dinheiro: pix_dinheiro,
+      debito: c.total_debito || 0,
+      credito_vista: c.total_credito_vista || 0,
+      credito_parc: []
+    };
+    // Vale à pagar de crédito parcelado (futuro)
+    aReceber.credito_parcelado += c.total_credito_parcelado || 0;
   }
 
   // Despesas pagas no mês (regime de caixa = data_pagamento, não data_competencia)
