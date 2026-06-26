@@ -421,44 +421,28 @@ router.get('/fluxo-caixa', exigirPapel('admin'), (req, res) => {
   const recebimentos = {}; // data -> { pix_dinheiro: X, debito: X, credito_vista: X, credito_parc: [] }
   const aReceber = { credito_parcelado: 0, debito: 0, credito_vista: 0 }; // totais ainda não recebidos
 
-  // Para cada dia de vendas, distribui nos dias de recebimento
-  console.log('=== FLUXO-CAIXA DEBUG ===');
-  console.log('caixaDias:', caixaDias.map(c => ({ data: c.data, debito: c.total_debito, credito: c.total_credito })));
+  // Para cada dia de vendas, agrupa tudo no caixa_dia (sem distribuir por prazos)
+  // O fluxo de caixa mostra QUANDO O DINHEIRO ENTRA NO CAIXA (regime de caixa)
+  // Pix e dinheiro entram no dia 0, outros vão para o próximo dia útil
   for (const cd of caixaDias) {
     const dataDaVenda = cd.data;
 
-    // Pix e dinheiro HOJE (sem prazo, recebimento imediato)
-    const pix_dinheiro = (cd.total_pix || 0) + (cd.total_dinheiro || 0);
+    // Pix, dinheiro e vale HOJE (recebimento imediato)
+    const pix_dinheiro = (cd.total_pix || 0) + (cd.total_dinheiro || 0) + (cd.total_vale || 0);
     if (pix_dinheiro > 0) {
       recebimentos[dataDaVenda] = recebimentos[dataDaVenda] || { pix_dinheiro: 0, debito: 0, credito_vista: 0, credito_parc: [] };
       recebimentos[dataDaVenda].pix_dinheiro += pix_dinheiro;
     }
 
-    // Vale HOJE (recebimento imediato, mas separado de pix/dinheiro na tabela)
-    // Por enquanto vai em pix_dinheiro na "linha do tempo" porque não tem coluna específica
-    if (cd.total_vale > 0) {
-      recebimentos[dataDaVenda] = recebimentos[dataDaVenda] || { pix_dinheiro: 0, debito: 0, credito_vista: 0, credito_parc: [] };
-      recebimentos[dataDaVenda].pix_dinheiro += cd.total_vale;
-    }
-
-    // Débito: aplica prazo (próximo dia útil)
-    if (cd.total_debito > 0) {
-      const dataRecebDebito = tipoDebito === 'uteis'
+    // Débito e Crédito: vão para próximo dia útil
+    const totalParcelado = (cd.total_debito || 0) + (cd.total_credito || 0);
+    if (totalParcelado > 0) {
+      const dataReceb = tipoDebito === 'uteis'
         ? adicionarDiasUteis(dataDaVenda, prazoDeb)
         : adicionarDiasCorretos(dataDaVenda, prazoDeb);
-      console.log(`[FLUXO] Débito: ${dataDaVenda} + ${prazoDeb} dias úteis = ${dataRecebDebito}`);
-      recebimentos[dataRecebDebito] = recebimentos[dataRecebDebito] || { pix_dinheiro: 0, debito: 0, credito_vista: 0, credito_parc: [] };
-      recebimentos[dataRecebDebito].debito += cd.total_debito;
-    }
-
-    // Crédito (combinado vista+parcelado no caixa_dia): aplica prazo (próximo dia útil)
-    if (cd.total_credito > 0) {
-      const dataRecebCredito = tipoCredVista === 'uteis'
-        ? adicionarDiasUteis(dataDaVenda, prazoCredVista)
-        : adicionarDiasCorretos(dataDaVenda, prazoCredVista);
-      console.log(`[FLUXO] Crédito: ${dataDaVenda} + ${prazoCredVista} dias úteis = ${dataRecebCredito}`);
-      recebimentos[dataRecebCredito] = recebimentos[dataRecebCredito] || { pix_dinheiro: 0, debito: 0, credito_vista: 0, credito_parc: [] };
-      recebimentos[dataRecebCredito].credito_vista += cd.total_credito;
+      recebimentos[dataReceb] = recebimentos[dataReceb] || { pix_dinheiro: 0, debito: 0, credito_vista: 0, credito_parc: [] };
+      recebimentos[dataReceb].debito += (cd.total_debito || 0);
+      recebimentos[dataReceb].credito_vista += (cd.total_credito || 0);
     }
   }
 
