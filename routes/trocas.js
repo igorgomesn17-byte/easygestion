@@ -296,11 +296,14 @@ router.post('/', (req, res) => {
     const resp = { id: trocaId, valor_devolvido: valorDevolvido, valor_levado: valorLevado, diferenca };
     // se gerou vale, adiciona o código na resposta
     if (diferenca < 0) {
-      console.log('Procurando vale para troca_id:', trocaId);
-      const vale = db.prepare('SELECT codigo, valor, validade FROM vales WHERE troca_id = ?').get(trocaId);
-      console.log('Vale encontrado:', vale);
+      // Busca o vale que foi criado na transaction
+      const vale = db.prepare('SELECT codigo, valor, validade FROM vales WHERE troca_id = ? AND tenant_id = ?').get(trocaId, req.tenantId);
       if (vale) {
         resp.vale = { codigo: vale.codigo, valor: vale.valor, validade: vale.validade };
+      } else {
+        // Debug: lista todos os vales para ver o que foi criado
+        const todosVales = db.prepare('SELECT * FROM vales WHERE tenant_id = ? ORDER BY id DESC LIMIT 5').all(req.tenantId);
+        console.log('Vale não encontrado para troca_id', trocaId, 'Últimos vales:', todosVales);
       }
     }
     res.status(201).json(resp);
