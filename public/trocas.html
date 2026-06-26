@@ -314,16 +314,17 @@
         const r = await api('/trocas', { method:'POST', body });
         if (r.vale) {
           toast(`Vale-crédito gerado: ${r.vale.codigo}`, 'sucesso');
-          alert(`🎟️ VALE-CRÉDITO GERADO\n\nCódigo: ${r.vale.codigo}\nValor: ${moeda(r.vale.valor)}\nValidade: ${r.vale.validade}\n\nCliente pode usar este código em futuras compras.`);
+          // Redireciona para página de impressão do vale
+          setTimeout(() => window.location.href = 'cupom-vale.html?codigo=' + r.vale.codigo, 1000);
         } else {
           toast('Troca registrada','sucesso');
+          devolvidos = []; levados = [];
+          document.getElementById('vendaNum').value = '';
+          document.getElementById('infoVenda').innerHTML = '';
+          document.getElementById('devolvidos').innerHTML = '<div class="texto-cinza">Nenhuma peça marcada para devolução.</div>';
+          document.getElementById('levados').innerHTML = '<div class="texto-cinza">Nenhuma peça adicionada.</div>';
+          recalcular();
         }
-        devolvidos = []; levados = [];
-        document.getElementById('vendaNum').value = '';
-        document.getElementById('infoVenda').innerHTML = '';
-        document.getElementById('devolvidos').innerHTML = '<div class="texto-cinza">Nenhuma peça marcada para devolução.</div>';
-        document.getElementById('levados').innerHTML = '<div class="texto-cinza">Nenhuma peça adicionada.</div>';
-        recalcular();
       } catch(e){ toast(e.message,'erro'); }
     }
 

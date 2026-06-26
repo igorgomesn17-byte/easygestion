@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vale-crédito • DS Store</title>
+  <link rel="stylesheet" href="css/ds.css">
+  <style>
+    body { background: #f5f5f5; }
+    .cupom {
+      max-width: 400px;
+      background: white;
+      margin: 20px auto;
+      padding: 24px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      text-align: center;
+      font-family: 'Courier New', monospace;
+      line-height: 1.8;
+    }
+    .logo { font-weight: bold; font-size: 1.1rem; margin-bottom: 16px; }
+    .separador { border-top: 1px dashed #999; margin: 16px 0; }
+    .titulo { font-size: 1.3rem; font-weight: bold; margin: 16px 0; }
+    .codigo {
+      font-size: 2rem;
+      font-weight: bold;
+      border: 2px solid #000;
+      padding: 12px;
+      border-radius: 4px;
+      margin: 16px 0;
+      letter-spacing: 2px;
+    }
+    .valor { font-size: 1.5rem; font-weight: bold; margin: 16px 0; color: #27ae60; }
+    .info { font-size: 0.9rem; color: #666; margin: 8px 0; }
+    .aviso {
+      background: #FFF3CD;
+      border: 1px solid #FFC107;
+      padding: 12px;
+      border-radius: 4px;
+      margin: 16px 0;
+      font-size: 0.85rem;
+    }
+    .botoes {
+      display: flex;
+      gap: 8px;
+      margin-top: 24px;
+      justify-content: center;
+    }
+    .btn {
+      padding: 10px 16px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .btn-imprimir { background: #8a7a6d; color: white; }
+    .btn-whatsapp { background: #25D366; color: white; }
+    .btn-voltar { background: #999; color: white; }
+    @media print {
+      body { background: white; }
+      .cupom { box-shadow: none; margin: 0; padding: 20px; }
+      .botoes { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="cupom" id="cupom">
+    <div class="logo">DS<br>STORE</div>
+    <div class="separador"></div>
+    <div class="titulo">🎟️ VALE-CRÉDITO</div>
+    <div class="codigo" id="codigo">VALE-XXXXXX</div>
+    <div class="valor" id="valor">R$ 0,00</div>
+    <div class="separador"></div>
+    <div class="info">Emitido em:</div>
+    <div id="data" style="margin-bottom:16px;"></div>
+    <div class="info">Validade:</div>
+    <div id="validade" style="margin-bottom:16px;"></div>
+    <div class="separador"></div>
+    <div class="aviso">
+      <strong>ℹ️ COMO USAR:</strong><br>
+      Apresente este vale na loja para usar como pagamento.<br>
+      Uso único — válido em uma só compra (sem troco/sobra).<br>
+      Crédito em pix — não reembolsável em dinheiro.<br>
+      <strong>DS STORE ❤️</strong>
+    </div>
+    <div class="separador"></div>
+    <div style="font-size: 0.8rem; color: #999;">
+      Código: <span id="codigoSmall">VALE-XXXXXX</span>
+    </div>
+  </div>
+
+  <div class="botoes">
+    <button class="btn btn-imprimir" onclick="window.print()">🖨️ Imprimir</button>
+    <button class="btn btn-whatsapp" id="btnWhatsapp" onclick="compartilharWhatsapp()">📱 WhatsApp</button>
+    <button class="btn btn-voltar" onclick="window.location.href='trocas.html'">⬅️ Voltar</button>
+  </div>
+
+  <script src="js/comum.js"></script>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const codigo = params.get('codigo');
+
+    if (!codigo) {
+      alert('Código do vale não encontrado');
+      window.location.href = 'trocas.html';
+    } else {
+      carregarVale();
+    }
+
+    async function carregarVale() {
+      try {
+        const vale = await api('/vales/' + codigo);
+
+        document.getElementById('codigo').textContent = codigo;
+        document.getElementById('codigoSmall').textContent = codigo;
+        document.getElementById('valor').textContent = moeda(vale.valor_original);
+
+        const hoje = new Date();
+        document.getElementById('data').textContent = hoje.toLocaleDateString('pt-BR');
+        document.getElementById('validade').textContent = vale.validade ? vale.validade.split('-').reverse().join('/') : '30 dias';
+
+        // Botão WhatsApp com mensagem
+        document.getElementById('btnWhatsapp').onclick = () => {
+          const msg = `🎟️ *Vale-crédito DS Store*\n\n*Código:* ${codigo}\n*Valor:* ${moeda(vale.valor_original)}\n*Validade:* ${vale.validade ? vale.validade.split('-').reverse().join('/') : '30 dias'}\n\nUse em suas próximas compras!`;
+          const link = `https://wa.me/?text=${encodeURIComponent(msg)}`;
+          window.open(link, '_blank');
+        };
+      } catch(e) {
+        alert('Erro ao carregar vale: ' + e.message);
+        window.location.href = 'trocas.html';
+      }
+    }
+
+    function compartilharWhatsapp() {
+      // Função já configurada no onclick acima
+    }
+
+    // Auto-print se papel disponível (opcional)
+    // window.print();
+  </script>
+</body>
+</html>
