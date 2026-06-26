@@ -47,6 +47,7 @@
     let venda = null, loja = {};
 
     let selosCliente = null;
+    let troca = null;
     async function carregar() {
       loja = await api('/config');
       venda = await api('/vendas/' + vendaId);
@@ -54,6 +55,11 @@
       if (venda.cliente_id) {
         try { const s = await api('/crm/selos/' + venda.cliente_id); if (s.ativo) selosCliente = s; } catch(e) {}
       }
+      // Buscar troca associada (se houver)
+      try {
+        const trocas = await api('/trocas?venda_id=' + vendaId);
+        if (trocas && trocas.length > 0) troca = trocas[0];
+      } catch(e) {}
       render();
       // A12: cupom automático no pós-venda (se ligado no config). Espera renderizar e dispara a impressão.
       if (String(loja.cupom_auto_imprimir) === '1') {
@@ -91,6 +97,7 @@
         <div class="linha-item total-final"><span>TOTAL</span><span>${moeda(venda.total)}</span></div>
         <div class="sub">Pagamento: ${textoPagamentoVenda(venda)}</div>
         ${venda.troco>0?`<div class="sub">Troco: ${moeda(venda.troco)}${venda.troco_forma==='pix'?' (devolvido por Pix)':''}</div>`:''}
+        ${troca?`<hr><div class="centro sub" style="font-weight:700;">🔄 VENDA COM TROCA</div><div class="sub">Devolvido: ${moeda(troca.valor_devolvido)}</div><div class="sub">Levado: ${moeda(troca.valor_levado)}</div>${troca.diferenca !== 0 ? `<div class="sub">Diferença ${troca.diferenca > 0 ? '(pago)' : '(vale)'}: ${moeda(Math.abs(troca.diferenca))}</div>` : ''}`:''}
         ${venda.comprovante?`<div class="sub nao-imprime"><a href="${venda.comprovante}" target="_blank">📎 Ver comprovante</a></div>`:''}
         <hr>
         ${selosCliente ? `<div class="centro sub">🎟️ ${loja.clube_nome||'Clube Fidelidade'}: <strong>${selosCliente.noCiclo}/${selosCliente.totalSelos} selos</strong>${selosCliente.faltam>0?` • faltam ${selosCliente.faltam} pro prêmio 🎁`:` • prêmio liberado 🎊`}</div><hr>`:''}
