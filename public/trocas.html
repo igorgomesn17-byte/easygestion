@@ -200,8 +200,11 @@
       const it = venda.itens[idx];
       const key = it.variacao_id + '-' + idx;
       if (marcado) {
+        // Calcular valor real pago (descontado) = subtotal / qtd_total * qtd_item
+        const qtdTotal = venda.itens.reduce((s, i) => s + i.qtd, 0);
+        const valorPago = (venda.subtotal / qtdTotal) * it.qtd;
         devolvidos.push({ _key:key, variacao_id: it.variacao_id, produto_id: it.produto_id,
-          descricao: it.descricao, qtd: it.qtd, valor_unit: it.preco_unit });
+          descricao: it.descricao, qtd: it.qtd, valor_unit: +(valorPago / it.qtd).toFixed(2) });
       } else {
         devolvidos = devolvidos.filter(d => d._key !== key);
       }
