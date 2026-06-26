@@ -286,19 +286,14 @@ router.post('/', (req, res) => {
       const validade30 = new Date(hoje.getTime() + 30 * 24 * 60 * 60 * 1000);
       const validadeStr = validade30.toISOString().split('T')[0]; // YYYY-MM-DD
 
-      console.log('🎟️ Criando vale:', { tenantId: req.tenantId, codigo: codigoVale, valor: aFavor, trocaId, validadeStr });
-
       // Insere o vale (direto no BD)
       const infoVale = db.prepare(`
         INSERT INTO vales (tenant_id, codigo, valor, saldo, troca_id, cliente_id, validade, notas, ativo)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
       `).run(req.tenantId, codigoVale, aFavor, aFavor, trocaId, clienteId, validadeStr, `Crédito da troca #${trocaId}`);
 
-      console.log('📍 Vale inserido com ID:', infoVale.lastInsertRowid);
-
       // Busca o vale que foi criado
       const valeGerado = db.prepare('SELECT id, codigo, valor, saldo, validade FROM vales WHERE id = ?').get(infoVale.lastInsertRowid);
-      console.log('✅ Vale buscado após INSERT:', valeGerado);
 
       return {
         trocaId,
@@ -310,25 +305,18 @@ router.post('/', (req, res) => {
   });
 
   try {
-    console.log('Iniciando transação de troca...');
     const resultado = tx();
-    console.log('✅ Transação concluída:', resultado);
 
     const resp = { id: resultado.trocaId, valor_devolvido: valorDevolvido, valor_levado: valorLevado, diferenca };
     if (resultado.valeGerado) {
-      console.log('Vale gerado na transação:', resultado.valeGerado);
       resp.vale = {
         codigo: resultado.valeGerado.codigo,
         valor: resultado.valeGerado.valor,
         validade: resultado.valeGerado.validade,
       };
-    } else {
-      console.log('❌ Vale NÃO foi gerado. Resultado:', resultado);
     }
-    console.log('Resposta final:', resp);
     res.status(201).json(resp);
   } catch (e) {
-    console.error('❌ ERRO na transação:', e.message, e.stack);
     res.status(500).json({ erro: e.message });
   }
 });

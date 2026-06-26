@@ -10,7 +10,6 @@ const { db } = require('../db/database');
 router.get('/:codigo', (req, res) => {
   try {
     const codigo = req.params.codigo.toUpperCase();
-    console.log('🎟️ Buscando vale:', { codigo, tenantId: req.tenantId });
 
     const vale = db.prepare(`
       SELECT id, valor, saldo, utilizado, validade, ativo, data_geracao
@@ -18,10 +17,7 @@ router.get('/:codigo', (req, res) => {
       WHERE codigo = ? AND tenant_id = ? AND ativo = 1
     `).get(codigo, req.tenantId);
 
-    console.log('📋 Vale encontrado:', vale);
-
     if (!vale) {
-      console.log('❌ Vale não encontrado:', { codigo, tenantId: req.tenantId });
       return res.status(404).json({ erro: 'Vale não encontrado ou já cancelado' });
     }
 
@@ -34,18 +30,15 @@ router.get('/:codigo', (req, res) => {
     }
 
     // Retornar saldo disponível
-    const resposta = {
+    res.json({
       codigo,
       valor: vale.valor,
       saldo: vale.saldo,
       utilizado: vale.utilizado,
       validade: vale.validade,
       data_geracao: vale.data_geracao
-    };
-    console.log('✅ Retornando vale:', resposta);
-    res.json(resposta);
+    });
   } catch (e) {
-    console.error('❌ ERRO ao buscar vale:', e.message, e.stack);
     res.status(500).json({ erro: 'Erro interno do servidor' });
   }
 });

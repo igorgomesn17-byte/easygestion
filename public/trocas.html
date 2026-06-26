@@ -312,18 +312,14 @@
       };
       try {
         const r = await api('/trocas', { method:'POST', body });
-        console.log('Resposta da troca completa:', JSON.stringify(r, null, 2));
-        console.log('Vale objeto:', r.vale);
 
         if (r.vale && r.vale.codigo) {
-          console.log('Redirecionando para:', 'cupom-vale.html?codigo=' + r.vale.codigo);
           toast(`Vale-crédito gerado: ${r.vale.codigo}`, 'sucesso');
           // Redireciona para página de impressão do vale
           setTimeout(() => {
             window.location.href = 'cupom-vale.html?codigo=' + r.vale.codigo;
           }, 1000);
         } else {
-          console.log('Nenhum vale na resposta. Diferença:', r.diferenca);
           toast('Troca registrada','sucesso');
           // Limpar dados da troca
           devolvidos = []; levados = [];
@@ -333,7 +329,7 @@
           document.getElementById('levados').innerHTML = '<div class="texto-cinza">Nenhuma peça adicionada.</div>';
           recalcular();
         }
-      } catch(e){ console.error('Erro:', e); toast(e.message,'erro'); }
+      } catch(e){ toast(e.message,'erro'); }
     }
 
     // ===== HISTÓRICO =====
