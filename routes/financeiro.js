@@ -413,21 +413,21 @@ router.get('/fluxo-caixa', exigirPapel('admin'), (req, res) => {
       let dataReceb;
       if (p.forma === 'pix' || p.forma === 'pix_chave' || p.forma === 'dinheiro') {
         // Pix e dinheiro caem no mesmo dia
-        dataReceb = v.data_hora.split('T')[0];
+        dataReceb = v.data_hora.split(' ')[0];
         recebimentos[dataReceb] = recebimentos[dataReceb] || { pix_dinheiro: 0, debito: 0, credito_vista: 0, credito_parc: [] };
         recebimentos[dataReceb].pix_dinheiro += p.valor;
       } else if (p.forma === 'debito') {
         // Débito: prazo configurado (dias úteis ou corridos)
         dataReceb = tipoDebito === 'uteis'
-          ? adicionarDiasUteis(v.data_hora.split('T')[0], prazoDeb)
-          : adicionarDiasCorretos(v.data_hora.split('T')[0], prazoDeb);
+          ? adicionarDiasUteis(v.data_hora.split(' ')[0], prazoDeb)
+          : adicionarDiasCorretos(v.data_hora.split(' ')[0], prazoDeb);
         recebimentos[dataReceb] = recebimentos[dataReceb] || { pix_dinheiro: 0, debito: 0, credito_vista: 0, credito_parc: [] };
         recebimentos[dataReceb].debito += p.valor;
       } else if (p.forma === 'credito_vista') {
         // Crédito à vista: prazo configurado (dias úteis ou corridos)
         dataReceb = tipoCredVista === 'uteis'
-          ? adicionarDiasUteis(v.data_hora.split('T')[0], prazoCredVista)
-          : adicionarDiasCorretos(v.data_hora.split('T')[0], prazoCredVista);
+          ? adicionarDiasUteis(v.data_hora.split(' ')[0], prazoCredVista)
+          : adicionarDiasCorretos(v.data_hora.split(' ')[0], prazoCredVista);
         recebimentos[dataReceb] = recebimentos[dataReceb] || { pix_dinheiro: 0, debito: 0, credito_vista: 0, credito_parc: [] };
         recebimentos[dataReceb].credito_vista += p.valor;
       } else if (p.forma === 'credito_parcelado') {
@@ -435,8 +435,8 @@ router.get('/fluxo-caixa', exigirPapel('admin'), (req, res) => {
         const valorParcela = p.valor / p.parcelas;
         for (let i = 1; i <= p.parcelas; i++) {
           dataReceb = tipoCredParc === 'uteis'
-            ? adicionarDiasUteis(v.data_hora.split('T')[0], prazoCredParc * i)
-            : adicionarDiasCorretos(v.data_hora.split('T')[0], prazoCredParc * i);
+            ? adicionarDiasUteis(v.data_hora.split(' ')[0], prazoCredParc * i)
+            : adicionarDiasCorretos(v.data_hora.split(' ')[0], prazoCredParc * i);
           recebimentos[dataReceb] = recebimentos[dataReceb] || { pix_dinheiro: 0, debito: 0, credito_vista: 0, credito_parc: [] };
           recebimentos[dataReceb].credito_parc.push({ parcela: i, valor: +valorParcela.toFixed(2) });
         }
