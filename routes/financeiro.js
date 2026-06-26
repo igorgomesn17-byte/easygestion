@@ -373,7 +373,9 @@ router.get('/fluxo-caixa', exigirPapel('admin'), (req, res) => {
 
     // Helper: soma dias úteis (seg-sex, ignorando finais de semana)
     function adicionarDiasUteis(dataStr, dias) {
-      let d = new Date(dataStr + 'T00:00:00');
+      if (!dataStr || dataStr.length < 10) throw new Error('Data inválida: ' + dataStr);
+      let d = new Date(dataStr + 'T00:00:00Z');
+      if (isNaN(d.getTime())) throw new Error('Data não parseável: ' + dataStr);
       let count = 0;
       while (count < dias) {
         d.setDate(d.getDate() + 1);
@@ -384,7 +386,9 @@ router.get('/fluxo-caixa', exigirPapel('admin'), (req, res) => {
 
     // Helper: soma dias corridos (seg-dom, incluindo finais de semana)
     function adicionarDiasCorretos(dataStr, dias) {
-      let d = new Date(dataStr + 'T00:00:00');
+      if (!dataStr || dataStr.length < 10) throw new Error('Data inválida: ' + dataStr);
+      let d = new Date(dataStr + 'T00:00:00Z');
+      if (isNaN(d.getTime())) throw new Error('Data não parseável: ' + dataStr);
       d.setDate(d.getDate() + dias);
       return d.toISOString().split('T')[0];
     }
