@@ -406,10 +406,8 @@ router.get('/fluxo-caixa', exigirPapel('admin'), (req, res) => {
   const aReceber = { credito_parcelado: 0, debito: 0, credito_vista: 0 }; // totais ainda não recebidos
 
   // Para cada dia de vendas, distribui nos dias de recebimento
-  console.log('DEBUG fluxo-caixa: caixaDias =', JSON.stringify(caixaDias));
   for (const cd of caixaDias) {
     const dataDaVenda = cd.data;
-    console.log(`DEBUG dia ${dataDaVenda}: pix=${cd.total_pix}, dinheiro=${cd.total_dinheiro}, debito=${cd.total_debito}, credito=${cd.total_credito}, vale=${cd.total_vale}`);
 
     // Pix e dinheiro HOJE (sem prazo, recebimento imediato)
     const pix_dinheiro = (cd.total_pix || 0) + (cd.total_dinheiro || 0);
