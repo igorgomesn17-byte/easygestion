@@ -302,7 +302,7 @@
     async function salvar() {
       const descricao = document.getElementById('descricao').value.trim();
       const valor = parseFloat(document.getElementById('valor').value)||0;
-      if (descricao){ toast('Informe a descrição','erro'); return; }
+      if (!descricao){ toast('Informe a descrição','erro'); return; }
       if (valor<=0){ toast('Informe o valor','erro'); return; }
       const comp = document.getElementById('competencia').value;
       const body = {
