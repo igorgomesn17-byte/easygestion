@@ -236,6 +236,17 @@ function executarMigrations(db) {
           db.exec(`ALTER TABLE vendas ADD COLUMN deletado INTEGER NOT NULL DEFAULT 0;`);
         }
       }
+    },
+    {
+      nome: '012_add_venda_utilizacao_to_vales',
+      hash: 'v12-vales-rastreamento',
+      exec: (db) => {
+        // Adicionar coluna venda_utilizacao_id em vales (rastreia em qual venda foi usado)
+        const colunas = db.prepare(`PRAGMA table_info(vales)`).all().map(c => c.name);
+        if (!colunas.includes('venda_utilizacao_id')) {
+          db.exec(`ALTER TABLE vales ADD COLUMN venda_utilizacao_id INTEGER;`);
+        }
+      }
     }
   ];
 

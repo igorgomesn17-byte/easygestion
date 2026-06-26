@@ -80,9 +80,9 @@ router.post('/:codigo/usar', (req, res) => {
 
     db.prepare(`
       UPDATE vales
-      SET saldo = ?, utilizado = ?, ativo = ?
+      SET saldo = ?, utilizado = ?, ativo = ?, venda_utilizacao_id = ?
       WHERE id = ? AND tenant_id = ?
-    `).run(novoSaldo, novoUtilizado, estaInativo, vale.id, req.tenantId);
+    `).run(novoSaldo, novoUtilizado, estaInativo, venda_id, vale.id, req.tenantId);
 
     res.json({
       sucesso: true,
