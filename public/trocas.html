@@ -168,6 +168,10 @@
              </div>`
           : `<div class="texto-verde" style="font-size:0.85rem; margin:4px 0;">✓ Dentro do prazo (${prazo.dias_passados} de ${prazo.prazo} dias úteis)</div>`;
 
+        // Calcular proporção de desconto (se houver)
+        const somaPrecoOriginal = venda.itens.reduce((s, i) => s + (i.preco_unit * i.qtd), 0);
+        const proporcaoDesconto = venda.subtotal > 0 ? venda.subtotal / somaPrecoOriginal : 1;
+
         document.getElementById('infoVenda').innerHTML = `
           <div class="texto-cinza">Venda #${venda.id} • ${venda.data_hora.slice(0,10).split('-').reverse().join('/')}
             • ${esc(venda.cliente_nome||'sem cliente')} • ${moeda(venda.total)}</div>
@@ -177,7 +181,7 @@
             <div class="item">
               <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
                 <input type="checkbox" style="width:auto;" onchange="toggleDevolvido(${idx}, this.checked)">
-                <span>${esc(it.descricao)} — <strong>${moeda(it.preco_unit)}</strong>${it.qtd>1?' (x'+it.qtd+')':''}
+                <span>${esc(it.descricao)} — <strong>${moeda(it.preco_unit * proporcaoDesconto)}</strong>${it.qtd>1?' (x'+it.qtd+')':''}
                 </span>
               </label>
             </div>`).join('')}</div>`;
