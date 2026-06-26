@@ -8,34 +8,46 @@ const { db } = require('../db/database');
 
 // GET /api/vales/:codigo -> consulta vale (valida e retorna saldo)
 router.get('/:codigo', (req, res) => {
-  const codigo = req.params.codigo.toUpperCase();
-  const vale = db.prepare(`
-    SELECT id, valor, saldo, utilizado, validade, ativo, data_geracao, valor_original
-    FROM vales
-    WHERE codigo = ? AND tenant_id = ? AND ativo = 1
-  `).get(codigo, req.tenantId);
+  try {
+    const codigo = req.params.codigo.toUpperCase();
+    console.log('🎟️ Buscando vale:', { codigo, tenantId: req.tenantId });
 
-  if (!vale) {
-    return res.status(404).json({ erro: 'Vale não encontrado ou já cancelado' });
-  }
+    const vale = db.prepare(`
+      SELECT id, valor, saldo, utilizado, validade, ativo, data_geracao, valor_original
+      FROM vales
+      WHERE codigo = ? AND tenant_id = ? AND ativo = 1
+    `).get(codigo, req.tenantId);
 
-  // Verificar validade
-  if (vale.validade) {
-    const hoje = new Date().toISOString().split('T')[0];
-    if (hoje > vale.validade) {
-      return res.status(422).json({ erro: 'Vale expirado', validade: vale.validade });
+    console.log('📋 Vale encontrado:', vale);
+
+    if (!vale) {
+      console.log('❌ Vale não encontrado:', { codigo, tenantId: req.tenantId });
+      return res.status(404).json({ erro: 'Vale não encontrado ou já cancelado' });
     }
-  }
 
-  // Retornar saldo disponível
-  res.json({
-    codigo,
-    valor_original: vale.valor,
-    utilizado: vale.utilizado,
-    saldo_disponivel: vale.saldo,
-    validade: vale.validade,
-    data_geracao: vale.data_geracao
-  });
+    // Verificar validade
+    if (vale.validade) {
+      const hoje = new Date().toISOString().split('T')[0];
+      if (hoje > vale.validade) {
+        return res.status(422).json({ erro: 'Vale expirado', validade: vale.validade });
+      }
+    }
+
+    // Retornar saldo disponível
+    const resposta = {
+      codigo,
+      valor_original: vale.valor,
+      utilizado: vale.utilizado,
+      saldo_disponivel: vale.saldo,
+      validade: vale.validade,
+      data_geracao: vale.data_geracao
+    };
+    console.log('✅ Retornando vale:', resposta);
+    res.json(resposta);
+  } catch (e) {
+    console.error('❌ ERRO ao buscar vale:', e.message, e.stack);
+    res.status(500).json({ erro: 'Erro interno do servidor' });
+  }
 });
 
 // POST /api/vales/:codigo/usar -> usar vale em uma venda
