@@ -28,7 +28,7 @@
         <div class="campo"><label>Aniversário (DD/MM)</label><input type="text" id="aniv" placeholder="15/03"></div>
       </div>
       <div class="campo">
-        <label>Como conheceu a DS?</label>
+        <label>Como conheceu a loja?</label>
         <select id="origem"><option value="">— selecione —</option></select>
       </div>
       <div id="acoesCliente" style="display:none; gap:8px; margin-bottom:10px; flex-wrap:wrap;"></div>
@@ -68,13 +68,13 @@
     }
 
     let editId = null;
-    // popula o select "Como conheceu a DS?" a partir do config (origens)
+    // popula o select "Como conheceu a loja?" a partir do config (origens)
     async function carregarOrigens(){
       try {
         const cfg = await api('/config');
         let ops = [];
         try { ops = JSON.parse(cfg.origens || '[]'); } catch(e) {}
-        if (ops.length) ops = ['Passou na loja','Instagram','Indicação','Google','WhatsApp','Outro'];
+        if (!ops.length) ops = ['Passou na loja','Instagram','Indicação','Google','WhatsApp','Influencer','Cliente Camacan','Outro'];
         document.getElementById('origem').innerHTML =
           '<option value="">— selecione —</option>' + ops.map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('');
       } catch(e) {}
@@ -128,7 +128,7 @@
 
     async function salvar() {
       const nome = document.getElementById('nome').value.trim();
-      if (nome){ toast('Informe o nome','erro'); return; }
+      if (!nome){ toast('Informe o nome','erro'); return; }
       const body = { nome, telefone:document.getElementById('tel').value,
         cidade:document.getElementById('cidade').value, aniversario:document.getElementById('aniv').value,
         origem:document.getElementById('origem').value };
