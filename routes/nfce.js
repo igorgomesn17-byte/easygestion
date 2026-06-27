@@ -200,6 +200,19 @@ router.post('/emitir/:vendaId', async (req, res) => {
   if (getConfig('nfce_ativo', '0') !== '1') {
     return res.status(400).json({ erro: 'A emissão de NFC-e está desligada. Ative em Configurações.' });
   }
+
+  // Validar se a integração Focus está configurada (token no .env)
+  const FOCUS = require('../db/database').FOCUS;
+  const ambiente = getConfig('nfce_ambiente', 'homologacao');
+  const tokenCliente = getConfig('nfce_token_cliente', null);
+
+  if (!FOCUS.configurado(ambiente) && !tokenCliente) {
+    return res.status(503).json({
+      erro: `Integração Focus NFe não configurada para o ambiente ${ambiente}.`,
+      detalhe: 'Adicione o token em Configurações > NFC-e > Token de Autenticação ou contate o suporte.'
+    });
+  }
+
   const venda = db.prepare('SELECT * FROM vendas WHERE id = ?').get(req.params.vendaId);
   if (!venda) return res.status(404).json({ erro: 'Venda não encontrada' });
 
@@ -226,10 +239,13 @@ router.post('/emitir/:vendaId', async (req, res) => {
       info: r,
     });
     if (r.status === 'erro' || r.status === 'denegado') {
+      console.error(`[NFC-e] Rejeição SEFAZ para venda ${venda.id}:`, r.mensagem_sefaz);
       return res.status(422).json({ ...comUrls(linha), erro: r.mensagem_sefaz || 'A SEFAZ rejeitou a nota' });
     }
+    console.log(`[NFC-e] ✅ Venda ${venda.id} emitida com sucesso. Ref: ${ref}, Status: ${r.status}`);
     res.status(201).json(comUrls(linha));
   } catch (e) {
+    console.error(`[NFC-e] ❌ Erro ao emitir venda ${venda.id}:`, e.message);
     res.status(e.status || 500).json({ erro: e.message });
   }
 });
