@@ -79,7 +79,7 @@
 
     async function salvar() {
       const nome = document.getElementById('nome').value.trim();
-      if (nome){ toast('Informe o nome','erro'); return; }
+      if (!nome){ toast('Informe o nome','erro'); return; }
       const id = document.getElementById('vid').value;
       const body = { nome, telefone:document.getElementById('tel').value, comissao_pct:document.getElementById('com').value };
       if (id) await api('/vendedores/'+id, { method:'PUT', body });
