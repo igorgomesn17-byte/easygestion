@@ -201,9 +201,19 @@
             <button class="btn" style="background:#27ae60; color:white;" onclick="emitirNfce(${v.id})">📄 Emitir NFC-e</button>
             <button class="btn" style="background:#c0392b; color:white;" onclick="cancelarVenda(${v.id})">❌ Cancelar venda</button>
           </div>
+          <div id="botoesTraca" style="display:none; margin-top:8px;">
+            <button class="btn btn-bloco" style="background:#e67e22; color:white;" onclick="removerTraca(${v.id})">🔄 Remover troca</button>
+          </div>
         </div>
       `;
       document.getElementById('modalVenda').classList.add('aberto');
+
+      // Verifica se há troca associada e mostra botão de remover
+      try {
+        const trocas = await api('/trocas?venda_id=' + id);
+        const temTraca = trocas && trocas.length > 0;
+        document.getElementById('botoesTraca').style.display = temTraca ? 'block' : 'none';
+      } catch(e) {}
     }
 
     function fecharModal() {
@@ -235,6 +245,19 @@
         toast('Venda cancelada com sucesso', 'sucesso');
         fecharModal();
         carregar();
+      } catch(e) { toast(e.message, 'erro'); }
+    }
+
+    async function removerTraca(vendaId) {
+      if (!confirm('⚠️ Remover a troca? A venda voltará ao normal sem troca.')) return;
+      try {
+        const trocas = await api('/trocas?venda_id=' + vendaId);
+        if (trocas && trocas.length > 0) {
+          await api('/trocas/' + trocas[0].id, { method: 'DELETE' });
+          toast('Troca removida com sucesso', 'sucesso');
+          fecharModal();
+          carregar();
+        }
       } catch(e) { toast(e.message, 'erro'); }
     }
 

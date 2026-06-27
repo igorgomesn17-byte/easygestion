@@ -367,4 +367,29 @@ router.post('/', (req, res) => {
   }
 });
 
+// DELETE /trocas/:id - Remove uma troca
+router.delete('/:id', (req, res) => {
+  const trocaId = parseInt(req.params.id);
+  try {
+    // Busca a troca
+    const troca = db.prepare('SELECT * FROM trocas WHERE id = ? AND tenant_id = ?').get(trocaId, req.tenantId);
+    if (!troca) { res.status(404).json({ erro: 'Troca não encontrada' }); return; }
+
+    // Remove vales gerados para esta troca (se houver)
+    db.prepare('DELETE FROM vales WHERE troca_id = ? AND tenant_id = ?').run(trocaId, req.tenantId);
+
+    // Remove a troca
+    db.prepare('DELETE FROM trocas WHERE id = ? AND tenant_id = ?').run(trocaId, req.tenantId);
+
+    // Limpa a referência na venda
+    if (troca.venda_id) {
+      db.prepare('UPDATE vendas SET venda_troca_id = NULL WHERE id = ? AND tenant_id = ?').run(troca.venda_id, req.tenantId);
+    }
+
+    res.json({ sucesso: true });
+  } catch (e) {
+    res.status(500).json({ erro: e.message });
+  }
+});
+
 module.exports = router;
