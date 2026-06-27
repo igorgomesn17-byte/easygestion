@@ -47,9 +47,10 @@ function calcularValidade() {
 
 // GET /api/trocas -> lista (com filtros de data opcionais)
 router.get('/', (req, res) => {
-  const { de, ate } = req.query;
+  const { de, ate, venda_id } = req.query;
   let sql = `SELECT t.*, v.id AS venda_num FROM trocas t LEFT JOIN vendas v ON v.id = t.venda_id AND v.tenant_id = t.tenant_id WHERE t.tenant_id = ?`;
   const params = [req.tenantId];
+  if (venda_id) { sql += ' AND t.venda_id = ?'; params.push(venda_id); }
   if (de)  { sql += ' AND date(t.data_hora) >= ?'; params.push(de); }
   if (ate) { sql += ' AND date(t.data_hora) <= ?'; params.push(ate); }
   sql += ' ORDER BY t.data_hora DESC LIMIT 300';
