@@ -21,6 +21,12 @@ router.post('/', (req, res) => {
 
   try {
     const chave = `focus_token_${ambiente}`;
+    console.log('[FOCUS TOKEN] Salvando:', {
+      tenant_id: req.tenantId,
+      ambiente,
+      tamanhoToken: token.length,
+      primeirosCar: token.substring(0, 20)
+    });
     db.prepare('INSERT INTO config (chave, valor, tenant_id) VALUES (?, ?, ?) ON CONFLICT(chave, tenant_id) DO UPDATE SET valor=excluded.valor')
       .run(chave, token, req.tenantId);
 
