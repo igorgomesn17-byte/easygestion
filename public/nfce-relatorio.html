@@ -109,12 +109,26 @@
           <td style="font-size:0.78rem; font-family:monospace;">${esc(n.chave)||'—'}</td>
           <td class="direita dinheiro">${moeda(n.valor_total)}</td>
           <td class="no-print" style="text-align:center; gap:4px; display:flex; font-size:0.75rem;">
+            ${n.status==='processando'?`<button class="btn btn-fino" onclick="consultarStatus(${n.id})" title="Consultar status">🔄</button>`:''}
             ${n.danfe_url?`<a class="btn btn-fino" target="_blank" href="${esc(n.danfe_url)}" title="Baixar DANFE">📄</a>`:''}
             ${n.xml_url?`<a class="btn btn-fino" target="_blank" href="${esc(n.xml_url)}" title="Baixar XML">📋</a>`:''}
             ${n.status==='autorizado'?`<button class="btn btn-fino btn-vermelho" onclick="cancelarNota(${n.id}, '${esc(n.chave)}')" title="Cancelar nota">✕</button>`:''}
           </td>
         </tr>`).join('')}
         </tbody></table>`;
+    }
+
+    async function consultarStatus(notaId) {
+      try {
+        const venda = notasCache.find(n => n.id === notaId)?.venda_id;
+        if (!venda) { toast('Nota não encontrada', 'erro'); return; }
+
+        await api('/nfce/status/' + venda);
+        toast('Status consultado com Focus. Recarregando...', 'sucesso');
+        setTimeout(() => carregar(), 1000);
+      } catch(e) {
+        toast(e.message, 'erro');
+      }
     }
 
     async function cancelarNota(notaId, chave) {
@@ -124,7 +138,10 @@
         return;
       }
       try {
-        await api('/nfce/cancelar/' + notaId, {
+        const venda = notasCache.find(n => n.id === notaId)?.venda_id;
+        if (!venda) { toast('Nota não encontrada', 'erro'); return; }
+
+        await api('/nfce/cancelar/' + venda, {
           method: 'DELETE',
           body: { justificativa: justificativa.trim() }
         });
