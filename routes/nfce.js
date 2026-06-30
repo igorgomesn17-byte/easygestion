@@ -46,10 +46,10 @@ function comUrls(linha) {
 
 // GET /api/nfce/config -> estado da integração (sem expor o token!)
 router.get('/config', (req, res) => {
-  const ambiente = getConfig('nfce_ambiente', 'homologacao');
-  const ativoStr = getConfig('nfce_ativo', '0');
-  const cscId = getConfig('nfce_csc_id', '');
-  const nfceSerie = getConfig('nfce_serie', '1');
+  const ambiente = getConfig('nfce_ambiente', 'homologacao', req.tenantId);
+  const ativoStr = getConfig('nfce_ativo', '0', req.tenantId);
+  const cscId = getConfig('nfce_csc_id', '', req.tenantId);
+  const nfceSerie = getConfig('nfce_serie', '1', req.tenantId);
 
   res.json({
     ativo: ativoStr === '1',
@@ -57,8 +57,8 @@ router.get('/config', (req, res) => {
     configurado: FOCUS.configurado(ambiente),     // tem token no .env pro ambiente atual?
     tem_token_homologacao: FOCUS.configurado('homologacao'),
     tem_token_producao: FOCUS.configurado('producao'),
-    cnpj: getConfig('loja_cnpj', ''),
-    ie: getConfig('loja_ie', ''),
+    cnpj: getConfig('loja_cnpj', '', req.tenantId),
+    ie: getConfig('loja_ie', '', req.tenantId),
     csc_id: cscId,
     nfce_serie: nfceSerie,
   });
@@ -159,8 +159,8 @@ router.get('/relatorio', (req, res) => {
     const ultimoDia = new Date(a, m, 0).getDate();
     ate = `${mes}-${String(ultimoDia).padStart(2, '0')}`;
   }
-  const params = [];
-  let filtro = '1=1';
+  const params = [req.tenantId];
+  let filtro = 'tenant_id = ?';
   if (de)  { filtro += " AND date(emitido_em) >= ?"; params.push(de); }
   if (ate) { filtro += " AND date(emitido_em) <= ?"; params.push(ate); }
 
@@ -184,7 +184,7 @@ router.get('/relatorio', (req, res) => {
 
 // GET /api/nfce/venda/:vendaId -> nota(s) já emitida(s) pra essa venda
 router.get('/venda/:vendaId', (req, res) => {
-  const linhas = db.prepare('SELECT * FROM nfce WHERE venda_id = ? ORDER BY id DESC').all(req.params.vendaId);
+  const linhas = db.prepare('SELECT * FROM nfce WHERE venda_id = ? AND tenant_id = ? ORDER BY id DESC').all(req.params.vendaId, req.tenantId);
   res.json(linhas.map(comUrls));
 });
 
@@ -198,8 +198,8 @@ router.post('/emitir/:vendaId', async (req, res) => {
 
   // Validar se a integração Focus está configurada (token no .env ou no banco)
   const FOCUS = require('../db/database').FOCUS;
-  const ambiente = getConfig('nfce_ambiente', 'homologacao');
-  const tokenCliente = getConfig(`focus_token_${ambiente}`, null);  // Buscar token do banco
+  const ambiente = getConfig('nfce_ambiente', 'homologacao', req.tenantId);
+  const tokenCliente = getConfig(`focus_token_${ambiente}`, null, req.tenantId);  // Buscar token do banco
 
   if (!FOCUS.configurado(ambiente) && !tokenCliente) {
     return res.status(503).json({
@@ -208,13 +208,13 @@ router.post('/emitir/:vendaId', async (req, res) => {
     });
   }
 
-  const venda = db.prepare('SELECT * FROM vendas WHERE id = ?').get(req.params.vendaId);
+  const venda = db.prepare('SELECT * FROM vendas WHERE id = ? AND tenant_id = ?').get(req.params.vendaId, req.tenantId);
   if (!venda) return res.status(404).json({ erro: 'Venda não encontrada' });
 
   // não duplica: se já tem nota autorizada/processando, devolve a existente
   const existente = db.prepare(
-    "SELECT * FROM nfce WHERE venda_id = ? AND status IN ('autorizado','processando') ORDER BY id DESC"
-  ).get(venda.id);
+    "SELECT * FROM nfce WHERE venda_id = ? AND tenant_id = ? AND status IN ('autorizado','processando') ORDER BY id DESC"
+  ).get(venda.id, req.tenantId);
   if (existente) return res.json({ ...comUrls(existente), ja_emitida: true });
 
   // CPF opcional na nota
@@ -244,13 +244,13 @@ router.post('/emitir/:vendaId', async (req, res) => {
 // GET /api/nfce/status/:vendaId -> reconsulta a SEFAZ (resolve 'processando')
 router.get('/status/:vendaId', async (req, res) => {
   const linha = db.prepare(
-    'SELECT * FROM nfce WHERE venda_id = ? ORDER BY id DESC'
-  ).get(req.params.vendaId);
+    'SELECT * FROM nfce WHERE venda_id = ? AND tenant_id = ? ORDER BY id DESC'
+  ).get(req.params.vendaId, req.tenantId);
   if (!linha) return res.status(404).json({ erro: 'Nenhuma NFC-e para esta venda' });
   if (linha.status === 'autorizado' || linha.status === 'cancelado') return res.json(comUrls(linha));
 
-  const ambiente = linha.ambiente || getConfig('nfce_ambiente', 'homologacao');
-  const tokenCliente = getConfig(`focus_token_${ambiente}`, null);
+  const ambiente = linha.ambiente || getConfig('nfce_ambiente', 'homologacao', req.tenantId);
+  const tokenCliente = getConfig(`focus_token_${ambiente}`, null, req.tenantId);
 
   try {
     const r = await consultarNfce(linha.ref, linha.ambiente, tokenCliente);
@@ -267,16 +267,16 @@ router.get('/status/:vendaId', async (req, res) => {
 // DELETE /api/nfce/cancelar/:vendaId  body: { justificativa }
 router.delete('/cancelar/:vendaId', async (req, res) => {
   const linha = db.prepare(
-    "SELECT * FROM nfce WHERE venda_id = ? AND status = 'autorizado' ORDER BY id DESC"
-  ).get(req.params.vendaId);
+    "SELECT * FROM nfce WHERE venda_id = ? AND tenant_id = ? AND status = 'autorizado' ORDER BY id DESC"
+  ).get(req.params.vendaId, req.tenantId);
   if (!linha) return res.status(404).json({ erro: 'Nenhuma NFC-e autorizada para cancelar' });
   const justificativa = (req.body && req.body.justificativa || '').trim();
   if (justificativa.length < 15) {
     return res.status(400).json({ erro: 'A justificativa do cancelamento precisa ter pelo menos 15 caracteres.' });
   }
 
-  const ambiente = linha.ambiente || getConfig('nfce_ambiente', 'homologacao');
-  const tokenCliente = getConfig(`focus_token_${ambiente}`, null);
+  const ambiente = linha.ambiente || getConfig('nfce_ambiente', 'homologacao', req.tenantId);
+  const tokenCliente = getConfig(`focus_token_${ambiente}`, null, req.tenantId);
 
   try {
     const r = await cancelarNfce(linha.ref, linha.ambiente, justificativa, tokenCliente);
