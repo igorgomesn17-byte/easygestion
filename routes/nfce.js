@@ -224,7 +224,7 @@ router.post('/emitir/:vendaId', async (req, res) => {
   const ref = `venda-${venda.id}-${Date.now()}`;
 
   try {
-    const r = await emitirNfce(venda, ref, tokenCliente);
+    const r = await emitirNfce(venda, ref, req.tenantId, tokenCliente);
     const linha = salvarNfce({
       venda_id: venda.id, ref, ambiente: r.ambiente, valor_total: r.valorTotal,
       info: r,
