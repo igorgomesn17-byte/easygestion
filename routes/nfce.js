@@ -15,17 +15,17 @@ const { db, getConfig, FOCUS } = require('../db/database');
 const { emitirNfce, consultarNfce, cancelarNfce } = require('../lib/focusNfe');
 
 // grava/atualiza a linha da nfce no banco a partir do retorno interpretado
-function salvarNfce({ venda_id, ref, ambiente, valor_total, info }) {
+function salvarNfce({ venda_id, ref, ambiente, valor_total, info, tenant_id = 1 }) {
   db.prepare(`
     INSERT INTO nfce (venda_id, ref, ambiente, status, numero, serie, chave, protocolo,
-                      caminho_danfe, caminho_xml, qrcode_url, mensagem_sefaz, valor_total)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                      caminho_danfe, caminho_xml, qrcode_url, mensagem_sefaz, valor_total, tenant_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(ref) DO UPDATE SET
       status=excluded.status, numero=excluded.numero, serie=excluded.serie, chave=excluded.chave,
       protocolo=excluded.protocolo, caminho_danfe=excluded.caminho_danfe, caminho_xml=excluded.caminho_xml,
       qrcode_url=excluded.qrcode_url, mensagem_sefaz=excluded.mensagem_sefaz
   `).run(venda_id, ref, ambiente, info.status, info.numero, info.serie, info.chave, info.protocolo,
-         info.caminho_danfe, info.caminho_xml, info.qrcode_url, info.mensagem_sefaz, valor_total || 0);
+         info.caminho_danfe, info.caminho_xml, info.qrcode_url, info.mensagem_sefaz, valor_total || 0, tenant_id);
   return db.prepare('SELECT * FROM nfce WHERE ref = ?').get(ref);
 }
 
@@ -227,7 +227,7 @@ router.post('/emitir/:vendaId', async (req, res) => {
     const r = await emitirNfce(venda, ref, req.tenantId, tokenCliente);
     const linha = salvarNfce({
       venda_id: venda.id, ref, ambiente: r.ambiente, valor_total: r.valorTotal,
-      info: r,
+      info: r, tenant_id: req.tenantId,
     });
     if (r.status === 'erro' || r.status === 'denegado') {
       console.error(`[NFC-e] Rejeição SEFAZ para venda ${venda.id}:`, r.mensagem_sefaz);
@@ -256,7 +256,7 @@ router.get('/status/:vendaId', async (req, res) => {
     const r = await consultarNfce(linha.ref, linha.ambiente, tokenCliente);
     const atualizada = salvarNfce({
       venda_id: linha.venda_id, ref: linha.ref, ambiente: linha.ambiente,
-      valor_total: linha.valor_total, info: r,
+      valor_total: linha.valor_total, info: r, tenant_id: req.tenantId,
     });
     res.json(comUrls(atualizada));
   } catch (e) {
