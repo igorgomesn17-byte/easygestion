@@ -278,9 +278,9 @@ router.get('/status/:vendaId', async (req, res) => {
   const tokenCliente = getConfig(`focus_token_${ambiente}`, null, req.tenantId);
 
   try {
-    const r = await consultarNfce(linha.ref, linha.ambiente, tokenCliente);
+    const r = await consultarNfce(linha.ref, ambiente, tokenCliente);
     const atualizada = salvarNfce({
-      venda_id: linha.venda_id, ref: linha.ref, ambiente: linha.ambiente,
+      venda_id: linha.venda_id, ref: linha.ref, ambiente: ambiente,
       valor_total: linha.valor_total, info: r, tenant_id: req.tenantId,
     });
     res.json(comUrls(atualizada));
@@ -304,7 +304,7 @@ router.delete('/cancelar/:vendaId', async (req, res) => {
   const tokenCliente = getConfig(`focus_token_${ambiente}`, null, req.tenantId);
 
   try {
-    const r = await cancelarNfce(linha.ref, linha.ambiente, justificativa, tokenCliente);
+    const r = await cancelarNfce(linha.ref, ambiente, justificativa, tokenCliente);
     if (r.status === 'cancelado') {
       db.prepare("UPDATE nfce SET status='cancelado', cancelado_em=datetime('now','localtime'), mensagem_sefaz=? WHERE id=?")
         .run(r.mensagem_sefaz || 'Cancelada', linha.id);
