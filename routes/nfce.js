@@ -225,15 +225,6 @@ router.post('/emitir/:vendaId', async (req, res) => {
   const ambiente = getConfig('nfce_ambiente', 'homologacao', req.tenantId);
   const tokenCliente = getConfig(`focus_token_${ambiente}`, null, req.tenantId);  // Buscar token do banco
 
-  console.log(`[NFC-e] Emissão venda ${req.params.vendaId}:`, {
-    tenant_id: req.tenantId,
-    ambiente,
-    temTokenEnv: FOCUS.configurado(ambiente),
-    temTokenCliente: !!tokenCliente,
-    tamanhoToken: tokenCliente ? tokenCliente.length : 0,
-    primeirosCar: tokenCliente ? tokenCliente.substring(0, 10) : 'nao existe'
-  });
-
   if (!FOCUS.configurado(ambiente) && !tokenCliente) {
     return res.status(503).json({
       erro: `Integração Focus NFe não configurada para o ambiente ${ambiente}.`,
@@ -288,14 +279,12 @@ router.get('/status/:vendaId', async (req, res) => {
 
   try {
     const r = await consultarNfce(linha.ref, ambiente, tokenCliente);
-    console.log(`[NFC-e] Status consultado para ${linha.ref}:`, { status: r.status, mensagem: r.mensagem_sefaz, httpStatus: r.httpStatus });
     const atualizada = salvarNfce({
       venda_id: linha.venda_id, ref: linha.ref, ambiente: ambiente,
       valor_total: linha.valor_total, info: r, tenant_id: req.tenantId,
     });
     res.json(comUrls(atualizada));
   } catch (e) {
-    console.error(`[NFC-e] Erro ao consultar status de ${linha.ref}:`, e.message);
     res.status(e.status || 500).json({ erro: e.message });
   }
 });
