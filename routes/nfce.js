@@ -228,10 +228,6 @@ router.post('/emitir/:vendaId', async (req, res) => {
   // referência única e idempotente desta emissão
   const ref = `venda-${venda.id}-${Date.now()}`;
 
-  // Pegar token do cliente (se existir) ou usar .env
-  const tokenCliente = getConfig('nfce_token_cliente', null);
-  const ambiente = getConfig('nfce_ambiente', 'homologacao');
-
   try {
     const r = await emitirNfce(venda, ref, tokenCliente);
     const linha = salvarNfce({
