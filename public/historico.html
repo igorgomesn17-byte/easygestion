@@ -286,11 +286,15 @@
 
     async function consultarStatus(vendaId) {
       try {
-        await api('/nfce/status/' + vendaId);
-        toast('Status consultado com Focus. Recarregando...', 'sucesso');
-        setTimeout(() => verDetalhes(vendaId), 1500);
+        const r = await api('/nfce/status/' + vendaId);
+        console.log('[NFC-e] Status atualizado:', r);
+        toast('Status atualizado! Reabrindo...', 'sucesso');
+        // Fecha e reabre o modal pra atualizar
+        fecharModal();
+        setTimeout(() => verDetalhes(vendaId), 500);
       } catch(e) {
-        toast(e.message, 'erro');
+        console.error('[NFC-e] Erro ao consultar:', e);
+        toast('Erro: ' + e.message, 'erro');
       }
     }
 
