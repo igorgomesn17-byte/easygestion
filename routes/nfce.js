@@ -230,7 +230,8 @@ router.post('/emitir/:vendaId', async (req, res) => {
     ambiente,
     temTokenEnv: FOCUS.configurado(ambiente),
     temTokenCliente: !!tokenCliente,
-    tamanhoToken: tokenCliente ? tokenCliente.length : 0
+    tamanhoToken: tokenCliente ? tokenCliente.length : 0,
+    primeirosCar: tokenCliente ? tokenCliente.substring(0, 10) : 'nao existe'
   });
 
   if (!FOCUS.configurado(ambiente) && !tokenCliente) {
