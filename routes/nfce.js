@@ -225,6 +225,14 @@ router.post('/emitir/:vendaId', async (req, res) => {
   const ambiente = getConfig('nfce_ambiente', 'homologacao', req.tenantId);
   const tokenCliente = getConfig(`focus_token_${ambiente}`, null, req.tenantId);  // Buscar token do banco
 
+  console.log(`[NFC-e] Emissão venda ${req.params.vendaId}:`, {
+    tenant_id: req.tenantId,
+    ambiente,
+    temTokenEnv: FOCUS.configurado(ambiente),
+    temTokenCliente: !!tokenCliente,
+    tamanhoToken: tokenCliente ? tokenCliente.length : 0
+  });
+
   if (!FOCUS.configurado(ambiente) && !tokenCliente) {
     return res.status(503).json({
       erro: `Integração Focus NFe não configurada para o ambiente ${ambiente}.`,
