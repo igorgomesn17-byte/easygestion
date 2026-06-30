@@ -279,12 +279,14 @@ router.get('/status/:vendaId', async (req, res) => {
 
   try {
     const r = await consultarNfce(linha.ref, ambiente, tokenCliente);
+    console.log(`[NFC-e] Status consultado para ${linha.ref}:`, { status: r.status, mensagem: r.mensagem_sefaz, httpStatus: r.httpStatus });
     const atualizada = salvarNfce({
       venda_id: linha.venda_id, ref: linha.ref, ambiente: ambiente,
       valor_total: linha.valor_total, info: r, tenant_id: req.tenantId,
     });
     res.json(comUrls(atualizada));
   } catch (e) {
+    console.error(`[NFC-e] Erro ao consultar status de ${linha.ref}:`, e.message);
     res.status(e.status || 500).json({ erro: e.message });
   }
 });
