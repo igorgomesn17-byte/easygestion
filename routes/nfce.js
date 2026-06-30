@@ -192,8 +192,32 @@ router.get('/venda/:vendaId', (req, res) => {
 // Emite a NFC-e da venda. Se já existe uma autorizada, não duplica.
 // Usa token do cliente (se configurado) ou token do .env (fallback)
 router.post('/emitir/:vendaId', async (req, res) => {
-  if (getConfig('nfce_ativo', '0') !== '1') {
+  if (getConfig('nfce_ativo', '0', req.tenantId) !== '1') {
     return res.status(400).json({ erro: 'A emissão de NFC-e está desligada. Ative em Configurações.' });
+  }
+
+  // Validar dados obrigatórios da loja
+  const cnpj = getConfig('loja_cnpj', '', req.tenantId);
+  const razaoSocial = getConfig('loja_razao_social', '', req.tenantId);
+  const ie = getConfig('loja_ie', '', req.tenantId);
+  const endereco = getConfig('loja_endereco', '', req.tenantId);
+  const cidade = getConfig('loja_cidade', '', req.tenantId);
+  const cep = getConfig('loja_cep', '', req.tenantId);
+
+  const camposFaltando = [];
+  if (!cnpj || cnpj.trim() === '') camposFaltando.push('CNPJ');
+  if (!razaoSocial || razaoSocial.trim() === '') camposFaltando.push('Razão Social');
+  if (!ie || ie.trim() === '') camposFaltando.push('Inscrição Estadual');
+  if (!endereco || endereco.trim() === '') camposFaltando.push('Endereço');
+  if (!cidade || cidade.trim() === '') camposFaltando.push('Cidade');
+  if (!cep || cep.trim() === '') camposFaltando.push('CEP');
+
+  if (camposFaltando.length > 0) {
+    return res.status(400).json({
+      erro: 'Dados da loja incompletos para emitir NFC-e',
+      campos_faltando: camposFaltando,
+      detalhe: `Preencha: ${camposFaltando.join(', ')} em Configurações > Dados da Loja`
+    });
   }
 
   // Validar se a integração Focus está configurada (token no .env ou no banco)
