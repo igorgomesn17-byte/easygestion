@@ -91,16 +91,11 @@ router.post('/ativar', (req, res) => {
 
   try {
     // Salvar no banco (para este tenant)
-    // OBS: token será criptografado em produção (ver comentário abaixo)
+    // Nota: Token agora é salvo via /api/config/focus-token, não aqui
     db.prepare(`
       INSERT OR REPLACE INTO config (chave, valor, tenant_id)
       VALUES (?, ?, ?)
     `).run('nfce_ativo', '1', req.tenantId);
-
-    db.prepare(`
-      INSERT OR REPLACE INTO config (chave, valor, tenant_id)
-      VALUES (?, ?, ?)
-    `).run('nfce_token_cliente', token, req.tenantId);
 
     db.prepare(`
       INSERT OR REPLACE INTO config (chave, valor, tenant_id)
@@ -201,10 +196,10 @@ router.post('/emitir/:vendaId', async (req, res) => {
     return res.status(400).json({ erro: 'A emissão de NFC-e está desligada. Ative em Configurações.' });
   }
 
-  // Validar se a integração Focus está configurada (token no .env)
+  // Validar se a integração Focus está configurada (token no .env ou no banco)
   const FOCUS = require('../db/database').FOCUS;
   const ambiente = getConfig('nfce_ambiente', 'homologacao');
-  const tokenCliente = getConfig('nfce_token_cliente', null);
+  const tokenCliente = getConfig(`focus_token_${ambiente}`, null);  // Buscar token do banco
 
   if (!FOCUS.configurado(ambiente) && !tokenCliente) {
     return res.status(503).json({
@@ -254,7 +249,8 @@ router.get('/status/:vendaId', async (req, res) => {
   if (!linha) return res.status(404).json({ erro: 'Nenhuma NFC-e para esta venda' });
   if (linha.status === 'autorizado' || linha.status === 'cancelado') return res.json(comUrls(linha));
 
-  const tokenCliente = getConfig('nfce_token_cliente', null);
+  const ambiente = linha.ambiente || getConfig('nfce_ambiente', 'homologacao');
+  const tokenCliente = getConfig(`focus_token_${ambiente}`, null);
 
   try {
     const r = await consultarNfce(linha.ref, linha.ambiente, tokenCliente);
@@ -279,7 +275,8 @@ router.delete('/cancelar/:vendaId', async (req, res) => {
     return res.status(400).json({ erro: 'A justificativa do cancelamento precisa ter pelo menos 15 caracteres.' });
   }
 
-  const tokenCliente = getConfig('nfce_token_cliente', null);
+  const ambiente = linha.ambiente || getConfig('nfce_ambiente', 'homologacao');
+  const tokenCliente = getConfig(`focus_token_${ambiente}`, null);
 
   try {
     const r = await cancelarNfce(linha.ref, linha.ambiente, justificativa, tokenCliente);
