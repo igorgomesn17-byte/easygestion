@@ -236,6 +236,7 @@ router.post('/emitir/:vendaId', async (req, res) => {
   if (!venda) return res.status(404).json({ erro: 'Venda não encontrada' });
 
   // não duplica: se já tem nota autorizada/processando, devolve a existente
+  // se foi rejeitada/cancelada, permite tentar de novo
   const existente = db.prepare(
     "SELECT * FROM nfce WHERE venda_id = ? AND tenant_id = ? AND status IN ('autorizado','processando') ORDER BY id DESC"
   ).get(venda.id, req.tenantId);
