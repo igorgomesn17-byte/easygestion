@@ -196,9 +196,38 @@
             </div>
           </div>
 
+          ${v.nfce ? `
+            <div style="border: 2px solid #27ae60; border-radius:8px; padding:12px; margin-bottom:16px; background:#f0fdf4;">
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                <span style="font-size:1.2rem; color:#27ae60;">✅</span>
+                <strong style="color:#27ae60; font-size:0.95rem;">NFC-e autorizada · ${v.nfce.ambiente}</strong>
+              </div>
+              <div style="font-size:0.9rem; margin-bottom:10px;">
+                <strong>Nº ${esc(v.nfce.numero)} · série ${esc(v.nfce.serie)}</strong>
+              </div>
+              <div style="font-size:0.85rem; color:#666; margin-bottom:12px; word-break:break-all;">
+                <strong>Chave:</strong> ${esc(v.nfce.chave || '—')}
+              </div>
+              <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                ${v.nfce.caminho_danfe ? `<a class="btn btn-fino" target="_blank" href="${esc(v.nfce.caminho_danfe.startsWith('http') ? v.nfce.caminho_danfe : 'https://focusnfe.com.br' + v.nfce.caminho_danfe)}" style="background:#8a7a6d; color:white;">📄 Verificar DANFE</a>` : ''}
+                ${v.nfce.caminho_xml ? `<a class="btn btn-fino" target="_blank" href="${esc(v.nfce.caminho_xml.startsWith('http') ? v.nfce.caminho_xml : 'https://focusnfe.com.br' + v.nfce.caminho_xml)}" style="background:#333; color:white;">📋 XML</a>` : ''}
+                ${v.nfce.status === 'autorizado' ? `<button class="btn btn-fino" style="background:#c0392b; color:white;" onclick="cancelarNfce(${v.id}, ${v.nfce.id}, '${esc(v.nfce.chave)}')">✕ Cancelar nota</button>` : ''}
+              </div>
+            </div>
+          ` : `
+            <div style="border: 1px dashed #ddd; border-radius:8px; padding:12px; margin-bottom:16px; background:#fafafa;">
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                <span style="font-size:1.2rem;">📋</span>
+                <strong style="color:#666; font-size:0.95rem;">Nota Fiscal (NFC-e) - Produção</strong>
+              </div>
+              <input type="text" id="cpfCliente_${v.id}" placeholder="CPF na nota (opcional)" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; margin-bottom:8px; font-size:0.9rem;">
+              <button class="btn" style="background:#27ae60; color:white; width:100%;" onclick="emitirNfce(${v.id})">✓ Emitir NFC-e</button>
+            </div>
+          `}
+
           <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
             <button class="btn" style="background:#8a7a6d; color:white;" onclick="reimprimirCupom(${v.id})">🖨️ Reimprimir cupom</button>
-            <button class="btn" style="background:#27ae60; color:white;" onclick="emitirNfce(${v.id})">📄 Emitir NFC-e</button>
+            <button class="btn" style="background:#333; color:white;" onclick="abrirTroca(${v.id})">➔ Troca / devolução</button>
             <button class="btn" style="background:#c0392b; color:white;" onclick="cancelarVenda(${v.id})">❌ Cancelar venda</button>
           </div>
           <div id="botoesTraca" style="display:none; margin-top:8px;">
@@ -222,10 +251,31 @@
 
     async function emitirNfce(vendaId) {
       try {
-        const r = await api('/nfce/emitir/' + vendaId, { method:'POST', body:{} });
+        const cpfField = document.getElementById('cpfCliente_' + vendaId);
+        const cpfCliente = cpfField ? cpfField.value.trim() : '';
+        const r = await api('/nfce/emitir/' + vendaId, { method:'POST', body:{ cpf_cliente: cpfCliente } });
         toast('NFC-e emitida com sucesso','sucesso');
-        fecharModal();
+        // Recarrega detalhes pra mostrar a NFC-e
+        setTimeout(() => verDetalhes(vendaId), 1000);
       } catch(e) { toast(e.message,'erro'); }
+    }
+
+    async function cancelarNfce(vendaId, notaId, chave) {
+      const justificativa = prompt('Motivo do cancelamento (mínimo 15 caracteres):\n\n(Ex: "Nota emitida com erro")');
+      if (!justificativa || justificativa.trim().length < 15) {
+        toast('Justificativa deve ter pelo menos 15 caracteres', 'erro');
+        return;
+      }
+      try {
+        await api('/nfce/cancelar/' + vendaId, {
+          method: 'DELETE',
+          body: { justificativa: justificativa.trim() }
+        });
+        toast('NFC-e cancelada com sucesso', 'sucesso');
+        setTimeout(() => verDetalhes(vendaId), 1000);
+      } catch(e) {
+        toast(e.message, 'erro');
+      }
     }
 
     function reimprimirCupom(vendaId) {

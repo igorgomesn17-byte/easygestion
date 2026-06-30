@@ -352,7 +352,7 @@ router.patch('/:id/vendedor', (req, res) => {
   res.json({ ok: true, comissao_valor: novaComissao, lucro: novoLucro });
 });
 
-// GET /api/vendas/:id -> detalhe com itens, cliente e vendedor
+// GET /api/vendas/:id -> detalhe com itens, cliente, vendedor e NFC-e
 router.get('/:id', (req, res) => {
   const v = db.prepare(`SELECT v.*, c.nome AS cliente_nome, c.telefone AS cliente_tel,
                                vd.nome AS vendedor_nome
@@ -363,6 +363,7 @@ router.get('/:id', (req, res) => {
   if (!v) return res.status(404).json({ erro: 'Venda nao encontrada' });
   v.itens = db.prepare('SELECT * FROM venda_itens WHERE venda_id = ? AND tenant_id = ?').all(v.id, req.tenantId);
   v.pagamentos = db.prepare('SELECT forma, parcelas, valor FROM venda_pagamentos WHERE venda_id = ? AND tenant_id = ?').all(v.id, req.tenantId);
+  v.nfce = db.prepare('SELECT * FROM nfce WHERE venda_id = ? AND tenant_id = ? ORDER BY id DESC LIMIT 1').get(v.id, req.tenantId);
   res.json(v);
 });
 
