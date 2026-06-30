@@ -295,7 +295,7 @@
       'meta_mensal','markup','embalagem_unit','frete_unit','regime_fiscal','imposto_simples',
       'comissao_padrao','taxa_pix','taxa_debito','taxa_credito_vista','taxa_credito_2x','taxa_credito_3x',
       'taxa_credito_4x','taxa_credito_5x','taxa_credito_6x','parcelas_loja_absorve','marca_cor',
-      'nfce_ambiente','nfce_serie','nfce_csc_id','nfce_ncm_padrao','nfce_cfop_padrao','nfce_csosn_padrao',
+      'nfce_ativo','nfce_ambiente','nfce_serie','nfce_csc_id','nfce_ncm_padrao','nfce_cfop_padrao','nfce_csosn_padrao',
       'nfce_origem_padrao','nfce_unidade_padrao','loja_codigo_municipio',
       'prazo_debito_dias','prazo_debito_tipo','prazo_credito_vista_dias','prazo_credito_vista_tipo','prazo_credito_parc_dias','prazo_credito_parc_tipo',
       'cupom_mensagem_rodape','cupom_politica_troca'];
@@ -456,10 +456,15 @@
       const body = {};
       CAMPOS.forEach(c => {
         const el = document.getElementById(c); if (!el) return;
-        body[c] = CAMPOS_TEXTO.includes(c) ? el.value : (el.value || '0');
+        if (CAMPOS_TEXTO.includes(c)) {
+          body[c] = el.value;
+        } else if (el.type === 'checkbox') {
+          body[c] = el.checked ? '1' : '0';
+        } else {
+          body[c] = el.value || '0';
+        }
       });
       body.cupom_auto_imprimir = document.getElementById('cupom_auto_imprimir').checked ? '1' : '0';
-      body.nfce_ativo = document.getElementById('nfce_ativo').checked ? '1' : '0';
       await api('/config', { method:'POST', body });
       toast('Configurações salvas','sucesso');
       checarNfce();
