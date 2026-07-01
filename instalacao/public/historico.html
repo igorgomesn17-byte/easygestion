@@ -261,7 +261,6 @@
       `;
       document.getElementById('modalVenda').classList.add('aberto');
 
-      // Verifica se há troca associada e mostra botão de remover
       try {
         const trocas = await api('/trocas?venda_id=' + id);
         const temTraca = trocas && trocas.length > 0;
@@ -279,7 +278,6 @@
         const cpfCliente = cpfField ? cpfField.value.trim() : '';
         const r = await api('/nfce/emitir/' + vendaId, { method:'POST', body:{ cpf_cliente: cpfCliente } });
         toast('NFC-e emitida com sucesso','sucesso');
-        // Recarrega detalhes pra mostrar a NFC-e
         setTimeout(() => verDetalhes(vendaId), 1000);
       } catch(e) { toast(e.message,'erro'); }
     }
@@ -289,7 +287,6 @@
         const r = await api('/nfce/status/' + vendaId);
         console.log('[NFC-e] Status atualizado:', r);
         toast('Status atualizado! Reabrindo...', 'sucesso');
-        // Fecha e reabre o modal pra atualizar
         fecharModal();
         setTimeout(() => verDetalhes(vendaId), 500);
       } catch(e) {
