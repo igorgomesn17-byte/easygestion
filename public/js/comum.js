@@ -166,7 +166,7 @@ async function carregarMarca() {
   _marcaCache = {
     nome: (cfg.loja_nome || 'Minha Loja').trim(),
     logo: (cfg.loja_logo || '').trim(),
-    cor:  (cfg.marca_cor || '#2e7d32').trim(),
+    cor:  (cfg.marca_cor || '#1a6f5e').trim(),
   };
   return _marcaCache;
 }

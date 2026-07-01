@@ -9,14 +9,14 @@
   /* COR DA MARCA (personalizável por loja) — o JS sobrescreve --marca, --marca-escura
      e --marca-clara em runtime com a cor que a lojista escolhe na tela de Config.
      Default = verde EasyGestão. O "essencial visível" usa var(--marca). */
-  --marca: #1b4a38;
-  --marca-escura: #0d3226;
-  --marca-clara: #2a6947;
+  --marca: #1a6f5e;
+  --marca-escura: #0d3d35;
+  --marca-clara: #2a8870;
 
   /* Marca EasyGestão — verde como acento */
-  --marrom: #1b4a38;
-  --marrom-escuro: #0d3226;
-  --marrom-claro: #2a6947;
+  --marrom: #1a6f5e;
+  --marrom-escuro: #0d3d35;
+  --marrom-claro: #2a8870;
   --marrom-suave: #e8f5f0;     /* fundo sutil do item ativo */
   --dourado: #c39a36;
   --dourado-claro: #d9b85c;
@@ -281,10 +281,84 @@ tbody tr:last-child td { border-bottom: none; }
 #toast.sucesso { background: var(--verde); }
 
 /* ============================================================
+   VALIDAÇÃO E ESTADOS
+   ============================================================ */
+.campo.erro input, .campo.erro select, .campo.erro textarea {
+  border-color: var(--vermelho); box-shadow: 0 0 0 3px rgba(214,69,69,0.12);
+}
+.campo-erro-msg { color: var(--vermelho); font-size: 0.78rem; margin-top: 4px; display: none; }
+.campo.erro .campo-erro-msg { display: block; }
+
+/* ============================================================
+   LOADING / SPINNER
+   ============================================================ */
+.spinner { border: 3px solid var(--linha); border-top-color: var(--marca); border-radius: 50%;
+  width: 28px; height: 28px; animation: girar 0.7s linear infinite; margin: 0 auto; }
+@keyframes girar { to { transform: rotate(360deg); } }
+
+/* ============================================================
+   ANÉIS DE META (promovido de index.html)
+   ============================================================ */
+.anel-card {
+  background: var(--surface); border: 1px solid var(--linha); border-radius: 16px;
+  padding: 18px 14px; display: flex; flex-direction: column; align-items: center; gap: 8px;
+  box-shadow: var(--sombra-sm);
+}
+.anel-titulo { font-size: 0.92rem; font-weight: 600; color: var(--tinta-2); }
+.anel { width: 150px; height: 150px; max-width: 42vw; }
+.anel-fundo { fill: none; stroke: var(--surface-2); stroke-width: 11; }
+.anel-prog {
+  fill: none; stroke: var(--dourado); stroke-width: 11; stroke-linecap: round;
+  transform: rotate(-90deg); transform-origin: 50% 50%;
+  stroke-dasharray: 326.7; stroke-dashoffset: 326.7;
+  transition: stroke-dashoffset 0.9s ease, stroke 0.3s;
+}
+.anel-prog.batida { stroke: var(--verde); }
+.anel-pct {
+  font-size: 24px; font-weight: 700; fill: var(--marrom);
+  text-anchor: middle; dominant-baseline: central;
+}
+.anel-valores { font-size: 0.86rem; color: var(--tinta-2); text-align: center; }
+
+/* ============================================================
+   MODAL DE ONBOARDING (promovido de index.html)
+   ============================================================ */
+.onboarding-modal {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0, 0, 0, 0.6); display: flex; align-items: center; justify-content: center;
+  z-index: 2000; opacity: 0; visibility: hidden; transition: opacity 0.3s, visibility 0.3s;
+}
+.onboarding-modal.show { opacity: 1; visibility: visible; }
+.onboarding-content {
+  background: white; border-radius: 16px; padding: 40px; max-width: 500px;
+  width: 90%; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2); text-align: center;
+}
+.onboarding-content h1 {
+  font-size: 28px; margin-bottom: 15px; color: var(--marca);
+}
+.onboarding-content p {
+  color: #666; margin-bottom: 20px; line-height: 1.6;
+}
+.onboarding-buttons {
+  display: flex; gap: 10px; margin-top: 30px;
+}
+.onboarding-buttons button {
+  flex: 1; padding: 12px 20px; border: none; border-radius: 8px;
+  font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.3s;
+}
+.btn-skip { background: #f0f0f0; color: #333; }
+.btn-skip:hover { background: #ddd; }
+
+/* ============================================================
    RESPONSIVO
    ============================================================ */
 .overlay-mob { display: none; position: fixed; inset: 0; background: rgba(31,35,41,0.4); z-index: 90; }
 .overlay-mob.ativo { display: block; }
+@media (max-width: 1024px) {
+  .conteudo { padding: 20px; }
+  .cards-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+}
+
 @media (max-width: 860px) {
   .sidebar { transform: translateX(-100%); transition: transform 0.22s ease; }
   .app.menu-aberto .sidebar { transform: translateX(0); box-shadow: var(--sombra-lg); }
