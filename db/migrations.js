@@ -261,6 +261,44 @@ function executarMigrations(db) {
           db.exec(`ALTER TABLE caixa_dia ADD COLUMN total_credito_parcelado REAL NOT NULL DEFAULT 0;`);
         }
       }
+    },
+    {
+      nome: '014_email_verification',
+      hash: 'v14-email-verification',
+      exec: (db) => {
+        // Criar tabela de tokens de verificação de email
+        db.exec(`
+          CREATE TABLE IF NOT EXISTS email_verifications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            usuario_id INTEGER NOT NULL,
+            token TEXT UNIQUE NOT NULL,
+            criado_em DATETIME DEFAULT CURRENT_TIMESTAMP,
+            expira_em DATETIME NOT NULL,
+            verificado INTEGER DEFAULT 0,
+            verificado_em DATETIME,
+            FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
+          );
+          CREATE INDEX IF NOT EXISTS idx_email_verifications_token ON email_verifications(token);
+          CREATE INDEX IF NOT EXISTS idx_email_verifications_usuario ON email_verifications(usuario_id);
+        `);
+
+        // Adicionar coluna email_verificado em usuarios
+        const colunas = db.prepare(`PRAGMA table_info(usuarios)`).all().map(c => c.name);
+        if (!colunas.includes('email_verificado')) {
+          db.exec(`ALTER TABLE usuarios ADD COLUMN email_verificado INTEGER DEFAULT 0;`);
+          // Marcar usuários existentes como verificados (retrocompat)
+          db.prepare('UPDATE usuarios SET email_verificado = 1 WHERE ativo = 1').run();
+        }
+
+        // Adicionar índice em usuarios(email_verificado)
+        const indices = db.prepare(`
+          SELECT name FROM sqlite_master
+          WHERE type='index' AND name='idx_usuarios_email_verificado'
+        `).get();
+        if (!indices) {
+          db.exec(`CREATE INDEX IF NOT EXISTS idx_usuarios_email_verificado ON usuarios(email_verificado);`);
+        }
+      }
     }
   ];
 

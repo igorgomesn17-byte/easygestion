@@ -25,6 +25,12 @@ Gere com:
   process.exit(1);
 }
 
+// Gerar token de verificação de email
+const crypto = require('crypto');
+function gerarTokenVerificacao() {
+  return crypto.randomBytes(32).toString('hex');
+}
+
 // Validação de email (RFC 5322 simplificado)
 function validarEmail(email) {
   const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -115,6 +121,15 @@ router.post('/login', (req, res) => {
 
   const u = db.prepare('SELECT * FROM usuarios WHERE LOWER(email) = LOWER(?) AND ativo = 1').get(email.trim());
   if (u && verificarSenha(senha, u.senha_hash)) {
+    // ⚠️ Verificar se email foi confirmado
+    if (!u.email_verificado) {
+      console.warn(`[LOGIN BLOQUEADO] ${u.email} - email não verificado • ${req.ip}`);
+      return res.status(403).json({
+        erro: 'Por favor confirme seu email antes de fazer login',
+        codigo: 'EMAIL_NAO_VERIFICADO'
+      });
+    }
+
     // ⚠️ tenant_id deve estar sempre presente em DB (NOT NULL)
     if (!u.tenant_id) {
       console.error(`[LOGIN ERRO] ${u.email} não tem tenant_id no DB! Bloqueando login.`);
@@ -153,7 +168,7 @@ router.post('/login', (req, res) => {
 
 // POST /api/auth/registro  body: { email, senha, nome_loja, nome_responsavel, telefone }
 // Cria novo tenant + usuário admin (LGPD terms já foram aceitos no form)
-router.post('/registro', (req, res) => {
+router.post('/registro', async (req, res) => {
   const { email, senha, nome_loja, nome_responsavel, telefone } = req.body || {};
 
   // Validações
@@ -196,10 +211,10 @@ router.post('/registro', (req, res) => {
       `).run(nomeLoja, email.trim(), hashSenha(senha), nomeResponsavel, telefoneLimpo);
       const tenantId = infoTenant.lastInsertRowid;
 
-      // (2) Criar usuário admin do tenant (usar email como nome, pois é único por tenant)
+      // (2) Criar usuário admin do tenant (email NÃO verificado ainda)
       const infoUser = db.prepare(`
-        INSERT INTO usuarios (nome, email, tenant_id, papel, senha_hash, ativo)
-        VALUES (?, ?, ?, 'admin', ?, 1)
+        INSERT INTO usuarios (nome, email, tenant_id, papel, senha_hash, ativo, email_verificado)
+        VALUES (?, ?, ?, 'admin', ?, 1, 0)
       `).run(email.trim(), email.trim(), tenantId, hashSenha(senha));
       const userId = infoUser.lastInsertRowid;
 
@@ -216,24 +231,141 @@ router.post('/registro', (req, res) => {
     });
 
     const r = tx();
-    req.session.logado = true;
-    req.session.usuario = nome_loja.trim();
-    req.session.email = email.trim();
-    req.session.papel = 'admin';
-    req.session.tenant_id = r.tenantId;
 
-    console.log(`[REGISTRO OK] ${email} (tenant ${r.tenantId}) • ${req.ip} • ${new Date().toISOString()}`);
+    // (4) Gerar token de verificação de email
+    const token = gerarTokenVerificacao();
+    const expiracaoToken = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    db.prepare(`
+      INSERT INTO email_verifications (usuario_id, token, expira_em)
+      VALUES (?, ?, ?)
+    `).run(r.userId, token, expiracaoToken.toISOString());
+
+    // (5) Enviar email com link de verificação (não bloqueia se falhar)
+    const linkVerificacao = `${process.env.SITE_URL || 'https://easygestion.com'}/verificar-email.html?token=${token}`;
+    enviarEmail(email.trim(), 'Confirme seu email - EasyGestão', `
+      <h2>Bem-vindo ao EasyGestão!</h2>
+      <p>Obrigado por se registrar. Para completar seu cadastro, clique no link abaixo para confirmar seu email:</p>
+      <p><a href="${linkVerificacao}">Confirmar Email</a></p>
+      <p>Ou copie e cole este link no seu navegador:<br>${linkVerificacao}</p>
+      <p><strong>Este link expira em 24 horas.</strong></p>
+    `).catch(e => {
+      console.error(`[REGISTRO] Erro ao enviar email para ${email}:`, e.message);
+    });
+
+    console.log(`[NOVO TENANT] ${email} (tenant ${r.tenantId}) - Aguardando verificação de email`);
     return res.status(201).json({
       ok: true,
-      mensagem: 'Conta criada com sucesso!',
-      usuario: nome_loja.trim(),
+      mensagem: 'Conta criada! Verifique seu email para confirmar o cadastro.',
       email: email.trim(),
-      papel: 'admin',
-      destino: 'onboarding.html'
+      codigo: 'VERIFICACAO_PENDENTE'
     });
   } catch (e) {
-    console.error('Erro ao registrar:', e.message);
+    console.error('[REGISTRO ERROR]', e.message);
     return res.status(500).json({ erro: 'Erro ao criar conta. Tente novamente.' });
+  }
+});
+
+// POST /api/auth/verify-email  body: { token }
+// Verifica o email a partir do token enviado no link
+router.post('/verify-email', (req, res) => {
+  const { token } = req.body || {};
+
+  if (!token) {
+    return res.status(400).json({ erro: 'Token de verificação é obrigatório' });
+  }
+
+  // Buscar token válido e não expirado
+  const verificacao = db.prepare(`
+    SELECT ev.id, ev.usuario_id, ev.expira_em, u.email
+    FROM email_verifications ev
+    JOIN usuarios u ON u.id = ev.usuario_id
+    WHERE ev.token = ? AND ev.verificado = 0
+  `).get(token);
+
+  if (!verificacao) {
+    return res.status(404).json({ erro: 'Token inválido ou já foi utilizado' });
+  }
+
+  // Verificar se expirou
+  if (new Date(verificacao.expira_em) < new Date()) {
+    return res.status(410).json({
+      erro: 'Link de verificação expirou. Solicite um novo link.',
+      codigo: 'TOKEN_EXPIRADO'
+    });
+  }
+
+  try {
+    const tx = db.transaction(() => {
+      // Marcar email como verificado
+      db.prepare('UPDATE usuarios SET email_verificado = 1 WHERE id = ?')
+        .run(verificacao.usuario_id);
+
+      // Marcar token como utilizado
+      db.prepare(`
+        UPDATE email_verifications
+        SET verificado = 1, verificado_em = datetime('now','localtime')
+        WHERE id = ?
+      `).run(verificacao.id);
+    });
+
+    tx();
+    console.log(`[EMAIL VERIFICADO] ${verificacao.email} • ${req.ip}`);
+    return res.json({
+      ok: true,
+      mensagem: 'Email verificado com sucesso! Você já pode fazer login.'
+    });
+  } catch (e) {
+    console.error('[VERIFY EMAIL] Erro:', e.message);
+    return res.status(500).json({ erro: 'Erro ao verificar email. Tente novamente.' });
+  }
+});
+
+// POST /api/auth/resend-verification  body: { email }
+// Reenvia email de verificação se o link expirou
+router.post('/resend-verification', limiteForgotPassword, async (req, res) => {
+  const { email } = req.body || {};
+
+  if (!email || !validarEmail(email)) {
+    return res.status(400).json({ erro: 'Email inválido' });
+  }
+
+  const u = db.prepare('SELECT id, email FROM usuarios WHERE LOWER(email) = LOWER(?) AND ativo = 1').get(email.trim());
+  if (!u) {
+    return res.json({ ok: true, mensagem: 'Se existe uma conta com este email, um link foi enviado.' });
+  }
+
+  // Se já verificado, não precisa reenviar
+  if (u.email_verificado) {
+    return res.json({ ok: true, mensagem: 'Este email já foi verificado.' });
+  }
+
+  try {
+    // Invalidar tokens antigos
+    db.prepare('UPDATE email_verifications SET verificado = 1 WHERE usuario_id = ? AND verificado = 0').run(u.id);
+
+    // Gerar novo token
+    const token = gerarTokenVerificacao();
+    const expiracaoToken = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    db.prepare(`
+      INSERT INTO email_verifications (usuario_id, token, expira_em)
+      VALUES (?, ?, ?)
+    `).run(u.id, token, expiracaoToken.toISOString());
+
+    // Enviar email
+    const linkVerificacao = `${process.env.SITE_URL || 'https://easygestion.com'}/verificar-email.html?token=${token}`;
+    await enviarEmail(email.trim(), 'Confirme seu email - EasyGestão', `
+      <h2>Novo link de verificação</h2>
+      <p>Clique no link abaixo para confirmar seu email:</p>
+      <p><a href="${linkVerificacao}">Confirmar Email</a></p>
+      <p>Ou copie e cole este link no seu navegador:<br>${linkVerificacao}</p>
+      <p><strong>Este link expira em 24 horas.</strong></p>
+    `);
+
+    console.log(`[VERIFICACAO REENVIADA] ${email} • ${req.ip}`);
+    return res.json({ ok: true, mensagem: 'Email de verificação enviado!' });
+  } catch (e) {
+    console.error('[RESEND VERIFICATION] Erro:', e.message);
+    return res.status(500).json({ erro: 'Erro ao reenviar email. Tente novamente.' });
   }
 });
 
