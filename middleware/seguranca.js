@@ -50,7 +50,9 @@ function validarNaoReutilizada(novaSenha, senhaAntigaHash) {
 const PUBLICAS = [
   '/api/login',
   '/api/admin/login',           // novo: login admin por senha
-  '/api/registro',              // novo: cadastro de contas (SaaS)
+  '/api/registro',              // signup de novo tenant
+  '/api/verify-email',          // verificar email após signup
+  '/api/resend-verification',   // reenviar link de verificação
   '/api/logout',
   '/api/me',                    // decide sozinho se está logado (retorna 401 se não)
   '/api/forgot-password',       // redefinir senha

@@ -7,128 +7,38 @@
   <link rel="icon" type="image/png" href="favicon.png">
   <link rel="stylesheet" href="css/ds.css">
   <style>
+    /* Estilos específicos do painel */
     .metas-aneis { display:grid; grid-template-columns:repeat(2,1fr); gap:16px; margin-bottom:20px; }
     @media (max-width:560px){ .metas-aneis{ grid-template-columns:1fr 1fr; gap:10px; } }
-    .anel-card {
-      background:var(--surface,#fff); border:1px solid var(--linha,#eee); border-radius:16px;
-      padding:18px 14px; display:flex; flex-direction:column; align-items:center; gap:8px;
-      box-shadow:0 1px 3px rgba(0,0,0,.05);
-    }
-    .anel-titulo { font-size:.92rem; font-weight:600; color:var(--tinta-2,#777); }
-    .anel { width:150px; height:150px; max-width:42vw; }
-    .anel-fundo { fill:none; stroke:var(--surface-2,#f0ece3); stroke-width:11; }
-    .anel-prog {
-      fill:none; stroke:var(--dourado,#C9A24B); stroke-width:11; stroke-linecap:round;
-      /* começa do topo (12h) e preenche no sentido horário */
-      transform:rotate(-90deg); transform-origin:50% 50%;
-      stroke-dasharray:326.7; stroke-dashoffset:326.7;
-      transition:stroke-dashoffset .9s ease, stroke .3s;
-    }
-    .anel-prog.batida { stroke:var(--verde,#3FA66A); }
-    .anel-pct {
-      font-size:24px; font-weight:700; fill:var(--marrom,#6B4F3A);
-      text-anchor:middle; dominant-baseline:central;
-    }
-    .anel-valores { font-size:.86rem; color:var(--tinta-2,#777); text-align:center; }
 
-    /* Modal de Onboarding */
-    .onboarding-modal {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.6);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 2000;
-      opacity: 0;
-      visibility: hidden;
-      transition: opacity 0.3s, visibility 0.3s;
-    }
+    /* Override do spinner de onboarding skip */
+    .btn-skip:hover { background: #e0e0e0; }
 
-    .onboarding-modal.show {
-      opacity: 1;
-      visibility: visible;
-    }
-
-    .onboarding-content {
-      background: white;
-      border-radius: 16px;
-      padding: 40px;
-      max-width: 500px;
-      width: 90%;
-      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-      text-align: center;
-    }
-
-    .onboarding-content h1 {
-      font-size: 28px;
-      margin-bottom: 15px;
-      color: var(--cor, #1B5E3F);
-    }
-
-    .onboarding-content p {
-      color: #666;
-      margin-bottom: 20px;
-      line-height: 1.6;
-    }
-
-    .onboarding-buttons {
-      display: flex;
-      gap: 10px;
-      margin-top: 30px;
-    }
-
-    .onboarding-buttons button {
-      flex: 1;
-      padding: 12px 20px;
-      border: none;
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.3s;
-    }
-
-    .btn-skip {
-      background: #f0f0f0;
-      color: #333;
-    }
-
-    .btn-skip:hover {
-      background: #e0e0e0;
-    }
-
+    /* Botão de início com cor dinâmica */
     .btn-start {
-      background: var(--cor, #1B5E3F);
+      background: var(--marca);
       color: white;
     }
-
     .btn-start:hover {
-      background: #0d3a24;
+      background: var(--marca-escura);
       transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(27, 94, 63, 0.3);
+      box-shadow: 0 4px 12px rgba(26, 111, 94, 0.3);
     }
 
     /* Checklist de Onboarding */
     .onboarding-checklist {
       background: linear-gradient(135deg, #f5f9f8 0%, #fffbf0 100%);
-      border: 2px solid var(--cor, #1B5E3F);
+      border: 2px solid var(--marca);
       border-radius: 12px;
       padding: 20px;
       margin-bottom: 20px;
       display: none;
     }
-
-    .onboarding-checklist.show {
-      display: block;
-    }
+    .onboarding-checklist.show { display: block; }
 
     .checklist-titulo {
       font-weight: 700;
-      color: var(--cor, #1B5E3F);
+      color: var(--marca);
       margin-bottom: 15px;
       display: flex;
       align-items: center;
@@ -140,12 +50,9 @@
       align-items: center;
       gap: 12px;
       padding: 10px 0;
-      border-bottom: 1px solid rgba(27, 94, 63, 0.1);
+      border-bottom: 1px solid rgba(26, 111, 94, 0.1);
     }
-
-    .checklist-item:last-child {
-      border-bottom: none;
-    }
+    .checklist-item:last-child { border-bottom: none; }
 
     .checklist-check {
       width: 24px;
@@ -160,7 +67,6 @@
       font-weight: bold;
       transition: all 0.3s;
     }
-
     .checklist-item.done .checklist-check {
       background: #3FA66A;
       color: white;
@@ -172,7 +78,6 @@
       text-align: left;
       color: #333;
     }
-
     .checklist-item.done .checklist-label {
       color: #999;
       text-decoration: line-through;
@@ -180,7 +85,7 @@
 
     .checklist-action {
       padding: 4px 12px;
-      background: var(--cor, #1B5E3F);
+      background: var(--marca);
       color: white;
       border: none;
       border-radius: 4px;
@@ -188,10 +93,7 @@
       cursor: pointer;
       transition: all 0.3s;
     }
-
-    .checklist-action:hover {
-      background: #0d3a24;
-    }
+    .checklist-action:hover { background: var(--marca-escura); }
   </style>
 </head>
 <body>
