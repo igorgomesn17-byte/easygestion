@@ -8,38 +8,32 @@
   <meta http-equiv="Expires" content="0" />
   <title>Entrar • EasyGestão</title>
   <link rel="icon" type="image/png" href="favicon.png">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/ds.css">
   <style>
-    :root{ --marrom:#1a6f5e; --marrom-escuro:#0f4a3e; --dourado:#d4a017; --dourado-claro:#e8c98f;
-      --creme:#f9fbfa; --tinta:#2d3436; --linha:#e0e8e5;
-      /* cor da marca (o JS sobrescreve com a cor da loja). Default = verde EasyGestão. */
-      --marca:#1a6f5e; --marca-escura:#0f4a3e; }
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Inter',system-ui,sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;
-      background:linear-gradient(160deg,var(--marca) 0%,var(--marca-escura) 100%);padding:20px;color:var(--tinta)}
-    .card{background:#fff;border-radius:18px;box-shadow:0 18px 50px rgba(0,0,0,.3);width:100%;max-width:380px;padding:38px 30px;text-align:center}
+    body{min-height:100vh;display:flex;align-items:center;justify-content:center;
+      background:linear-gradient(160deg,var(--marca) 0%,var(--marca-escura) 100%);padding:20px;}
+    .card{background:var(--surface);border-radius:18px;box-shadow:0 18px 50px rgba(0,0,0,.3);width:100%;max-width:380px;padding:38px 30px;text-align:center}
     .logo{height:auto;max-width:280px;max-height:80px;margin:0 auto 12px;filter:drop-shadow(0 3px 8px rgba(0,0,0,.12));object-fit:contain;display:block}
-    .marca{font-family:'Inter',sans-serif;font-weight:700;letter-spacing:1px;font-size:1.4rem;color:var(--marrom-escuro);display:none}
-    .sub{color:#5b6470;font-size:.85rem;letter-spacing:2px;margin:6px 0 26px;text-transform:uppercase}
-    label{display:block;text-align:left;font-size:.82rem;font-weight:500;color:#5b6470;margin:14px 0 5px}
-    input{width:100%;min-height:50px;padding:12px 14px;border:1px solid var(--linha);border-radius:11px;font-size:16px;font-family:inherit}
+    .marca{font-family:inherit;font-weight:700;letter-spacing:1px;font-size:1.4rem;color:var(--marca-escura);display:none}
+    .sub{color:var(--tinta-2);font-size:.85rem;letter-spacing:2px;margin:6px 0 26px;text-transform:uppercase}
+    label{display:block;text-align:left;font-size:.82rem;font-weight:500;color:var(--tinta-2);margin:14px 0 5px}
+    input{width:100%;min-height:50px;padding:12px 14px;border:1px solid var(--linha);border-radius:var(--radius-sm);font-size:16px;font-family:inherit}
     input:focus{outline:none;border-color:var(--marca);box-shadow:0 0 0 3px rgba(26,111,94,.15)}
     .password-wrapper{position:relative}
     .password-wrapper input{padding-right:40px}
     .toggle-senha{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:0;border:0;cursor:pointer;font-size:16px;color:#aaa;padding:6px;margin:0;transition:color .2s;z-index:10}
     .toggle-senha:hover{color:var(--marca)}
-    button:not(.toggle-senha){width:100%;min-height:52px;margin-top:22px;border:none;border-radius:12px;background:var(--marca);color:#fff;
+    button:not(.toggle-senha){width:100%;min-height:52px;margin-top:22px;border:none;border-radius:var(--radius-sm);background:var(--marca);color:#fff;
       font-family:inherit;font-weight:600;font-size:1rem;cursor:pointer;transition:background .2s}
     button:hover{background:var(--marca-escura)}
     button:disabled{opacity:.6;cursor:wait}
-    .erro{color:#C0392B;font-size:.85rem;margin-top:14px;min-height:18px}
+    .erro{color:var(--vermelho);font-size:.85rem;margin-top:14px;min-height:18px}
     .links{display:flex;justify-content:center;gap:16px;margin-top:18px;flex-wrap:wrap}
-    .voltar{display:inline-block;font-size:.82rem;color:#3a9580;text-decoration:none}
-    .voltar:hover{color:var(--marca)}
-    .esqueci{display:inline-block;font-size:.82rem;color:#3a9580;text-decoration:none}
-    .esqueci:hover{color:var(--marca)}
-    .termos-group{display:flex;align-items:flex-start;gap:8px;margin:18px 0;font-size:.78rem;color:#5b6470}
+    .voltar{display:inline-block;font-size:.82rem;color:var(--marca);text-decoration:none}
+    .voltar:hover{color:var(--marca-escura)}
+    .esqueci{display:inline-block;font-size:.82rem;color:var(--marca);text-decoration:none}
+    .esqueci:hover{color:var(--marca-escura)}
+    .termos-group{display:flex;align-items:flex-start;gap:8px;margin:18px 0;font-size:.78rem;color:var(--tinta-2)}
     .termos-group input[type="checkbox"]{width:18px;height:18px;margin-top:2px;cursor:pointer;flex-shrink:0}
     .termos-group label{margin:0;font-weight:400;display:inline;cursor:pointer}
     .termos-group a{color:var(--marca);text-decoration:none;font-weight:500}
