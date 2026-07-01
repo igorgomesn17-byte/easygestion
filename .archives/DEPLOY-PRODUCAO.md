@@ -25,8 +25,8 @@
 ```
 ✓ NODE_ENV=production
 ✓ PORT=3001
-✓ ORIGIN=https://app.easygestao.com
-✓ SITE_URL=https://app.easygestao.com
+✓ ORIGIN=https://[DOMINIO-PRODUCAO]
+✓ SITE_URL=https://[DOMINIO-PRODUCAO]
 ✓ TOKEN_SECRET configurado
 ✓ CERT_CIPHER_KEY configurado
 ✓ DEPLOY_TOKEN configurado
