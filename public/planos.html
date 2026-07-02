@@ -266,6 +266,14 @@
       try {
         // Verificar se está autenticado
         const meResp = await fetch('/api/me', { credentials: 'include' });
+        if (!meResp.ok) {
+          btn.disabled = false;
+          btn.textContent = 'Contratar';
+          alert('❌ Erro ao verificar autenticação. Tente fazer login novamente.');
+          window.location.href = '/login.html?redirect=/planos.html';
+          return;
+        }
+
         const meData = await meResp.json();
 
         if (!meData.logado) {
