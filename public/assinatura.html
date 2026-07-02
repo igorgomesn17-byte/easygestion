@@ -1,4 +1,4 @@
-<DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -7,28 +7,46 @@
   <link rel="icon" type="image/png" href="favicon.png">
   <link rel="stylesheet" href="css/ds.css">
   <style>
-    .container-assinatura {
-      max-width: 800px;
-      margin: 40px auto;
-      padding: 0 20px;
+    body {
+      background: #f5f5f5;
+      padding: 20px;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .header h1 {
+      font-size: 28px;
+      font-weight: 800;
+      margin: 0 0 8px;
+      color: var(--tinta);
+    }
+    .header p {
+      font-size: 14px;
+      color: var(--tinta-2);
+      margin: 0;
     }
 
-    .card-assinatura {
-      background: #fff;
-      border: 1px solid #eee;
-      border-radius: 12px;
+    .card {
+      background: white;
+      border: 1px solid var(--linha);
+      border-radius: var(--radius);
       padding: 30px;
-      margin-bottom: 20px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      margin-bottom: 25px;
+      box-shadow: var(--shadow-xs);
     }
 
     .titulo-secao {
-      font-size: 18px;
+      font-size: 16px;
       font-weight: 700;
-      color: #1B5E3F;
+      color: var(--marca);
       margin-bottom: 20px;
-      border-bottom: 2px solid #1B5E3F;
       padding-bottom: 10px;
+      border-bottom: 2px solid var(--marca-claro);
     }
 
     .plano-atual {
@@ -36,271 +54,270 @@
       justify-content: space-between;
       align-items: center;
       padding: 20px;
-      background: #f9f9f9;
+      background: var(--surface-alt);
       border-radius: 8px;
       margin-bottom: 20px;
     }
 
     .plano-info h2 {
-      font-size: 24px;
-      color: #1B5E3F;
+      font-size: 22px;
+      color: var(--marca);
       margin: 0 0 5px 0;
+      font-weight: 700;
     }
 
     .plano-info p {
-      color: #777;
+      color: var(--tinta-2);
       margin: 0;
-      font-size: 14px;
+      font-size: 13px;
     }
 
     .status-badge {
       display: inline-block;
-      padding: 8px 16px;
+      padding: 8px 14px;
       border-radius: 20px;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
     }
 
     .status-badge.ativo {
-      background: #d4edda;
-      color: #155724;
+      background: rgba(26, 111, 94, 0.12);
+      color: var(--marca);
     }
 
     .status-badge.trial {
-      background: #cce5ff;
-      color: #004085;
+      background: rgba(100, 149, 237, 0.12);
+      color: #0052cc;
     }
 
-    .status-badge.vencido {
-      background: #f8d7da;
-      color: #721c24;
-    }
-
-    .status-badge.bloqueado {
-      background: #f5c6cb;
-      color: #721c24;
-    }
-
-    .detalhes-assinatura {
+    .detalhes {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 20px;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 15px;
       margin-bottom: 20px;
     }
 
     .detalhe-item {
       padding: 15px;
-      background: #f9f9f9;
+      background: var(--surface-alt);
       border-radius: 8px;
+      border-left: 3px solid var(--marca);
     }
 
     .detalhe-label {
-      font-size: 12px;
-      color: #999;
+      font-size: 11px;
+      color: var(--tinta-2);
       text-transform: uppercase;
       margin-bottom: 5px;
     }
 
     .detalhe-valor {
-      font-size: 18px;
+      font-size: 16px;
       font-weight: 700;
-      color: #1B5E3F;
+      color: var(--marca);
     }
 
-    .botoes-acao {
+    .botoes {
       display: flex;
-      gap: 10px;
-      margin-bottom: 30px;
+      gap: 12px;
+      margin-top: 20px;
     }
 
     .btn {
       flex: 1;
-      padding: 12px 20px;
+      padding: 12px;
       border: none;
-      border-radius: 8px;
-      font-size: 14px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
       font-weight: 600;
       cursor: pointer;
-      transition: all 0.3s ease;
-      text-decoration: none;
-      text-align: center;
-      display: inline-block;
+      transition: all 0.3s;
     }
 
     .btn-primary {
-      background: #1B5E3F;
+      background: var(--marca);
       color: white;
     }
 
     .btn-primary:hover {
-      background: #0d3a24;
+      background: var(--marca-escura);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(26, 111, 94, 0.25);
     }
 
     .btn-secondary {
-      background: #e9ecef;
-      color: #333;
+      background: var(--surface-alt);
+      color: var(--tinta);
+      border: 1px solid var(--linha);
     }
 
     .btn-secondary:hover {
-      background: #dee2e6;
-    }
-
-    .btn:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    .historico-pagamentos {
-      margin-top: 40px;
-    }
-
-    .tabela-pagamentos {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 14px;
-    }
-
-    .tabela-pagamentos th {
-      background: #f9f9f9;
-      padding: 12px;
-      text-align: left;
-      font-weight: 600;
-      color: #666;
-      border-bottom: 2px solid #eee;
-    }
-
-    .tabela-pagamentos td {
-      padding: 12px;
-      border-bottom: 1px solid #eee;
-    }
-
-    .status-pago {
-      color: #28a745;
-      font-weight: 600;
-    }
-
-    .status-pendente {
-      color: #ffc107;
-      font-weight: 600;
-    }
-
-    .status-falhou {
-      color: #dc3545;
-      font-weight: 600;
-    }
-
-    .empty-state {
-      text-align: center;
-      padding: 40px;
-      color: #999;
-    }
-
-    .empty-state p {
-      margin: 10px 0;
+      border-color: var(--marca);
+      background: #fafafa;
     }
 
     .alerta {
       padding: 15px;
       border-radius: 8px;
       margin-bottom: 20px;
-      font-size: 14px;
+      font-size: 13px;
+      border-left: 4px solid;
     }
 
     .alerta-info {
-      background: #cce5ff;
-      color: #004085;
-      border-left: 4px solid #004085;
+      background: rgba(100, 149, 237, 0.08);
+      color: #0052cc;
+      border-color: #0052cc;
     }
 
     .alerta-warning {
-      background: #fff3cd;
+      background: rgba(255, 193, 7, 0.08);
       color: #856404;
-      border-left: 4px solid #ffc107;
+      border-color: #ff9800;
     }
 
     .alerta-danger {
-      background: #f8d7da;
-      color: #721c24;
-      border-left: 4px solid #dc3545;
+      background: rgba(220, 53, 69, 0.08);
+      color: #c41c3b;
+      border-color: #d32f2f;
+    }
+
+    .tabela {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .tabela th {
+      background: var(--surface-alt);
+      padding: 12px;
+      text-align: left;
+      font-weight: 600;
+      color: var(--tinta-2);
+      border-bottom: 2px solid var(--linha);
+    }
+
+    .tabela td {
+      padding: 12px;
+      border-bottom: 1px solid var(--linha);
+    }
+
+    .tabela tbody tr:hover {
+      background: var(--surface-alt);
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px;
+      color: var(--tinta-2);
     }
 
     .loading {
+      display: none;
       text-align: center;
       padding: 20px;
-      color: #777;
+    }
+
+    .loading.show {
+      display: block;
     }
 
     .spinner {
-      display: inline-block;
-      width: 20px;
-      height: 20px;
-      border: 3px solid #f3f3f3;
-      border-top: 3px solid #1B5E3F;
+      border: 3px solid var(--linha);
+      border-top-color: var(--marca);
       border-radius: 50%;
-      animation: spin 1s linear infinite;
+      width: 28px;
+      height: 28px;
+      animation: spin 0.7s linear infinite;
+      margin: 0 auto 10px;
     }
 
     @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
+      to { transform: rotate(360deg); }
     }
 
-    @media (max-width: 600px) {
-      .detalhes-assinatura {
-        grid-template-columns: 1fr;
-      }
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+    }
 
-      .botoes-acao {
-        flex-direction: column;
-      }
+    .modal-overlay.show {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-content {
+      background: white;
+      border-radius: 12px;
+      max-width: 600px;
+      width: 90%;
+      max-height: 90vh;
+      overflow-y: auto;
+      position: relative;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+
+    .modal-fechar {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      color: #999;
+      width: 32px;
+      height: 32px;
+      padding: 0;
+    }
+
+    .modal-fechar:hover {
+      color: #333;
+    }
+
+    @media (max-width: 640px) {
+      .card { padding: 20px; }
+      .botoes { flex-direction: column; }
+      .detalhes { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
-  <div class="navbar">
-    <div class="navbar-content">
-      <div class="navbar-brand">
-        <img src="favicon.png" alt="EasyGestão" class="navbar-logo">
-        <span>EasyGestão</span>
-      </div>
-      <div class="navbar-menu">
-        <a href="index.html" class="navbar-link">Painel</a>
-        <a href="assinatura.html" class="navbar-link active">Assinatura</a>
-        <a href="minha-conta.html" class="navbar-link">Minha Conta</a>
-        <a href="#" onclick="logout()" class="navbar-link">Logout</a>
-      </div>
+  <div class="container">
+    <div class="header">
+      <h1>Minha Assinatura</h1>
+      <p>Gerencie seu plano e pagamentos</p>
     </div>
-  </div>
 
-  <div class="container-assinatura">
-    <h1>Minha Assinatura</h1>
+    <div id="alertCheckout" style="display:none;"></div>
 
-    
-    <div id="alertCheckout" style="display: none;"></div>
-
-    
-    <div class="card-assinatura">
+    <!-- PLANO ATUAL -->
+    <div class="card">
       <div class="titulo-secao">Plano Atual</div>
 
-      <div id="loadingAssinatura" class="loading" style="display: none;">
+      <div class="loading show" id="loading">
         <div class="spinner"></div>
         <p>Carregando informações...</p>
       </div>
 
-      <div id="conteudoAssinatura" style="display: none;">
+      <div id="conteudoAssinatura" style="display:none;">
         <div class="plano-atual">
           <div class="plano-info">
             <h2 id="nomePlano">-</h2>
             <p id="valorPlano">-</p>
           </div>
-          <div>
-            <span class="status-badge" id="statusBadge">-</span>
-          </div>
+          <span class="status-badge" id="statusBadge">-</span>
         </div>
 
-        <div class="detalhes-assinatura">
+        <div class="detalhes">
           <div class="detalhe-item">
             <div class="detalhe-label">Próxima Renovação</div>
             <div class="detalhe-valor" id="proximaRenovacao">-</div>
@@ -314,39 +331,40 @@
             <div class="detalhe-valor" id="dataInicio">-</div>
           </div>
           <div class="detalhe-item">
-            <div class="detalhe-label">Status Atual</div>
+            <div class="detalhe-label">Status</div>
             <div class="detalhe-valor" id="statusTexto">-</div>
           </div>
         </div>
 
         <div id="alertasAssinatura"></div>
 
-        <div class="botoes-acao">
-          <button class="btn btn-primary" id="btnUpgrade" onclick="abrirCheckout()">Upgrade de Plano</button>
-          <button class="btn btn-secondary" id="btnPortal" onclick="abrirPortal()">Gerenciar Plano</button>
+        <div class="botoes">
+          <button class="btn btn-primary" id="btnUpgrade" onclick="abrirCheckout()">Contratar Plano</button>
+          <button class="btn btn-secondary" id="btnPortal" onclick="abrirPortal()" style="display:none;">Gerenciar Pagamento</button>
         </div>
       </div>
 
-      <div id="semAssinatura" style="display: none;">
+      <div id="semAssinatura" style="display:none;">
         <div class="empty-state">
           <p>Você está em período de teste.</p>
           <p>Escolha um plano abaixo para continuar usando a plataforma após o teste.</p>
           <br>
-          <button class="btn btn-primary" onclick="abrirCheckout()">Escolher Plano</button>
+          <button class="btn btn-primary" onclick="abrirCheckout()" style="width:200px;">Contratar Plano</button>
         </div>
       </div>
     </div>
 
-    <div class="card-assinatura historico-pagamentos">
+    <!-- HISTÓRICO DE PAGAMENTOS -->
+    <div class="card">
       <div class="titulo-secao">Histórico de Pagamentos</div>
 
-      <div id="loadingHistorico" class="loading" style="display: none;">
+      <div class="loading show" id="loadingHistorico">
         <div class="spinner"></div>
         <p>Carregando histórico...</p>
       </div>
 
-      <div id="tabelaPagamentos" style="display: none; overflow-x: auto;">
-        <table class="tabela-pagamentos">
+      <div id="tabelaPagamentos" style="display:none;">
+        <table class="tabela">
           <thead>
             <tr>
               <th>Data</th>
@@ -355,15 +373,20 @@
               <th>Método</th>
             </tr>
           </thead>
-          <tbody id="corpoPagamentos">
-            
-          </tbody>
+          <tbody id="corpoPagamentos"></tbody>
         </table>
       </div>
 
-      <div id="semHistorico" class="empty-state" style="display: none;">
+      <div id="semHistorico" class="empty-state" style="display:none;">
         <p>Nenhum pagamento registrado ainda.</p>
       </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modalCheckout">
+    <div class="modal-content">
+      <button class="modal-fechar" onclick="fecharModal()">✕</button>
+      <div id="stripeContainer" style="padding: 24px;"></div>
     </div>
   </div>
 
@@ -371,54 +394,52 @@
     async function carregarAssinatura() {
       try {
         const resp = await fetch('/api/assinaturas/minha');
-        const dados = await resp.json();
+        const { assinatura, status } = await resp.json();
 
-        document.getElementById('loadingAssinatura').style.display = 'none';
+        document.getElementById('loading').classList.remove('show');
 
-        if (dados.assinatura) {
+        if (!assinatura) {
           document.getElementById('semAssinatura').style.display = 'block';
           return;
         }
 
-        const { assinatura, status } = dados;
-
         document.getElementById('conteudoAssinatura').style.display = 'block';
         document.getElementById('nomePlano').textContent = assinatura.plano.charAt(0).toUpperCase() + assinatura.plano.slice(1);
-        document.getElementById('valorPlano').textContent = `R$ ${assinatura.valor_mensal.toFixed(2).replace('.', ',')} / mês`;
+        document.getElementById('valorPlano').textContent = `R$ ${parseFloat(assinatura.valor_mensal).toFixed(2).replace('.', ',')} / mês`;
         document.getElementById('proximaRenovacao').textContent = new Date(assinatura.data_proxima_renovacao).toLocaleDateString('pt-BR');
         document.getElementById('dataInicio').textContent = new Date(assinatura.data_inicio).toLocaleDateString('pt-BR');
         document.getElementById('statusTexto').textContent = status.status.toUpperCase();
 
-        // Atualizar badge de status
         const badge = document.getElementById('statusBadge');
         badge.className = `status-badge ${status.status}`;
         badge.textContent = status.status.toUpperCase();
 
-        // Calcular dias restantes
+        if (status.status === 'ativo') {
+          document.getElementById('btnPortal').style.display = 'block';
+        }
+
         const hoje = new Date();
         const proxRenovacao = new Date(assinatura.data_proxima_renovacao);
         const diasRestantes = Math.ceil((proxRenovacao - hoje) / (1000 * 60 * 60 * 24));
         document.getElementById('diasRestantes').textContent = Math.max(0, diasRestantes);
 
-        // Alertas
         const alertas = document.getElementById('alertasAssinatura');
         alertas.innerHTML = '';
 
         if (status.bloqueado) {
-          alertas.innerHTML += `<div class="alerta alerta-danger">
+          alertas.innerHTML = `<div class="alerta alerta-danger">
             <strong>⚠️ Sua conta foi bloqueada</strong><br>
-            ${status.motivo}. Clique em "Gerenciar Plano" para reativar.
+            ${status.motivo || 'Pagamento não confirmado'}. Clique em "Gerenciar Pagamento" para reativar.
           </div>`;
         } else if (diasRestantes <= 7 && diasRestantes > 0) {
-          alertas.innerHTML += `<div class="alerta alerta-warning">
-            <strong>⏰ Sua assinatura vence em ${diasRestantes} dia${diasRestantes == 1 ? 's' : ''}</strong><br>
-            Nenhuma ação necessária — renoveremos automaticamente.
+          alertas.innerHTML = `<div class="alerta alerta-warning">
+            <strong>⏰ Sua assinatura vence em ${diasRestantes} dia${diasRestantes == 1 ? '' : 's'}</strong><br>
+            Renovaremos automaticamente. Nenhuma ação necessária.
           </div>`;
         }
-
       } catch (err) {
-        console.error('Erro ao carregar assinatura:', err);
-        document.getElementById('loadingAssinatura').innerHTML = '<p style="color: red;">Erro ao carregar assinatura</p>';
+        console.error('Erro:', err);
+        document.getElementById('loading').innerHTML = '<p style="color:#d32f2f;">Erro ao carregar assinatura</p>';
       }
     }
 
@@ -427,9 +448,9 @@
         const resp = await fetch('/api/assinaturas/pagamentos');
         const { cobracas } = await resp.json();
 
-        document.getElementById('loadingHistorico').style.display = 'none';
+        document.getElementById('loadingHistorico').classList.remove('show');
 
-        if (cobracas || cobracas.length === 0) {
+        if (!cobracas || cobracas.length === 0) {
           document.getElementById('semHistorico').style.display = 'block';
           return;
         }
@@ -439,44 +460,70 @@
         corpo.innerHTML = '';
 
         cobracas.forEach(c => {
-          const statusClass = `status-${c.status}`;
           const statusTexto = {
             'pago': '✅ Pago',
             'pendente': '⏳ Pendente',
             'falhou': '❌ Falhou'
           }[c.status] || c.status;
 
-          const metodo = c.metodo_pagamento || 'Stripe';
-
           corpo.innerHTML += `
             <tr>
               <td>${new Date(c.data_cobranca).toLocaleDateString('pt-BR')}</td>
               <td>R$ ${parseFloat(c.valor).toFixed(2).replace('.', ',')}</td>
-              <td class="${statusClass}">${statusTexto}</td>
-              <td>${metodo}</td>
+              <td>${statusTexto}</td>
+              <td>${c.metodo_pagamento || 'Stripe'}</td>
             </tr>
           `;
         });
       } catch (err) {
-        console.error('Erro ao carregar pagamentos:', err);
-        document.getElementById('loadingHistorico').innerHTML = '<p style="color: red;">Erro ao carregar histórico</p>';
+        console.error('Erro:', err);
+        document.getElementById('loadingHistorico').innerHTML = '<p style="color:#d32f2f;">Erro ao carregar histórico</p>';
       }
     }
 
     async function abrirCheckout() {
+      document.getElementById('modalCheckout').classList.add('show');
+
       try {
-        document.getElementById('btnUpgrade').disabled = true;
-        window.location.href = '/planos.html';
+        const resp = await fetch('/api/assinaturas/checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tipo_plano: 'mensal' })
+        });
+
+        const dados = await resp.json();
+
+        if (dados.checkout_url) {
+          const iframe = document.createElement('iframe');
+          iframe.src = dados.checkout_url;
+          iframe.style.width = '100%';
+          iframe.style.height = '600px';
+          iframe.style.border = 'none';
+          iframe.style.borderRadius = '12px';
+          document.getElementById('stripeContainer').innerHTML = '';
+          document.getElementById('stripeContainer').appendChild(iframe);
+        } else {
+          alert('Erro ao abrir checkout');
+          fecharModal();
+        }
       } catch (err) {
         console.error('Erro:', err);
-        document.getElementById('btnUpgrade').disabled = false;
+        alert('Erro ao processar');
+        fecharModal();
       }
     }
 
+    function fecharModal() {
+      document.getElementById('modalCheckout').classList.remove('show');
+      document.getElementById('stripeContainer').innerHTML = '';
+    }
+
+    document.getElementById('modalCheckout').addEventListener('click', (e) => {
+      if (e.target.id === 'modalCheckout') fecharModal();
+    });
+
     async function abrirPortal() {
       try {
-        document.getElementById('btnPortal').disabled = true;
-
         const resp = await fetch('/api/assinaturas/portal');
         const { portal_url } = await resp.json();
 
@@ -484,53 +531,14 @@
           window.location.href = portal_url;
         } else {
           alert('Erro ao abrir portal');
-          document.getElementById('btnPortal').disabled = false;
         }
       } catch (err) {
         console.error('Erro:', err);
         alert('Erro ao abrir portal');
-        document.getElementById('btnPortal').disabled = false;
       }
     }
 
-    function logout() {
-      fetch('/api/logout', { method: 'POST' }).then(() => {
-        window.location.href = '/login.html';
-      });
-    }
-
-    // Verificar checkout no URL
-    function verificarCheckout() {
-      const params = new URLSearchParams(window.location.search);
-      const status = params.get('checkout');
-
-      if (status === 'sucesso') {
-        const alert = document.getElementById('alertCheckout');
-        alert.innerHTML = `
-          <div class="alerta alerta-info">
-            <strong>✅ Pagamento recebido</strong><br>
-            Sua assinatura foi ativada com sucesso. Você já pode usar todas as funcionalidades.
-          </div>
-        `;
-        alert.style.display = 'block';
-        window.history.replaceState({}, document.title, '/assinatura.html');
-        setTimeout(() => carregarAssinatura(), 1000);
-      } else if (status === 'cancelado') {
-        const alert = document.getElementById('alertCheckout');
-        alert.innerHTML = `
-          <div class="alerta alerta-warning">
-            <strong>⏳ Checkout cancelado</strong><br>
-            Você cancelou o checkout. Pode tentar novamente quando quiser.
-          </div>
-        `;
-        alert.style.display = 'block';
-        window.history.replaceState({}, document.title, '/assinatura.html');
-      }
-    }
-
-    // Inicializar
     document.addEventListener('DOMContentLoaded', () => {
-      verificarCheckout();
       carregarAssinatura();
       carregarPagamentos();
     });

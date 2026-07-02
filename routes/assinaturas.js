@@ -87,7 +87,9 @@ router.get('/pagamentos', (req, res) => {
 });
 
 // --- POST /checkout → inicia Stripe Checkout Session ---
+// NOTA: Mesmo que público, valida session + tenant_id internamente
 router.post('/checkout', (req, res) => {
+  // Exigir autenticação E tenant_id
   if (!req.session?.logado || !req.session?.tenant_id) {
     return res.status(401).json({ erro: 'Não autenticado' });
   }

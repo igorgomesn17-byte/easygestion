@@ -155,7 +155,7 @@ const TITULOS = {
   financeiro:'Despesas e contas', 'fluxo-caixa':'Fluxo de caixa', fluxo:'DRE',
   nfce:'Notas fiscais (NFC-e)', produtos:'Produtos',
   estoque:'Estoque', clientes:'Clientes',
-  vendedores:'Equipe', assinatura:'Minha Assinatura', config:'Configurações',
+  vendedores:'Equipe', assinatura:'Minha Assinatura', planos:'Escolha seu Plano', config:'Configurações',
 };
 
 // ---------- Identidade da loja (personalização self-service) ----------
