@@ -146,6 +146,79 @@ Exemplos:
 }
 app.use(cors({ origin: ORIGIN, credentials: true }));
 
+// ---------- Validação de SESSION_SECRET (ANTES de inicializar session) ----------
+if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32) {
+  console.error('❌ ERRO: SESSION_SECRET deve ter no mínimo 32 caracteres!');
+  process.exit(1);
+}
+
+// Store customizado: SQLite para express-session
+class SQLiteSessionStore extends session.Store {
+  constructor(db) {
+    super();
+    this.db = db;
+  }
+
+  get(sid, callback) {
+    try {
+      const row = this.db.prepare('SELECT sess FROM sessions WHERE sid = ? AND expire > ?').get(sid, Math.floor(Date.now() / 1000));
+      if (!row) return callback(null, null);
+      callback(null, JSON.parse(row.sess));
+    } catch (err) {
+      console.error('[SESSION STORE GET ERROR]', err);
+      callback(err);
+    }
+  }
+
+  set(sid, sess, callback) {
+    try {
+      const expire = Math.floor(Date.now() / 1000) + (sess.cookie.maxAge ? Math.floor(sess.cookie.maxAge / 1000) : 12 * 60 * 60);
+      this.db.prepare('INSERT OR REPLACE INTO sessions (sid, sess, expire) VALUES (?, ?, ?)').run(sid, JSON.stringify(sess), expire);
+      callback(null);
+    } catch (err) {
+      console.error('[SESSION STORE SET ERROR]', err);
+      callback(err);
+    }
+  }
+
+  destroy(sid, callback) {
+    try {
+      this.db.prepare('DELETE FROM sessions WHERE sid = ?').run(sid);
+      callback(null);
+    } catch (err) {
+      console.error('[SESSION STORE DESTROY ERROR]', err);
+      callback(err);
+    }
+  }
+
+  clear(callback) {
+    try {
+      this.db.prepare('DELETE FROM sessions').run();
+      callback(null);
+    } catch (err) {
+      console.error('[SESSION STORE CLEAR ERROR]', err);
+      callback(err);
+    }
+  }
+}
+
+const store = new SQLiteSessionStore(db);
+
+// ✅ INICIALIZAR SESSION AQUI (logo após CORS)
+app.use(session({
+  name: 'ds.sid',
+  secret: process.env.SESSION_SECRET,
+  store: store,
+  resave: false,
+  saveUninitialized: true,
+  cookie: {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 12 * 60 * 60 * 1000,
+  },
+}));
+
 // ---------- Health check (público, sem autenticação) ----------
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', ts: new Date().toISOString(), uptime: process.uptime() });
@@ -182,80 +255,7 @@ app.use('/api/deploy', require('./routes/deploy'));
 app.use(express.json({ limit: '8mb', verify: (req, _res, buf) => { req.rawBody = buf.toString('utf8'); } }));
 app.use(express.urlencoded({ extended: true, limit: '8mb' }));
 
-// ---------- Sessão com Store SQLite (persist entre restarts) ----------
-if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32) {
-  console.error('❌ ERRO: SESSION_SECRET deve ter no mínimo 32 caracteres!');
-  process.exit(1);
-}
-
-// Store customizado: SQLite para express-session
-class SQLiteSessionStore extends session.Store {
-  constructor(db) {
-    super();
-    this.db = db;
-  }
-
-  get(sid, callback) {
-    try {
-      const row = this.db.prepare('SELECT sess FROM sessions WHERE sid = ? AND expire > ?').get(sid, Math.floor(Date.now() / 1000));
-      if (!row) return callback(null, null);
-      callback(null, JSON.parse(row.sess));
-    } catch (err) {
-      console.error('[SESSION STORE GET ERROR]', err);
-      callback(err);
-    }
-  }
-
-  set(sid, sess, callback) {
-    try {
-      const expire = Math.floor(Date.now() / 1000) + (sess.cookie.maxAge ? Math.floor(sess.cookie.maxAge / 1000) : 12 * 60 * 60);
-      console.log(`[SESSION STORE SET] sid=${sid}, expire=${expire}`);
-      this.db.prepare('INSERT OR REPLACE INTO sessions (sid, sess, expire) VALUES (?, ?, ?)').run(sid, JSON.stringify(sess), expire);
-      console.log(`[SESSION STORE SET OK] sid=${sid}`);
-      callback(null);
-    } catch (err) {
-      console.error('[SESSION STORE SET ERROR]', err);
-      callback(err);
-    }
-  }
-
-  destroy(sid, callback) {
-    try {
-      this.db.prepare('DELETE FROM sessions WHERE sid = ?').run(sid);
-      callback(null);
-    } catch (err) {
-      console.error('[SESSION STORE DESTROY ERROR]', err);
-      callback(err);
-    }
-  }
-
-  clear(callback) {
-    try {
-      this.db.prepare('DELETE FROM sessions').run();
-      callback(null);
-    } catch (err) {
-      console.error('[SESSION STORE CLEAR ERROR]', err);
-      callback(err);
-    }
-  }
-}
-
-// Instanciar o store
-const store = new SQLiteSessionStore(db);
-
-app.use(session({
-  name: 'ds.sid',
-  secret: process.env.SESSION_SECRET,
-  store: store,
-  resave: false,
-  saveUninitialized: true,  // CRITICAL: permite criar sessão vazia no início pra setar cookie
-  cookie: {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',  // ativado em produção via HTTPS
-    sameSite: 'lax',
-    maxAge: 12 * 60 * 60 * 1000,    // 12h
-  },
-}));
+// ✅ Session já foi inicializado logo após CORS
 
 // ---------- Desabilitar cache pra APIs (garante respostas sempre frescas) ----------
 app.disable('etag');  // Desabilita ETag automaticamente
