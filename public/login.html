@@ -140,7 +140,11 @@
       btn.textContent = 'Entrando...';
 
       try {
-        const resp = await fetch('/api/login', {
+        // Pega redirect param se existir
+        const urlParams = new URLSearchParams(window.location.search);
+        const redirect = urlParams.get('redirect');
+
+        const resp = await fetch('/api/login' + (redirect ? '?redirect=' + encodeURIComponent(redirect) : ''), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'same-origin',

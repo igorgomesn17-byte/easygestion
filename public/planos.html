@@ -261,9 +261,21 @@
     async function irParaCheckout() {
       const btn = event.target;
       btn.disabled = true;
-      btn.textContent = '⏳ Abrindo...';
+      btn.textContent = '⏳ Verificando...';
 
       try {
+        // Verificar se está autenticado
+        const meResp = await fetch('/api/me', { credentials: 'include' });
+        const meData = await meResp.json();
+
+        if (!meData.logado) {
+          btn.disabled = false;
+          btn.textContent = 'Contratar';
+          alert('❌ Sessão expirada. Por favor, faça login novamente.');
+          window.location.href = '/login.html?redirect=/planos.html';
+          return;
+        }
+
         const resp = await fetch('/api/assinaturas/checkout', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

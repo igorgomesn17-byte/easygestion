@@ -88,6 +88,7 @@ router.post('/admin/login', limiteAdminPassword, (req, res) => {
 // Login por email + senha (para SaaS multi-tenant)
 router.post('/login', (req, res) => {
   const { email, senha } = req.body || {};
+  const destinoCustom = req.query.redirect || req.body.redirect;  // Pode vir de query ou body
 
   // Se vier vazio (compatibilidade com admin do .env)
   if (!email && senha && verificarSenha(senha, hashAdmin())) {
@@ -96,7 +97,7 @@ router.post('/login', (req, res) => {
     req.session.papel = 'admin';
     req.session.tenant_id = 1;  // admin do .env sempre é tenant 1
     console.log(`[LOGIN OK] ${usuarioAdmin()} (admin env) • ${req.ip} • ${new Date().toISOString()}`);
-    return res.json({ ok: true, usuario: usuarioAdmin(), papel: 'admin', destino: 'index.html' });
+    return res.json({ ok: true, usuario: usuarioAdmin(), papel: 'admin', destino: destinoCustom || 'index.html' });
   }
 
   // Login por email (tabela de usuários)
@@ -133,9 +134,10 @@ router.post('/login', (req, res) => {
     req.session.email = u.email;
     req.session.papel = u.papel;
     req.session.tenant_id = u.tenant_id;
-    const destino = u.papel === 'admin' ? 'index.html'
+    const destinoPadrao = u.papel === 'admin' ? 'index.html'
       : u.papel === 'vendedor' ? 'pdv.html'
       : 'relacionamento.html';
+    const destino = destinoCustom || destinoPadrao;
     console.log(`[LOGIN OK] ${u.email} (${u.papel}) • ${req.ip} • ${new Date().toISOString()}`);
     return res.json({ ok: true, usuario: u.nome, email: u.email, papel: u.papel, destino });
   }
