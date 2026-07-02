@@ -143,7 +143,10 @@ const NAV = [
     { id:'clientes',   href:'clientes.html',   ico:'clientes', txt:'Clientes' },
     { id:'vendedores', href:'vendedores.html', ico:'equipe',   txt:'Equipe' },
   ]},
-  { grupo: null, itens: [ { id:'config', href:'config.html', ico:'config', txt:'Configurações' } ]},
+  { grupo: null, itens: [
+    { id:'assinatura', href:'assinatura.html', ico:'config', txt:'Minha Assinatura' },
+    { id:'config', href:'config.html', ico:'config', txt:'Configurações' }
+  ]},
 ];
 
 const TITULOS = {
@@ -152,7 +155,7 @@ const TITULOS = {
   financeiro:'Despesas e contas', 'fluxo-caixa':'Fluxo de caixa', fluxo:'DRE',
   nfce:'Notas fiscais (NFC-e)', produtos:'Produtos',
   estoque:'Estoque', clientes:'Clientes',
-  vendedores:'Equipe', config:'Configurações',
+  vendedores:'Equipe', assinatura:'Minha Assinatura', config:'Configurações',
 };
 
 // ---------- Identidade da loja (personalização self-service) ----------
