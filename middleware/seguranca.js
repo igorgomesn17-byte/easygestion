@@ -103,15 +103,17 @@ function injetarTenant(req, res, next) {
   return res.status(401).json({ erro: 'Tenant não identificado' });
 }
 
-// --- Middleware: valida se tenant está bloqueado ---
-// Verifica se o tenant do usuário logado foi bloqueado
+// --- Middleware: valida se tenant está bloqueado ou trial vencido ---
+// Verifica se o tenant do usuário logado foi bloqueado ou está em trial vencido
 // Se bloqueado, desconecta a sessão e retorna erro
+// Se trial vencido, redireciona para planos.html
 function validarTenantAtivo(req, res, next) {
   if (!req.session?.logado || !req.session?.tenant_id) {
     return next(); // rotas públicas, deixa passar
   }
 
   const { db } = require('../db/database');
+  const { obterStatusAssinatura } = require('../lib/assinatura');
   const tenant = db.prepare('SELECT status FROM tenants WHERE id = ?').get(req.session.tenant_id);
 
   if (!tenant) {
@@ -128,6 +130,23 @@ function validarTenantAtivo(req, res, next) {
       });
     });
     return; // NÃO chama next()!
+  }
+
+  // Verificar se trial venceu ou assinatura está vencida
+  const statusAssinatura = obterStatusAssinatura(req.session.tenant_id);
+  if (statusAssinatura.status === 'trial' || statusAssinatura.status === 'vencida' || statusAssinatura.bloqueado) {
+    // Se for uma requisição API, retornar erro
+    if (req.path.startsWith('/api')) {
+      return res.status(403).json({
+        erro: 'Trial expirado ou assinatura vencida',
+        redirecionar: '/planos.html',
+        trial_expirado: true
+      });
+    }
+    // Se for uma requisição de página, redirecionar (servidor-side)
+    if (!req.path.startsWith('/planos.html') && !req.path.startsWith('/login.html') && !req.path.startsWith('/logout')) {
+      return res.redirect('/planos.html');
+    }
   }
 
   next();

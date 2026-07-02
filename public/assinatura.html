@@ -337,16 +337,6 @@
       </div>
     </div>
 
-    
-    <div class="card-assinatura">
-      <div class="titulo-secao">Planos Disponíveis</div>
-
-      <div id="planos" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 20px;">
-        
-      </div>
-    </div>
-
-    
     <div class="card-assinatura historico-pagamentos">
       <div class="titulo-secao">Histórico de Pagamentos</div>
 
@@ -378,30 +368,6 @@
   </div>
 
   <script>
-    const PLANOS_DISPONIVEIS = [
-      {
-        id: 'basico',
-        nome: 'Básico',
-        valor: 'R$ 99/mês',
-        descricao: 'Perfeito para começar',
-        features: ['Até 100 produtos', 'Básico PDV', 'Suporte por email']
-      },
-      {
-        id: 'crescimento',
-        nome: 'Crescimento',
-        valor: 'R$ 149/mês',
-        descricao: 'Recomendado',
-        features: ['Até 500 produtos', 'PDV completo', 'Suporte prioritário', 'NFC-e']
-      },
-      {
-        id: 'premium',
-        nome: 'Premium',
-        valor: 'R$ 299/mês',
-        descricao: 'Para lojas maiores',
-        features: ['Produtos ilimitados', 'Tudo incluído', 'Suporte 24/7', 'API']
-      }
-    ];
-
     async function carregarAssinatura() {
       try {
         const resp = await fetch('/api/assinaturas/minha');
@@ -497,44 +463,12 @@
       }
     }
 
-    function renderizarPlanos() {
-      const container = document.getElementById('planos');
-      container.innerHTML = PLANOS_DISPONIVEIS.map(plano => `
-        <div style="border: 1px solid #eee; border-radius: 8px; padding: 20px; text-align: center;">
-          <h3 style="color: #1B5E3F; margin: 10px 0;">${plano.nome}</h3>
-          <p style="font-size: 24px; font-weight: 700; color: #1B5E3F; margin: 10px 0;">${plano.valor}</p>
-          <p style="color: #999; font-size: 12px; margin: 10px 0; text-transform: uppercase;">${plano.descricao}</p>
-          <ul style="text-align: left; font-size: 13px; color: #666; margin: 15px 0; padding: 0; list-style: none;">
-            ${plano.features.map(f => `<li>✓ ${f}</li>`).join('')}
-          </ul>
-          <button class="btn btn-primary" style="width: 100%;" onclick="abrirCheckout('${plano.id}')">
-            Contratar
-          </button>
-        </div>
-      `).join('');
-    }
-
-    async function abrirCheckout(plano = 'basico') {
+    async function abrirCheckout() {
       try {
         document.getElementById('btnUpgrade').disabled = true;
-
-        const resp = await fetch('/api/assinaturas/checkout', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ plano })
-        });
-
-        const { checkout_url } = await resp.json();
-
-        if (checkout_url) {
-          window.location.href = checkout_url;
-        } else {
-          alert('Erro ao abrir checkout');
-          document.getElementById('btnUpgrade').disabled = false;
-        }
+        window.location.href = '/planos.html';
       } catch (err) {
         console.error('Erro:', err);
-        alert('Erro ao abrir checkout');
         document.getElementById('btnUpgrade').disabled = false;
       }
     }
@@ -599,7 +533,6 @@
       verificarCheckout();
       carregarAssinatura();
       carregarPagamentos();
-      renderizarPlanos();
     });
   </script>
 </body>
