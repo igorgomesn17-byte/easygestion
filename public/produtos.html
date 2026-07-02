@@ -290,7 +290,9 @@
       // Se é cadastro novo e grade vazia, criar variação padrão (UN = único tamanho)
       if (!editandoId && grade.length === 0) {
         grade = [{ tamanho: 'UN', quantidade: 1 }];
+        console.log('[DEBUG] Grade vazia, criando padrão:', grade);
       }
+      console.log('[DEBUG] Salvando com grade:', grade, 'editandoId:', editandoId);
       const dados = {
         nome, categoria: document.getElementById('categoria').value,
         cor: document.getElementById('cor').value.trim(),
