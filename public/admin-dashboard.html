@@ -1,347 +1,117 @@
-<DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin — EasyGestão</title>
+  <link rel="stylesheet" href="css/ds.css">
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-      background: #f5f5f5;
-      color: #333;
-    }
-
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 20px;
-    }
-
-    header {
-      background: linear-gradient(135deg, #1B5E3F 0%, #0d3a24 100%);
-      padding: 20px;
-      margin-bottom: 20px;
-      border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(27, 94, 63, 0.2);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    header h1 {
-      font-size: 24px;
-      color: white;
-    }
-
-    header img {
-      max-height: 40px;
-      margin-right: 15px;
-    }
-
-    .btn-logout {
-      background: transparent;
-      color: #C9A961;
-      padding: 10px 20px;
-      border: 2px solid #C9A961;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 14px;
-      font-weight: 600;
-      transition: all 0.3s ease;
-    }
-
-    .btn-logout:hover {
-      background: #C9A961;
-      color: #1B5E3F;
-    }
-
-    /* Dashboard cards */
-    .dashboard {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 20px;
-      margin-bottom: 30px;
-    }
-
-    .card {
-      background: #fff;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    }
-
-    .card h3 {
-      font-size: 14px;
-      color: #999;
-      margin-bottom: 10px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-
-    .card .value {
-      font-size: 32px;
-      font-weight: bold;
-      color: #1a1a1a;
-    }
-
-    .card.accent {
-      border-left: 4px solid #1B5E3F;
-    }
-
-    .card.warning {
-      border-left: 4px solid #C9A961;
-    }
-
-    .card.danger {
-      border-left: 4px solid #d9534f;
-    }
-
-    /* Tabela de clientes */
-    .section {
-      background: #fff;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-      margin-bottom: 20px;
-    }
-
-    .section h2 {
-      font-size: 18px;
-      margin-bottom: 15px;
-      border-bottom: 2px solid #1B5E3F;
-      padding-bottom: 10px;
-      color: #1B5E3F;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-
-    th {
-      text-align: left;
-      padding: 12px;
-      background: #f9f9f9;
-      font-weight: 600;
-      font-size: 13px;
-      color: #666;
-      border-bottom: 1px solid #e0e0e0;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    td {
-      padding: 12px;
-      border-bottom: 1px solid #f0f0f0;
-      font-size: 14px;
-    }
-
-    tbody tr:hover {
-      background: #f9f9f9;
-    }
-
-    .status-badge {
-      display: inline-block;
-      padding: 4px 12px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .status-ativo {
-      background: #d4edda;
-      color: #155724;
-    }
-
-    .status-bloqueado {
-      background: #f8d7da;
-      color: #721c24;
-    }
-
-    .status-pendente {
-      background: #fff3cd;
-      color: #856404;
-    }
-
-    .btn-small {
-      background: #1B5E3F;
-      color: white;
-      padding: 6px 12px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 12px;
-      margin-right: 5px;
-      transition: all 0.3s ease;
-    }
-
-    .btn-small:hover {
-      background: #0d3a24;
-      box-shadow: 0 2px 8px rgba(27, 94, 63, 0.3);
-    }
-
-    .btn-small.danger {
-      background: #d9534f;
-    }
-
-    .btn-small.danger:hover {
-      background: #c9302c;
-      box-shadow: 0 2px 8px rgba(217, 83, 79, 0.3);
-    }
-
-    /* Loading e erros */
-    .loading {
-      text-align: center;
-      padding: 40px;
-      color: #999;
-    }
-
-    .error {
-      background: #f8d7da;
-      color: #721c24;
-      padding: 15px;
-      border-radius: 4px;
-      margin-bottom: 20px;
-      border-left: 4px solid #e74c3c;
-    }
-
-    .spinner {
-      border: 4px solid #f0f0f0;
-      border-top: 4px solid #3498db;
-      border-radius: 50%;
-      width: 40px;
-      height: 40px;
-      animation: spin 1s linear infinite;
-      margin: 0 auto;
-    }
-
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-
-    /* Modal */
-    .modal {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0,0,0,0.5);
-      z-index: 1000;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .modal.show {
-      display: flex;
-    }
-
-    .modal-content {
-      background: #fff;
-      padding: 30px;
-      border-radius: 8px;
-      max-width: 600px;
-      width: 90%;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-    }
-
-    .modal-content h3 {
-      margin-bottom: 15px;
-      font-size: 20px;
-    }
-
-    .modal-content p {
-      margin-bottom: 10px;
-      color: #666;
-    }
-
-    .modal-actions {
-      margin-top: 20px;
-      display: flex;
-      gap: 10px;
-      justify-content: flex-end;
-    }
-
-    .btn {
-      padding: 10px 20px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 14px;
-      font-weight: 600;
-    }
-
-    .btn-primary {
-      background: #1B5E3F;
-      color: white;
-    }
-
-    .btn-primary:hover {
-      background: #0d3a24;
-    }
-
-    .btn-secondary {
-      background: #bbb;
-      color: white;
-    }
-
-    .btn-secondary:hover {
-      background: #999;
-    }
+    body { background: var(--bg-light, #f5f5f5); color: var(--tinta); }
+    .admin-container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    .admin-header { background: linear-gradient(135deg, var(--marca) 0%, var(--marca-escura) 100%);
+      padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      display: flex; justify-content: space-between; align-items: center; }
+    .admin-header h1 { font-size: 24px; color: white; margin: 0; }
+    .admin-header img { height: 40px; margin-right: 15px; }
+    .admin-logout { background: transparent; color: var(--dourado); padding: 10px 20px;
+      border: 2px solid var(--dourado); border-radius: 4px; cursor: pointer; font-size: 14px;
+      font-weight: 600; transition: all 0.3s ease; }
+    .admin-logout:hover { background: var(--dourado); color: var(--marca); }
+    .admin-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px; margin-bottom: 30px; }
+    .admin-card { background: white; padding: 20px; border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .admin-card h3 { font-size: 14px; color: #999; margin-bottom: 10px;
+      text-transform: uppercase; letter-spacing: 1px; }
+    .admin-card .value { font-size: 32px; font-weight: bold; color: #1a1a1a; }
+    .admin-card.accent { border-left: 4px solid var(--marca); }
+    .admin-card.warning { border-left: 4px solid var(--dourado); }
+    .admin-card.danger { border-left: 4px solid #d9534f; }
+    .admin-section { background: white; padding: 20px; border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    .admin-section h2 { font-size: 18px; margin-bottom: 15px; border-bottom: 2px solid var(--marca);
+      padding-bottom: 10px; color: var(--marca); }
+    .admin-table { width: 100%; border-collapse: collapse; }
+    .admin-table th { text-align: left; padding: 12px; background: #f9f9f9;
+      font-weight: 600; font-size: 13px; color: #666; border-bottom: 1px solid #e0e0e0;
+      text-transform: uppercase; letter-spacing: 0.5px; }
+    .admin-table td { padding: 12px; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
+    .admin-table tbody tr:hover { background: #f9f9f9; }
+    .badge-ativo { background: #d4edda; color: #155724; padding: 4px 12px;
+      border-radius: 20px; font-size: 12px; font-weight: 600; }
+    .badge-bloqueado { background: #f8d7da; color: #721c24; padding: 4px 12px;
+      border-radius: 20px; font-size: 12px; font-weight: 600; }
+    .badge-pendente { background: #fff3cd; color: #856404; padding: 4px 12px;
+      border-radius: 20px; font-size: 12px; font-weight: 600; }
+    .admin-btn-small { background: var(--marca); color: white; padding: 6px 12px; border: none;
+      border-radius: 4px; cursor: pointer; font-size: 12px; margin-right: 5px; transition: all 0.3s; }
+    .admin-btn-small:hover { background: var(--marca-escura); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+    .admin-btn-small.danger { background: #d9534f; }
+    .admin-btn-small.danger:hover { background: #c9302c; }
+    .admin-loading { text-align: center; padding: 40px; color: #999; }
+    .admin-error { background: #f8d7da; color: #721c24; padding: 15px;
+      border-radius: 4px; margin-bottom: 20px; border-left: 4px solid #e74c3c; }
+    .admin-spinner { border: 4px solid #f0f0f0; border-top-color: var(--marca); border-radius: 50%;
+      width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .admin-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
+    .admin-modal.show { display: flex; }
+    .admin-modal-content { background: white; padding: 30px; border-radius: 8px;
+      max-width: 600px; width: 90%; box-shadow: 0 4px 20px rgba(0,0,0,0.15); }
+    .admin-modal-content h3 { margin-bottom: 15px; font-size: 20px; }
+    .admin-modal-content p { margin-bottom: 10px; color: #666; }
+    .admin-modal-actions { margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end; }
+    .admin-btn { padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer;
+      font-size: 14px; font-weight: 600; }
+    .admin-btn-primary { background: var(--marca); color: white; }
+    .admin-btn-primary:hover { background: var(--marca-escura); }
+    .admin-btn-secondary { background: #bbb; color: white; }
+    .admin-btn-secondary:hover { background: #999; }
   </style>
 </head>
 <body>
-  <div class="container">
+  <div class="admin-container">
     
     <header>
       <div style="display: flex; align-items: center;">
         <img src="/img/marca/favicon.png" alt="Logo" style="height: 40px; margin-right: 15px;">
         <h1>Admin — EasyGestão</h1>
       </div>
-      <button class="btn-logout" onclick="logout()">Sair</button>
+      <button class="admin-logout" onclick="logout()">Sair</button>
     </header>
 
     
-    <div class="dashboard" id="dashboard">
-      <div class="card">
+    <div class="admin-cards" id="dashboard">
+      <div class="admin-card">
         <h3>Clientes Ativos</h3>
         <div class="value" id="val-clientes-ativos">—</div>
       </div>
-      <div class="card">
+      <div class="admin-card">
         <h3>Total de Clientes</h3>
         <div class="value" id="val-total-clientes">—</div>
       </div>
-      <div class="card accent">
+      <div class="admin-card accent">
         <h3>MRR (Receita Mensal)</h3>
         <div class="value" id="val-mrr">—</div>
       </div>
-      <div class="card accent">
+      <div class="admin-card accent">
         <h3>ARR (Receita Anual)</h3>
         <div class="value" id="val-arr">—</div>
       </div>
-      <div class="card">
+      <div class="admin-card">
         <h3>Recebido</h3>
         <div class="value" id="val-recebido">—</div>
       </div>
-      <div class="card warning">
+      <div class="admin-card warning">
         <h3>Pendente</h3>
         <div class="value" id="val-pendente">—</div>
       </div>
-      <div class="card danger">
+      <div class="admin-card danger">
         <h3>Vencido</h3>
         <div class="value" id="val-vencido">—</div>
       </div>
-      <div class="card danger">
+      <div class="admin-card danger">
         <h3>⚠️ Alertas de Risco</h3>
         <div class="value" id="val-alertas-total">—</div>
         <p style="font-size: 12px; color: #999; margin-top: 8px;" id="alertas-sumario">—</p>
@@ -349,22 +119,22 @@
     </div>
 
     
-    <div class="section" id="secao-alertas" style="display: none;">
+    <div class="admin-section" id="secao-alertas" style="display: none;">
       <h2>🚨 Alertas Ativos (Risco de Churn)</h2>
       <div id="tabela-alertas">
-        <div class="loading">
-          <div class="spinner"></div>
+        <div class="admin-loading">
+          <div class="admin-spinner"></div>
           <p>Carregando alertas...</p>
         </div>
       </div>
     </div>
 
     
-    <div class="section">
+    <div class="admin-section">
       <h2>Clientes</h2>
       <div id="tabela-clientes">
-        <div class="loading">
-          <div class="spinner"></div>
+        <div class="admin-loading">
+          <div class="admin-spinner"></div>
           <p>Carregando clientes...</p>
         </div>
       </div>
@@ -372,13 +142,13 @@
   </div>
 
   
-  <div class="modal" id="modal-detalhes">
-    <div class="modal-content">
+  <div class="admin-modal" id="modal-detalhes">
+    <div class="admin-modal-content">
       <h3>Detalhes do Cliente</h3>
       <div id="modal-body">
         
       </div>
-      <div class="modal-actions">
+      <div class="admin-modal-actions">
         <button class="btn btn-secondary" onclick="fecharModal()">Fechar</button>
       </div>
     </div>
@@ -508,8 +278,8 @@
                 <td><strong>${formatarMoeda(alerta.valor_em_risco)}</strong></td>
                 <td>${formatarData(alerta.criado_em)}</td>
                 <td>
-                  <button class="btn-small" onclick="verDetalhes(${alerta.tenant_id})">Ver</button>
-                  <button class="btn-small" style="background: #5cb85c;" onclick="resolverAlerta(${alerta.id})">✓ Resolvido</button>
+                  <button class="admin-btn-small" onclick="verDetalhes(${alerta.tenant_id})">Ver</button>
+                  <button class="admin-btn-small" style="background: #5cb85c;" onclick="resolverAlerta(${alerta.id})">✓ Resolvido</button>
                 </td>
               </tr>
             `;
@@ -577,12 +347,12 @@
               <td>${cliente.num_usuarios || 0}</td>
               <td>${formatarData(cliente.ultima_venda)}</td>
               <td>
-                <button class="btn-small" onclick="verDetalhes(${cliente.id})">Detalhes</button>
+                <button class="admin-btn-small" onclick="verDetalhes(${cliente.id})">Detalhes</button>
                 ${cliente.status === 'bloqueado'
-                  ? `<button class="btn-small" onclick="desbloquearCliente(${cliente.id})">Desbloquear</button>`
-                  : `<button class="btn-small danger" onclick="bloquearCliente(${cliente.id})">Bloquear</button>`
+                  ? `<button class="admin-btn-small" onclick="desbloquearCliente(${cliente.id})">Desbloquear</button>`
+                  : `<button class="admin-btn-small danger" onclick="bloquearCliente(${cliente.id})">Bloquear</button>`
                 }
-                <button class="btn-small" style="background: #c9302c;" onclick="deletarCliente(${cliente.id})">Deletar</button>
+                <button class="admin-btn-small" style="background: #c9302c;" onclick="deletarCliente(${cliente.id})">Deletar</button>
               </td>
             </tr>
           `;
@@ -597,7 +367,7 @@
       } catch (err) {
         console.error('Erro:', err);
         document.getElementById('tabela-clientes').innerHTML = `
-          <div class="error">Erro ao carregar clientes. Tente novamente.</div>
+          <div class="admin-error">Erro ao carregar clientes. Tente novamente.</div>
         `;
       }
     }

@@ -1,154 +1,50 @@
-<DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Login — Admin EasyGestão</title>
+  <link rel="stylesheet" href="css/ds.css">
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #1B5E3F 0%, #0d3a24 100%);
-      min-height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-
-    .container {
-      background: white;
-      border-radius: 12px;
-      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-      width: 90%;
-      max-width: 400px;
-      padding: 40px;
-    }
-
-    .logo {
-      text-align: center;
-      margin-bottom: 30px;
-    }
-
-    .logo h1 {
-      font-size: 28px;
-      color: #1B5E3F;
-      margin-bottom: 10px;
-    }
-
-    .logo p {
-      font-size: 14px;
-      color: #999;
-    }
-
-    .form-group {
-      margin-bottom: 20px;
-    }
-
-    label {
-      display: block;
-      font-size: 12px;
-      font-weight: 600;
-      color: #1B5E3F;
-      margin-bottom: 8px;
-      text-transform: uppercase;
-    }
-
-    input {
-      width: 100%;
-      padding: 12px;
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      font-size: 14px;
-    }
-
-    input:focus {
-      outline: none;
-      border-color: #1B5E3F;
-      box-shadow: 0 0 0 3px rgba(27, 94, 63, 0.1);
-    }
-
-    .password-wrapper {
-      position: relative;
-    }
-
-    .password-wrapper input {
-      padding-right: 40px;
-    }
-
-    .toggle-senha {
-      position: absolute;
-      right: 12px;
-      top: 50%;
-      transform: translateY(-50%);
-      background: none;
-      border: none;
-      cursor: pointer;
-      font-size: 16px;
-      color: #aaa;
-      padding: 6px;
-      margin: 0;
-      transition: color 0.2s;
-      z-index: 10;
-    }
-
-    .toggle-senha:hover {
-      color: #1B5E3F;
-    }
-
-    button:not(.toggle-senha) {
-      width: 100%;
-      padding: 12px;
-      background: #1B5E3F;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      text-transform: uppercase;
-    }
-
-    button:not(.toggle-senha):hover {
-      background: #0d3a24;
-    }
-
-    .error {
-      color: #d9534f;
-      font-size: 12px;
-      margin-bottom: 15px;
-      padding: 10px;
-      background: #f8d7da;
-      border-radius: 4px;
-      display: none;
-    }
-
-    .error.show {
-      display: block;
-    }
-
-    .info {
-      font-size: 12px;
-      color: #999;
-      text-align: center;
-      margin-top: 20px;
-    }
+    body { min-height: 100vh; display: flex; justify-content: center; align-items: center;
+      background: linear-gradient(135deg, var(--marca) 0%, var(--marca-escura) 100%); padding: 20px; }
+    .auth-card { background: white; border-radius: 12px; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+      width: 90%; max-width: 400px; padding: 40px; }
+    .logo { text-align: center; margin-bottom: 30px; }
+    .logo h1 { font-size: 28px; color: var(--marca); margin-bottom: 10px; }
+    .logo p { font-size: 14px; color: #999; }
+    .auth-campo { margin-bottom: 20px; }
+    .auth-campo label { display: block; font-size: 12px; font-weight: 600; color: var(--marca);
+      margin-bottom: 8px; text-transform: uppercase; }
+    .auth-campo input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px;
+      font-size: 14px; }
+    .auth-campo input:focus { outline: none; border-color: var(--marca); box-shadow: 0 0 0 3px rgba(26, 111, 94, 0.1); }
+    .password-wrapper { position: relative; }
+    .password-wrapper input { padding-right: 40px; }
+    .toggle-senha { position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; cursor: pointer; font-size: 16px; color: #aaa; padding: 6px;
+      margin: 0; transition: color 0.2s; z-index: 10; }
+    .toggle-senha:hover { color: var(--marca); }
+    .auth-btn { width: 100%; padding: 12px; background: var(--marca); color: white; border: none;
+      border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; text-transform: uppercase; }
+    .auth-btn:hover { background: var(--marca-escura); }
+    .auth-btn:disabled { opacity: 0.6; cursor: wait; }
+    .auth-erro { color: var(--vermelho); font-size: 12px; margin-bottom: 15px; padding: 10px;
+      background: #f8d7da; border-radius: 4px; display: none; }
+    .auth-erro.show { display: block; }
+    .auth-info { font-size: 12px; color: #999; text-align: center; margin-top: 20px; }
   </style>
 </head>
 <body>
-  <div class="container">
+  <div class="auth-card">
     <div class="logo">
       <h1>🔐 EasyGestão</h1>
       <p>Painel Administrativo</p>
     </div>
 
-    <div class="error" id="erro"></div>
+    <div class="auth-erro" id="erro"></div>
 
-    <div class="form-group">
+    <div class="auth-campo">
       <label>Senha de Admin</label>
       <div class="password-wrapper">
         <input type="password" id="senha" placeholder="Digite a senha" autofocus>
@@ -156,9 +52,9 @@
       </div>
     </div>
 
-    <button id="btn-login" onclick="login()">Acessar</button>
+    <button id="btn-login" class="auth-btn" onclick="login()">Acessar</button>
 
-    <div class="info">Sistema seguro. Apenas para administradores.</div>
+    <div class="auth-info">Sistema seguro. Apenas para administradores.</div>
   </div>
 
   <script>
