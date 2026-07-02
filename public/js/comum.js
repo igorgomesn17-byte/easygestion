@@ -310,6 +310,23 @@ function montarLayout(paginaAtiva) {
   setInterval(atualizarRelogio, 30000);
   aplicarModoValores(); // reaplica o modo privacidade (botão de olho) após montar o chrome
 
+  // Link de assinatura direciona dinamicamente baseado no status
+  const linkAssinatura = document.querySelector('.nav-link[data-pagina="assinatura"]');
+  if (linkAssinatura) {
+    linkAssinatura.addEventListener('click', (e) => {
+      e.preventDefault();
+      api('/assinaturas/minha').then(dados => {
+        if (dados.assinatura) {
+          // Tem assinatura ativa → ir pra gestão
+          location.href = 'assinatura.html';
+        } else {
+          // Trial ou sem assinatura → ir pra escolher plano
+          location.href = 'planos.html';
+        }
+      }).catch(() => location.href = 'planos.html');
+    });
+  }
+
   // Identidade da loja: aplica nome, logo e cor da marca (personalização self-service)
   carregarMarca().then(marca => {
     aplicarCorMarca(marca.cor);
