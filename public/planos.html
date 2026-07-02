@@ -271,14 +271,21 @@
           body: JSON.stringify({ tipo_plano: tipoSelecionado })
         });
 
-        const dados = await resp.json();
-
         if (!resp.ok) {
-          alert('Erro ao abrir checkout: ' + (dados?.erro || 'Erro desconhecido'));
+          let mensagem = 'Erro ao abrir checkout';
+          try {
+            const dados = await resp.json();
+            if (dados?.erro) mensagem += ': ' + dados.erro;
+          } catch (e) {
+            mensagem += ' (servidor indisponível)';
+          }
+          alert(mensagem);
           btn.disabled = false;
           btn.textContent = 'Contratar';
           return;
         }
+
+        const dados = await resp.json();
 
         if (dados.checkout_url) {
           document.getElementById('modalCheckout').classList.add('show');
@@ -316,6 +323,23 @@
 
     document.addEventListener('DOMContentLoaded', () => {
       montarLayout();
+
+      // Processar query params (sucesso/cancelamento de checkout)
+      const params = new URLSearchParams(window.location.search);
+      const checkoutStatus = params.get('checkout');
+
+      if (checkoutStatus === 'sucesso') {
+        const sessionId = params.get('session_id');
+        setTimeout(() => {
+          alert('✅ Pagamento confirmado! Seu acesso foi ativado.');
+          // Redirecionar pro dashboard
+          window.location.href = '/index.html';
+        }, 500);
+      } else if (checkoutStatus === 'cancelado') {
+        alert('❌ Checkout cancelado. Tente novamente quando estiver pronto.');
+        // Limpar URL
+        window.history.replaceState({}, document.title, '/planos.html');
+      }
     });
   </script>
 </body>

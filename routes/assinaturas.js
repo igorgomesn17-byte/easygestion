@@ -107,11 +107,18 @@ router.post('/checkout', (req, res) => {
 
     criarCheckoutSession(tenantId, tipo_plano)
       .then((session) => {
+        console.log('[CHECKOUT] Sucesso:', { session_id: session.id, url_presente: !!session.url });
         res.json({ checkout_url: session.url });
       })
       .catch((err) => {
-        console.error('[ASSINATURA] Erro ao criar checkout:', err.message);
-        res.status(500).json({ erro: 'Erro ao criar checkout' });
+        console.error('[CHECKOUT] Erro ao criar session:', {
+          message: err.message,
+          code: err.code,
+          statusCode: err.statusCode,
+          type: err.type
+        });
+        const detalhe = err.code === 'invalid_request_error' ? 'Price ID inválido' : 'Erro ao processar';
+        res.status(500).json({ erro: detalhe });
       });
   } catch (err) {
     console.error('[ASSINATURA] Erro ao processar checkout:', err);
