@@ -243,7 +243,7 @@ app.use(session({
   saveUninitialized: true,  // CRITICAL: permite criar sessão vazia no início pra setar cookie
   cookie: {
     httpOnly: true,
-    secure: false,  // será ativado via reverse proxy HTTPS em produção
+    secure: process.env.NODE_ENV === 'production',  // ativado em produção via HTTPS
     sameSite: 'lax',
     maxAge: 12 * 60 * 60 * 1000,    // 12h
   },
