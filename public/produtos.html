@@ -286,11 +286,16 @@
       // nome obrigatório só em cadastro novo; em edição é opcional (mantém o existente)
       if (!nome && !editandoId) { toast('Informe o nome da peça', 'erro'); return; }
       if (preco <= 0) { toast('Informe o preço de venda', 'erro'); return; }
+      let grade = coletarGrade();
+      // Se é cadastro novo e grade vazia, criar variação padrão (UN = único tamanho)
+      if (!editandoId && grade.length === 0) {
+        grade = [{ tamanho: 'UN', quantidade: 1 }];
+      }
       const dados = {
         nome, categoria: document.getElementById('categoria').value,
         cor: document.getElementById('cor').value.trim(),
         colecao: document.getElementById('colecao').value,
-        custo, preco_venda: preco, grade: coletarGrade()
+        custo, preco_venda: preco, grade
       };
       // capa = 1ª foto; extras = resto. Sempre envia (PUT regrava a galeria).
       dados.foto = galeriaFotos.length ? galeriaFotos[0] : '';

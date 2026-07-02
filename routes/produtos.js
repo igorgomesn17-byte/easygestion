@@ -17,7 +17,7 @@ router.use((req, res, next) => {
   if (papel === 'admin') return next();
   const ehLeitura = req.method === 'GET';
   const ehPrecoComCusto = req.method === 'POST' && (req.path === '/sugerir-preco' || req.path === '/analisar-preco');
-  if (ehLeitura && !ehPrecoComCusto) return next();
+  if (ehLeitura || ehPrecoComCusto) return next();
   return res.status(403).json({ erro: 'Sem permissão para esta área' });
 });
 
