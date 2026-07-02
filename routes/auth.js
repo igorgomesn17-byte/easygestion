@@ -77,14 +77,6 @@ router.post('/admin/login', limiteAdminPassword, (req, res) => {
     req.session.papel = 'admin';
     req.session.tenant_id = 1;
     console.log(`[ADMIN LOGIN OK] ${usuarioAdmin()} • ${req.ip} • SESSION ID: ${req.sessionID}`);
-    // Força setar o cookie manualmente (express-session não tá fazendo)
-    const cookieConfig = {
-      httpOnly: true,
-      sameSite: 'lax',
-      maxAge: 12 * 60 * 60 * 1000,
-      secure: process.env.NODE_ENV === 'production'
-    };
-    res.cookie('ds.sid', req.sessionID, cookieConfig);
     return res.json({ ok: true, usuario: usuarioAdmin(), papel: 'admin', destino: 'index.html' });
   }
 
@@ -104,13 +96,6 @@ router.post('/login', (req, res) => {
     req.session.papel = 'admin';
     req.session.tenant_id = 1;  // admin do .env sempre é tenant 1
     console.log(`[LOGIN OK] ${usuarioAdmin()} (admin env) • ${req.ip} • ${new Date().toISOString()}`);
-    const cookieConfig = {
-      httpOnly: true,
-      sameSite: 'lax',
-      maxAge: 12 * 60 * 60 * 1000,
-      secure: process.env.NODE_ENV === 'production'
-    };
-    res.cookie('ds.sid', req.sessionID, cookieConfig);
     return res.json({ ok: true, usuario: usuarioAdmin(), papel: 'admin', destino: 'index.html' });
   }
 
@@ -152,13 +137,6 @@ router.post('/login', (req, res) => {
       : u.papel === 'vendedor' ? 'pdv.html'
       : 'relacionamento.html';
     console.log(`[LOGIN OK] ${u.email} (${u.papel}) • ${req.ip} • ${new Date().toISOString()}`);
-    const cookieConfig = {
-      httpOnly: true,
-      sameSite: 'lax',
-      maxAge: 12 * 60 * 60 * 1000,
-      secure: process.env.NODE_ENV === 'production'
-    };
-    res.cookie('ds.sid', req.sessionID, cookieConfig);
     return res.json({ ok: true, usuario: u.nome, email: u.email, papel: u.papel, destino });
   }
 
