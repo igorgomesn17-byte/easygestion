@@ -122,11 +122,19 @@ router.post('/logout', (req, res) => {
   });
 });
 
-// --- GET /clientes → lista de clientes (tenants) ---
-// Retorna: id, nome, email, status, data_criacao, últimas vendas, última atividade
+// --- GET /clientes → lista de clientes (tenants) com filtros e paginação ---
+// Query params: busca (nome/email), status, página (default 1), limite (default 20)
 router.get('/clientes', exigirAdminBackoffice, (req, res) => {
   try {
-    const clientes = db.prepare(`
+    // Parâmetros
+    const busca = (req.query.busca || '').trim().toLowerCase();
+    const status = req.query.status || null;
+    const pagina = Math.max(1, parseInt(req.query.pagina || 1, 10));
+    const limite = Math.min(100, parseInt(req.query.limite || 20, 10));
+    const offset = (pagina - 1) * limite;
+
+    // Construir query com filtros dinâmicos
+    let sql = `
       SELECT
         t.id,
         t.nome_loja AS nome,
@@ -134,14 +142,56 @@ router.get('/clientes', exigirAdminBackoffice, (req, res) => {
         t.status,
         t.data_cadastro AS data_criacao,
         COUNT(DISTINCT u.id) AS num_usuarios,
-        NULL AS ultima_venda,
         MAX(u.criado_em) AS ultimo_acesso
       FROM tenants t
       LEFT JOIN usuarios u ON u.tenant_id = t.id
-      GROUP BY t.id
-      ORDER BY t.data_cadastro DESC
-    `).all();
-    res.json({ clientes });
+      WHERE 1=1
+    `;
+
+    const params = [];
+
+    // Filtro: busca por nome ou email
+    if (busca) {
+      sql += ` AND (LOWER(t.nome_loja) LIKE ? OR LOWER(t.email) LIKE ?)`;
+      params.push(`%${busca}%`, `%${busca}%`);
+    }
+
+    // Filtro: status
+    if (status && ['ativo', 'bloqueado', 'teste', 'cancelado'].includes(status)) {
+      sql += ` AND t.status = ?`;
+      params.push(status);
+    }
+
+    sql += ` GROUP BY t.id ORDER BY t.data_cadastro DESC LIMIT ? OFFSET ?`;
+    params.push(limite, offset);
+
+    // Buscar dados
+    const clientes = db.prepare(sql).all(...params);
+
+    // Contar total (sem limit/offset) pra paginação
+    let sqlTotal = `SELECT COUNT(DISTINCT t.id) AS total FROM tenants t LEFT JOIN usuarios u ON u.tenant_id = t.id WHERE 1=1`;
+    const paramsTotal = [];
+    if (busca) {
+      sqlTotal += ` AND (LOWER(t.nome_loja) LIKE ? OR LOWER(t.email) LIKE ?)`;
+      paramsTotal.push(`%${busca}%`, `%${busca}%`);
+    }
+    if (status && ['ativo', 'bloqueado', 'teste', 'cancelado'].includes(status)) {
+      sqlTotal += ` AND t.status = ?`;
+      paramsTotal.push(status);
+    }
+    const { total } = db.prepare(sqlTotal).get(...paramsTotal);
+
+    res.json({
+      clientes,
+      paginacao: {
+        pagina,
+        limite,
+        total,
+        total_paginas: Math.ceil(total / limite),
+        tem_proxima: pagina * limite < total,
+        tem_anterior: pagina > 1
+      }
+    });
   } catch (err) {
     console.error('[ADMIN] Erro ao buscar clientes:', err);
     return res.status(500).json({ erro: 'Erro ao buscar clientes' });
@@ -295,29 +345,41 @@ router.delete('/clientes/:id', exigirAdminBackoffice, (req, res) => {
 // Retorna: MRR (receita mensal recorrente), ARR, total cobrado, pendente, etc
 router.get('/financeiro', exigirAdminBackoffice, (req, res) => {
   try {
-    const financeiro = db.prepare(`
+    // 1️⃣ Resumo de tenants e cobranças
+    const resumoFinanceiro = db.prepare(`
       SELECT
         COUNT(DISTINCT t.id) AS total_clientes,
         COUNT(DISTINCT CASE WHEN t.status = 'ativo' THEN t.id END) AS clientes_ativos,
         COUNT(DISTINCT CASE WHEN t.status = 'bloqueado' THEN t.id END) AS clientes_bloqueados,
+        COUNT(DISTINCT CASE WHEN t.status = 'teste' THEN t.id END) AS clientes_teste,
         COALESCE(SUM(CASE WHEN c.status = 'pago' THEN c.valor ELSE 0 END), 0) AS total_recebido,
         COALESCE(SUM(CASE WHEN c.status = 'pendente' THEN c.valor ELSE 0 END), 0) AS total_pendente,
-        COALESCE(SUM(CASE WHEN c.status = 'vencido' THEN c.valor ELSE 0 END), 0) AS total_vencido,
-        COALESCE(AVG(c.valor), 0) AS ticket_medio
+        COALESCE(SUM(CASE WHEN c.status = 'vencido' THEN c.valor ELSE 0 END), 0) AS total_vencido
       FROM tenants t
       LEFT JOIN assinaturas a ON a.tenant_id = t.id
       LEFT JOIN cobracas c ON c.assinatura_id = a.id
     `).get();
 
-    // Calcular MRR (receita média por cliente ativo × número de clientes ativos)
-    const mrr = (financeiro.ticket_medio * financeiro.clientes_ativos) || 0;
+    // 2️⃣ MRR correto: SUM de valor_mensal das assinaturas ATIVAS (status='pago')
+    // Isso é a receita mensal que entra todo mês (apenas dos clientes que pagam)
+    const mrrQuery = db.prepare(`
+      SELECT COALESCE(SUM(a.valor_mensal), 0) AS mrr_atual
+      FROM assinaturas a
+      JOIN tenants t ON t.id = a.tenant_id
+      WHERE a.em_teste = 0
+      AND t.status IN ('ativo', 'pago')
+      AND a.cancelada_em IS NULL
+    `).get();
+
+    const mrr = mrrQuery.mrr_atual || 0;
     const arr = mrr * 12; // ARR = MRR × 12
 
     res.json({
       financeiro: {
-        ...financeiro,
+        ...resumoFinanceiro,
         mrr: Math.round(mrr * 100) / 100,
-        arr: Math.round(arr * 100) / 100
+        arr: Math.round(arr * 100) / 100,
+        nota: 'MRR = SUM(assinatura.valor_mensal) de clientes ativos, não é média'
       }
     });
   } catch (err) {

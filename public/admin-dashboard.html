@@ -129,14 +129,53 @@
       </div>
     </div>
 
-    
+
     <div class="admin-section">
       <h2>Clientes</h2>
+
+      <!-- Filtros -->
+      <div style="display: grid; grid-template-columns: 1fr 200px 200px; gap: 10px; margin-bottom: 20px;">
+        <input
+          type="text"
+          id="filtro-busca"
+          placeholder="🔍 Buscar por nome ou email..."
+          style="padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;"
+          onkeyup="aplicarFiltros()"
+        >
+        <select
+          id="filtro-status"
+          style="padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;"
+          onchange="aplicarFiltros()"
+        >
+          <option value="">Todos os status</option>
+          <option value="ativo">Ativo</option>
+          <option value="bloqueado">Bloqueado</option>
+          <option value="teste">Teste</option>
+          <option value="cancelado">Cancelado</option>
+        </select>
+        <select
+          id="filtro-por-pagina"
+          style="padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;"
+          onchange="aplicarFiltros()"
+        >
+          <option value="20">20 por página</option>
+          <option value="50">50 por página</option>
+          <option value="100">100 por página</option>
+        </select>
+      </div>
+
       <div id="tabela-clientes">
         <div class="admin-loading">
           <div class="admin-spinner"></div>
           <p>Carregando clientes...</p>
         </div>
+      </div>
+
+      <!-- Paginação -->
+      <div id="paginacao-clientes" style="display: none; margin-top: 20px; text-align: center;">
+        <button class="admin-btn-small" id="btn-prev" onclick="irParaPagina(paginaAtual - 1)">← Anterior</button>
+        <span id="info-paginacao" style="margin: 0 15px; font-size: 14px;"></span>
+        <button class="admin-btn-small" id="btn-next" onclick="irParaPagina(paginaAtual + 1)">Próxima →</button>
       </div>
     </div>
   </div>
@@ -156,6 +195,8 @@
 
   <script>
     const API_URL = '/api/admin';
+    let paginaAtual = 1;
+    let totalPaginas = 1;
 
     // Fetch com credenciais (session cookie)
     function fetchAdmin(endpoint, options = {}) {
@@ -172,7 +213,7 @@
 
     // Formatar moeda
     function formatarMoeda(valor) {
-      if (typeof valor == 'number') return '—';
+      if (typeof valor !== 'number' || isNaN(valor)) return '—';
       return new Intl.NumberFormat('pt-BR', {
         style: 'currency',
         currency: 'BRL'
@@ -181,8 +222,23 @@
 
     // Formatar data
     function formatarData(data) {
-      if (data) return '—';
+      if (!data) return '—';
       return new Date(data).toLocaleDateString('pt-BR');
+    }
+
+    // Aplicar filtros (search, status, paginação)
+    async function aplicarFiltros() {
+      paginaAtual = 1; // Resetar pra primeira página
+      await carregarClientes();
+    }
+
+    // Ir para página específica
+    async function irParaPagina(pagina) {
+      if (pagina < 1 || pagina > totalPaginas) return;
+      paginaAtual = pagina;
+      await carregarClientes();
+      // Scroll pra tabela
+      document.getElementById('tabela-clientes').scrollIntoView({ behavior: 'smooth' });
     }
 
     // Carregar dashboard
@@ -312,16 +368,36 @@
       }
     }
 
-    // Carregar tabela de clientes
+    // Carregar tabela de clientes com filtros
     async function carregarClientes() {
       try {
-        const res = await fetchAdmin('/clientes');
+        // Pegar filtros
+        const busca = document.getElementById('filtro-busca').value || '';
+        const status = document.getElementById('filtro-status').value || '';
+        const limite = document.getElementById('filtro-por-pagina').value || 20;
+
+        // Construir query
+        const params = new URLSearchParams();
+        if (busca) params.append('busca', busca);
+        if (status) params.append('status', status);
+        params.append('pagina', paginaAtual);
+        params.append('limite', limite);
+
+        const res = await fetchAdmin(`/clientes?${params.toString()}`);
         if (!res.ok) throw new Error('Erro ao carregar');
 
-        const { clientes } = await res.json();
+        const { clientes, paginacao } = await res.json();
+
+        // Atualizar variáveis globais
+        paginaAtual = paginacao.pagina;
+        totalPaginas = paginacao.total_paginas;
 
         let html = `
-          <table>
+          <p style="color: #666; font-size: 13px; margin-bottom: 15px;">
+            Mostrando ${clientes.length} de ${paginacao.total} clientes
+            ${paginacao.total > 0 ? `• Página ${paginacao.pagina} de ${paginacao.total_paginas}` : ''}
+          </p>
+          <table class="admin-table">
             <thead>
               <tr>
                 <th>Nome</th>
@@ -329,34 +405,44 @@
                 <th>Status</th>
                 <th>Data Cadastro</th>
                 <th>Usuários</th>
-                <th>Última Venda</th>
+                <th>Último Acesso</th>
                 <th>Ações</th>
               </tr>
             </thead>
             <tbody>
         `;
 
-        clientes.forEach(cliente => {
-          const statusClass = `status-${cliente.status}`;
+        if (clientes.length === 0) {
           html += `
             <tr>
-              <td>${cliente.nome || '—'}</td>
-              <td>${cliente.email || '—'}</td>
-              <td><span class="status-badge ${statusClass}">${cliente.status}</span></td>
-              <td>${formatarData(cliente.data_criacao)}</td>
-              <td>${cliente.num_usuarios || 0}</td>
-              <td>${formatarData(cliente.ultima_venda)}</td>
-              <td>
-                <button class="admin-btn-small" onclick="verDetalhes(${cliente.id})">Detalhes</button>
-                ${cliente.status === 'bloqueado'
-                  ? `<button class="admin-btn-small" onclick="desbloquearCliente(${cliente.id})">Desbloquear</button>`
-                  : `<button class="admin-btn-small danger" onclick="bloquearCliente(${cliente.id})">Bloquear</button>`
-                }
-                <button class="admin-btn-small" style="background: #c9302c;" onclick="deletarCliente(${cliente.id})">Deletar</button>
+              <td colspan="7" style="text-align: center; padding: 30px; color: #999;">
+                Nenhum cliente encontrado
               </td>
             </tr>
           `;
-        });
+        } else {
+          clientes.forEach(cliente => {
+            const statusClass = `badge-${cliente.status}`;
+            html += `
+              <tr>
+                <td><strong>${cliente.nome || '—'}</strong></td>
+                <td>${cliente.email || '—'}</td>
+                <td><span class="${statusClass}">${cliente.status}</span></td>
+                <td>${formatarData(cliente.data_criacao)}</td>
+                <td>${cliente.num_usuarios || 0}</td>
+                <td>${formatarData(cliente.ultimo_acesso)}</td>
+                <td>
+                  <button class="admin-btn-small" onclick="verDetalhes(${cliente.id})">Detalhes</button>
+                  ${cliente.status === 'bloqueado'
+                    ? `<button class="admin-btn-small" style="background: #5cb85c;" onclick="desbloquearCliente(${cliente.id})">Desbloquear</button>`
+                    : `<button class="admin-btn-small danger" onclick="bloquearCliente(${cliente.id})">Bloquear</button>`
+                  }
+                  <button class="admin-btn-small" style="background: #c9302c;" onclick="deletarCliente(${cliente.id})">Deletar</button>
+                </td>
+              </tr>
+            `;
+          });
+        }
 
         html += `
             </tbody>
@@ -364,6 +450,16 @@
         `;
 
         document.getElementById('tabela-clientes').innerHTML = html;
+
+        // Atualizar paginação
+        if (paginacao.total > parseInt(limite)) {
+          document.getElementById('paginacao-clientes').style.display = 'block';
+          document.getElementById('info-paginacao').textContent = `Página ${paginacao.pagina} de ${paginacao.total_paginas}`;
+          document.getElementById('btn-prev').disabled = !paginacao.tem_anterior;
+          document.getElementById('btn-next').disabled = !paginacao.tem_proxima;
+        } else {
+          document.getElementById('paginacao-clientes').style.display = 'none';
+        }
       } catch (err) {
         console.error('Erro:', err);
         document.getElementById('tabela-clientes').innerHTML = `
