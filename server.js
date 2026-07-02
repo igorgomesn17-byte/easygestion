@@ -206,7 +206,6 @@ const store = new SQLiteSessionStore(db);
 
 // ✅ INICIALIZAR SESSION AQUI (logo após CORS)
 app.use(session({
-  name: 'ds.sid',
   secret: process.env.SESSION_SECRET,
   store: store,
   resave: false,
