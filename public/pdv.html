@@ -259,7 +259,36 @@
       } catch (e) { toast(e.message || 'Não consegui abrir o caixa', 'erro'); }
     }
     checarCaixa();
-    const LIMITE_LOJA_ABSORVE = 3; // ate 3x loja absorve; 4x+ cliente paga taxa
+
+    // Carregar taxa e configuração da loja
+    let taxasCfg = {};
+    let limiteAbsorve = 3; // fallback
+    (async () => {
+      try {
+        const cfg = await api('/config');
+        taxasCfg = cfg || {};
+        limiteAbsorve = parseFloat(taxasCfg.parcelas_loja_absorve) || 3;
+      } catch (e) { console.log('Erro ao carregar config de taxas:', e); }
+    })();
+
+    function obterTaxaUnitaria(forma) {
+      const chaves = {
+        pix: 'taxa_pix', pix_chave: 'taxa_pix_chave', debito: 'taxa_debito', credito_vista: 'taxa_credito_vista'
+      };
+      const chave = chaves[forma];
+      return chave && taxasCfg[chave] ? parseFloat(taxasCfg[chave]) : 0;
+    }
+
+    function obterTaxaParcelada(parcelas) {
+      const map = { 2: 'taxa_credito_2x', 3: 'taxa_credito_3x', 4: 'taxa_credito_4x', 5: 'taxa_credito_5x', 6: 'taxa_credito_6x' };
+      const chave = map[parcelas] || 'taxa_credito_6x';
+      return chave && taxasCfg[chave] ? parseFloat(taxasCfg[chave]) : 0;
+    }
+
+    // Rastreador de mudança manual do checkbox (para não sobrescrever a escolha do usuário)
+    document.getElementById('repassarTaxa').addEventListener('change', () => {
+      document.getElementById('repassarTaxa').dataset.userToggled = 'true';
+    });
 
     // ---------- Busca produto ----------
     let timer;
@@ -463,14 +492,22 @@
       const desc = calcDescontoReais();
       const parcelas = formaSel === 'credito_parcelado' ? parseInt(document.getElementById('parcelas').value) : 1;
       let baseAposDesc = Math.max(subtotal - desc, 0);
-      // checkbox "repassar taxa" só aparece quando passa do limite (4x+)
-      const passaLimite = formaSel === 'credito_parcelado' && parcelas > LIMITE_LOJA_ABSORVE;
-      document.getElementById('areaRepassar').style.display = passaLimite ? 'flex' : 'none';
-      // acrescimo parcelamento 4x+ — só se o checkbox de repassar estiver marcado
+
+      // checkbox "repassar taxa" sempre visível em parcelamento; estado inicial reflete config
+      if (formaSel === 'credito_parcelado') {
+        document.getElementById('areaRepassar').style.display = 'flex';
+        // estado inicial do checkbox: desmarcado se parcelas <= limite, marcado se > limite
+        const cb = document.getElementById('repassarTaxa');
+        if (!cb.dataset.userToggled) cb.checked = parcelas > limiteAbsorve;
+      } else {
+        document.getElementById('areaRepassar').style.display = 'none';
+      }
+
+      // acrescimo parcelamento: só se o checkbox de repassar estiver marcado
       let acrescimo = 0;
-      if (passaLimite && repassarTaxaAtivo()) {
-        const taxasParc = {2:5.39,3:6.12,4:6.85,5:7.57,6:8.28};
-        acrescimo = +(baseAposDesc * (taxasParc[parcelas]||8.28) / 100).toFixed(2);
+      if (formaSel === 'credito_parcelado' && repassarTaxaAtivo()) {
+        const taxaPct = obterTaxaParcelada(parcelas);
+        acrescimo = +(baseAposDesc * taxaPct / 100).toFixed(2);
       }
       const total = +(baseAposDesc + acrescimo).toFixed(2);
       document.getElementById('subtotal').textContent = moeda(subtotal);
@@ -534,9 +571,6 @@
       if (!formaSel || carrinho.length === 0) { div.innerHTML = ''; return; }
       const parcelas = formaSel === 'credito_parcelado' ? parseInt(document.getElementById('parcelas').value) : 1;
 
-      const taxasUnitarias = {pix:0, pix_chave:0, dinheiro:0, debito:1.37, credito_vista:3.15};
-      const taxasParceladas = {2:5.39, 3:6.12, 4:6.85, 5:7.57, 6:8.28, 7:8.99, 8:9.7};
-
       let html = '';
 
       if (formaSel === 'vale') {
@@ -560,10 +594,7 @@
           <strong style="color:var(--verde);">💵 Recebe na hora: ${moeda(total)}</strong>
         </div>`;
       } else if (formaSel === 'credito_parcelado') {
-        const taxaPct = taxasParceladas[parcelas] || 8.28;
-        const valorTaxa = +(total * taxaPct / 100).toFixed(2);
-        const liquido = +(total - valorTaxa).toFixed(2);
-        const parcelaPaga = +(total / parcelas).toFixed(2);
+        const taxaPct = obterTaxaParcelada(parcelas);
 
         if (repassarTaxaAtivo()) {
           const totalComTaxa = +(total + acrescimo).toFixed(2);
@@ -576,12 +607,14 @@
             </div>
           </div>`;
         } else {
+          const valorTaxa = +(total * taxaPct / 100).toFixed(2);
+          const liquido = +(total - valorTaxa).toFixed(2);
           html = `<div style="background:#F5F5F5; border:1px solid #DDD; padding:12px; border-radius:8px; font-size:0.9rem;">
             <div><strong>${parcelas}x:</strong> taxa ${taxaPct}% − você recebe <strong>${moeda(liquido)}</strong> (a loja absorve)</div>
           </div>`;
         }
       } else {
-        const taxaPct = taxasUnitarias[formaSel] || 0;
+        const taxaPct = obterTaxaUnitaria(formaSel);
         if (taxaPct > 0) {
           const valorTaxa = +(total * taxaPct / 100).toFixed(2);
           const liquido = +(total - valorTaxa).toFixed(2);

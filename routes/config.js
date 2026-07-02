@@ -33,7 +33,7 @@ function salvarLogoBase64(dataUrl) {
 
 // Prefixos de chaves SENSÍVEIS (financeiro/operacional) — só admin vê no GET.
 // Relacionamento/vendedor recebem o config SEM essas chaves.
-const PREFIXOS_SENSIVEIS = ['taxa_', 'markup', 'imposto', 'comissao', 'frete_', 'embalagem_', 'meta_', 'admin_'];
+const PREFIXOS_SENSIVEIS = ['markup', 'imposto', 'comissao', 'frete_', 'embalagem_', 'meta_', 'admin_'];
 function ehSensivel(chave) {
   return PREFIXOS_SENSIVEIS.some(p => chave === p || chave.startsWith(p));
 }
