@@ -642,4 +642,296 @@ router.post('/deploy', exigirAdminBackoffice, (req, res) => {
   }
 });
 
+// ============================================================
+// P1 - PAINEL DE ASSINATURAS
+// ============================================================
+
+// --- GET /assinaturas → lista de todas as assinaturas com status ---
+router.get('/assinaturas', exigirAdminBackoffice, (req, res) => {
+  try {
+    const status = req.query.status || null; // ativo, vencida, trial, cancelada
+    const pagina = Math.max(1, parseInt(req.query.pagina || 1, 10));
+    const limite = Math.min(100, parseInt(req.query.limite || 20, 10));
+    const offset = (pagina - 1) * limite;
+
+    let sql = `
+      SELECT
+        a.id,
+        a.tenant_id,
+        t.nome_loja,
+        t.email,
+        a.plano,
+        a.valor_mensal,
+        a.data_inicio,
+        a.data_proxima_renovacao,
+        a.cancelada_em,
+        a.em_teste,
+        a.data_inicio_teste,
+        a.data_fim_teste,
+        COUNT(DISTINCT c.id) AS num_cobracas,
+        SUM(CASE WHEN c.status = 'pago' THEN c.valor ELSE 0 END) AS total_pago,
+        SUM(CASE WHEN c.status = 'pendente' THEN c.valor ELSE 0 END) AS total_pendente
+      FROM assinaturas a
+      JOIN tenants t ON t.id = a.tenant_id
+      LEFT JOIN cobracas c ON c.assinatura_id = a.id
+      WHERE 1=1
+    `;
+
+    const params = [];
+
+    // Filtro por status (ativo, vencida, trial, cancelada)
+    if (status) {
+      if (status === 'ativo') {
+        sql += ` AND a.cancelada_em IS NULL AND a.em_teste = 0 AND a.data_proxima_renovacao > datetime('now')`;
+      } else if (status === 'vencida') {
+        sql += ` AND a.cancelada_em IS NULL AND a.data_proxima_renovacao <= datetime('now')`;
+      } else if (status === 'trial') {
+        sql += ` AND a.em_teste = 1`;
+      } else if (status === 'cancelada') {
+        sql += ` AND a.cancelada_em IS NOT NULL`;
+      }
+    }
+
+    sql += ` GROUP BY a.id ORDER BY a.data_proxima_renovacao ASC LIMIT ? OFFSET ?`;
+    params.push(limite, offset);
+
+    const assinaturas = db.prepare(sql).all(...params);
+
+    // Total para paginação
+    let sqlTotal = `SELECT COUNT(DISTINCT a.id) AS total FROM assinaturas a JOIN tenants t ON t.id = a.tenant_id WHERE 1=1`;
+    const paramsTotal = [];
+    if (status) {
+      if (status === 'ativo') {
+        sqlTotal += ` AND a.cancelada_em IS NULL AND a.em_teste = 0 AND a.data_proxima_renovacao > datetime('now')`;
+      } else if (status === 'vencida') {
+        sqlTotal += ` AND a.cancelada_em IS NULL AND a.data_proxima_renovacao <= datetime('now')`;
+      } else if (status === 'trial') {
+        sqlTotal += ` AND a.em_teste = 1`;
+      } else if (status === 'cancelada') {
+        sqlTotal += ` AND a.cancelada_em IS NOT NULL`;
+      }
+    }
+    const { total } = db.prepare(sqlTotal).get(...paramsTotal);
+
+    res.json({
+      assinaturas,
+      paginacao: {
+        pagina,
+        limite,
+        total,
+        total_paginas: Math.ceil(total / limite),
+        tem_proxima: pagina * limite < total,
+        tem_anterior: pagina > 1
+      }
+    });
+  } catch (err) {
+    console.error('[ADMIN] Erro ao buscar assinaturas:', err);
+    return res.status(500).json({ erro: 'Erro ao buscar assinaturas' });
+  }
+});
+
+// --- PATCH /assinaturas/:id → atualizar plano de assinatura (upgrade/downgrade) ---
+router.patch('/assinaturas/:id', exigirAdminBackoffice, (req, res) => {
+  try {
+    const assinaturaId = parseInt(req.params.id, 10);
+    const { plano, valor_mensal } = req.body;
+
+    if (!plano || !valor_mensal) {
+      return res.status(400).json({ erro: 'Plano e valor_mensal obrigatórios' });
+    }
+
+    // Buscar assinatura
+    const antes = db.prepare('SELECT * FROM assinaturas WHERE id = ?').get(assinaturaId);
+    if (!antes) {
+      return res.status(404).json({ erro: 'Assinatura não encontrada' });
+    }
+
+    // Atualizar
+    const result = db.prepare(
+      'UPDATE assinaturas SET plano = ?, valor_mensal = ? WHERE id = ?'
+    ).run(plano, valor_mensal, assinaturaId);
+
+    if (result.changes === 0) {
+      return res.status(404).json({ erro: 'Assinatura não encontrada' });
+    }
+
+    // Buscar dados DEPOIS
+    const depois = db.prepare('SELECT * FROM assinaturas WHERE id = ?').get(assinaturaId);
+
+    // Auditoria
+    auditarAcao(req, {
+      acao: 'PATCH_assinatura_plano',
+      recurso: 'assinaturas',
+      recurso_id: assinaturaId,
+      antes,
+      depois,
+      status: 200
+    });
+
+    console.log(`[ADMIN] Assinatura ${assinaturaId} atualizada: ${antes.plano} → ${plano}`);
+
+    res.json({ sucesso: true, mensagem: 'Assinatura atualizada', assinatura: depois });
+  } catch (err) {
+    console.error('[ADMIN] Erro ao atualizar assinatura:', err);
+    return res.status(500).json({ erro: 'Erro ao atualizar assinatura' });
+  }
+});
+
+// ============================================================
+// P1 - PAINEL DE COBRANÇAS
+// ============================================================
+
+// --- GET /cobracas → lista de cobranças com filtros ---
+router.get('/cobracas', exigirAdminBackoffice, (req, res) => {
+  try {
+    const status = req.query.status || null; // pendente, pago, falha
+    const pagina = Math.max(1, parseInt(req.query.pagina || 1, 10));
+    const limite = Math.min(100, parseInt(req.query.limite || 20, 10));
+    const offset = (pagina - 1) * limite;
+
+    let sql = `
+      SELECT
+        c.id,
+        c.tenant_id,
+        c.assinatura_id,
+        t.nome_loja,
+        t.email,
+        a.plano,
+        c.data_cobranca,
+        c.valor,
+        c.status,
+        c.metodo_pagamento,
+        c.tentativas,
+        c.data_pagamento
+      FROM cobracas c
+      JOIN tenants t ON t.id = c.tenant_id
+      LEFT JOIN assinaturas a ON a.id = c.assinatura_id
+      WHERE 1=1
+    `;
+
+    const params = [];
+
+    // Filtro por status
+    if (status && ['pendente', 'pago', 'falha'].includes(status)) {
+      sql += ` AND c.status = ?`;
+      params.push(status);
+    }
+
+    sql += ` ORDER BY c.data_cobranca DESC LIMIT ? OFFSET ?`;
+    params.push(limite, offset);
+
+    const cobracas = db.prepare(sql).all(...params);
+
+    // Total
+    let sqlTotal = `SELECT COUNT(*) AS total FROM cobracas c WHERE 1=1`;
+    const paramsTotal = [];
+    if (status && ['pendente', 'pago', 'falha'].includes(status)) {
+      sqlTotal += ` AND c.status = ?`;
+      paramsTotal.push(status);
+    }
+    const { total } = db.prepare(sqlTotal).get(...paramsTotal);
+
+    res.json({
+      cobracas,
+      paginacao: {
+        pagina,
+        limite,
+        total,
+        total_paginas: Math.ceil(total / limite),
+        tem_proxima: pagina * limite < total,
+        tem_anterior: pagina > 1
+      }
+    });
+  } catch (err) {
+    console.error('[ADMIN] Erro ao buscar cobranças:', err);
+    return res.status(500).json({ erro: 'Erro ao buscar cobranças' });
+  }
+});
+
+// --- POST /cobracas/:id/reprocessar → tentar cobrar novamente ---
+router.post('/cobracas/:id/reprocessar', exigirAdminBackoffice, (req, res) => {
+  try {
+    const cobrancaId = parseInt(req.params.id, 10);
+    const cobranca = db.prepare('SELECT * FROM cobracas WHERE id = ?').get(cobrancaId);
+
+    if (!cobranca) {
+      return res.status(404).json({ erro: 'Cobrança não encontrada' });
+    }
+
+    // Incrementar tentativas
+    const result = db.prepare(
+      'UPDATE cobracas SET tentativas = tentativas + 1, status = ? WHERE id = ?'
+    ).run('pendente', cobrancaId);
+
+    if (result.changes === 0) {
+      return res.status(404).json({ erro: 'Cobrança não encontrada' });
+    }
+
+    // Auditoria
+    auditarAcao(req, {
+      acao: 'POST_cobranca_reprocessar',
+      recurso: 'cobracas',
+      recurso_id: cobrancaId,
+      antes: cobranca,
+      depois: null,
+      status: 200
+    });
+
+    console.log(`[ADMIN] Cobrança ${cobrancaId} reprocessada manualmente`);
+
+    res.json({ sucesso: true, mensagem: 'Cobrança marcada para reprocessamento', tentativa_num: cobranca.tentativas + 1 });
+  } catch (err) {
+    console.error('[ADMIN] Erro ao reprocessar cobrança:', err);
+    return res.status(500).json({ erro: 'Erro ao reprocessar cobrança' });
+  }
+});
+
+// ============================================================
+// P1 - HISTÓRICO DE LOGIN DE ADMINS
+// ============================================================
+
+// --- GET /login-history → histórico de logins de admin ---
+router.get('/login-history', exigirAdminBackoffice, (req, res) => {
+  try {
+    const pagina = Math.max(1, parseInt(req.query.pagina || 1, 10));
+    const limite = Math.min(100, parseInt(req.query.limite || 50, 10));
+    const offset = (pagina - 1) * limite;
+
+    // Buscar logs de admin login via auditoria (ação contém 'admin' e 'login')
+    const logins = db.prepare(`
+      SELECT
+        a.id,
+        a.usuario_nome,
+        a.criado_em,
+        a.ip,
+        CASE WHEN a.status_http = 200 THEN 'Sucesso' ELSE 'Falha' END AS resultado
+      FROM auditoria a
+      WHERE a.acao LIKE '%login%' AND a.usuario_nome IS NOT NULL
+      ORDER BY a.criado_em DESC
+      LIMIT ? OFFSET ?
+    `).all(limite, offset);
+
+    // Total
+    const { total } = db.prepare(`
+      SELECT COUNT(*) AS total FROM auditoria
+      WHERE acao LIKE '%login%' AND usuario_nome IS NOT NULL
+    `).get();
+
+    res.json({
+      logins,
+      paginacao: {
+        pagina,
+        limite,
+        total,
+        total_paginas: Math.ceil(total / limite),
+        tem_proxima: pagina * limite < total,
+        tem_anterior: pagina > 1
+      }
+    });
+  } catch (err) {
+    console.error('[ADMIN] Erro ao buscar histórico de login:', err);
+    return res.status(500).json({ erro: 'Erro ao buscar histórico' });
+  }
+});
+
 module.exports = router;

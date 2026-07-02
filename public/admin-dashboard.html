@@ -130,7 +130,16 @@
     </div>
 
 
-    <div class="admin-section">
+    <!-- Abas de navegação -->
+    <div style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #e0e0e0; padding-bottom: 10px;">
+      <button id="tab-clientes" class="tab-btn active" onclick="mudarAba('clientes')" style="background: none; border: none; padding: 10px 15px; cursor: pointer; font-weight: 600; color: var(--marca); border-bottom: 3px solid var(--marca); margin-bottom: -10px;">Clientes</button>
+      <button id="tab-assinaturas" class="tab-btn" onclick="mudarAba('assinaturas')" style="background: none; border: none; padding: 10px 15px; cursor: pointer; font-weight: 600; color: #999;">Assinaturas</button>
+      <button id="tab-cobracas" class="tab-btn" onclick="mudarAba('cobracas')" style="background: none; border: none; padding: 10px 15px; cursor: pointer; font-weight: 600; color: #999;">Cobranças</button>
+      <button id="tab-auditoria" class="tab-btn" onclick="mudarAba('auditoria')" style="background: none; border: none; padding: 10px 15px; cursor: pointer; font-weight: 600; color: #999;">Auditoria</button>
+    </div>
+
+    <!-- ABA: CLIENTES -->
+    <div id="aba-clientes" class="admin-section">
       <h2>Clientes</h2>
 
       <!-- Filtros -->
@@ -176,6 +185,64 @@
         <button class="admin-btn-small" id="btn-prev" onclick="irParaPagina(paginaAtual - 1)">← Anterior</button>
         <span id="info-paginacao" style="margin: 0 15px; font-size: 14px;"></span>
         <button class="admin-btn-small" id="btn-next" onclick="irParaPagina(paginaAtual + 1)">Próxima →</button>
+      </div>
+    </div>
+
+    <!-- ABA: ASSINATURAS -->
+    <div id="aba-assinaturas" class="admin-section" style="display: none;">
+      <h2>Assinaturas</h2>
+      <div style="display: grid; grid-template-columns: 1fr 200px 200px; gap: 10px; margin-bottom: 20px;">
+        <input type="text" placeholder="🔍 Buscar por cliente..." style="padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+        <select onchange="filtrarAssinaturasPor('status', this.value)" style="padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+          <option value="">Todas as assinaturas</option>
+          <option value="ativo">Ativas</option>
+          <option value="vencida">Vencidas</option>
+          <option value="trial">Trial</option>
+          <option value="cancelada">Canceladas</option>
+        </select>
+      </div>
+      <div id="tabela-assinaturas">
+        <div class="admin-loading"><div class="admin-spinner"></div><p>Carregando assinaturas...</p></div>
+      </div>
+      <div id="paginacao-assinaturas" style="display: none; margin-top: 20px; text-align: center;">
+        <button class="admin-btn-small" onclick="irParaAssinatura(paginaAssinaturas - 1)">← Anterior</button>
+        <span id="info-paginacao-assinaturas" style="margin: 0 15px; font-size: 14px;"></span>
+        <button class="admin-btn-small" onclick="irParaAssinatura(paginaAssinaturas + 1)">Próxima →</button>
+      </div>
+    </div>
+
+    <!-- ABA: COBRANÇAS -->
+    <div id="aba-cobracas" class="admin-section" style="display: none;">
+      <h2>Cobranças</h2>
+      <div style="display: grid; grid-template-columns: 1fr 200px 200px; gap: 10px; margin-bottom: 20px;">
+        <input type="text" placeholder="🔍 Buscar por cliente..." style="padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+        <select onchange="filtrarCobracasPor('status', this.value)" style="padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+          <option value="">Todas as cobranças</option>
+          <option value="pago">Pagas</option>
+          <option value="pendente">Pendentes</option>
+          <option value="falha">Falhas</option>
+        </select>
+      </div>
+      <div id="tabela-cobracas">
+        <div class="admin-loading"><div class="admin-spinner"></div><p>Carregando cobranças...</p></div>
+      </div>
+      <div id="paginacao-cobracas" style="display: none; margin-top: 20px; text-align: center;">
+        <button class="admin-btn-small" onclick="irParaCobranca(paginaCobracas - 1)">← Anterior</button>
+        <span id="info-paginacao-cobracas" style="margin: 0 15px; font-size: 14px;"></span>
+        <button class="admin-btn-small" onclick="irParaCobranca(paginaCobracas + 1)">Próxima →</button>
+      </div>
+    </div>
+
+    <!-- ABA: AUDITORIA -->
+    <div id="aba-auditoria" class="admin-section" style="display: none;">
+      <h2>Auditoria & Histórico de Login</h2>
+      <div id="tabela-auditoria">
+        <div class="admin-loading"><div class="admin-spinner"></div><p>Carregando histórico...</p></div>
+      </div>
+      <div id="paginacao-auditoria" style="display: none; margin-top: 20px; text-align: center;">
+        <button class="admin-btn-small" onclick="irParaAuditoria(paginaAuditoria - 1)">← Anterior</button>
+        <span id="info-paginacao-auditoria" style="margin: 0 15px; font-size: 14px;"></span>
+        <button class="admin-btn-small" onclick="irParaAuditoria(paginaAuditoria + 1)">Próxima →</button>
       </div>
     </div>
   </div>
@@ -611,6 +678,225 @@
         console.error('Erro ao fazer logout:', err);
       }
       window.location.href = '/admin-login.html';
+    }
+
+    // ============================================================
+    // FUNÇÕES DAS ABAS (P1)
+    // ============================================================
+
+    let paginaAssinaturas = 1, paginaCobracas = 1, paginaAuditoria = 1;
+    let filtroStatusAssinaturas = '', filtroStatusCobracas = '';
+
+    // Mudar de aba
+    function mudarAba(aba) {
+      // Esconder todas
+      document.getElementById('aba-clientes').style.display = 'none';
+      document.getElementById('aba-assinaturas').style.display = 'none';
+      document.getElementById('aba-cobracas').style.display = 'none';
+      document.getElementById('aba-auditoria').style.display = 'none';
+
+      // Desmarcar todos os botões
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.style.color = '#999';
+        btn.style.borderBottom = 'none';
+        btn.style.marginBottom = '0';
+      });
+
+      // Mostrar selecionada
+      document.getElementById(`aba-${aba}`).style.display = 'block';
+      document.getElementById(`tab-${aba}`).style.color = 'var(--marca)';
+      document.getElementById(`tab-${aba}`).style.borderBottom = '3px solid var(--marca)';
+      document.getElementById(`tab-${aba}`).style.marginBottom = '-10px';
+
+      // Carregar dados
+      if (aba === 'assinaturas') carregarAssinaturas();
+      if (aba === 'cobracas') carregarCobracas();
+      if (aba === 'auditoria') carregarAuditoria();
+    }
+
+    // Assinaturas
+    async function carregarAssinaturas() {
+      try {
+        const params = new URLSearchParams();
+        if (filtroStatusAssinaturas) params.append('status', filtroStatusAssinaturas);
+        params.append('pagina', paginaAssinaturas);
+
+        const res = await fetchAdmin(`/assinaturas?${params}`);
+        if (!res.ok) throw new Error('Erro ao carregar');
+
+        const { assinaturas, paginacao } = await res.json();
+
+        let html = `<table class="admin-table"><thead><tr>
+          <th>Cliente</th><th>Plano</th><th>Valor</th><th>Renovação</th>
+          <th>Cobranças</th><th>Status</th><th>Ações</th>
+        </tr></thead><tbody>`;
+
+        assinaturas.forEach(a => {
+          const statusBadge = a.em_teste ? '<span class="badge-pendente">Trial</span>' :
+            a.cancelada_em ? '<span class="badge-bloqueado">Cancelada</span>' :
+            new Date(a.data_proxima_renovacao) <= new Date() ? '<span class="badge-warning">Vencida</span>' :
+            '<span class="badge-ativo">Ativa</span>';
+
+          html += `<tr>
+            <td><strong>${a.nome_loja}</strong><br><span style="font-size:12px;color:#999">${a.email}</span></td>
+            <td>${a.plano}</td>
+            <td>${formatarMoeda(a.valor_mensal)}</td>
+            <td>${formatarData(a.data_proxima_renovacao)}</td>
+            <td>${a.num_cobracas}</td>
+            <td>${statusBadge}</td>
+            <td>
+              <button class="admin-btn-small" onclick="editarAssinatura(${a.id}, '${a.plano}')">Editar</button>
+            </td>
+          </tr>`;
+        });
+
+        html += `</tbody></table>`;
+        document.getElementById('tabela-assinaturas').innerHTML = html;
+
+        if (paginacao.total > 20) {
+          document.getElementById('paginacao-assinaturas').style.display = 'block';
+          document.getElementById('info-paginacao-assinaturas').textContent = `Página ${paginacao.pagina} de ${paginacao.total_paginas}`;
+        }
+      } catch (err) {
+        console.error('Erro:', err);
+        document.getElementById('tabela-assinaturas').innerHTML = '<div class="admin-error">Erro ao carregar assinaturas</div>';
+      }
+    }
+
+    function filtrarAssinataurasPor(campo, valor) {
+      filtroStatusAssinaturas = valor;
+      paginaAssinaturas = 1;
+      carregarAssinaturas();
+    }
+
+    function irParaAssinatura(pagina) {
+      if (pagina < 1) return;
+      paginaAssinaturas = pagina;
+      carregarAssinaturas();
+    }
+
+    function editarAssinatura(id, planoAtual) {
+      const novoPlano = prompt(`Editar plano (atual: ${planoAtual}):\nOpciones: basico, crescimento, profissional`, planoAtual);
+      if (!novoPlano || novoPlano === planoAtual) return;
+
+      const valorPlano = { basico: 99, crescimento: 149, profissional: 299 }[novoPlano];
+      if (!valorPlano) { alert('Plano inválido'); return; }
+
+      fetchAdmin(`/assinaturas/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ plano: novoPlano, valor_mensal: valorPlano })
+      }).then(res => res.json()).then(data => {
+        alert(data.mensagem || 'Assinatura atualizada');
+        carregarAssinaturas();
+      }).catch(err => alert('Erro: ' + err.message));
+    }
+
+    // Cobranças
+    async function carregarCobracas() {
+      try {
+        const params = new URLSearchParams();
+        if (filtroStatusCobracas) params.append('status', filtroStatusCobracas);
+        params.append('pagina', paginaCobracas);
+
+        const res = await fetchAdmin(`/cobracas?${params}`);
+        if (!res.ok) throw new Error('Erro ao carregar');
+
+        const { cobracas, paginacao } = await res.json();
+
+        let html = `<table class="admin-table"><thead><tr>
+          <th>Cliente</th><th>Plano</th><th>Valor</th><th>Data Cobrança</th>
+          <th>Status</th><th>Tentativas</th><th>Ações</th>
+        </tr></thead><tbody>`;
+
+        cobracas.forEach(c => {
+          const statusBadge = c.status === 'pago' ? '<span class="badge-ativo">Pago</span>' :
+            c.status === 'pendente' ? '<span class="badge-warning">Pendente</span>' :
+            '<span class="badge-bloqueado">Falha</span>';
+
+          html += `<tr>
+            <td><strong>${c.nome_loja}</strong><br><span style="font-size:12px;color:#999">${c.email}</span></td>
+            <td>${c.plano || '—'}</td>
+            <td>${formatarMoeda(c.valor)}</td>
+            <td>${formatarData(c.data_cobranca)}</td>
+            <td>${statusBadge}</td>
+            <td>${c.tentativas}</td>
+            <td>
+              ${c.status !== 'pago' ? `<button class="admin-btn-small" onclick="reprocessarCobranca(${c.id})">🔄 Reprocessar</button>` : '—'}
+            </td>
+          </tr>`;
+        });
+
+        html += `</tbody></table>`;
+        document.getElementById('tabela-cobracas').innerHTML = html;
+
+        if (paginacao.total > 20) {
+          document.getElementById('paginacao-cobracas').style.display = 'block';
+          document.getElementById('info-paginacao-cobracas').textContent = `Página ${paginacao.pagina} de ${paginacao.total_paginas}`;
+        }
+      } catch (err) {
+        console.error('Erro:', err);
+        document.getElementById('tabela-cobracas').innerHTML = '<div class="admin-error">Erro ao carregar cobranças</div>';
+      }
+    }
+
+    function filtrarCobracasPor(campo, valor) {
+      filtroStatusCobracas = valor;
+      paginaCobracas = 1;
+      carregarCobracas();
+    }
+
+    function irParaCobranca(pagina) {
+      if (pagina < 1) return;
+      paginaCobracas = pagina;
+      carregarCobracas();
+    }
+
+    function reprocessarCobranca(id) {
+      if (!confirm('Reprocessar cobrança? Ela será marcada como pendente novamente.')) return;
+      fetchAdmin(`/cobracas/${id}/reprocessar`, { method: 'POST' })
+        .then(res => res.json())
+        .then(data => { alert(data.mensagem); carregarCobracas(); })
+        .catch(err => alert('Erro: ' + err.message));
+    }
+
+    // Auditoria
+    async function carregarAuditoria() {
+      try {
+        const res = await fetchAdmin(`/login-history?pagina=${paginaAuditoria}`);
+        if (!res.ok) throw new Error('Erro ao carregar');
+
+        const { logins, paginacao } = await res.json();
+
+        let html = `<table class="admin-table"><thead><tr>
+          <th>Admin</th><th>Data/Hora</th><th>IP</th><th>Resultado</th>
+        </tr></thead><tbody>`;
+
+        logins.forEach(l => {
+          html += `<tr>
+            <td><strong>${l.usuario_nome}</strong></td>
+            <td>${new Date(l.criado_em).toLocaleString('pt-BR')}</td>
+            <td><code style="font-size:11px">${l.ip}</code></td>
+            <td><span class="badge-${l.resultado === 'Sucesso' ? 'ativo' : 'bloqueado'}">${l.resultado}</span></td>
+          </tr>`;
+        });
+
+        html += `</tbody></table>`;
+        document.getElementById('tabela-auditoria').innerHTML = html;
+
+        if (paginacao.total > 50) {
+          document.getElementById('paginacao-auditoria').style.display = 'block';
+          document.getElementById('info-paginacao-auditoria').textContent = `Página ${paginacao.pagina} de ${paginacao.total_paginas}`;
+        }
+      } catch (err) {
+        console.error('Erro:', err);
+        document.getElementById('tabela-auditoria').innerHTML = '<div class="admin-error">Erro ao carregar auditoria</div>';
+      }
+    }
+
+    function irParaAuditoria(pagina) {
+      if (pagina < 1) return;
+      paginaAuditoria = pagina;
+      carregarAuditoria();
     }
 
     // Carregar ao abrir a página
