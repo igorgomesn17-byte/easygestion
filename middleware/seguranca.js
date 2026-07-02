@@ -133,13 +133,14 @@ function validarTenantAtivo(req, res, next) {
     return; // NÃO chama next()!
   }
 
-  // Verificar se trial venceu ou assinatura está vencida
+  // Verificar se trial venceu ou assinatura está vencida (bloqueia acesso)
+  // NOTA: trial ativo NÃO bloqueia — cliente pode usar normalmente e fazer upgrade quando quiser
   const statusAssinatura = obterStatusAssinatura(req.session.tenant_id);
-  if (statusAssinatura.status === 'trial' || statusAssinatura.status === 'vencida' || statusAssinatura.bloqueado) {
+  if (statusAssinatura.status === 'vencida' || statusAssinatura.bloqueado) {
     // Se for uma requisição API, retornar erro
     if (req.path.startsWith('/api')) {
       return res.status(403).json({
-        erro: 'Trial expirado ou assinatura vencida',
+        erro: 'Assinatura vencida ou bloqueada',
         redirecionar: '/planos.html',
         trial_expirado: true
       });
