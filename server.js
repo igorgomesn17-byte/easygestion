@@ -107,6 +107,8 @@ app.use(helmet({
       scriptSrcAttr: ["'unsafe-inline'"],
       imgSrc: ["'self'", 'data:', 'blob:'],
       connectSrc: ["'self'", 'https://api.stripe.com', 'https://checkout.stripe.com', 'https://js.stripe.com'],
+      frameSrc: ['https://checkout.stripe.com', 'https://js.stripe.com'],
+      childSrc: ['https://checkout.stripe.com', 'https://js.stripe.com'],
       frameAncestors: ["'self'"],
       objectSrc: ["'none'"],
       baseUri: ["'self'"],
