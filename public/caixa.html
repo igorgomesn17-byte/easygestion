@@ -121,10 +121,16 @@
       </div>
       <div class="campo"><label>Observação</label><textarea id="obs" rows="2"></textarea></div>
       <div style="display:flex; gap:10px; flex-wrap:wrap;">
-        <button class="btn btn-verde" onclick="fechar()">Fechar caixa</button>
-        <button class="btn btn-escuro" onclick="imprimirFechamento()">🖨️ Imprimir fechamento</button>
-        <label style="display:flex; align-items:center; gap:6px; margin-left:auto;">
-          <input type="checkbox" id="conciliado" style="width:auto;"> Valores conferem (conciliado)</label>
+        <div id="areasBotoesFechar" style="display:flex; gap:10px; flex-wrap:wrap; flex:1;">
+          <button id="btnFechar" class="btn btn-verde" onclick="fechar()">Fechar caixa</button>
+          <button class="btn btn-escuro" onclick="imprimirFechamento()">🖨️ Imprimir fechamento</button>
+          <label style="display:flex; align-items:center; gap:6px; margin-left:auto;">
+            <input type="checkbox" id="conciliado" style="width:auto;"> Valores conferem (conciliado)</label>
+        </div>
+        <div id="spinnerFechando" style="display:none; text-align:center; padding:12px; gap:10px; flex-direction:column; align-items:center; flex:1;">
+          <div class="spinner" style="margin:0;"></div>
+          <div style="font-size:0.9rem; color:var(--tinta-2);">Fechando caixa...</div>
+        </div>
       </div>
       <div id="avisoFechado"></div>
     </div>
@@ -259,10 +265,23 @@
       const contado = document.getElementById('dinContado').value;
       if (contado === '') { toast('Informe o dinheiro contado','erro'); return; }
       if (confirm('Fechar o caixa deste dia?')) return;
-      try { await api('/caixa/fechar', { method:'POST', body:{ data:document.getElementById('data').value,
+
+      // Mostrar spinner e desabilitar botão
+      const areaBotoes = document.getElementById('areasBotoesFechar');
+      const spinner = document.getElementById('spinnerFechando');
+      areaBotoes.style.display = 'none';
+      spinner.style.display = 'flex';
+
+      try {
+        await api('/caixa/fechar', { method:'POST', body:{ data:document.getElementById('data').value,
           dinheiro_contado:contado, obs:document.getElementById('obs').value }});
         toast('Caixa fechado','sucesso'); conciliar(true); carregar();
-      } catch(e){ toast(e.message,'erro'); }
+      } catch(e){
+        toast(e.message,'erro');
+        // Restaurar botões em caso de erro
+        spinner.style.display = 'none';
+        areaBotoes.style.display = 'flex';
+      }
     }
     async function reabrir() {
       if (confirm('Reabrir o caixa?')) return;
