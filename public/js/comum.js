@@ -260,7 +260,16 @@ function montarLayout(paginaAtiva) {
     const links = g.itens.map(i =>
       `<a class="nav-link ${i.id===paginaAtiva?'ativo':''}" data-pagina="${i.id}" href="${i.href}" ${i.target?`target="${i.target}"`:''} title="${i.txt}">
          ${svg(i.ico)}<span class="txt">${i.txt}</span></a>`).join('');
-    return (g.grupo ? `<div class="nav-grupo-titulo">${g.grupo}</div>` : '') + links;
+    if (!g.grupo) return links;
+    // Com grupo: fazer colapsável
+    const grupoClosed = localStorage.getItem(`nav-grupo-${g.grupo}`) === '1';
+    return `<div class="nav-grupo-titulo" onclick="toggleNavGrupo('${g.grupo}')" style="cursor:pointer;">
+      <span>${g.grupo}</span>
+      <span class="nav-grupo-toggle">${grupoClosed ? '▶' : '▼'}</span>
+    </div>
+    <div class="nav-grupo-items ${grupoClosed ? 'collapsed' : ''}" data-grupo="${g.grupo}">
+      ${links}
+    </div>`;
   }).join('');
 
   const layout = `
@@ -306,6 +315,17 @@ function montarLayout(paginaAtiva) {
     aplicarCorMarca(marca.cor);
     aplicarMarcaNoChrome(marca);
   }).catch(() => {});
+}
+
+function toggleNavGrupo(grupo) {
+  const container = document.querySelector(`.nav-grupo-items[data-grupo="${grupo}"]`);
+  const titulo = container.previousElementSibling;
+  const toggle = titulo.querySelector('.nav-grupo-toggle');
+  const isClosed = container.classList.contains('collapsed');
+
+  container.classList.toggle('collapsed');
+  toggle.textContent = isClosed ? '▼' : '▶';
+  localStorage.setItem(`nav-grupo-${grupo}`, isClosed ? '0' : '1');
 }
 
 function toggleRecolher() {
