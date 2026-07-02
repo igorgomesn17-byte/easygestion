@@ -1,0 +1,158 @@
+<***REMOVED***DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Estoque • DS Store</title>
+  <link rel="stylesheet" href="css/ds.css">
+</head>
+<body>
+  <div class="conteudo">
+    <div class="flex-entre">
+      <div><h1>Estoque</h1><p class="subtitulo">Consulte e ajuste a quantidade de cada peça por tamanho</p></div>
+      <button class="btn btn-escuro" onclick="exportar()">⬇ Exportar CSV</button>
+    </div>
+
+    <div class="cards-grid">
+      <div class="card card-metrica destaque"><div class="valor" id="ePecas">0</div><div class="rotulo">Peças em estoque</div></div>
+      <div class="card card-metrica"><div class="valor" id="eProdutos">0</div><div class="rotulo">Modelos cadastrados</div></div>
+      <div class="card card-metrica"><div class="valor dinheiro" id="eCusto">R$ 0</div><div class="rotulo">Valor a custo</div></div>
+      <div class="card card-metrica"><div class="valor dinheiro texto-verde" id="eVenda">R$ 0</div><div class="rotulo">Valor a venda</div></div>
+    </div>
+
+    <div class="card">
+      <input type="search" id="busca" placeholder="🔎 Filtrar por nome ou código..." oninput="render()">
+    </div>
+
+    <div id="alertaBaixo"></div>
+    <div id="tabela"></div>
+  </div>
+
+  <***REMOVED***-- Modal ajuste -->
+  <div class="modal-fundo" id="modalAj">
+    <div class="modal">
+      <button class="modal-fechar" onclick="document.getElementById('modalAj').classList.remove('aberto')">&times;</button>
+      <h2 id="ajTitulo">Ajustar estoque</h2>
+      <input type="hidden" id="ajVarId">
+      <div class="campo">
+        <label>Quantidade atual no sistema: <strong id="ajAtual"></strong></label>
+      </div>
+      <div class="campo">
+        <label>Nova quantidade (contagem real)</label>
+        <input type="number" id="ajNova" min="0">
+      </div>
+      <div class="campo">
+        <label>Motivo</label>
+        <input type="text" id="ajMotivo" placeholder="Ex: contagem, perda, devolução...">
+      </div>
+      <button class="btn btn-bloco" onclick="salvarAjuste()">Salvar ajuste</button>
+      <div class="card mt" style="background:var(--cinza-claro);">
+        <strong>Adicionar entrada</strong> (somar ao estoque)
+        <div class="linha mt">
+          <input type="number" id="entradaQtd" placeholder="+ quantidade" min="1">
+          <button class="btn btn-verde" onclick="salvarEntrada()">+ Entrada</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/comum.js"></script>
+  <script>
+    montarLayout('estoque');
+    let dados = [];
+
+    async function carregar() {
+      dados = await api('/estoque');
+      // cards de resumo
+      const resumo = await api('/estoque/resumo');
+      document.getElementById('ePecas').textContent = resumo.pecas;
+      document.getElementById('eProdutos').textContent = resumo.produtos;
+      document.getElementById('eCusto').textContent = moeda(resumo.valor_custo);
+      document.getElementById('eVenda').textContent = moeda(resumo.valor_venda);
+      const baixo = await api('/estoque/baixo');
+      const al = document.getElementById('alertaBaixo');
+      if (baixo.length > 0) {
+        al.innerHTML = `<div class="card" style="border-left:4px solid var(--vermelho);">
+          <strong class="texto-vermelho">⚠️ ${baixo.length} ${baixo.length===1?'item':'itens'} em estoque baixo/zerado</strong>
+          <div class="mt">${baixo.map(b=>`<span class="badge badge-vermelho" style="margin:2px;">${b.nome} ${b.tamanho}: ${b.quantidade}</span>`).join('')}</div>
+        </div>`;
+      } else al.innerHTML = '';
+      render();
+    }
+
+    function render() {
+      const b = document.getElementById('busca').value.toLowerCase();
+      // agrupa por produto
+      const grupos = {};
+      dados.filter(d => ***REMOVED***b || d.nome.toLowerCase().includes(b) || d.codigo.toLowerCase().includes(b))
+           .forEach(d => { (grupos[d.produto_id] = grupos[d.produto_id] || { nome:d.nome, codigo:d.codigo, cor:d.cor, vars:[] }).vars.push(d); });
+      const arr = Object.values(grupos);
+      const div = document.getElementById('tabela');
+      if (arr.length === 0) { div.innerHTML = '<div class="vazio">Nenhuma peça encontrada.</div>'; return; }
+      div.innerHTML = arr.map(g => {
+        const total = g.vars.reduce((s,v)=>s+v.quantidade,0);
+        const chips = g.vars.map(v => `
+          <span class="chip-tam ${v.quantidade===0?'zerado':''}" style="cursor:pointer;"
+                onclick="abrirAjuste(${v.variacao_id}, '${g.nome.replace(/'/g,"")} ${v.tamanho}', ${v.quantidade})">
+            <span class="t">${v.tamanho}</span><span class="q">${v.quantidade}</span></span>`).join('');
+        return `<div class="card">
+          <div class="flex-entre">
+            <div><strong>${g.nome}</strong> <span class="badge badge-dourado">${g.codigo}</span>
+                 ${g.cor?`<span class="texto-cinza"> • ${g.cor}</span>`:''}</div>
+            <span class="texto-cinza">Total: <strong>${total}</strong></span>
+          </div>
+          <div class="grade-chips mt">${chips}</div>
+          <div class="texto-cinza mt" style="font-size:0.8rem;">Toque num tamanho para ajustar</div>
+        </div>`;
+      }).join('');
+    }
+
+    function abrirAjuste(varId, titulo, atual) {
+      document.getElementById('ajVarId').value = varId;
+      document.getElementById('ajTitulo').textContent = 'Ajustar: ' + titulo;
+      document.getElementById('ajAtual').textContent = atual;
+      document.getElementById('ajNova').value = atual;
+      document.getElementById('ajMotivo').value = '';
+      document.getElementById('entradaQtd').value = '';
+      document.getElementById('modalAj').classList.add('aberto');
+    }
+
+    async function salvarAjuste() {
+      const id = document.getElementById('ajVarId').value;
+      const nova = document.getElementById('ajNova').value;
+      try {
+        await api('/estoque/ajuste', { method:'POST', body:{ variacao_id:+id, nova_quantidade:+nova, motivo:document.getElementById('ajMotivo').value }});
+        toast('Estoque ajustado', 'sucesso');
+        document.getElementById('modalAj').classList.remove('aberto');
+        carregar();
+      } catch(e){ toast(e.message,'erro'); }
+    }
+    async function salvarEntrada() {
+      const id = document.getElementById('ajVarId').value;
+      const qtd = document.getElementById('entradaQtd').value;
+      if (***REMOVED***qtd || qtd<=0) { toast('Informe a quantidade','erro'); return; }
+      try {
+        await api('/estoque/entrada', { method:'POST', body:{ variacao_id:+id, qtd:+qtd, motivo:'entrada de mercadoria' }});
+        toast('Entrada registrada', 'sucesso');
+        document.getElementById('modalAj').classList.remove('aberto');
+        carregar();
+      } catch(e){ toast(e.message,'erro'); }
+    }
+
+    function exportar() {
+      if (***REMOVED***dados.length) { toast('Nada para exportar','erro'); return; }
+      const linhas = dados.map(d=>({
+        Codigo:d.codigo, Produto:d.nome, Categoria:d.categoria||'', Cor:d.cor||'',
+        Tamanho:d.tamanho, Quantidade:d.quantidade,
+        Custo_unit:d.custo, Preco_unit:d.preco_venda,
+        Valor_custo:+(d.quantidade*(d.custo||0)).toFixed(2),
+        Valor_venda:+(d.quantidade*(d.preco_venda||0)).toFixed(2)
+      }));
+      exportarCSV('estoque-' + hojeLocalStr(), linhas);
+    }
+
+    document.getElementById('modalAj').addEventListener('click', e=>{ if(e.target.id==='modalAj') e.currentTarget.classList.remove('aberto'); });
+    carregar();
+  </script>
+</body>
+</html>

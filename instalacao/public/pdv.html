@@ -1,0 +1,811 @@
+<***REMOVED***DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vender • DS Store</title>
+  <link rel="stylesheet" href="css/ds.css">
+  <style>
+    .pdv-grid { display: grid; grid-template-columns: 1fr 400px; gap: 16px; align-items: start; }
+    @media (max-width: 920px) { .pdv-grid { grid-template-columns: 1fr; } }
+    .resultado-busca { max-height: 440px; overflow-y: auto; }
+    .item-busca { padding: 10px; border-top: 1px solid #EEE; cursor: pointer; }
+    .item-busca:hover { background: var(--creme); }
+    .tam-btn { display:inline-block; margin:3px; padding:8px 12px; border:1.5px solid var(--dourado-claro); border-radius:6px; cursor:pointer; background:#fff; font-weight:600; }
+    .tam-btn:hover { background: var(--dourado-claro); }
+    .tam-btn.zerado { opacity:0.35; pointer-events:none; }
+    .carrinho-item { padding:10px 0; border-bottom:1px solid #EEE; }
+    .pgto-opcoes { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .pgto-btn { padding:12px; border:1.5px solid #DDD; border-radius:8px; background:#fff; cursor:pointer; font-weight:600; text-align:center; }
+    .pgto-btn.sel { border-color:var(--dourado); background:var(--dourado-claro); color:var(--taupe-escuro); }
+    .pgto-btn.pix.sel { border-color:var(--verde); background:#E3F4EA; color:var(--verde); }
+    .lista-cli { max-height:180px; overflow-y:auto; border:1px solid #EEE; border-radius:8px; margin-top:4px; display:none; }
+    .lista-cli div { padding:9px; cursor:pointer; border-bottom:1px solid #F0F0F0; }
+    .lista-cli div:hover { background:var(--creme); }
+    .sticky-carrinho { position:sticky; top:120px; }
+  </style>
+</head>
+<body>
+  <div class="conteudo">
+    <h1>Vender</h1>
+    <p class="subtitulo">Busque a peça, escolha o tamanho e finalize</p>
+
+    <div class="pdv-grid">
+      <div>
+        <div class="card">
+          <div style="display:flex; gap:8px; align-items:center;">
+            <input type="search" id="busca" placeholder="🔎 Buscar peça por nome ou código (ou leia o código de barras)..." autofocus oninput="buscar()" style="flex:1;">
+            <button class="btn btn-escuro" id="btnPecaNova" onclick="abrirPecaNova()" title="Cadastrar peça nova" style="font-size:1.3rem; line-height:1; padding:0 14px;">+</button>
+          </div>
+          <div id="fotoProdSel" style="display:none; margin-bottom:12px; text-align:center;">
+            <img id="fotoProdImg" src="" alt="" style="max-width:100%; max-height:300px; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+          </div>
+          <div class="resultado-busca" id="resultados"></div>
+        </div>
+      </div>
+
+      <div class="card sticky-carrinho">
+        <h2 style="margin-top:0;">🛒 Venda atual</h2>
+
+        <***REMOVED***-- Vendedor -->
+        <div class="campo">
+          <label>Vendedor(a)</label>
+          <select id="vendedor"><option value="">— Selecione —</option></select>
+        </div>
+
+        <***REMOVED***-- Origem / canal da venda -->
+        <div class="campo">
+          <label>Veio de onde?</label>
+          <select id="origem"></select>
+        </div>
+
+        <div id="carrinho"><div class="vazio">Carrinho vazio</div></div>
+
+        <div id="areaFinalizar" style="display:none;">
+          <div class="flex-entre mt"><span>Subtotal</span><strong id="subtotal" class="dinheiro">R$ 0,00</strong></div>
+
+          <div class="campo mt">
+            <label>Desconto</label>
+            <div style="display:flex; gap:6px;">
+              <input type="number" id="desconto" step="0.01" value="0" oninput="atualizarTotais()" placeholder="0,00">
+              <select id="tipoDesc" onchange="atualizarTotais()" style="max-width:90px;">
+                <option value="reais">R$</option>
+                <option value="pct">%</option>
+              </select>
+            </div>
+          </div>
+          <div id="impactoDesc"></div>
+
+          <div class="flex-entre" style="font-size:1.3rem;"><strong>TOTAL</strong><strong id="total" class="dinheiro texto-verde">R$ 0,00</strong></div>
+
+          <h2>Pagamento</h2>
+          <div class="pgto-opcoes">
+            <div class="pgto-btn pix" data-forma="pix" onclick="selPgto(this)">💚 Pix<br><small>sem taxa</small></div>
+            <div class="pgto-btn pix" data-forma="pix_chave" onclick="selPgto(this)">🔑 Pix (chave)<br><small>sem taxa</small></div>
+            <div class="pgto-btn" data-forma="dinheiro" onclick="selPgto(this)">💵 Dinheiro</div>
+            <div class="pgto-btn" data-forma="debito" onclick="selPgto(this)">💳 Débito</div>
+            <div class="pgto-btn" data-forma="credito_vista" onclick="selPgto(this)">💳 Créd. à vista</div>
+          </div>
+          <div class="pgto-btn mt" data-forma="credito_parcelado" onclick="selPgto(this)" style="width:100%;">💳 Crédito parcelado</div>
+          <div class="campo mt" id="areaParcelas" style="display:none;">
+            <label>Parcelas</label>
+            <select id="parcelas" onchange="atualizarTotais()">
+              <option value="2">2x</option><option value="3">3x</option><option value="4">4x</option>
+              <option value="5">5x</option><option value="6">6x</option>
+            </select>
+            <label id="areaRepassar" style="display:none; align-items:center; gap:7px; margin-top:8px; font-weight:600; cursor:pointer;">
+              <input type="checkbox" id="repassarTaxa" checked onchange="atualizarTotais()" style="width:auto;">
+              Repassar a taxa ao cliente
+            </label>
+          </div>
+          <div id="previewPgto" class="mt"></div>
+
+          <***REMOVED***-- Troco (quando paga em dinheiro) -->
+          <div class="campo mt" id="areaTroco" style="display:none;">
+            <label>Valor recebido (R$)</label>
+            <input type="number" id="valorRecebido" step="0.01" placeholder="quanto a cliente entregou" oninput="calcTroco()">
+            <div id="trocoInfo" class="mt" style="font-size:0.92rem;"></div>
+            <div id="trocoFormaArea" style="display:none; margin-top:8px;">
+              <label style="font-size:0.85rem;">Como devolveu o troco?</label>
+              <div style="display:flex; gap:8px; margin-top:4px;">
+                <label style="display:flex; align-items:center; gap:5px; font-weight:600; cursor:pointer;">
+                  <input type="radio" name="trocoForma" value="dinheiro" checked style="width:auto;"> 💵 Dinheiro</label>
+                <label style="display:flex; align-items:center; gap:5px; font-weight:600; cursor:pointer;">
+                  <input type="radio" name="trocoForma" value="pix" style="width:auto;"> 💚 Pix</label>
+              </div>
+            </div>
+          </div>
+
+          <***REMOVED***-- Comprovante (Pix por chave) -->
+          <div class="campo mt" id="areaComprovante" style="display:none;">
+            <label>📎 Comprovante do Pix (opcional)</label>
+            <input type="file" id="comprovanteFile" accept="image/png,image/jpeg,image/webp" onchange="previewComprovante()">
+            <div id="comprovantePreview" class="mt"></div>
+          </div>
+
+          <***REMOVED***-- Dividir pagamento (split) -->
+          <button class="btn btn-fino mt" id="btnDividir" onclick="abrirSplit()" style="width:100%;">➕ Dividir pagamento (2+ formas)</button>
+          <div id="areaSplit" class="campo mt" style="display:none; border:1.5px solid var(--dourado-claro); border-radius:10px; padding:12px;">
+            <div class="flex-entre"><strong>Pagamento dividido</strong>
+              <button class="btn btn-fino" style="padding:2px 8px;" onclick="fecharSplit()">usar 1 forma</button></div>
+            <div id="splitLinhas" class="mt"></div>
+            <button class="btn btn-fino btn-escuro mt" onclick="addLinhaSplit()" style="width:100%;">+ Adicionar forma</button>
+            <div id="splitResumo" class="mt" style="font-size:0.9rem;"></div>
+          </div>
+
+          <***REMOVED***-- Cliente com busca (lupa) -->
+          <div class="campo mt">
+            <label>Cliente (opcional)</label>
+            <div style="display:flex; gap:8px;">
+              <input type="search" id="buscaCli" placeholder="🔎 Digite o nome do cliente..." oninput="buscarCli()" autocomplete="off" style="flex:1;">
+              <button class="btn btn-fino btn-escuro" onclick="abrirNovoCliente()">+ Novo</button>
+            </div>
+            <div class="lista-cli" id="listaCli"></div>
+            <div id="cliSelecionado" class="mt" style="display:none;">
+              <span class="badge badge-dourado" id="cliNomeSel"></span>
+              <button class="btn btn-fino" style="padding:2px 8px;" onclick="limparCli()">trocar</button>
+            </div>
+            <input type="hidden" id="clienteId">
+          </div>
+
+          <button class="btn btn-bloco btn-verde mt" onclick="finalizar(true)">🧾 Finalizar + NFC-e</button>
+          <button class="btn btn-bloco mt" style="background:var(--marrom-taupe,#8a7a6d);" onclick="finalizar(false)">✓ Finalizar (sem nota)</button>
+          <button class="btn btn-bloco mt" style="background:#A99;" onclick="limparCarrinho()">Cancelar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <***REMOVED***-- Modal tamanho -->
+  <div class="modal-fundo" id="modalTam">
+    <div class="modal">
+      <button class="modal-fechar" onclick="fecharTam()">&times;</button>
+      <h2 id="tamTitulo">Escolha o tamanho</h2>
+      <div id="tamOpcoes"></div>
+    </div>
+  </div>
+
+  <***REMOVED***-- Modal cadastro rápido de peça (no PDV) -->
+  <div class="modal-fundo" id="modalPecaNova">
+    <div class="modal">
+      <button class="modal-fechar" onclick="document.getElementById('modalPecaNova').classList.remove('aberto')">&times;</button>
+      <h2>Cadastrar peça nova</h2>
+      <p class="texto-cinza" style="font-size:0.85rem;">O essencial pra vender agora. Custo, categoria e foto você completa depois em Produtos.</p>
+      <div class="campo"><label>Nome da peça *</label><input type="text" id="pnNome"></div>
+      <div class="linha">
+        <div class="campo"><label>Preço de venda (R$) *</label><input type="number" id="pnPreco" step="0.01" placeholder="0,00"></div>
+        <div class="campo"><label>Tamanho</label><input type="text" id="pnTamanho" placeholder="Ex: M, U, 38" value="U"></div>
+      </div>
+      <button class="btn btn-bloco btn-verde" onclick="salvarPecaNova()">Cadastrar e adicionar à venda</button>
+    </div>
+  </div>
+
+  <***REMOVED***-- Modal novo cliente -->
+  <div class="modal-fundo" id="modalCli">
+    <div class="modal">
+      <button class="modal-fechar" onclick="document.getElementById('modalCli').classList.remove('aberto')">&times;</button>
+      <h2>Novo cliente</h2>
+      <div class="campo"><label>Nome *</label><input type="text" id="cliNome"></div>
+      <div class="campo"><label>WhatsApp</label><input type="text" id="cliTel" placeholder="(73) 9...."></div>
+      <div class="linha">
+        <div class="campo"><label>Cidade</label><input type="text" id="cliCidade"></div>
+        <div class="campo"><label>Aniversário (DD/MM)</label><input type="text" id="cliAniv" placeholder="15/03" maxlength="5"></div>
+      </div>
+      <div class="campo">
+        <label>Como conheceu a DS?</label>
+        <select id="cliOrigem"><option value="">— selecione —</option></select>
+      </div>
+      <button class="btn btn-bloco" onclick="salvarCliente()">Salvar cliente</button>
+    </div>
+  </div>
+
+  <***REMOVED***-- A19: Modal de abertura de caixa (bloqueia o PDV até abrir) -->
+  <div class="modal-fundo" id="modalCaixa" style="z-index:200;">
+    <div class="modal">
+      <h2>🔓 Abrir o caixa do dia</h2>
+      <p class="texto-cinza">Antes de vender, abra o caixa informando o fundo de troco (o dinheiro que já está na gaveta pra dar troco). Pode ser 0.</p>
+      <div class="campo">
+        <label>Fundo de troco (R$)</label>
+        <input type="number" id="fundoTroco" step="0.01" value="0" placeholder="0,00" autofocus>
+      </div>
+      <button class="btn btn-bloco btn-verde" onclick="abrirCaixa()">✓ Abrir caixa e começar a vender</button>
+      <div id="caixaFechadoAviso" style="display:none; margin-top:10px;" class="texto-cinza"></div>
+    </div>
+  </div>
+
+  <script src="js/comum.js"></script>
+  <script>
+    montarLayout('pdv');
+    popularSelectOrigens('origem');
+    let carrinho = [];
+    let formaSel = null;
+
+    // ---------- A19: exige caixa aberto pra vender ----------
+    async function checarCaixa() {
+      try {
+        const c = await api('/caixa/hoje');
+        if (c.aberto) return; // tudo certo, pode vender
+        const aviso = document.getElementById('caixaFechadoAviso');
+        if (c.fechado) {
+          // já encerrou o caixa hoje de propósito — avisa, mas deixa reabrir
+          aviso.style.display = 'block';
+          aviso.innerHTML = 'O caixa de hoje já foi <strong>fechado</strong>. Se precisa vender mais, reabra no menu Caixa do dia.';
+        }
+        document.getElementById('modalCaixa').classList.add('aberto');
+      } catch (e) { /* se a checagem falhar, não trava a venda */ }
+    }
+    async function abrirCaixa() {
+      const fundo = parseFloat(document.getElementById('fundoTroco').value) || 0;
+      try {
+        await api('/caixa/abrir', { method:'POST', body:{ fundo_troco: fundo } });
+        document.getElementById('modalCaixa').classList.remove('aberto');
+        toast('Caixa aberto***REMOVED*** Bora vender 🤎', 'sucesso');
+        document.getElementById('busca').focus();
+      } catch (e) { toast(e.message || 'Não consegui abrir o caixa', 'erro'); }
+    }
+    checarCaixa();
+    const LIMITE_LOJA_ABSORVE = 3; // ate 3x loja absorve; 4x+ cliente paga taxa
+
+    // ---------- Busca produto ----------
+    let timer;
+    function buscar() {
+      clearTimeout(timer);
+      timer = setTimeout(async () => {
+        const b = document.getElementById('busca').value.trim();
+        const div = document.getElementById('resultados');
+        if (***REMOVED***b) { div.innerHTML = ''; return; }
+        const lista = await api('/produtos?busca=' + encodeURIComponent(b));
+        if (lista.length === 0) { div.innerHTML = '<div class="vazio">Nada encontrado — use "+ Cadastrar peça nova" abaixo</div>'; return; }
+        div.innerHTML = lista.map(p => {
+          const fotoTag = p.foto
+            ? `<img src="/${p.foto}" style="width:48px;height:48px;border-radius:6px;object-fit:cover;flex-shrink:0;">`
+            : `<div style="width:48px;height:48px;border-radius:6px;background:var(--cinza-claro);display:flex;align-items:center;justify-content:center;flex-shrink:0;">👗</div>`;
+          return `
+          <div class="item-busca" onclick='escolherProduto(${JSON.stringify(p).replace(/'/g,"&#39;")})' style="display:flex; gap:10px; align-items:center;">
+            ${fotoTag}
+            <div style="flex:1;">
+              <div class="flex-entre">
+                <div><strong>${esc(p.nome)}</strong> <span class="badge badge-dourado">${esc(p.codigo)}</span></div>
+                <strong>${moeda(p.preco_venda)}</strong>
+              </div>
+              <div class="texto-cinza" style="font-size:0.82rem;">Estoque: ${p.estoque_total} • ${p.grade.map(g=>g.tamanho+':'+g.quantidade).join('  ')}</div>
+            </div>
+          </div>`; }).join('');
+      }, 200);
+    }
+
+    // ---------- A17: Leitor de código de barras (pistola USB) ----------
+    // A pistola "digita" o código e finaliza com Enter. Ao dar Enter no campo de busca,
+    // tenta casar o codigo_barras exato e joga direto pro carrinho (sem clique).
+    async function lerCodigo() {
+      const termo = document.getElementById('busca').value.trim();
+      if (***REMOVED***termo) return;
+      const lista = await api('/produtos?busca=' + encodeURIComponent(termo));
+      // casa por codigo_barras exato (leitura de pistola) ou codigo exato
+      let p = lista.find(x => x.codigo_barras === termo || (x.codigo||'').toUpperCase() === termo.toUpperCase());
+      // se não casou exato mas só veio 1 resultado, assume esse
+      if (***REMOVED***p && lista.length === 1) p = lista[0];
+      if (***REMOVED***p) { toast('Produto não encontrado pra esse código', 'erro'); return; }
+
+      const disp = (p.grade||[]).filter(g => g.quantidade > 0);
+      if (disp.length === 0) { toast('Sem estoque dessa peça', 'erro'); limparBusca(); return; }
+      produtoTmp = p;
+      if (disp.length === 1) {
+        // 1 tamanho com estoque → vai direto pro carrinho
+        addCarrinho(disp[0].id, disp[0].tamanho, disp[0].quantidade);
+        toast('✓ ' + (p.nome) + ' adicionado', 'sucesso');
+        limparBusca();
+      } else {
+        // vários tamanhos → precisa escolher qual (o código de barras é do produto, não da variação)
+        escolherProduto(p);
+        limparBusca();
+      }
+    }
+    function limparBusca() {
+      document.getElementById('busca').value = '';
+      document.getElementById('resultados').innerHTML = '';
+      document.getElementById('busca').focus();
+    }
+    // Enter no campo de busca = tentativa de leitura/seleção rápida
+    document.getElementById('busca').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); lerCodigo(); }
+    });
+
+    let produtoTmp = null;
+    function escolherProduto(p) {
+      produtoTmp = p;
+      if (p.grade.filter(g=>g.quantidade>0).length === 0) { toast('Sem estoque dessa peça', 'erro'); return; }
+      // mostra a foto do produto
+      const fotoDIV = document.getElementById('fotoProdSel');
+      const fotoIMG = document.getElementById('fotoProdImg');
+      if (p.foto) {
+        fotoIMG.src = '/' + p.foto;
+        fotoDIV.style.display = 'block';
+      } else {
+        fotoDIV.style.display = 'none';
+      }
+      document.getElementById('tamTitulo').textContent = p.nome + ' — escolha o tamanho';
+      document.getElementById('tamOpcoes').innerHTML = p.grade.map(g =>
+        `<span class="tam-btn ${g.quantidade===0?'zerado':''}" onclick="addCarrinho(${g.id}, '${g.tamanho}', ${g.quantidade})">
+          ${g.tamanho} <small>(${g.quantidade})</small></span>`).join('');
+      document.getElementById('modalTam').classList.add('aberto');
+    }
+    function fecharTam() { document.getElementById('modalTam').classList.remove('aberto'); }
+
+    // ---------- Cadastro rápido de peça no PDV ----------
+    function abrirPecaNova() {
+      // pré-preenche o nome com o que foi digitado na busca
+      document.getElementById('pnNome').value = document.getElementById('busca').value.trim();
+      document.getElementById('pnPreco').value = '';
+      document.getElementById('pnTamanho').value = 'U';
+      document.getElementById('modalPecaNova').classList.add('aberto');
+      setTimeout(()=>document.getElementById('pnPreco').focus(), 100);
+    }
+    async function salvarPecaNova() {
+      const nome = document.getElementById('pnNome').value.trim();
+      const preco = parseFloat(document.getElementById('pnPreco').value) || 0;
+      const tamanho = document.getElementById('pnTamanho').value.trim() || 'U';
+      if (***REMOVED***nome) { toast('Informe o nome da peça','erro'); return; }
+      if (preco <= 0) { toast('Informe o preço','erro'); return; }
+      try {
+        const p = await api('/produtos/rapido', { method:'POST', body:{ nome, preco_venda:preco, tamanho, quantidade:1 }});
+        // adiciona direto ao carrinho
+        carrinho.push({ variacao_id: p.variacao_id, produto_id: p.produto_id, nome: p.nome,
+          tamanho: p.tamanho, preco: p.preco_venda, custo: 0, qtd: 1, estoque: p.quantidade });
+        document.getElementById('modalPecaNova').classList.remove('aberto');
+        limparBusca();
+        toast('Peça cadastrada e adicionada à venda 🤎','sucesso');
+        renderCarrinho();
+      } catch(e){ toast(e.message,'erro'); }
+    }
+
+    function addCarrinho(variacaoId, tamanho, estoque) {
+      const existe = carrinho.find(i => i.variacao_id === variacaoId);
+      if (existe) {
+        if (existe.qtd + 1 > estoque) { toast('Estoque insuficiente', 'erro'); return; }
+        existe.qtd++;
+      } else {
+        carrinho.push({ variacao_id: variacaoId, produto_id: produtoTmp.id, nome: produtoTmp.nome,
+          tamanho, preco: produtoTmp.preco_venda, custo: produtoTmp.custo, qtd: 1, estoque });
+      }
+      fecharTam();
+      document.getElementById('busca').value = '';
+      document.getElementById('resultados').innerHTML = '';
+      document.getElementById('busca').focus();
+      renderCarrinho();
+    }
+
+    function renderCarrinho() {
+      const div = document.getElementById('carrinho');
+      const area = document.getElementById('areaFinalizar');
+      if (carrinho.length === 0) { div.innerHTML = '<div class="vazio">Carrinho vazio</div>'; area.style.display='none'; return; }
+      area.style.display = 'block';
+      div.innerHTML = carrinho.map((i, idx) => `
+        <div class="carrinho-item">
+          <div class="flex-entre">
+            <div><strong>${esc(i.nome)}</strong><br><span class="texto-cinza">Tam ${esc(i.tamanho)} • ${moeda(i.preco)}</span></div>
+            <div class="direita">
+              <div style="display:flex; align-items:center; gap:6px; justify-content:flex-end;">
+                <button class="btn btn-fino btn-escuro" onclick="mudarQtd(${idx},-1)">−</button>
+                <strong>${i.qtd}</strong>
+                <button class="btn btn-fino btn-escuro" onclick="mudarQtd(${idx},1)">+</button>
+              </div>
+              <strong class="dinheiro">${moeda(i.preco * i.qtd)}</strong>
+            </div>
+          </div>
+        </div>`).join('');
+      atualizarTotais();
+    }
+    function mudarQtd(idx, delta) {
+      const i = carrinho[idx];
+      const nova = i.qtd + delta;
+      if (nova <= 0) carrinho.splice(idx, 1);
+      else if (nova > i.estoque) { toast('Estoque insuficiente', 'erro'); return; }
+      else i.qtd = nova;
+      renderCarrinho();
+    }
+
+    function calcDescontoReais() {
+      const subtotal = carrinho.reduce((s, i) => s + i.preco * i.qtd, 0);
+      const val = parseFloat(document.getElementById('desconto').value) || 0;
+      const tipo = document.getElementById('tipoDesc').value;
+      return tipo === 'pct' ? +(subtotal * val / 100).toFixed(2) : val;
+    }
+    // Repassar a taxa ao cliente (4x+)? default marcado; você desmarca pra absorver.
+    function repassarTaxaAtivo() {
+      const cb = document.getElementById('repassarTaxa');
+      return cb ? cb.checked : true;
+    }
+
+    async function atualizarTotais() {
+      const subtotal = carrinho.reduce((s, i) => s + i.preco * i.qtd, 0);
+      const desc = calcDescontoReais();
+      const parcelas = formaSel === 'credito_parcelado' ? parseInt(document.getElementById('parcelas').value) : 1;
+      let baseAposDesc = Math.max(subtotal - desc, 0);
+      // checkbox "repassar taxa" só aparece quando passa do limite (4x+)
+      const passaLimite = formaSel === 'credito_parcelado' && parcelas > LIMITE_LOJA_ABSORVE;
+      document.getElementById('areaRepassar').style.display = passaLimite ? 'flex' : 'none';
+      // acrescimo parcelamento 4x+ — só se o checkbox de repassar estiver marcado
+      let acrescimo = 0;
+      if (passaLimite && repassarTaxaAtivo()) {
+        const taxasParc = {2:5.39,3:6.12,4:6.85,5:7.57,6:8.28};
+        acrescimo = +(baseAposDesc * (taxasParc[parcelas]||8.28) / 100).toFixed(2);
+      }
+      const total = +(baseAposDesc + acrescimo).toFixed(2);
+      document.getElementById('subtotal').textContent = moeda(subtotal);
+      document.getElementById('total').textContent = moeda(total);
+
+      // impacto do desconto no lucro
+      const impDiv = document.getElementById('impactoDesc');
+      if (desc > 0 && carrinho.length) {
+        const custoTotal = carrinho.reduce((s,i)=>s+i.custo*i.qtd,0);
+        const qtdItens = carrinho.reduce((s,i)=>s+i.qtd,0);
+        const comissaoPct = await comissaoVendedorSel();
+        try {
+          const imp = await api('/vendas/impacto-desconto', { method:'POST', body:{
+            subtotal, desconto: desc, custoTotal, forma: formaSel||'pix', parcelas,
+            comissaoPct, embalagemTotal: qtdItens * 1 }});
+          impDiv.innerHTML = `<div style="background:#FCF3E3; border:1px solid var(--dourado-claro); padding:9px; border-radius:8px; font-size:0.85rem; margin-bottom:10px;">
+            Desconto de <strong>${moeda(desc)}</strong>: lucro ${moeda(imp.lucroAntes)} → <strong>${moeda(imp.lucroDepois)}</strong>
+            <br><span class="texto-vermelho">você abre mão de ${moeda(imp.lucroPerdido)} de lucro</span></div>`;
+        } catch(e){ impDiv.innerHTML=''; }
+      } else impDiv.innerHTML = '';
+
+      previewPgto(total, acrescimo);
+      if (splitAtivo) renderSplitResumo();
+      if (formaSel === 'dinheiro' && ***REMOVED***splitAtivo) calcTroco(); // recalcula troco se o total mudou
+    }
+
+    async function comissaoVendedorSel() {
+      const vid = document.getElementById('vendedor').value;
+      if (***REMOVED***vid) return 0;
+      const v = vendedoresCache.find(x => x.id == vid);
+      return v ? v.comissao_pct : 0;
+    }
+
+    function selPgto(el) {
+      if (splitAtivo) fecharSplit();
+      document.querySelectorAll('.pgto-btn').forEach(b => b.classList.remove('sel'));
+      el.classList.add('sel');
+      formaSel = el.dataset.forma;
+      document.getElementById('areaParcelas').style.display = formaSel === 'credito_parcelado' ? 'block' : 'none';
+      atualizarAreaComprovante();
+      atualizarAreaTroco();
+      atualizarTotais();
+    }
+
+    function previewPgto(total, acrescimo) {
+      const div = document.getElementById('previewPgto');
+      if (***REMOVED***formaSel || carrinho.length === 0) { div.innerHTML = ''; return; }
+      const parcelas = formaSel === 'credito_parcelado' ? parseInt(document.getElementById('parcelas').value) : 1;
+      if (formaSel === 'pix' || formaSel === 'pix_chave') {
+        div.innerHTML = `<div class="pix-destaque">💚 Sem taxa***REMOVED*** Você recebe ${moeda(total)} em 1 dia útil.</div>`;
+      } else if (formaSel === 'credito_parcelado' && parcelas > LIMITE_LOJA_ABSORVE) {
+        const taxasParc = {4:6.85,5:7.57,6:8.28};
+        if (repassarTaxaAtivo()) {
+          div.innerHTML = `<div style="background:#FCF3E3;border:1px solid var(--dourado-claro);padding:9px;border-radius:8px;font-size:0.85rem;">
+            ${parcelas}x: taxa repassada ao cliente (+${moeda(acrescimo)}). Você recebe o valor cheio.</div>`;
+        } else {
+          const t = taxasParc[parcelas]||8.28;
+          const liq = total - total*t/100;
+          div.innerHTML = `<div style="background:var(--creme);padding:9px;border-radius:8px;font-size:0.85rem;">
+            ${parcelas}x: <strong>a loja absorve a taxa</strong> (${t}%) → você recebe ${moeda(liq)}.</div>`;
+        }
+      } else {
+        const taxas={pix:0,pix_chave:0,dinheiro:0,debito:1.37,credito_vista:3.15};
+        const taxasParc={2:5.39,3:6.12};
+        const t = formaSel==='credito_parcelado'?(taxasParc[parcelas]||0):(taxas[formaSel]||0);
+        const liq = total - total*t/100;
+        div.innerHTML = t>0 ? `<div style="background:var(--creme);padding:9px;border-radius:8px;font-size:0.85rem;">Taxa ${t}% → você recebe ${moeda(liq)} (a loja absorve)</div>` : '';
+      }
+    }
+
+    // ---------- Comprovante (Pix por chave) ----------
+    let comprovanteBase64 = null;
+    // true se a venda usa 'pix_chave' (forma unica ou alguma parte do split)
+    function temPixChave() {
+      if (splitAtivo) return linhasSplit.some(l => l.forma === 'pix_chave');
+      return formaSel === 'pix_chave';
+    }
+    function atualizarAreaComprovante() {
+      const area = document.getElementById('areaComprovante');
+      if (***REMOVED***area) return;
+      area.style.display = temPixChave() ? 'block' : 'none';
+    }
+
+    // ---------- Troco (só quando paga em dinheiro, forma única) ----------
+    function atualizarAreaTroco() {
+      const area = document.getElementById('areaTroco');
+      if (***REMOVED***area) return;
+      const mostra = ***REMOVED***splitAtivo && formaSel === 'dinheiro';
+      area.style.display = mostra ? 'block' : 'none';
+      if (***REMOVED***mostra) { document.getElementById('valorRecebido').value = ''; calcTroco(); }
+    }
+    function trocoAtual() {
+      const recebido = parseFloat(document.getElementById('valorRecebido').value) || 0;
+      const t = +(recebido - totalVenda()).toFixed(2);
+      return t > 0 ? t : 0;
+    }
+    function calcTroco() {
+      const info = document.getElementById('trocoInfo');
+      const formaArea = document.getElementById('trocoFormaArea');
+      if (***REMOVED***info) return;
+      const recebido = parseFloat(document.getElementById('valorRecebido').value) || 0;
+      const total = totalVenda();
+      if (recebido <= 0) { info.innerHTML = ''; formaArea.style.display = 'none'; return; }
+      const troco = +(recebido - total).toFixed(2);
+      if (troco < 0) {
+        info.innerHTML = `<span class="texto-vermelho">Faltam ${moeda(-troco)} (recebido menor que o total)</span>`;
+        formaArea.style.display = 'none';
+      } else if (troco === 0) {
+        info.innerHTML = `<span class="texto-verde">Valor exato, sem troco ✓</span>`;
+        formaArea.style.display = 'none';
+      } else {
+        info.innerHTML = `Troco: <strong class="texto-verde">${moeda(troco)}</strong>`;
+        formaArea.style.display = 'block';
+      }
+    }
+    function previewComprovante() {
+      const f = document.getElementById('comprovanteFile').files[0];
+      const div = document.getElementById('comprovantePreview');
+      if (***REMOVED***f) { comprovanteBase64 = null; div.innerHTML = ''; return; }
+      if (f.size > 4 * 1024 * 1024) { toast('Imagem muito grande (máx 4MB)','erro'); document.getElementById('comprovanteFile').value=''; return; }
+      const reader = new FileReader();
+      reader.onload = e => {
+        comprovanteBase64 = e.target.result;
+        div.innerHTML = `<img src="${comprovanteBase64}" alt="comprovante" style="max-width:140px; border-radius:8px; border:1px solid var(--dourado-claro);">`;
+      };
+      reader.readAsDataURL(f);
+    }
+    function limparComprovante() {
+      comprovanteBase64 = null;
+      const inp = document.getElementById('comprovanteFile');
+      if (inp) inp.value = '';
+      const div = document.getElementById('comprovantePreview');
+      if (div) div.innerHTML = '';
+    }
+
+    // ---------- Pagamento dividido (split) ----------
+    let splitAtivo = false;
+    let linhasSplit = []; // [{forma, parcelas, valor}]
+    const FORMAS_SPLIT = [
+      { v:'pix', t:'Pix' }, { v:'pix_chave', t:'Pix (chave)' }, { v:'dinheiro', t:'Dinheiro' },
+      { v:'debito', t:'Débito' }, { v:'credito_vista', t:'Créd. à vista' },
+      { v:'credito_parcelado', t:'Créd. parcelado' }
+    ];
+
+    function totalVenda() {
+      // total atual da venda (base após desconto; no split não há acréscimo de parcelamento)
+      const subtotal = carrinho.reduce((s,i)=>s+i.preco*i.qtd,0);
+      return +(subtotal - calcDescontoReais()).toFixed(2);
+    }
+
+    function abrirSplit() {
+      if (carrinho.length === 0) { toast('Carrinho vazio','erro'); return; }
+      splitAtivo = true;
+      formaSel = null;
+      document.querySelectorAll('.pgto-btn').forEach(b => b.classList.remove('sel'));
+      document.getElementById('areaParcelas').style.display = 'none';
+      document.getElementById('previewPgto').innerHTML = '';
+      document.getElementById('btnDividir').style.display = 'none';
+      document.getElementById('areaSplit').style.display = 'block';
+      atualizarAreaTroco(); // esconde troco (não se aplica no split)
+      // começa com 2 linhas; 1ª já preenchida com o total pra facilitar
+      const tot = totalVenda();
+      linhasSplit = [{ forma:'pix', parcelas:1, valor: tot }, { forma:'dinheiro', parcelas:1, valor: 0 }];
+      renderSplit();
+      atualizarAreaComprovante();
+    }
+    function fecharSplit() {
+      splitAtivo = false;
+      linhasSplit = [];
+      document.getElementById('areaSplit').style.display = 'none';
+      document.getElementById('btnDividir').style.display = 'block';
+      atualizarAreaComprovante();
+    }
+    function addLinhaSplit() {
+      linhasSplit.push({ forma:'pix', parcelas:1, valor: 0 });
+      renderSplit();
+    }
+    function removerLinhaSplit(i) {
+      linhasSplit.splice(i, 1);
+      if (linhasSplit.length === 0) { fecharSplit(); return; }
+      renderSplit();
+    }
+    function setSplitForma(i, v) {
+      linhasSplit[i].forma = v;
+      if (v ***REMOVED***== 'credito_parcelado') linhasSplit[i].parcelas = 1;
+      renderSplit();
+      atualizarAreaComprovante();
+    }
+    function setSplitParcelas(i, v) { linhasSplit[i].parcelas = parseInt(v)||1; renderSplit(); }
+    function setSplitValor(i, v) { linhasSplit[i].valor = parseFloat(v)||0; renderSplitResumo(); }
+
+    function renderSplit() {
+      const div = document.getElementById('splitLinhas');
+      div.innerHTML = linhasSplit.map((l, i) => {
+        const opts = FORMAS_SPLIT.map(f=>`<option value="${f.v}" ${f.v===l.forma?'selected':''}>${f.t}</option>`).join('');
+        const parc = l.forma === 'credito_parcelado'
+          ? `<select onchange="setSplitParcelas(${i}, this.value)" style="max-width:70px;">${
+              [2,3,4,5,6].map(n=>`<option value="${n}" ${n===l.parcelas?'selected':''}>${n}x</option>`).join('')}</select>` : '';
+        return `<div style="display:flex; gap:6px; align-items:center; margin-bottom:8px;">
+          <select onchange="setSplitForma(${i}, this.value)" style="flex:1;">${opts}</select>
+          ${parc}
+          <input type="number" step="0.01" value="${l.valor||''}" placeholder="0,00" oninput="setSplitValor(${i}, this.value)" style="max-width:100px;">
+          <button class="btn btn-fino" style="padding:2px 8px;" onclick="removerLinhaSplit(${i})">✕</button>
+        </div>`;
+      }).join('');
+      renderSplitResumo();
+    }
+    function renderSplitResumo() {
+      const tot = totalVenda();
+      const soma = +linhasSplit.reduce((s,l)=>s+(parseFloat(l.valor)||0),0).toFixed(2);
+      const falta = +(tot - soma).toFixed(2);
+      const div = document.getElementById('splitResumo');
+      let cor, msg;
+      if (Math.abs(falta) < 0.01) { cor='var(--verde)'; msg=`✓ Fecha certinho (${moeda(tot)})`; }
+      else if (falta > 0) { cor='#B26B00'; msg=`Falta ${moeda(falta)} de ${moeda(tot)}`; }
+      else { cor='var(--vermelho, #C0392B)'; msg=`Passou ${moeda(-falta)} do total (${moeda(tot)})`; }
+      div.innerHTML = `<div style="color:${cor}; font-weight:600;">${msg}</div>`;
+    }
+
+    // ---------- Vendedores ----------
+    let vendedoresCache = [];
+    async function carregarVendedores() {
+      vendedoresCache = await api('/vendedores');
+      const sel = document.getElementById('vendedor');
+      sel.innerHTML = '<option value="">— Selecione —</option>' +
+        vendedoresCache.map(v=>`<option value="${v.id}">${v.nome} (${v.comissao_pct}%)</option>`).join('');
+      sel.addEventListener('change', atualizarTotais);
+    }
+
+    // ---------- Cliente busca (lupa) ----------
+    let timerCli;
+    function buscarCli() {
+      clearTimeout(timerCli);
+      timerCli = setTimeout(async () => {
+        const b = document.getElementById('buscaCli').value.trim();
+        const div = document.getElementById('listaCli');
+        if (***REMOVED***b) { div.style.display='none'; return; }
+        const lista = await api('/clientes?busca=' + encodeURIComponent(b));
+        if (lista.length === 0) { div.innerHTML='<div class="texto-cinza" style="padding:9px;">Nenhum cliente. Use + Novo.</div>'; div.style.display='block'; return; }
+        div.innerHTML = lista.slice(0,20).map(c=>`<div data-id="${c.id}" data-nome="${esc(c.nome)}" onclick="selCliEl(this)">
+          <strong>${esc(c.nome)}</strong> ${c.telefone?`<span class="texto-cinza">• ${esc(c.telefone)}</span>`:''}</div>`).join('');
+        div.style.display='block';
+      }, 200);
+    }
+    function selCliEl(el) { selCli(el.dataset.id, el.dataset.nome); }
+    function selCli(id, nome) {
+      document.getElementById('clienteId').value = id;
+      document.getElementById('cliNomeSel').textContent = '👤 ' + nome;
+      document.getElementById('cliSelecionado').style.display = 'block';
+      document.getElementById('buscaCli').value = '';
+      document.getElementById('listaCli').style.display = 'none';
+    }
+    function limparCli() {
+      document.getElementById('clienteId').value = '';
+      document.getElementById('cliSelecionado').style.display = 'none';
+    }
+    function abrirNovoCliente(){ document.getElementById('modalCli').classList.add('aberto'); }
+    // popula o select "Como conheceu a DS?" a partir do config (origens_cliente)
+    async function carregarOrigensCliente(){
+      try {
+        const cfg = await api('/config');
+        let ops = [];
+        try { ops = JSON.parse(cfg.origens_cliente || '[]'); } catch(e) {}
+        if (***REMOVED***ops.length) ops = ['Passou na loja','Instagram','Indicação','Google','WhatsApp','Influencer','Cliente Camacan','Outro'];
+        const sel = document.getElementById('cliOrigem');
+        sel.innerHTML = '<option value="">— selecione —</option>' + ops.map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('');
+      } catch(e) {}
+    }
+    carregarOrigensCliente();
+    async function salvarCliente() {
+      const nome = document.getElementById('cliNome').value.trim();
+      if (***REMOVED***nome){ toast('Informe o nome','erro'); return; }
+      const r = await api('/clientes', { method:'POST', body:{
+        nome, telefone:document.getElementById('cliTel').value, cidade:document.getElementById('cliCidade').value,
+        aniversario:document.getElementById('cliAniv').value.trim(),
+        origem:document.getElementById('cliOrigem').value }});
+      // se o telefone já era de um cliente cadastrado, o backend devolve o existente
+      if (r.ja_existia) toast('Cliente já cadastrado — selecionei o existente 🤎','sucesso');
+      else toast('Cliente salvo','sucesso');
+      document.getElementById('modalCli').classList.remove('aberto');
+      ['cliNome','cliTel','cliCidade','cliAniv'].forEach(i=>document.getElementById(i).value='');
+      document.getElementById('cliOrigem').selectedIndex = 0;
+      selCli(r.id, r.nome || nome); // usa o nome do cadastro existente, se houver
+    }
+
+    // ---------- Finalizar ----------
+    // comNfce=true  -> registra a venda E emite a NFC-e na SEFAZ
+    // comNfce=false -> só registra a venda (sem nota)
+    // Em ambos imprime o cupom INTERNO (cupom.html).
+    async function finalizar(comNfce) {
+      if (carrinho.length === 0) { toast('Carrinho vazio','erro'); return; }
+      const venda = {
+        itens: carrinho.map(i => ({ variacao_id: i.variacao_id, qtd: i.qtd })),
+        desconto: calcDescontoReais(),
+        cliente_id: document.getElementById('clienteId').value || null,
+        vendedor_id: document.getElementById('vendedor').value || null,
+        origem: document.getElementById('origem').value || 'loja',
+      };
+      if (temPixChave() && comprovanteBase64) venda.comprovante = comprovanteBase64;
+      if (splitAtivo) {
+        const partes = linhasSplit.filter(l => (parseFloat(l.valor)||0) > 0);
+        if (partes.length < 1) { toast('Informe os valores do pagamento dividido','erro'); return; }
+        const soma = +partes.reduce((s,l)=>s+(parseFloat(l.valor)||0),0).toFixed(2);
+        if (Math.abs(soma - totalVenda()) > 0.01) {
+          toast('Os pagamentos precisam somar o total da venda','erro'); return;
+        }
+        venda.pagamentos = partes.map(l => ({
+          forma: l.forma,
+          parcelas: l.forma === 'credito_parcelado' ? (parseInt(l.parcelas)||1) : 1,
+          valor: +(parseFloat(l.valor)||0).toFixed(2)
+        }));
+      } else {
+        if (***REMOVED***formaSel) { toast('Escolha a forma de pagamento','erro'); return; }
+        venda.forma_pagamento = formaSel;
+        venda.parcelas = formaSel === 'credito_parcelado' ? parseInt(document.getElementById('parcelas').value) : 1;
+        // 4x+: informa se repassa a taxa (default) ou a loja absorve (exceção)
+        if (formaSel === 'credito_parcelado' && venda.parcelas > LIMITE_LOJA_ABSORVE) {
+          venda.repassar_taxa = repassarTaxaAtivo();
+        }
+        // troco (só dinheiro): valida recebido e anexa troco + forma de devolução
+        if (formaSel === 'dinheiro') {
+          const recebido = parseFloat(document.getElementById('valorRecebido').value) || 0;
+          if (recebido > 0 && recebido < totalVenda() - 0.01) {
+            toast('Valor recebido é menor que o total','erro'); return;
+          }
+          const troco = trocoAtual();
+          if (troco > 0) {
+            venda.troco = troco;
+            const sel = document.querySelector('input[name="trocoForma"]:checked');
+            venda.troco_forma = sel ? sel.value : 'dinheiro';
+          }
+        }
+      }
+      try {
+        const r = await api('/vendas', { method:'POST', body: venda });
+        // Se pediu COM nota, emite a NFC-e antes de imprimir. A venda já existe,
+        // então mesmo se a nota falhar não perdemos a venda — só avisamos.
+        if (comNfce) {
+          try {
+            await api('/nfce/emitir/' + r.id, { method:'POST', body: { cpf_cliente: '' } });
+            toast('Venda registrada e NFC-e enviada 🤎','sucesso');
+          } catch (e) {
+            toast('Venda OK, mas a NFC-e falhou: ' + (e.message||'erro') + '. Emita pelo Histórico.','erro');
+          }
+        }
+        limparCarrinho();
+        // imprime o cupom INTERNO da venda (imprimir + WhatsApp)
+        window.location.href = 'cupom.html?venda=' + r.id;
+      } catch (e) { toast(e.message, 'erro'); }
+    }
+
+    function limparCarrinho() {
+      carrinho = []; formaSel = null;
+      fecharSplit();
+      limparComprovante();
+      document.getElementById('desconto').value = 0;
+      document.getElementById('tipoDesc').value = 'reais';
+      document.querySelectorAll('.pgto-btn').forEach(b => b.classList.remove('sel'));
+      document.getElementById('areaParcelas').style.display = 'none';
+      document.getElementById('repassarTaxa').checked = true; // volta ao padrão (repassar)
+      document.getElementById('areaRepassar').style.display = 'none';
+      document.getElementById('previewPgto').innerHTML = '';
+      document.getElementById('impactoDesc').innerHTML = '';
+      document.getElementById('valorRecebido').value = '';
+      document.getElementById('areaTroco').style.display = 'none';
+      document.getElementById('trocoInfo').innerHTML = '';
+      limparCli();
+      renderCarrinho();
+    }
+
+    document.getElementById('modalTam').addEventListener('click', e=>{ if(e.target.id==='modalTam') fecharTam(); });
+    document.getElementById('modalCli').addEventListener('click', e=>{ if(e.target.id==='modalCli') e.currentTarget.classList.remove('aberto'); });
+    document.getElementById('modalPecaNova').addEventListener('click', e=>{ if(e.target.id==='modalPecaNova') e.currentTarget.classList.remove('aberto'); });
+
+    carregarVendedores();
+    mascaraAniversario(document.getElementById('cliAniv'));
+  </script>
+</body>
+</html>

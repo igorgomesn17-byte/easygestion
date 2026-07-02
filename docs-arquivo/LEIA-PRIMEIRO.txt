@@ -1,0 +1,76 @@
+════════════════════════════════════════════════════════════════
+                    EASYGESTION
+        Sistema de Gestão para Varejo com Licença
+════════════════════════════════════════════════════════════════
+
+✅ VOCÊ VAI INSTALAR NO PC DELA
+
+Arquivos importantes:
+  → INSTALAR-NO-PC-DELA.md (LEIA ISSO PRIMEIRO)
+  → INSTALAR.bat (instalador simples)
+  → INSTALAR-COMPLETO.ps1 (instalador automático)
+
+════════════════════════════════════════════════════════════════
+
+📋 RESUMO DO PROCESSO
+
+1. Verificar se ela tem Node.js
+   Se não tiver: instalar de nodejs.org
+
+2. Copiar pasta EASYGESTION pra ela
+
+3. Executar INSTALAR.bat (ou .ps1)
+   Isso instala as dependências
+
+4. Você roda em outro terminal: npm start
+
+5. Você gera um código:
+   node gerar-codigo.js "Nome dela"
+
+6. Você envia o código pra ela
+
+7. Ela cola na tela de ativação
+
+8. Pronto***REMOVED*** Sistema funcionando por 30 dias
+
+════════════════════════════════════════════════════════════════
+
+🔐 SISTEMA DE LICENÇA
+
+• Válido por 30 dias
+• Código é pessoal e único
+• Impossível compartilhar
+• Impossível falsificar
+• Você gera novo código quando expirar
+
+════════════════════════════════════════════════════════════════
+
+📚 DOCUMENTAÇÃO
+
+  INSTALAR-NO-PC-DELA.md
+  → Guia passo a passo (SEGUE ISSO)
+
+  SISTEMA-LICENCA.md
+  → Como funcionam os códigos
+
+  ENTREGA-COM-LICENCA.md
+  → Detalhes de como entregar
+
+════════════════════════════════════════════════════════════════
+
+🚀 QUICK START
+
+Terminal 1 (roda uma vez):
+  .\INSTALAR.bat
+
+Terminal 2 (sempre que quiser usar):
+  npm start
+
+Terminal 3 (gera código, uma vez por cliente):
+  node gerar-codigo.js "Nome do Cliente"
+
+════════════════════════════════════════════════════════════════
+
+❓ DÚVIDAS?
+
+Leia: INSTALAR-NO-PC-DELA.md

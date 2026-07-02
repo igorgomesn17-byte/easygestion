@@ -1,0 +1,127 @@
+<***REMOVED***DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cupom • EasyGestão</title>
+  <link rel="stylesheet" href="css/ds.css">
+  <style>
+    /* Cupom 80mm (Elgin i8) */
+    .cupom {
+      width: 80mm; max-width: 80mm; margin: 0 auto; background: #fff;
+      padding: 4mm 5mm; font-family: 'Courier New', monospace; color: #000;
+      font-size: 14px; line-height: 1.4;
+    }
+    .cupom .centro { text-align: center; }
+    .cupom .marca { font-family: Georgia, serif; font-weight: 700; letter-spacing: 4px; font-size: 22px; }
+    .cupom .sub { font-size: 12px; }
+    .cupom hr { border: none; border-top: 1px dashed #000; margin: 6px 0; }
+    .cupom .linha-item { display: flex; justify-content: space-between; }
+    .cupom .total-final { font-size: 18px; font-weight: 700; }
+    .cupom table { width: 100%; box-shadow: none; }
+    .cupom td { padding: 2px 0; border: none; font-size: 14px; }
+    .acoes { max-width: 80mm; margin: 12px auto; display: flex; flex-direction: column; gap: 8px; }
+    @media print {
+      @page { size: 80mm auto; margin: 0; }
+      .topo, .menu, .acoes, .nao-imprime { display: none ***REMOVED***important; }
+      body { background: #fff; }
+      .conteudo { padding: 0; margin: 0; }
+      .cupom { width: 80mm; }
+    }
+  </style>
+</head>
+<body>
+  <div class="conteudo" style="padding:10px;">
+    <div class="cupom" id="cupom"><div class="vazio">Carregando...</div></div>
+
+    <div class="acoes">
+      <button class="btn btn-bloco" onclick="window.print()">🖨️ Imprimir cupom</button>
+      <button class="btn btn-bloco btn-verde" id="btnWhats" onclick="enviarWhats()" style="display:none;">📱 Enviar recibo no WhatsApp</button>
+      <a class="btn btn-bloco btn-escuro" href="pdv.html">+ Nova venda</a>
+    </div>
+  </div>
+
+  <script src="js/comum.js"></script>
+  <script>
+    const vendaId = new URLSearchParams(location.search).get('venda');
+    let venda = null, loja = {};
+
+    let selosCliente = null;
+    async function carregar() {
+      loja = await api('/config');
+      venda = await api('/vendas/' + vendaId);
+      // selos do clube (se houver cliente e clube ativo)
+      if (venda.cliente_id) {
+        try { const s = await api('/crm/selos/' + venda.cliente_id); if (s.ativo) selosCliente = s; } catch(e) {}
+      }
+      render();
+      // A12: cupom automático no pós-venda (se ligado no config). Espera renderizar e dispara a impressão.
+      if (String(loja.cupom_auto_imprimir) === '1') {
+        setTimeout(() => { try { window.print(); } catch(e) {} }, 600);
+      }
+    }
+
+    function render() {
+      const data = venda.data_hora.slice(0,10).split('-').reverse().join('/');
+      const hora = venda.data_hora.slice(11,16);
+      const itens = venda.itens.map(i =>
+        `<tr><td>${i.qtd}x ${esc(i.descricao)}</td><td style="text-align:right;">${moeda(i.preco_unit*i.qtd)}</td></tr>`).join('');
+
+      document.getElementById('cupom').innerHTML = `
+        <div class="centro">
+          <div class="marca">${loja.loja_nome||'EasyGestão'}</div>
+          ${loja.loja_razao_social?`<div class="sub">${loja.loja_razao_social}</div>`:''}
+          ${loja.loja_cnpj?`<div class="sub">CNPJ: ${loja.loja_cnpj}${loja.loja_ie?' • IE: '+loja.loja_ie:''}</div>`:''}
+          <div class="sub">${loja.loja_endereco||''}</div>
+          <div class="sub">${loja.loja_instagram||''} ${loja.loja_telefone?'• '+loja.loja_telefone:''}</div>
+        </div>
+        <hr>
+        <div class="sub">Venda #${venda.id} • ${data} ${hora}</div>
+        ${venda.vendedor_nome?`<div class="sub">Vendedora: ${esc(venda.vendedor_nome)}</div>`:''}
+        ${venda.cliente_nome?`<div class="sub">Cliente: ${esc(venda.cliente_nome)}</div>`:''}
+        <hr>
+        <table>${itens}</table>
+        <hr>
+        <table>
+          <tr><td>Subtotal</td><td style="text-align:right;">${moeda(venda.subtotal)}</td></tr>
+          ${venda.desconto>0?`<tr><td>Desconto</td><td style="text-align:right;">-${moeda(venda.desconto)}</td></tr>`:''}
+          ${venda.acrescimo>0?`<tr><td>Acrescimo (parcelamento)</td><td style="text-align:right;">+${moeda(venda.acrescimo)}</td></tr>`:''}
+        </table>
+        <hr>
+        <div class="linha-item total-final"><span>TOTAL</span><span>${moeda(venda.total)}</span></div>
+        <div class="sub">Pagamento: ${textoPagamentoVenda(venda)}</div>
+        ${venda.troco>0?`<div class="sub">Troco: ${moeda(venda.troco)}${venda.troco_forma==='pix'?' (devolvido por Pix)':''}</div>`:''}
+        ${venda.comprovante?`<div class="sub nao-imprime"><a href="${venda.comprovante}" target="_blank">📎 Ver comprovante</a></div>`:''}
+        <hr>
+        ${selosCliente ? `<div class="centro sub">🎟️ ${loja.clube_nome||'Clube Fidelidade'}: <strong>${selosCliente.noCiclo}/${selosCliente.totalSelos} selos</strong>${selosCliente.faltam>0?` • faltam ${selosCliente.faltam} pro prêmio 🎁`:` • prêmio liberado***REMOVED*** 🎊`}</div><hr>`:''}
+        <div class="centro sub" style="font-weight:700;">
+          🔄 ${(loja.cupom_politica_troca||'TROCAS EM ATÉ 7 DIAS\ncom a peça e este cupom').split('\n')[0]}<br>
+          <span style="font-weight:400;">${(loja.cupom_politica_troca||'TROCAS EM ATÉ 7 DIAS\ncom a peça e este cupom').split('\n').slice(1).join('<br>')}</span>
+        </div>
+        <hr>
+        <div class="centro sub">
+          ${loja.cupom_mensagem_rodape||'Obrigada por comprar conosco***REMOVED***'}<br>
+          Volte sempre, ${loja.loja_instagram||''}<br><br>
+          *Este nao e documento fiscal*
+        </div>`;
+
+      // botao whats so se cliente tiver telefone
+      if (venda.cliente_tel) document.getElementById('btnWhats').style.display = 'flex';
+    }
+
+    function enviarWhats() {
+      const data = venda.data_hora.slice(0,10).split('-').reverse().join('/');
+      const itens = venda.itens.map(i => `• ${i.qtd}x ${i.descricao} - ${moeda(i.preco_unit*i.qtd)}`).join('\n');
+      let txt = `*${loja.loja_nome||'EasyGestão'}* 💛\nRecibo da sua compra\n\n`;
+      txt += `${itens}\n\n`;
+      if (venda.desconto>0) txt += `Desconto: -${moeda(venda.desconto)}\n`;
+      txt += `*Total: ${moeda(venda.total)}*\n`;
+      txt += `Pagamento: ${textoPagamentoVenda(venda)}\n\n`;
+      txt += `${loja.cupom_mensagem_rodape||'Obrigada por comprar conosco***REMOVED***'} Volte sempre 😍\n${loja.loja_instagram||''}`;
+      abrirWhatsappComTexto(venda.cliente_tel, txt);
+    }
+
+    carregar();
+  </script>
+</body>
+</html>

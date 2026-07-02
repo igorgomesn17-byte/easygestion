@@ -1,0 +1,262 @@
+<DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Histórico de Trocas • DS Store</title>
+  <link rel="stylesheet" href="css/ds.css">
+  <style>
+    .tabela-trocas { width: 100%; border-collapse: collapse; margin-top: 16px; }
+    .tabela-trocas thead { background: var(--surface-2); font-weight: 600; font-size: 0.9rem; }
+    .tabela-trocas th, .tabela-trocas td { padding: 12px 8px; text-align: left; border-bottom: 1px solid var(--surface-2); }
+    .tabela-trocas tbody tr { cursor: pointer; transition: background 0.2s; }
+    .tabela-trocas tbody tr:hover { background: var(--surface-2); }
+    .tabela-trocas .data { text-align: center; font-size: 0.9rem; }
+    .tabela-trocas .moeda { text-align: right; font-weight: 600; color: #27ae60; }
+    .status-badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; }
+    .status-ativa { background: #d4edda; color: #155724; }
+    .status-cancelada { background: #f8d7da; color: #721c24; }
+  </style>
+</head>
+<body>
+  <div class="conteudo">
+    <div class="flex-entre">
+      <div><h1>Histórico de trocas</h1><p class="subtitulo">Todas as trocas e devoluções realizadas</p></div>
+    </div>
+
+    <div class="card">
+      <div class="linha" style="gap:8px; flex-wrap:wrap;">
+        <input type="date" id="filtroDE" onchange="carregar()">
+        <input type="date" id="filtroATE" onchange="carregar()">
+        <input type="search" id="busca" placeholder="🔎 Buscar por cliente ou venda..." oninput="render()">
+        <button class="btn" onclick="exportar()">⬇ Exportar CSV</button>
+      </div>
+    </div>
+
+    <table class="tabela-trocas" id="tabela">
+      <thead>
+        <tr>
+          <th style="width:12%;">DATA</th>
+          <th style="width:15%;">VENDA</th>
+          <th style="width:20%;">CLIENTE</th>
+          <th style="width:12%;" class="moeda">VALOR DEV.</th>
+          <th style="width:12%;" class="moeda">VALOR LEV.</th>
+          <th style="width:12%;" class="moeda">DIFERENÇA</th>
+          <th style="width:12%;">STATUS</th>
+          <th style="width:5%;">›</th>
+        </tr>
+      </thead>
+      <tbody id="lista"></tbody>
+    </table>
+  </div>
+
+  <div class="modal-fundo" id="modalTroca">
+    <div class="modal">
+      <button class="modal-fechar" onclick="fecharModal()">&times;</button>
+      <h2 id="trocaTitulo">Troca #123</h2>
+      <div id="trocaDetalhes"></div>
+    </div>
+  </div>
+
+  <script src="js/comum.js"></script>
+  <script>
+    montarLayout('trocas');
+    let dados = [];
+
+    async function carregar() {
+      const de = document.getElementById('filtroDE').value;
+      const ate = document.getElementById('filtroATE').value;
+      let url = '/trocas';
+      if (de || ate) {
+        url += '?';
+        if (de) url += 'de=' + de;
+        if (de && ate) url += '&';
+        if (ate) url += 'ate=' + ate;
+      }
+      const resp = await api(url);
+      dados = resp || [];
+      render();
+    }
+
+    function render() {
+      const b = document.getElementById('busca').value.toLowerCase();
+      const arr = dados.filter(t => {
+        const clienteMatch = !b || (t.cliente_nome && t.cliente_nome.toLowerCase().includes(b));
+        const vendaMatch = !b || (t.venda_id && String(t.venda_id).includes(b));
+        return clienteMatch || vendaMatch;
+      });
+      const div = document.getElementById('lista');
+      if (arr.length === 0) {
+        div.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:32px;">Nenhuma troca encontrada.</td></tr>';
+        return;
+      }
+      div.innerHTML = arr.map(t => `
+        <tr onclick="verDetalhes(${t.id})">
+          <td class="data">${t.data_hora.slice(0,10).split('-').reverse().join('/')}<br><span class="texto-cinza" style="font-size:0.85rem;">${t.data_hora.slice(11,16)}</span></td>
+          <td>#${t.venda_id || '—'}</td>
+          <td>${t.cliente_nome ? esc(t.cliente_nome) : '<em>não identificado</em>'}</td>
+          <td class="moeda">${moeda(t.valor_devolvido)}</td>
+          <td class="moeda">${moeda(t.valor_levado)}</td>
+          <td class="moeda" style="color:${t.diferenca > 0 ? '#e74c3c' : t.diferenca < 0 ? '#27ae60' : '#999'};">
+            ${t.diferenca > 0 ? '+' : ''}${moeda(t.diferenca)}
+          </td>
+          <td><span class="status-badge ${t.cancelada ? 'status-cancelada' : 'status-ativa'}">${t.cancelada ? 'Cancelada' : 'Ativa'}</span></td>
+          <td style="text-align:center;">›</td>
+        </tr>`).join('');
+    }
+
+    async function verDetalhes(id) {
+      const t = await api('/trocas/' + id);
+      document.getElementById('trocaTitulo').textContent = `Troca #${t.id}`;
+
+      const itens = t.itens || [];
+      const devolvidos = itens.filter(it => it.tipo === 'devolvido');
+      const levados = itens.filter(it => it.tipo === 'levado');
+
+      const formatoStatus = t.cancelada
+        ? '<span class="status-badge status-cancelada">Cancelada</span>'
+        : '<span class="status-badge status-ativa">Ativa</span>';
+
+      const formaLabel = {
+        'dinheiro': '💵 Dinheiro',
+        'pix': '📱 Pix',
+        'debito': '💳 Débito',
+        'credito_vista': '💳 Crédito à vista',
+        'vale': '🎟️ Vale-crédito'
+      };
+
+      document.getElementById('trocaDetalhes').innerHTML = `
+        <div style="padding:0;">
+          <div style="padding:12px 0; border-bottom:1px solid #EEE; margin-bottom:12px;">
+            <div style="font-size:0.9rem; color:#666;">
+              ${t.data_hora.slice(0,10).split('-').reverse().join('/')} às ${t.data_hora.slice(11,16)}
+            </div>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+            <div>
+              <strong style="color:#666; font-size:0.85rem;">Venda de origem</strong>
+              <div style="margin-top:4px;">${t.venda_id ? '#' + t.venda_id : '—'}</div>
+            </div>
+            <div>
+              <strong style="color:#666; font-size:0.85rem;">Status</strong>
+              <div style="margin-top:4px;">${formatoStatus}</div>
+            </div>
+          </div>
+
+          ${devolvidos.length > 0 ? `
+          <div style="border:1px solid #EEE; border-radius:6px; padding:12px; margin-bottom:16px;">
+            <strong style="display:block; margin-bottom:8px;">Peças devolvidas</strong>
+            <table style="width:100%; font-size:0.9rem;">
+              <thead style="background:#f5f5f5;">
+                <tr>
+                  <th style="text-align:left; padding:6px;">PEÇA</th>
+                  <th style="text-align:center; padding:6px;">QTD</th>
+                  <th style="text-align:right; padding:6px;">VALOR UNIT.</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${devolvidos.map(i => `
+                  <tr style="border-bottom:1px solid #EEE;">
+                    <td style="padding:6px;">${esc(i.descricao || '—')}</td>
+                    <td style="text-align:center; padding:6px;">${i.qtd}</td>
+                    <td style="text-align:right; padding:6px;">${moeda(i.valor_unit)}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+          ` : ''}
+
+          ${levados.length > 0 ? `
+          <div style="border:1px solid #EEE; border-radius:6px; padding:12px; margin-bottom:16px;">
+            <strong style="display:block; margin-bottom:8px;">Peças levadas</strong>
+            <table style="width:100%; font-size:0.9rem;">
+              <thead style="background:#f5f5f5;">
+                <tr>
+                  <th style="text-align:left; padding:6px;">PEÇA</th>
+                  <th style="text-align:center; padding:6px;">QTD</th>
+                  <th style="text-align:right; padding:6px;">VALOR UNIT.</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${levados.map(i => `
+                  <tr style="border-bottom:1px solid #EEE;">
+                    <td style="padding:6px;">${esc(i.descricao || '—')}</td>
+                    <td style="text-align:center; padding:6px;">${i.qtd}</td>
+                    <td style="text-align:right; padding:6px;">${moeda(i.valor_unit)}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+          ` : ''}
+
+          <div style="border:1px solid #EEE; border-radius:6px; padding:12px; margin-bottom:16px; font-size:0.9rem;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+              <span>Valor devolvido:</span>
+              <strong>${moeda(t.valor_devolvido)}</strong>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+              <span>Valor levado:</span>
+              <strong>${moeda(t.valor_levado)}</strong>
+            </div>
+            <div style="border-top:1px solid #EEE; padding-top:8px; display:flex; justify-content:space-between; font-weight:700; font-size:1rem;">
+              <span>${t.diferenca > 0 ? 'Cliente paga' : t.diferenca < 0 ? 'Cliente recebe' : 'Sem diferença'}</span>
+              <strong style="color:${t.diferenca > 0 ? '#e74c3c' : t.diferenca < 0 ? '#27ae60' : '#999'};">
+                ${t.diferenca > 0 ? '+' : ''}${moeda(t.diferenca)}
+              </strong>
+            </div>
+            ${t.forma_pagamento_diferenca ? `
+            <div style="margin-top:8px; padding-top:8px; border-top:1px solid #EEE; display:flex; justify-content:space-between;">
+              <span>Forma:</span>
+              <strong>${formaLabel[t.forma_pagamento_diferenca] || t.forma_pagamento_diferenca}</strong>
+            </div>
+            ` : ''}
+          </div>
+
+          ${t.obs ? `
+          <div style="background:#f5f5f5; padding:12px; border-radius:6px; margin-bottom:16px; font-size:0.9rem;">
+            <strong style="display:block; margin-bottom:4px;">Observação</strong>
+            <div>${esc(t.obs)}</div>
+          </div>
+          ` : ''}
+
+          ${!t.cancelada ? `
+          <button class="btn" style="background:#E74C3C; color:white; width:100%;" onclick="cancelarTroca(${t.id})">🗑️ Cancelar troca</button>
+          ` : ''}
+        </div>
+      `;
+      document.getElementById('modalTroca').classList.add('aberto');
+    }
+
+    async function cancelarTroca(id) {
+      if (!confirm('Tem certeza? Isso vai reverter o estoque e o caixa.')) return;
+      try {
+        await api('/trocas/' + id + '/cancelar', { method:'PATCH', body:{} });
+        toast('Troca cancelada com sucesso','sucesso');
+        fecharModal();
+        carregar();
+      } catch(e) { toast(e.message,'erro'); }
+    }
+
+    function fecharModal() {
+      document.getElementById('modalTroca').classList.remove('aberto');
+    }
+
+    function exportar() {
+      if (!dados.length) { toast('Nada para exportar','erro'); return; }
+      const linhas = dados.map(t => ({
+        ID: t.id, 'Venda #': t.venda_id||'', Data: t.data_hora.slice(0,10),
+        Hora: t.data_hora.slice(11,16), 'Valor Devolvido': t.valor_devolvido,
+        'Valor Levado': t.valor_levado, Diferença: t.diferenca,
+        Forma: t.forma_pagamento_diferenca||'', Status: t.cancelada ? 'Cancelada' : 'Ativa'
+      }));
+      exportarCSV('historico-trocas-' + hojeLocalStr(), linhas);
+    }
+
+    document.getElementById('modalTroca').addEventListener('click', e => { if(e.target.id==='modalTroca') fecharModal(); });
+    carregar();
+  </script>
+</body>
+</html>

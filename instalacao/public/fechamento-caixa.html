@@ -1,0 +1,80 @@
+<***REMOVED***DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fechamento de caixa • EasyGestão</title>
+  <link rel="stylesheet" href="css/ds.css">
+  <style>
+    .cupom { width: 80mm; max-width: 80mm; margin: 0 auto; background:#fff; padding: 4mm 5mm;
+      font-family:'Courier New', monospace; color:#000; font-size:11px; line-height:1.4; }
+    .cupom .centro { text-align:center; }
+    .cupom .marca { font-family:Georgia, serif; font-weight:700; letter-spacing:4px; font-size:18px; }
+    .cupom .sub { font-size:10px; }
+    .cupom hr { border:none; border-top:1px dashed #000; margin:6px 0; }
+    .cupom .linha { display:flex; justify-content:space-between; }
+    .cupom .forte { font-weight:700; font-size:13px; }
+    .acoes { max-width:80mm; margin:12px auto; display:flex; flex-direction:column; gap:8px; }
+    @media print { @page { size:80mm auto; margin:0; } .acoes,.nao-imprime{display:none***REMOVED***important;} body{background:#fff;} .conteudo{padding:0;margin:0;} }
+  </style>
+</head>
+<body>
+  <div class="conteudo" style="padding:10px;">
+    <div class="cupom" id="cupom"><div class="vazio">Carregando...</div></div>
+    <div class="acoes">
+      <button class="btn btn-bloco" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+      <a class="btn btn-bloco btn-escuro" href="caixa.html">← Voltar ao caixa</a>
+    </div>
+  </div>
+
+  <script src="js/comum.js"></script>
+  <script>
+    const data = new URLSearchParams(location.search).get('data') || hojeLocalStr();
+    async function carregar() {
+      const loja = await api('/config');
+      const c = await api('/caixa/hoje?data=' + data);
+      const dataBR = data.split('-').reverse().join('/');
+      const totalFormas = `
+        <div class="linha"><span>Pix</span><span>${moeda(c.total_pix)}</span></div>
+        <div class="linha"><span>Dinheiro</span><span>${moeda(c.total_dinheiro)}</span></div>
+        <div class="linha"><span>Débito</span><span>${moeda(c.total_debito)}</span></div>
+        <div class="linha"><span>Crédito</span><span>${moeda(c.total_credito)}</span></div>`;
+      // por canal
+      const porCanal = {};
+      (c.vendas||[]).forEach(v => { const o=v.origem||'loja'; porCanal[o]=(porCanal[o]||0)+v.total; });
+      const canalHTML = Object.keys(porCanal).length ?
+        '<hr><div class="sub">POR CANAL</div>' + Object.entries(porCanal).map(([o,t])=>
+          `<div class="linha"><span>${rotuloOrigem(o)}</span><span>${moeda(t)}</span></div>`).join('') : '';
+
+      document.getElementById('cupom').innerHTML = `
+        <div class="centro">
+          <div class="marca">${loja.loja_nome||'EasyGestão'}</div>
+          <div class="sub">FECHAMENTO DE CAIXA</div>
+          <div class="sub">${dataBR}</div>
+        </div>
+        <hr>
+        <div class="linha"><span>Nº de vendas</span><span>${c.num_vendas}</span></div>
+        <div class="linha forte"><span>TOTAL VENDIDO</span><span>${moeda(c.total_bruto)}</span></div>
+        <hr>
+        <div class="sub">RECEBIMENTOS</div>
+        ${totalFormas}
+        ${canalHTML}
+        <hr>
+        <div class="sub">CONFERÊNCIA DA GAVETA (dinheiro)</div>
+        <div class="linha"><span>Fundo de troco</span><span>${moeda(c.fundo_troco)}</span></div>
+        <div class="linha"><span>+ Vendas dinheiro</span><span>${moeda(c.total_dinheiro)}</span></div>
+        <div class="linha"><span>+ Suprimentos</span><span>${moeda(c.suprimentos)}</span></div>
+        <div class="linha"><span>- Sangrias</span><span>${moeda(c.sangrias)}</span></div>
+        <div class="linha forte"><span>= Esperado</span><span>${moeda(c.dinheiro_esperado)}</span></div>
+        <div class="linha"><span>Contado</span><span>${c.dinheiro_contado***REMOVED***=null?moeda(c.dinheiro_contado):'—'}</span></div>
+        <div class="linha forte"><span>DIFERENÇA</span><span>${c.diferenca***REMOVED***=null?moeda(c.diferenca):'—'}</span></div>
+        <hr>
+        <div class="linha"><span>Lucro do dia</span><span>${moeda(c.lucro_dia)}</span></div>
+        ${c.obs?`<hr><div class="sub">Obs: ${c.obs}</div>`:''}
+        <hr>
+        <div class="centro sub">${loja.loja_instagram||''}<br>Conferido em ${new Date().toLocaleString('pt-BR')}</div>`;
+    }
+    carregar();
+  </script>
+</body>
+</html>

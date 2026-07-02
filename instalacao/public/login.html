@@ -1,0 +1,110 @@
+<***REMOVED***DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <title>Entrar • EasyGestão</title>
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root{ --marrom:#1a6f5e; --marrom-escuro:#0f4a3e; --dourado:#d4a017; --dourado-claro:#e8c98f;
+      --creme:#f9fbfa; --tinta:#2d3436; --linha:#e0e8e5;
+      /* cor da marca (o JS sobrescreve com a cor da loja). Default = verde EasyGestão. */
+      --marca:#1a6f5e; --marca-escura:#0f4a3e; }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Inter',system-ui,sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;
+      background:linear-gradient(160deg,var(--marca) 0%,var(--marca-escura) 100%);padding:20px;color:var(--tinta)}
+    .card{background:#fff;border-radius:18px;box-shadow:0 18px 50px rgba(0,0,0,.3);width:100%;max-width:380px;padding:38px 30px;text-align:center}
+    .logo{height:auto;max-width:280px;max-height:80px;margin:0 auto 12px;filter:drop-shadow(0 3px 8px rgba(0,0,0,.12));object-fit:contain}
+    .marca{font-family:'Inter',sans-serif;font-weight:700;letter-spacing:1px;font-size:1.4rem;color:var(--marrom-escuro);display:none}
+    .sub{color:#5b6470;font-size:.85rem;letter-spacing:2px;margin:6px 0 26px;text-transform:uppercase}
+    label{display:block;text-align:left;font-size:.82rem;font-weight:500;color:#5b6470;margin:14px 0 5px}
+    input{width:100%;min-height:50px;padding:12px 14px;border:1px solid var(--linha);border-radius:11px;font-size:16px;font-family:inherit}
+    input:focus{outline:none;border-color:var(--marca);box-shadow:0 0 0 3px rgba(26,111,94,.15)}
+    button{width:100%;min-height:52px;margin-top:22px;border:none;border-radius:12px;background:var(--marca);color:#fff;
+      font-family:inherit;font-weight:600;font-size:1rem;cursor:pointer;transition:background .2s}
+    button:hover{background:var(--marca-escura)}
+    button:disabled{opacity:.6;cursor:wait}
+    .erro{color:#C0392B;font-size:.85rem;margin-top:14px;min-height:18px}
+    .voltar{display:inline-block;margin-top:18px;font-size:.82rem;color:#3a9580;text-decoration:none}
+    .voltar:hover{color:var(--marca)}
+  </style>
+</head>
+<body>
+  <form class="card" id="form" onsubmit="entrar(event)">
+    <img class="logo" src="" alt="" style="display:none" onerror="this.style.display='none';document.querySelector('.marca').style.display='block'">
+    <div class="marca">Minha Loja</div>
+    <div class="sub">Sistema de Gestão</div>
+    <label for="usuario">Usuário <span style="font-weight:400;color:#5b6470;">(deixe vazio para entrar como admin)</span></label>
+    <input type="text" id="usuario" autocomplete="username" autocapitalize="off" placeholder="ex: vendedor" autofocus>
+    <button type="submit" id="btn">Entrar</button>
+    <div class="erro" id="erro"></div>
+    <a class="voltar" href="vitrine.html">← Ver a vitrine</a>
+  </form>
+
+  <script>
+    // Identidade da loja (nome, logo, cor) — vem da config pública, sem login.
+    (async function aplicarMarca(){
+      try {
+        const r = await fetch('/api/loja-publica');
+        const cfg = await r.json();
+        const nome = (cfg.loja_nome || 'Minha Loja').trim();
+        const cor = (cfg.marca_cor || '').trim();
+        if (cor) {
+          document.documentElement.style.setProperty('--marca', cor);
+          // deriva um tom mais escuro pro gradiente/hover
+          const h = cor.replace('#','');
+          if (h.length === 6) {
+            const n = parseInt(h,16);
+            const esc = c => Math.max(0, Math.round(c*0.78));
+            const r2=esc((n>>16)&255), g2=esc((n>>8)&255), b2=esc(n&255);
+            document.documentElement.style.setProperty('--marca-escura', '#'+((1<<24)+(r2<<16)+(g2<<8)+b2).toString(16).slice(1));
+          }
+        }
+        const img = document.querySelector('.logo'), marca = document.querySelector('.marca');
+        marca.textContent = nome;
+        document.title = 'Entrar • ' + nome;
+        if (cfg.loja_logo) { img.src = cfg.loja_logo; img.alt = nome; img.style.display=''; marca.style.display='none'; }
+        else { img.style.display='none'; marca.style.display='block'; }
+      } catch(e) { document.querySelector('.marca').style.display='block'; }
+    })();
+
+    // destino conforme o papel de quem está logado
+    function destinoPorPapel(papel){ return papel === 'relacionamento' ? 'relacionamento.html' : 'index.html'; }
+
+    // se já estiver logado, vai direto pro destino do papel
+    fetch('/api/me', { credentials: 'same-origin' }).then(async r => {
+      if (r.ok) { const me = await r.json().catch(()=>({})); location.href = destinoPorPapel(me.papel); }
+    });
+
+    async function entrar(ev) {
+      ev.preventDefault();
+      const btn = document.getElementById('btn'), erro = document.getElementById('erro');
+      erro.textContent = ''; btn.disabled = true; btn.textContent = 'Entrando...';
+      try {
+        const resp = await fetch('/api/login-sem-senha', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({
+            usuario: document.getElementById('usuario').value.trim()
+          })
+        });
+        const d = await resp.json().catch(() => ({}));
+        if (resp.ok) {
+          const me = await fetch('/api/me', { credentials: 'same-origin' });
+          if (me.ok) { location.href = d.destino || destinoPorPapel(d.papel); return; }
+          erro.textContent = 'Não foi possível manter a sessão. Verifique se os cookies estão habilitados.';
+        } else {
+          erro.textContent = d.erro || 'Falha ao entrar';
+        }
+      } catch (e) { erro.textContent = 'Erro de conexão'; }
+      btn.disabled = false; btn.textContent = 'Entrar';
+    }
+  </script>
+</body>
+</html>

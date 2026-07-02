@@ -94,13 +94,13 @@ router.post('/checkout', (req, res) => {
 
   try {
     const tenantId = req.session.tenant_id;
-    const { plano } = req.body;
+    const { tipo_plano } = req.body;
 
-    if (!plano || !['basico', 'crescimento', 'premium'].includes(plano)) {
-      return res.status(400).json({ erro: 'Plano inválido' });
+    if (!tipo_plano || !['mensal', 'anual'].includes(tipo_plano)) {
+      return res.status(400).json({ erro: 'Tipo de plano inválido (use "mensal" ou "anual")' });
     }
 
-    criarCheckoutSession(tenantId, plano)
+    criarCheckoutSession(tenantId, tipo_plano)
       .then((session) => {
         res.json({ checkout_url: session.url });
       })

@@ -1,0 +1,134 @@
+<***REMOVED***DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fluxo & DRE • DS Store</title>
+  <link rel="stylesheet" href="css/ds.css">
+  <style>
+    .dre-linha { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #EEE; }
+    .dre-linha.sub { padding-left:16px; color:var(--cinza); font-size:0.9rem; }
+    .dre-linha.destaque { font-weight:700; font-size:1.05rem; border-top:2px solid var(--dourado-claro); border-bottom:none; }
+    .dre-linha.resultado { font-weight:700; font-size:1.25rem; border-top:2px solid var(--taupe); margin-top:4px; }
+    .barra-cat { height:14px; background:var(--dourado); border-radius:8px; }
+  </style>
+</head>
+<body>
+  <div class="conteudo">
+    <div class="flex-entre">
+      <div><h1>Fluxo de Caixa & DRE</h1><p class="subtitulo">Quanto entrou, quanto saiu, e o resultado real do mês</p></div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <button class="btn btn-fino btn-escuro nao-imprime" onclick="exportar()">⬇ CSV</button>
+        <input type="month" id="mes" onchange="carregar()" style="max-width:170px;">
+      </div>
+    </div>
+
+    <***REMOVED***-- Resumo do fluxo -->
+    <div class="cards-grid">
+      <div class="card card-metrica"><div class="valor dinheiro texto-verde" id="fEntradas">R$ 0</div><div class="rotulo">Entrou (vendas)</div></div>
+      <div class="card card-metrica"><div class="valor dinheiro texto-vermelho" id="fSaidas">R$ 0</div><div class="rotulo">Saiu (despesas)</div></div>
+      <div class="card card-metrica destaque"><div class="valor dinheiro" id="fSaldo">R$ 0</div><div class="rotulo">Saldo do mês</div></div>
+      <div class="card card-metrica"><div class="valor dinheiro texto-vermelho" id="fApagar">R$ 0</div><div class="rotulo">Ainda a pagar</div></div>
+    </div>
+
+    <div class="cards-grid" style="grid-template-columns:1fr 1fr;">
+      <***REMOVED***-- DRE -->
+      <div class="card">
+        <h2 style="margin-top:0;">📊 DRE — Resultado do mês</h2>
+        <div id="dre"><div class="texto-cinza">Carregando...</div></div>
+        <button class="btn btn-bloco mt" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+      </div>
+
+      <***REMOVED***-- Despesas por categoria -->
+      <div class="card">
+        <h2 style="margin-top:0;">Para onde foi o dinheiro</h2>
+        <div id="porCategoria"><div class="texto-cinza">Sem despesas neste mês.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/comum.js"></script>
+  <script>
+    montarLayout('fluxo');
+    document.getElementById('mes').value = hojeLocalStr().slice(0,7);
+    let dreAtual = null, fluxoAtual = null;
+
+    async function carregar() {
+      const mes = document.getElementById('mes').value;
+      const fluxo = await api('/financeiro/fluxo?mes='+mes);
+      const dre = await api('/financeiro/dre?mes='+mes);
+      dreAtual = dre; fluxoAtual = fluxo;
+
+      // cards
+      document.getElementById('fEntradas').textContent = moeda(fluxo.entradas.liquido);
+      document.getElementById('fSaidas').textContent = moeda(fluxo.saidas.total);
+      const saldoEl = document.getElementById('fSaldo');
+      saldoEl.textContent = moeda(fluxo.saldo);
+      document.getElementById('fApagar').textContent = moeda(fluxo.saidas.apagar);
+
+      // DRE
+      const corOp = dre.resultado_operacional >= 0 ? 'texto-verde' : 'texto-vermelho';
+      const corFinal = dre.resultado_final >= 0 ? 'texto-verde' : 'texto-vermelho';
+      document.getElementById('dre').innerHTML = `
+        <div class="dre-linha"><span>Receita bruta (vendas)</span><strong class="dinheiro">${moeda(dre.receita_bruta)}</strong></div>
+        <div class="dre-linha sub"><span>(−) Impostos (Simples)</span><span class="dinheiro">−${moeda(dre.impostos)}</span></div>
+        <div class="dre-linha destaque"><span>= Receita líquida</span><span class="dinheiro">${moeda(dre.receita_liquida)}</span></div>
+        <div class="dre-linha sub"><span>(−) Custo das mercadorias (CMV)</span><span class="dinheiro">−${moeda(dre.cmv)}</span></div>
+        <div class="dre-linha destaque"><span>= Lucro bruto</span><span class="dinheiro">${moeda(dre.lucro_bruto)}</span></div>
+        <div class="dre-linha sub"><span>(−) Taxas de cartão</span><span class="dinheiro">−${moeda(dre.taxas_cartao)}</span></div>
+        <div class="dre-linha sub"><span>(−) Comissões</span><span class="dinheiro">−${moeda(dre.comissoes)}</span></div>
+        <div class="dre-linha sub"><span>(−) Embalagem</span><span class="dinheiro">−${moeda(dre.embalagem)}</span></div>
+        <div class="dre-linha sub"><span>(−) Despesas fixas (loja)</span><span class="dinheiro">−${moeda(dre.despesas_fixas)}</span></div>
+        <div class="dre-linha sub"><span>(−) Despesas variáveis (loja)</span><span class="dinheiro">−${moeda(dre.despesas_variaveis)}</span></div>
+        <div class="dre-linha resultado"><span>= RESULTADO DA LOJA</span><span class="dinheiro ${corOp}">${moeda(dre.resultado_operacional)}</span></div>
+        <div class="texto-cinza centro" style="font-size:0.82rem; padding:4px 0;">Margem operacional: <strong class="${corOp}">${dre.margem_operacional}%</strong> • o quanto a operação rende sozinha</div>
+        <div class="dre-linha sub" style="margin-top:8px;"><span>(−) Retiradas do dono / pró-labore</span><span class="dinheiro">−${moeda(dre.pro_labore)}</span></div>
+        <div class="dre-linha resultado"><span>= SOBROU NO FIM</span><span class="dinheiro ${corFinal}">${moeda(dre.resultado_final)}</span></div>
+        <div class="texto-cinza centro mt" style="font-size:0.85rem;">${dre.num_vendas} vendas no mês • o que sobra depois de você se pagar</div>
+        ${dre.resultado_operacional < 0 ? '<div class="card mt" style="background:#FBE6E3;border-left:4px solid var(--vermelho);"><strong class="texto-vermelho">⚠️ A loja operou no vermelho.</strong> As despesas da operação superaram o que sobrou das vendas — antes mesmo das suas retiradas. Veja onde cortar ou quanto precisa vender a mais.</div>'
+          : dre.resultado_final < 0 ? '<div class="card mt" style="background:#FFF3CD;border-left:4px solid var(--dourado);"><strong style="color:#7a5d00;">⚠️ A loja deu lucro, mas as retiradas consumiram tudo.</strong> A operação é saudável; ajuste o tamanho das retiradas pessoais pra sobrar caixa.</div>'
+          : '<div class="card mt" style="background:#E3F4EA;border-left:4px solid var(--verde);"><strong class="texto-verde">🎉 Mês no azul***REMOVED***</strong> A loja deu lucro e ainda sobrou caixa depois das suas retiradas.</div>'}`;
+
+      // por categoria
+      const cats = fluxo.por_categoria;
+      const maxV = cats.length ? Math.max(...cats.map(c=>c.valor)) : 1;
+      document.getElementById('porCategoria').innerHTML = cats.length===0
+        ? '<div class="texto-cinza">Sem despesas neste mês.</div>'
+        : cats.map(c=>`<div style="margin-bottom:10px;">
+            <div class="flex-entre" style="font-size:0.9rem;"><span>${c.categoria}</span><strong class="dinheiro">${moeda(c.valor)}</strong></div>
+            <div class="barra-cat" style="width:${Math.max(c.valor/maxV*100,3)}%;"></div>
+          </div>`).join('');
+    }
+
+    function exportar() {
+      if (***REMOVED***dreAtual) { toast('Carregando...','erro'); return; }
+      const mes = document.getElementById('mes').value;
+      // DRE em formato linha-valor + despesas por categoria
+      const linhas = [
+        ['DRE — ' + mes, ''],
+        ['Receita bruta', dreAtual.receita_bruta],
+        ['Impostos', dreAtual.impostos],
+        ['Receita líquida', dreAtual.receita_liquida],
+        ['CMV (custo das peças)', dreAtual.cmv],
+        ['Lucro bruto', dreAtual.lucro_bruto],
+        ['Taxas de cartão', dreAtual.taxas_cartao],
+        ['Comissões', dreAtual.comissoes],
+        ['Embalagem', dreAtual.embalagem],
+        ['Despesas fixas (loja)', dreAtual.despesas_fixas],
+        ['Despesas variáveis (loja)', dreAtual.despesas_variaveis],
+        ['RESULTADO DA LOJA (operacional)', dreAtual.resultado_operacional],
+        ['Margem operacional (%)', dreAtual.margem_operacional],
+        ['Retiradas do dono / pró-labore', dreAtual.pro_labore],
+        ['SOBROU NO FIM (resultado final)', dreAtual.resultado_final],
+        ['Margem final (%)', dreAtual.margem_final],
+        ['', ''],
+        ['Despesas por categoria', ''],
+        ...((fluxoAtual && fluxoAtual.por_categoria) || []).map(c => [c.categoria, c.valor]),
+      ];
+      exportarCSV('dre-' + mes, linhas, ['Item', 'Valor']);
+    }
+
+    carregar();
+  </script>
+</body>
+</html>

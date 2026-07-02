@@ -1,0 +1,440 @@
+<***REMOVED***DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Financeiro • DS Store</title>
+  <link rel="stylesheet" href="css/ds.css">
+  <style>
+    .abas { display:flex; gap:6px; margin-bottom:16px; flex-wrap:wrap; }
+    .aba { padding:10px 18px; border-radius:8px; background:#fff; border:1.5px solid #DDD; cursor:pointer; font-weight:600; }
+    .aba.ativa { background:var(--taupe); color:#fff; border-color:var(--taupe); }
+    .desp-paga { opacity:0.6; }
+    .tag-empresa { background:var(--dourado-claro); color:var(--taupe-escuro); }
+    .tag-pessoal { background:#E0D4E8; color:#6B4E8A; }
+  </style>
+</head>
+<body>
+  <div class="conteudo">
+    <div class="flex-entre">
+      <div><h1>Financeiro</h1><p class="subtitulo">Despesas, contas a pagar e custos</p></div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <button class="btn btn-fino btn-escuro" onclick="exportar()">⬇ CSV</button>
+        <input type="month" id="mes" onchange="carregar()" style="max-width:170px;">
+      </div>
+    </div>
+
+    <div class="abas">
+      <div class="aba ativa" data-aba="mes" onclick="trocarAba('mes')">📅 Despesas do mês</div>
+      <div class="aba" data-aba="apagar" onclick="trocarAba('apagar')">⏰ Contas a pagar</div>
+      <div class="aba" data-aba="recorrentes" onclick="trocarAba('recorrentes')">🔁 Despesas fixas</div>
+      <div class="aba" data-aba="conciliacao" onclick="trocarAba('conciliacao')">🏦 Conciliação</div>
+    </div>
+
+    <div class="flex-entre" style="margin-bottom:14px;">
+      <div></div>
+      <button class="btn" onclick="abrirNova()">+ Nova despesa</button>
+    </div>
+
+    <***REMOVED***-- ABA: Despesas do mes -->
+    <div id="abaMes">
+      <div class="cards-grid">
+        <div class="card card-metrica destaque"><div class="valor dinheiro" id="mTotal">R$ 0</div><div class="rotulo">Total do mês</div></div>
+        <div class="card card-metrica"><div class="valor dinheiro texto-verde" id="mPago">R$ 0</div><div class="rotulo">Já pago</div></div>
+        <div class="card card-metrica"><div class="valor dinheiro texto-vermelho" id="mApagar">R$ 0</div><div class="rotulo">A pagar</div></div>
+        <div class="card card-metrica"><div class="valor dinheiro" id="mEmpresa">R$ 0</div><div class="rotulo">Empresa</div></div>
+        <div class="card card-metrica"><div class="valor dinheiro" id="mPessoal">R$ 0</div><div class="rotulo">Pessoal</div></div>
+      </div>
+      <div class="card">
+        <div style="display:flex; gap:8px; margin-bottom:10px;">
+          <button class="btn btn-fino btn-escuro" onclick="gerarMes()">🔁 Lançar despesas fixas deste mês</button>
+        </div>
+        <div id="listaMes"></div>
+      </div>
+    </div>
+
+    <***REMOVED***-- ABA: Contas a pagar -->
+    <div id="abaApagar" style="display:none;">
+      <div class="card">
+        <div style="margin-bottom:14px;">
+          <button class="btn btn-fino btn-escuro" onclick="gerarMes()">🔁 Lançar despesas fixas deste mês</button>
+          <p class="texto-cinza" style="font-size:0.82rem; margin-top:8px;">⚠️ Despesas fixas (aluguel, energia, etc) aparecem aqui após serem lançadas. Clique o botão acima antes de pagar.</p>
+        </div>
+        <div id="listaApagar"></div>
+      </div>
+    </div>
+
+    <***REMOVED***-- ABA: Recorrentes -->
+    <div id="abaRecorrentes" style="display:none;">
+      <div class="card">
+        <p class="texto-cinza">Despesas que se repetem todo mês (aluguel, luz, contador...). Cadastre uma vez e use o botão "Lançar despesas fixas" a cada mês.</p>
+        <div id="listaRecorrentes"></div>
+      </div>
+    </div>
+
+    <***REMOVED***-- ABA: Conciliação bancária (bate o saldo da conta com o banco) -->
+    <div id="abaConciliacao" style="display:none;">
+      <div class="card">
+        <div class="flex-entre" style="flex-wrap:wrap; gap:10px;">
+          <div>
+            <h2 style="margin:0;">🏦 Conciliação da conta</h2>
+            <p class="subtitulo" style="margin:2px 0 0;">Confira o que passou pela conta no dia e bata com o app do banco</p>
+          </div>
+          <input type="date" id="concData" onchange="carregarConciliacao()" style="max-width:170px;">
+        </div>
+        <div class="linha mt" style="align-items:flex-end;">
+          <div class="campo" style="margin:0; max-width:220px;">
+            <label>Saldo da conta no início do dia (R$)</label>
+            <input type="number" id="concSaldoIni" step="0.01" placeholder="olhe no app do banco">
+          </div>
+          <button class="btn btn-escuro" onclick="salvarConcSaldo()">Salvar saldo</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <table style="box-shadow:none;"><tbody id="concTabela"></tbody></table>
+        <div class="linha mt" style="align-items:flex-end;">
+          <div class="campo" style="margin:0; max-width:220px;">
+            <label>Saldo conferido no banco agora (R$)</label>
+            <input type="number" id="concConferido" step="0.01" placeholder="0,00" oninput="previewConcDif()">
+          </div>
+          <button class="btn btn-verde" onclick="salvarConcConferido()">Conferir</button>
+          <div class="campo" style="margin:0;"><label>Diferença</label><div id="concDif" style="font-weight:700; padding:8px 0;">—</div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 style="margin-top:0; font-size:1.05rem;">Movimentos da conta no dia</h2>
+        <div id="concMovs"><div class="vazio">—</div></div>
+      </div>
+    </div>
+  </div>
+
+  <***REMOVED***-- Modal pagar despesa -->
+  <div class="modal-fundo" id="modalPagar">
+    <div class="modal">
+      <button class="modal-fechar" onclick="fecharPagar()">&times;</button>
+      <h2>Registrar pagamento</h2>
+      <input type="hidden" id="pagarId">
+      <div class="campo">
+        <label>Como foi pago? *</label>
+        <select id="pagarForma">
+          <option value="dinheiro">💵 Dinheiro (sai da gaveta)</option>
+          <option value="pix">💚 Pix (saída pela conta)</option>
+          <option value="cartao">💳 Cartão/Transferência (saída pela conta)</option>
+          <option value="boleto">📄 Boleto (saída pela conta)</option>
+        </select>
+      </div>
+      <div class="campo">
+        <label>Data do pagamento</label>
+        <input type="date" id="pagarData">
+      </div>
+      <div id="avisoSemCaixa" style="display:none;" class="card" style="background:var(--dourado-claro); border-left:4px solid var(--dourado); margin-bottom:10px;">
+        <strong>⚠️ Caixa fechado nesta data</strong>
+        <p class="texto-cinza" style="margin:6px 0 0; font-size:0.82rem;">O pagamento será registrado, mas o movimento não entrará no caixa (abra um caixa para esta data antes).</p>
+      </div>
+      <div class="linha">
+        <button class="btn btn-bloco" onclick="confirmarPagar()">✓ Confirmar pagamento</button>
+        <button class="btn btn-bloco btn-fantasma" onclick="fecharPagar()">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <***REMOVED***-- Modal nova/editar despesa -->
+  <div class="modal-fundo" id="modal">
+    <div class="modal">
+      <button class="modal-fechar" onclick="fechar()">&times;</button>
+      <h2 id="tituloModal">Nova despesa</h2>
+      <input type="hidden" id="dId">
+      <div class="campo"><label>Descrição *</label><input type="text" id="descricao" placeholder="Ex: Aluguel da loja"></div>
+      <div class="linha">
+        <div class="campo"><label>Valor (R$) *</label><input type="number" id="valor" step="0.01" placeholder="0,00"></div>
+        <div class="campo"><label>Categoria</label>
+          <select id="categoria">
+            <option value="aluguel">Aluguel</option><option value="energia">Energia</option>
+            <option value="agua">Água</option><option value="internet">Internet/Telefone</option>
+            <option value="contador">Contador</option><option value="iptu">IPTU</option>
+            <option value="fornecedor">Fornecedor/Mercadoria</option><option value="embalagem">Embalagem</option>
+            <option value="pro-labore">Pró-labore (retirada)</option><option value="divida">Dívida/Empréstimo</option>
+            <option value="pensao">Pensão</option><option value="mercado">Mercado/Alimentação</option>
+            <option value="salario">Salário/Funcionário</option><option value="marketing">Marketing</option>
+            <option value="outro">Outro</option>
+          </select>
+        </div>
+      </div>
+      <div class="linha">
+        <div class="campo"><label>Centro</label>
+          <select id="centro"><option value="empresa">🏪 Empresa</option><option value="pessoal">🏠 Pessoal</option></select>
+        </div>
+        <div class="campo"><label>Mês de competência</label><input type="month" id="competencia"></div>
+      </div>
+      <div class="linha">
+        <div class="campo"><label>Status</label>
+          <select id="pago" onchange="togglePagamento()">
+            <option value="0">A pagar</option><option value="1">Já paga</option>
+          </select>
+        </div>
+        <div class="campo"><label>Vencimento</label><input type="date" id="vencimento"></div>
+      </div>
+      <div class="linha" id="campoForma" style="display:none;">
+        <div class="campo">
+          <label>Forma de pagamento</label>
+          <select id="forma_pagamento">
+            <option value="pix">Pix</option><option value="dinheiro">Dinheiro</option>
+            <option value="cartao">Cartão</option><option value="transferencia">Transferência</option><option value="boleto">Boleto</option>
+          </select>
+        </div>
+        <div class="campo">
+          <label>Data do pagamento</label>
+          <input type="date" id="data_pagamento">
+          <span class="texto-cinza" style="font-size:0.75rem;">pode ser uma data passada (ex: paguei ontem)</span>
+        </div>
+      </div>
+      <div class="campo">
+        <label><input type="checkbox" id="recorrente" style="width:auto;margin-right:8px;"> É uma despesa FIXA (repete todo mês)</label>
+      </div>
+      <button class="btn btn-bloco" onclick="salvar()">Salvar</button>
+    </div>
+  </div>
+
+  <script src="js/comum.js"></script>
+  <script>
+    montarLayout('financeiro');
+    document.getElementById('mes').value = mesLocalStr();
+    let abaAtual = 'mes';
+
+    function trocarAba(aba) {
+      abaAtual = aba;
+      document.querySelectorAll('.aba').forEach(a => a.classList.toggle('ativa', a.dataset.aba===aba));
+      document.getElementById('abaMes').style.display = aba==='mes'?'block':'none';
+      document.getElementById('abaApagar').style.display = aba==='apagar'?'block':'none';
+      document.getElementById('abaRecorrentes').style.display = aba==='recorrentes'?'block':'none';
+      document.getElementById('abaConciliacao').style.display = aba==='conciliacao'?'block':'none';
+      carregar();
+    }
+
+    async function carregar() {
+      if (abaAtual === 'conciliacao') { if(***REMOVED***document.getElementById('concData').value) document.getElementById('concData').value = hojeLocalStr(); return carregarConciliacao(); }
+      if (abaAtual === 'mes') await carregarMes();
+      else if (abaAtual === 'apagar') await carregarApagar();
+      else await carregarRecorrentes();
+    }
+
+    let despesasMes = [];
+    async function carregarMes() {
+      const mes = document.getElementById('mes').value;
+      const r = await api('/despesas?mes=' + mes);
+      despesasMes = r.despesas;
+      document.getElementById('mTotal').textContent = moeda(r.resumo.total);
+      document.getElementById('mPago').textContent = moeda(r.resumo.pago);
+      document.getElementById('mApagar').textContent = moeda(r.resumo.apagar);
+      document.getElementById('mEmpresa').textContent = moeda(r.resumo.empresa);
+      document.getElementById('mPessoal').textContent = moeda(r.resumo.pessoal);
+      document.getElementById('listaMes').innerHTML = r.despesas.length===0
+        ? '<div class="vazio">Nenhuma despesa neste mês. Use "+ Nova despesa" ou "Lançar despesas fixas".</div>'
+        : tabelaDespesas(r.despesas, true);
+    }
+    async function carregarApagar() {
+      const lista = await api('/despesas/a-pagar');
+      document.getElementById('listaApagar').innerHTML = lista.length===0
+        ? '<div class="vazio">Nenhuma conta a pagar. 🎉</div>'
+        : tabelaDespesas(lista, true);
+    }
+    async function carregarRecorrentes() {
+      const lista = await api('/despesas/recorrentes');
+      document.getElementById('listaRecorrentes').innerHTML = lista.length===0
+        ? '<div class="vazio">Nenhuma despesa fixa cadastrada.</div>'
+        : tabelaDespesas(lista, false);
+    }
+
+    function tabelaDespesas(lista, mostrarStatus) {
+      return `<table><thead><tr><th>Descrição</th><th>Categoria</th><th>Centro</th>${mostrarStatus?'<th>Status</th>':''}<th class="direita">Valor</th><th></th></tr></thead><tbody>${
+        lista.map(d=>`<tr class="${d.pago?'desp-paga':''}">
+          <td><strong>${d.descricao}</strong>${d.vencimento?`<br><span class="texto-cinza" style="font-size:0.78rem;">vence ${d.vencimento.split('-').reverse().join('/')}</span>`:''}</td>
+          <td>${d.categoria||'—'}</td>
+          <td><span class="badge ${d.centro==='pessoal'?'tag-pessoal':'tag-empresa'}">${d.centro==='pessoal'?'🏠':'🏪'} ${d.centro}</span></td>
+          ${mostrarStatus?`<td>${d.pago?'<span class="badge badge-verde">paga</span>':'<span class="badge badge-vermelho">a pagar</span>'}</td>`:''}
+          <td class="direita dinheiro">${moeda(d.valor)}</td>
+          <td class="direita" style="white-space:nowrap;">
+            ${(***REMOVED***d.pago && ***REMOVED***d.recorrente)?`<button class="btn btn-fino btn-verde" onclick="abrirPagar(${d.id})">pagar</button>`:''}
+            <button class="btn btn-fino btn-escuro" onclick='editar(${JSON.stringify(d).replace(/'/g,"&#39;")})'>✏️</button>
+            <button class="btn btn-fino btn-vermelho" onclick="remover(${d.id})">🗑️</button>
+          </td>
+        </tr>`).join('')
+      }</tbody></table>`;
+    }
+
+    function togglePagamento() {
+      document.getElementById('campoForma').style.display =
+        document.getElementById('pago').value==='1' ? 'block' : 'none';
+    }
+
+    function abrirNova() {
+      document.getElementById('tituloModal').textContent = 'Nova despesa';
+      document.getElementById('dId').value = '';
+      ['descricao','valor','vencimento'].forEach(i=>document.getElementById(i).value='');
+      document.getElementById('categoria').value = 'aluguel';
+      document.getElementById('centro').value = 'empresa';
+      document.getElementById('competencia').value = document.getElementById('mes').value;
+      document.getElementById('pago').value = '0';
+      document.getElementById('data_pagamento').value = hojeLocalStr();
+      document.getElementById('recorrente').checked = (abaAtual==='recorrentes');
+      togglePagamento();
+      document.getElementById('modal').classList.add('aberto');
+    }
+    function editar(d) {
+      document.getElementById('tituloModal').textContent = 'Editar despesa';
+      document.getElementById('dId').value = d.id;
+      document.getElementById('descricao').value = d.descricao;
+      document.getElementById('valor').value = d.valor;
+      document.getElementById('categoria').value = d.categoria||'outro';
+      document.getElementById('centro').value = d.centro||'empresa';
+      document.getElementById('competencia').value = (d.data_competencia||'').slice(0,7);
+      document.getElementById('pago').value = d.pago?'1':'0';
+      document.getElementById('vencimento').value = d.vencimento||'';
+      document.getElementById('data_pagamento').value = d.data_pagamento || hojeLocalStr();
+      document.getElementById('recorrente').checked = ***REMOVED******REMOVED***d.recorrente;
+      togglePagamento();
+      document.getElementById('modal').classList.add('aberto');
+    }
+    function fechar(){ document.getElementById('modal').classList.remove('aberto'); }
+
+    async function salvar() {
+      const descricao = document.getElementById('descricao').value.trim();
+      const valor = parseFloat(document.getElementById('valor').value)||0;
+      if (***REMOVED***descricao){ toast('Informe a descrição','erro'); return; }
+      if (valor<=0){ toast('Informe o valor','erro'); return; }
+      const comp = document.getElementById('competencia').value;
+      const body = {
+        descricao, valor, categoria:document.getElementById('categoria').value,
+        centro:document.getElementById('centro').value,
+        data_competencia: comp ? comp+'-01' : null,
+        vencimento: document.getElementById('vencimento').value || null,
+        pago: document.getElementById('pago').value==='1',
+        forma_pagamento: document.getElementById('forma_pagamento').value,
+        data_pagamento: document.getElementById('data_pagamento').value || null,
+        recorrente: document.getElementById('recorrente').checked,
+        tipo: document.getElementById('recorrente').checked ? 'fixa' : 'variavel'
+      };
+      const id = document.getElementById('dId').value;
+      if (id) await api('/despesas/'+id, { method:'PUT', body });
+      else await api('/despesas', { method:'POST', body });
+      toast('Despesa salva','sucesso'); fechar(); carregar();
+    }
+    function abrirPagar(id) {
+      document.getElementById('pagarId').value = id;
+      document.getElementById('pagarForma').value = 'dinheiro';
+      document.getElementById('pagarData').value = hojeLocalStr();
+      document.getElementById('modalPagar').classList.add('aberto');
+      verificarCaixaAberto(hojeLocalStr());
+    }
+    function fecharPagar() {
+      document.getElementById('modalPagar').classList.remove('aberto');
+    }
+    async function verificarCaixaAberto(data) {
+      try {
+        const cx = await api('/caixa/dia?data=' + data);
+        const aviso = document.getElementById('avisoSemCaixa');
+        if (cx && cx.aberto) {
+          aviso.style.display = 'none';
+        } else {
+          aviso.style.display = '';
+        }
+      } catch (e) {
+        document.getElementById('avisoSemCaixa').style.display = '';
+      }
+    }
+    async function confirmarPagar() {
+      const id = document.getElementById('pagarId').value;
+      const forma = document.getElementById('pagarForma').value;
+      const data = document.getElementById('pagarData').value;
+      if (***REMOVED***forma || ***REMOVED***data) { toast('Informe forma e data','erro'); return; }
+      try {
+        await api('/despesas/'+id+'/pagar', {
+          method:'POST',
+          body:{ forma_pagamento: forma, data_pagamento: data }
+        });
+        toast('Pagamento registrado e sangria criada no caixa','sucesso');
+        fecharPagar();
+        carregar();
+      } catch (e) {
+        toast('Erro: ' + e.message,'erro');
+      }
+    }
+    async function remover(id) {
+      if (***REMOVED***confirm('Remover esta despesa?')) return;
+      await api('/despesas/'+id, { method:'DELETE' });
+      toast('Removida','sucesso'); carregar();
+    }
+    async function gerarMes() {
+      const mes = document.getElementById('mes').value;
+      const r = await api('/despesas/gerar-mes', { method:'POST', body:{ mes } });
+      toast(`${r.geradas} despesa(s) fixa(s) lançada(s)${r.jaExistiam?' • '+r.jaExistiam+' já existiam':''}`,'sucesso');
+      carregar();
+    }
+
+    function exportar() {
+      if (***REMOVED***despesasMes.length) { toast('Nenhuma despesa no mês para exportar','erro'); return; }
+      const linhas = despesasMes.map(d=>({
+        Descricao:d.descricao, Valor:d.valor, Categoria:d.categoria||'',
+        Tipo:d.tipo, Centro:d.centro,
+        Competencia:d.data_competencia||'', Vencimento:d.vencimento||'',
+        Pago:d.pago?'sim':'não', Pagamento:d.forma_pagamento||''
+      }));
+      exportarCSV('despesas-' + document.getElementById('mes').value, linhas);
+    }
+
+    // ---------- Conciliação bancária ----------
+    let concAtual = null;
+    function rotuloFormaConc(f){ return ({pix:'💚 Pix',debito:'💳 Débito',credito:'💳 Crédito',transferencia:'🏦 Transf.'})[f]||f; }
+    async function carregarConciliacao() {
+      const data = document.getElementById('concData').value || hojeLocalStr();
+      const c = await api('/financeiro/conciliacao?data=' + data);
+      concAtual = c;
+      document.getElementById('concSaldoIni').value = c.saldo_conta_inicial ***REMOVED***= null ? c.saldo_conta_inicial : '';
+      document.getElementById('concConferido').value = c.conferido ***REMOVED***= null ? c.conferido : '';
+      const temSaldo = c.saldo_conta_inicial ***REMOVED***= null;
+      const linhas = [];
+      linhas.push(`<tr><td>Saldo inicial (informado)</td><td class="direita dinheiro">${temSaldo?moeda(c.saldo_conta_inicial):'<span class="texto-cinza">— informe acima</span>'}</td></tr>`);
+      linhas.push(`<tr><td>+ Vendas Pix (caem na hora)</td><td class="direita dinheiro">${moeda(c.pix_dia)}</td></tr>`);
+      if (c.entradas_conta>0) linhas.push(`<tr><td>+ Entradas pela conta</td><td class="direita dinheiro">${moeda(c.entradas_conta)}</td></tr>`);
+      if (c.saidas_conta>0) linhas.push(`<tr><td>− Saídas pela conta</td><td class="direita dinheiro">−${moeda(c.saidas_conta)}</td></tr>`);
+      linhas.push(`<tr style="border-top:2px solid var(--dourado-claro);"><td><strong>= Esperado na conta hoje</strong></td><td class="direita dinheiro"><strong>${temSaldo?moeda(c.esperado):'—'}</strong></td></tr>`);
+      if (c.cartao_receber>0) linhas.push(`<tr><td class="texto-cinza" style="font-size:0.85rem;">💳 Cartão a receber (cai depois, não hoje)</td><td class="direita dinheiro texto-cinza">${moeda(c.cartao_receber)}</td></tr>`);
+      document.getElementById('concTabela').innerHTML = linhas.join('');
+      previewConcDif();
+      // lista de movimentos da conta
+      const m = c.movimentos || [];
+      document.getElementById('concMovs').innerHTML = m.length===0
+        ? '<div class="vazio">Nenhum movimento pela conta neste dia (só vendas pix entram no esperado).</div>'
+        : `<table style="box-shadow:none;"><tbody>${m.map(x=>`<tr>
+            <td>${x.criado_em.slice(11,16)}</td>
+            <td>${x.tipo==='sangria'?'− Saída':'+ Entrada'}</td>
+            <td>${rotuloFormaConc(x.forma)}</td>
+            <td class="texto-cinza">${esc(x.motivo||'')}</td>
+            <td class="direita dinheiro">${moeda(x.valor)}</td></tr>`).join('')}</tbody></table>`;
+    }
+    function previewConcDif() {
+      const el = document.getElementById('concDif');
+      if (***REMOVED***concAtual || concAtual.esperado == null) { el.textContent='—'; el.className=''; return; }
+      const conf = parseFloat(document.getElementById('concConferido').value);
+      if (isNaN(conf)) { el.textContent='—'; el.className=''; return; }
+      const dif = +(conf - concAtual.esperado).toFixed(2);
+      el.textContent = (dif>0?'+':'') + moeda(dif) + (Math.abs(dif)<0.01?' (bateu***REMOVED***)':dif>0?' (sobra)':' (falta)');
+      el.className = Math.abs(dif)<0.01 ? 'texto-verde' : 'texto-vermelho';
+    }
+    async function salvarConcSaldo() {
+      try { await api('/financeiro/conciliacao', { method:'POST', body:{ data:document.getElementById('concData').value, saldo_inicial:document.getElementById('concSaldoIni').value }});
+        toast('Saldo salvo','sucesso'); carregarConciliacao(); } catch(e){ toast(e.message,'erro'); }
+    }
+    async function salvarConcConferido() {
+      try { await api('/financeiro/conciliacao', { method:'POST', body:{ data:document.getElementById('concData').value, conferido:document.getElementById('concConferido').value }});
+        toast('Conferência salva','sucesso'); carregarConciliacao(); } catch(e){ toast(e.message,'erro'); }
+    }
+
+    document.getElementById('modal').addEventListener('click', e=>{ if(e.target.id==='modal') fechar(); });
+    document.getElementById('modalPagar').addEventListener('click', e=>{ if(e.target.id==='modalPagar') fecharPagar(); });
+    carregar();
+  </script>
+</body>
+</html>

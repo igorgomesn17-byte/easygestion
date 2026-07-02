@@ -1,0 +1,134 @@
+<***REMOVED***DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Notas fiscais • DS Store</title>
+  <link rel="stylesheet" href="css/ds.css">
+  <style>
+    @media print {
+      .nav, .btn, .no-print, .ds-sidebar, .ds-topbar { display: none ***REMOVED***important; }
+      .conteudo { margin: 0 ***REMOVED***important; padding: 0 ***REMOVED***important; }
+      body { background: #fff; }
+    }
+  </style>
+</head>
+<body>
+  <div class="conteudo">
+    <div class="flex-entre">
+      <div><h1>Notas fiscais (NFC-e)</h1><p class="subtitulo">Relatório de emissão — para o contador</p></div>
+      <div style="display:flex; gap:8px;" class="no-print">
+        <button class="btn" onclick="window.print()">🖨️ Imprimir</button>
+        <button class="btn btn-escuro" onclick="exportar()">⬇ Exportar CSV</button>
+      </div>
+    </div>
+
+    <div class="card no-print">
+      <div class="linha" style="align-items:flex-end;">
+        <div class="campo" style="margin:0;"><label>Mês (atalho)</label><input type="month" id="mes"></div>
+        <div class="campo" style="margin:0;"><label>De</label><input type="date" id="de"></div>
+        <div class="campo" style="margin:0;"><label>Até</label><input type="date" id="ate"></div>
+        <div class="campo" style="margin:0;"><button class="btn" onclick="carregar()">Filtrar</button></div>
+      </div>
+      <p class="texto-cinza" style="font-size:0.82rem; margin:8px 0 0;">Escolha um mês (preenche o período automático) ou informe De/Até. O valor que conta pro fisco é o das notas <strong>autorizadas</strong>.</p>
+    </div>
+
+    <div id="periodoImpressao" class="texto-cinza" style="margin-bottom:10px;"></div>
+
+    <div class="cards-grid">
+      <div class="card card-metrica destaque"><div class="valor dinheiro" id="rValor">R$ 0</div><div class="rotulo">Valor autorizado (fiscal)</div></div>
+      <div class="card card-metrica"><div class="valor" id="rAutorizadas">0</div><div class="rotulo">Notas autorizadas</div></div>
+      <div class="card card-metrica"><div class="valor" id="rCanceladas">0</div><div class="rotulo">Canceladas</div></div>
+      <div class="card card-metrica"><div class="valor" id="rErro">0</div><div class="rotulo">Com erro</div></div>
+      <div class="card card-metrica"><div class="valor" id="rTotal">0</div><div class="rotulo">Total emitidas</div></div>
+    </div>
+
+    <div class="card">
+      <div id="tabela"></div>
+    </div>
+  </div>
+
+  <script src="js/comum.js"></script>
+  <script>
+    montarLayout('nfce');
+    let notasCache = [];
+
+    function statusBadge(s) {
+      const map = {
+        autorizado: ['Autorizada','badge-verde'],
+        cancelado: ['Cancelada','badge-vermelho'],
+        processando: ['Processando','badge-dourado'],
+        erro: ['Erro','badge-vermelho'],
+        denegado: ['Denegada','badge-vermelho'],
+      };
+      const [txt, cls] = map[s] || [s, ''];
+      return `<span class="badge ${cls}">${txt}</span>`;
+    }
+
+    function periodoParams() {
+      const mes = document.getElementById('mes').value;
+      const de = document.getElementById('de').value;
+      const ate = document.getElementById('ate').value;
+      if (mes) return '?mes=' + mes;
+      const p = [];
+      if (de) p.push('de=' + de);
+      if (ate) p.push('ate=' + ate);
+      return p.length ? '?' + p.join('&') : '';
+    }
+
+    async function carregar() {
+      const r = await api('/nfce/relatorio' + periodoParams());
+      const res = r.resumo;
+      document.getElementById('rValor').textContent = moeda(res.valor_autorizado);
+      document.getElementById('rAutorizadas').textContent = res.autorizadas;
+      document.getElementById('rCanceladas').textContent = res.canceladas;
+      document.getElementById('rErro').textContent = res.com_erro;
+      document.getElementById('rTotal').textContent = res.total_emitidas;
+
+      const per = (r.de && r.ate)
+        ? `Período: ${r.de.split('-').reverse().join('/')} a ${r.ate.split('-').reverse().join('/')}`
+        : 'Período: todas as notas';
+      document.getElementById('periodoImpressao').innerHTML =
+        `<strong>DS STORE — Relatório de NFC-e</strong><br>${per}`;
+
+      notasCache = r.notas;
+      if (***REMOVED***r.notas.length) {
+        document.getElementById('tabela').innerHTML = '<p class="texto-cinza">Nenhuma nota no período.</p>';
+        return;
+      }
+      document.getElementById('tabela').innerHTML = `
+        <table><thead><tr>
+          <th>Data</th><th>Nº</th><th>Série</th><th>Status</th>
+          <th>Chave de acesso</th><th class="direita">Valor</th><th class="no-print"></th>
+        </tr></thead><tbody>
+        ${r.notas.map(n=>`<tr>
+          <td>${n.emitido_em ? n.emitido_em.slice(0,10).split('-').reverse().join('/') : '—'}</td>
+          <td>${esc(n.numero)||'—'}</td>
+          <td>${esc(n.serie)||'—'}</td>
+          <td>${statusBadge(n.status)}</td>
+          <td style="font-size:0.78rem; font-family:monospace;">${esc(n.chave)||'—'}</td>
+          <td class="direita dinheiro">${moeda(n.valor_total)}</td>
+          <td class="no-print">${n.danfe_url?`<a class="btn btn-fino" target="_blank" href="${esc(n.danfe_url)}">DANFE</a>`:''}</td>
+        </tr>`).join('')}
+        </tbody></table>`;
+    }
+
+    function exportar() {
+      if (***REMOVED***notasCache.length) { toast('Nada para exportar','erro'); return; }
+      const linhas = notasCache.map(n=>({
+        Data: n.emitido_em ? n.emitido_em.slice(0,10).split('-').reverse().join('/') : '',
+        Numero: n.numero||'', Serie: n.serie||'', Status: n.status,
+        Chave: n.chave||'', Protocolo: n.protocolo||'', Valor: n.valor_total,
+        Ambiente: n.ambiente,
+      }));
+      const mes = document.getElementById('mes').value || 'periodo';
+      exportarCSV('nfce-' + mes, linhas);
+    }
+
+    // começa no mês atual
+    const hoje = new Date();
+    document.getElementById('mes').value = hoje.getFullYear() + '-' + String(hoje.getMonth()+1).padStart(2,'0');
+    carregar();
+  </script>
+</body>
+</html>
