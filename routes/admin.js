@@ -943,12 +943,12 @@ router.get('/login-history', exigirAdminBackoffice, (req, res) => {
 // --- POST /2fa-setup → gera secret TOTP + retorna QR code ---
 // Acesso: apenas POST (sem autenticação de admin ainda, pois é durante setup)
 // Retorna: { secret, qr_code_data_url, backup_codes }
-router.post('/2fa-setup', (req, res) => {
+router.post('/2fa-setup', async (req, res) => {
   try {
     const { gerarSecret, gerarQRCode } = require('../lib/2fa');
 
-    const secret = gerarSecret();
-    const qrCodeDataUrl = gerarQRCode(secret);
+    const secretObj = gerarSecret();
+    const qrCodeDataUrl = await gerarQRCode(secretObj);
 
     // Gerar códigos de backup (10 códigos de 8 dígitos cada)
     const backupCodes = Array.from({ length: 10 }, () => {
@@ -957,7 +957,7 @@ router.post('/2fa-setup', (req, res) => {
 
     res.json({
       ok: true,
-      secret,
+      secret: secretObj.base32, // retornar só a string em base32, não o objeto completo
       qr_code: qrCodeDataUrl,
       backup_codes: backupCodes,
       mensagem: 'Secret 2FA gerado. Escaneie o QR code ou insira o secret manualmente no seu autenticador.'
