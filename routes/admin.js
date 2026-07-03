@@ -71,13 +71,21 @@ router.post('/login', (req, res) => {
     req.session.tenant_id = 1;
     req.session.login_em = new Date().toISOString();
 
+    // ✅ AUDITORIA: registrar login do admin
+    auditarAcao(req, {
+      acao: 'LOGIN_admin',
+      recurso: 'auditoria_admin',
+      recurso_id: null,
+      antes: null,
+      depois: null,
+      status: 200,
+    });
+
     console.log(`[ADMIN] ✅ Login bem-sucedido (ADMIN_SENHA_HASH) • IP: ${req.ip} • ${new Date().toISOString()}`);
 
     res.json({
       sucesso: true,
-      mensagem: 'Logado como administrador',
-      usuario: nome,
-      origen: eh_admin_env ? 'env' : 'db'
+      mensagem: 'Logado como administrador'
     });
   } catch (err) {
     console.error('[ADMIN] ❌ Erro ao fazer login:', err.message);
@@ -177,7 +185,7 @@ router.get('/clientes', exigirAdminBackoffice, (req, res) => {
 });
 
 // --- GET /clientes/:id → detalhes de um cliente ---
-// Retorna: dados do tenant
+// Retorna: dados do tenant + assinaturas ativas
 router.get('/clientes/:id', exigirAdminBackoffice, (req, res) => {
   const clienteId = req.params.id;
   try {
@@ -186,9 +194,25 @@ router.get('/clientes/:id', exigirAdminBackoffice, (req, res) => {
       return res.status(404).json({ erro: 'Cliente não encontrado' });
     }
 
+    // Buscar assinaturas deste tenant
+    const assinaturas = db.prepare(`
+      SELECT
+        id,
+        plano,
+        valor_mensal,
+        data_inicio,
+        data_proxima_renovacao,
+        cancelada_em,
+        em_teste,
+        data_inicio_teste,
+        data_fim_teste
+      FROM assinaturas
+      WHERE tenant_id = ?
+    `).all(clienteId);
+
     res.json({
       tenant,
-      assinaturas: [],
+      assinaturas,
       mensagem: 'Detalhes do cliente'
     });
   } catch (err) {
@@ -338,8 +362,9 @@ router.get('/financeiro', exigirAdminBackoffice, (req, res) => {
       LEFT JOIN cobracas c ON c.assinatura_id = a.id
     `).get();
 
-    // 2️⃣ MRR correto: SUM de valor_mensal das assinaturas ATIVAS (status='pago')
-    // Isso é a receita mensal que entra todo mês (apenas dos clientes que pagam)
+    // 2️⃣ MRR correto: SUM de valor_mensal das assinaturas ATIVAS
+    // IMPORTANTE: valor_mensal já vem preenchido corretamente (89.90 pra mensal, 89.90 pra anual desdobrado)
+    // Apenas de clientes que estão pagando (não teste, não cancelado, e dentro do prazo)
     const mrrQuery = db.prepare(`
       SELECT COALESCE(SUM(a.valor_mensal), 0) AS mrr_atual
       FROM assinaturas a
@@ -347,6 +372,7 @@ router.get('/financeiro', exigirAdminBackoffice, (req, res) => {
       WHERE a.em_teste = 0
       AND t.status IN ('ativo', 'pago')
       AND a.cancelada_em IS NULL
+      AND a.data_proxima_renovacao > datetime('now')
     `).get();
 
     const mrr = mrrQuery.mrr_atual || 0;
@@ -875,16 +901,18 @@ router.get('/login-history', exigirAdminBackoffice, (req, res) => {
     const limite = Math.min(100, parseInt(req.query.limite || 50, 10));
     const offset = (pagina - 1) * limite;
 
-    // Buscar logs de admin login via auditoria (ação contém 'admin' e 'login')
+    // Buscar logs de admin login via auditoria
+    // Procura por ações que contenham 'LOGIN' (admin login é 'LOGIN_admin')
     const logins = db.prepare(`
       SELECT
         a.id,
-        a.usuario_nome,
+        COALESCE(a.usuario_nome, 'admin') AS usuario_nome,
         a.criado_em,
         a.ip,
-        CASE WHEN a.status_http = 200 THEN 'Sucesso' ELSE 'Falha' END AS resultado
+        CASE WHEN a.status_http = 200 THEN 'Sucesso' ELSE 'Falha' END AS resultado,
+        a.acao
       FROM auditoria a
-      WHERE a.acao LIKE '%login%' AND a.usuario_nome IS NOT NULL
+      WHERE a.acao LIKE '%LOGIN%'
       ORDER BY a.criado_em DESC
       LIMIT ? OFFSET ?
     `).all(limite, offset);
@@ -892,7 +920,7 @@ router.get('/login-history', exigirAdminBackoffice, (req, res) => {
     // Total
     const { total } = db.prepare(`
       SELECT COUNT(*) AS total FROM auditoria
-      WHERE acao LIKE '%login%' AND usuario_nome IS NOT NULL
+      WHERE acao LIKE '%LOGIN%'
     `).get();
 
     res.json({
