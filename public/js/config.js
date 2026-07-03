@@ -438,25 +438,67 @@ async function verificarTokensFocus() {
 // ============================================================
 // VITRINE — Slug validation + links
 // ============================================================
-let slugAtual = '', slugValidado = { disponivel: true }, debounceSlug = null;
+let slugAtual = '', slugValidado = { disponivel: true }, debounceSlug = null, slugCustomizado = false;
+
+function gerarSlugDaNome(nome) {
+  if (!nome) return '';
+  return nome
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '') // Remove acentos
+    .replace(/[^a-z0-9]+/g, '-') // Substitui não-alfanuméricos por hífen
+    .replace(/^-+|-+$/g, ''); // Remove hífens nas extremidades
+}
+
+function atualizarSlugAutomatico() {
+  if (slugCustomizado) return; // Se customizado manualmente, não sobrescrever
+
+  const nomeLoja = document.getElementById('loja_nome')?.value || '';
+  const slugGerado = gerarSlugDaNome(nomeLoja);
+  const slugInput = document.getElementById('vitrine_slug');
+
+  if (slugInput) {
+    slugInput.value = slugGerado;
+    slugAtual = slugGerado;
+    slugValidado = { disponivel: true };
+  }
+}
+
+function ativarCustomizacaoSlug() {
+  const slugInput = document.getElementById('vitrine_slug');
+  if (slugInput.hasAttribute('readonly')) {
+    slugInput.removeAttribute('readonly');
+    slugCustomizado = true;
+    slugInput.focus();
+    slugInput.select();
+  }
+}
 
 function preencherSlugEVitrine(cfg) {
   api('/config/slug').then(r => {
     slugAtual = r.slug || '';
+    const nomeLoja = document.getElementById('loja_nome')?.value || '';
+    const slugGerado = gerarSlugDaNome(nomeLoja);
+
+    // Se não tem slug salvo, usar gerado do nome
+    if (!slugAtual) {
+      slugAtual = slugGerado;
+    }
+
     const slugInput = document.getElementById('vitrine_slug');
     if (slugInput) {
       slugInput.value = slugAtual;
-      // Se slug já existe, marcar como validado
       slugValidado = { disponivel: true };
     }
     atualizarLinkVitrine();
-  }).catch(() => {});
+  }).catch(() => {
+    // Se erro na API, gerar a partir do nome
+    atualizarSlugAutomatico();
+  });
 }
 
 function agendarValidacaoSlug() {
   clearTimeout(debounceSlug);
-  const statusEl = document.getElementById('slugStatus');
-  if (statusEl) statusEl.textContent = '...';
   debounceSlug = setTimeout(validarSlug, 500);
 }
 
@@ -569,4 +611,10 @@ window.addEventListener('DOMContentLoaded', () => {
   // Restaurar seção anterior ou defaultar para "marca"
   const secaoSalva = localStorage.getItem('config-secao-ativa') || 'marca';
   trocarSecaoConfig(secaoSalva);
+
+  // Listener para atualizar slug quando muda o nome da loja
+  const inputNomeLoja = document.getElementById('loja_nome');
+  if (inputNomeLoja) {
+    inputNomeLoja.addEventListener('change', atualizarSlugAutomatico);
+  }
 });
