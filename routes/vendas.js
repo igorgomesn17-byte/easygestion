@@ -288,18 +288,27 @@ router.get('/', (req, res) => {
   resumo.comissao = +resumo.comissao.toFixed(2);
   resumo.ticketMedio = resumo.n > 0 ? +(resumo.total / resumo.n).toFixed(2) : 0;
 
+  // PA (peças por atendimento)
+  const pecasTotal = db.prepare(`
+    SELECT COALESCE(SUM(vi.qtd), 0) AS pecas
+    FROM venda_itens vi
+    WHERE vi.venda_id IN (${vendas.map(() => '?').join(',')})
+  `).get(...vendas.map(v => v.id));
+  resumo.pa = resumo.n > 0 ? +(pecasTotal.pecas / resumo.n).toFixed(2) : 0;
+
   // Se agrupado=1, agrupa vendas por dia
   if (agrupado === '1') {
     const agrupadas = {};
     for (const v of vendas) {
       const dia = v.data_hora.slice(0, 10);
       if (!agrupadas[dia]) {
-        agrupadas[dia] = { data: dia, vendas: [], total: 0, lucro: 0, comissao: 0, num: 0 };
+        agrupadas[dia] = { data: dia, vendas: [], total: 0, lucro: 0, comissao: 0, pecas: 0, num: 0 };
       }
       agrupadas[dia].vendas.push(v);
       agrupadas[dia].total += v.total;
       agrupadas[dia].lucro += v.lucro;
       agrupadas[dia].comissao += v.comissao_valor;
+      agrupadas[dia].pecas += v.num_itens || 0;
       agrupadas[dia].num += 1;
     }
     // Converte para array e ordena por data DESC
@@ -308,7 +317,8 @@ router.get('/', (req, res) => {
         ...d,
         total: +d.total.toFixed(2),
         lucro: +d.lucro.toFixed(2),
-        comissao: +d.comissao.toFixed(2)
+        comissao: +d.comissao.toFixed(2),
+        pa: d.num > 0 ? +(d.pecas / d.num).toFixed(2) : 0
       }))
       .sort((a, b) => new Date(b.data) - new Date(a.data));
     res.json({ dias: diasAgrupados, resumo });

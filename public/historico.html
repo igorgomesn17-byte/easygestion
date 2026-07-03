@@ -30,6 +30,15 @@
       </div>
     </div>
 
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:12px; margin-bottom:20px;">
+      <div class="card card-metrica destaque"><div class="valor dinheiro" id="resumoTotal">R$ 0</div><div class="rotulo">Total vendido</div></div>
+      <div class="card card-metrica"><div class="valor dinheiro" id="resumoTicket">R$ 0</div><div class="rotulo">Ticket médio</div></div>
+      <div class="card card-metrica"><div class="valor" id="resumoPA">0</div><div class="rotulo">PA</div></div>
+      <div class="card card-metrica"><div class="valor dinheiro" id="resumoLucro">R$ 0</div><div class="rotulo">Lucro</div></div>
+      <div class="card card-metrica"><div class="valor dinheiro" id="resumoComissoes">R$ 0</div><div class="rotulo">Comissões</div></div>
+      <div class="card card-metrica"><div class="valor" id="resumoVendas">0</div><div class="rotulo">Nº vendas</div></div>
+    </div>
+
     <table class="tabela-vendas" id="tabela">
       <thead>
         <tr>
@@ -63,7 +72,7 @@
     async function carregar() {
       const de = document.getElementById('filtroDE').value;
       const ate = document.getElementById('filtroATE').value;
-      let url = '/vendas';
+      let url = '/api/vendas';
       if (de || ate) {
         url += '?';
         if (de) url += 'de=' + de;
@@ -72,6 +81,17 @@
       }
       const resp = await api(url);
       dados = resp.vendas || [];
+
+      // Preencher resumo
+      if (resp.resumo) {
+        document.getElementById('resumoTotal').textContent = moeda(resp.resumo.total || 0);
+        document.getElementById('resumoTicket').textContent = moeda(resp.resumo.ticketMedio || 0);
+        document.getElementById('resumoPA').textContent = (resp.resumo.pa || 0).toFixed(2);
+        document.getElementById('resumoLucro').textContent = moeda(resp.resumo.lucro || 0);
+        document.getElementById('resumoComissoes').textContent = moeda(resp.resumo.comissao || 0);
+        document.getElementById('resumoVendas').textContent = resp.resumo.n || 0;
+      }
+
       render();
     }
 
