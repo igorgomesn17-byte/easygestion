@@ -112,7 +112,7 @@ router.get('/:slug/produtos', (req, res) => {
 
       // Galeria de fotos
       const galeria = db.prepare(`
-        SELECT url FROM produto_fotos WHERE produto_id = ? AND tenant_id = ? ORDER BY id
+        SELECT caminho FROM produto_fotos WHERE produto_id = ? AND tenant_id = ? ORDER BY id
       `).all(p.id, tenant.id);
 
       return {
@@ -125,7 +125,7 @@ router.get('/:slug/produtos', (req, res) => {
         foto: p.foto,
         colecao: p.colecao,
         tamanhos: tamanhos.map(t => ({ tamanho: t.tamanho, quantidade: t.quantidade })),
-        galeria: galeria.map(g => g.url)
+        galeria: galeria.map(g => g.caminho)
       };
     });
 
