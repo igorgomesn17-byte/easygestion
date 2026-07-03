@@ -112,8 +112,8 @@ router.get('/:slug/produtos', (req, res) => {
 
       // Galeria de fotos
       const galeria = db.prepare(`
-        SELECT caminho FROM produto_fotos WHERE produto_id = ? AND tenant_id = ? ORDER BY id
-      `).all(p.id, tenant.id);
+        SELECT caminho FROM produto_fotos WHERE produto_id = ? ORDER BY id
+      `).all(p.id);
 
       return {
         id: p.id,
