@@ -11,10 +11,6 @@
     .metas-aneis { display:grid; grid-template-columns:repeat(2,1fr); gap:16px; margin-bottom:20px; }
     @media (max-width:560px){ .metas-aneis{ grid-template-columns:1fr 1fr; gap:10px; } }
 
-    /* Grid uniforme de cards de métricas */
-    .cards-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:12px; margin-bottom:20px; }
-    @media (max-width:860px){ .cards-grid { grid-template-columns:repeat(3, 1fr); } }
-    @media (max-width:560px){ .cards-grid { grid-template-columns:repeat(2, 1fr); } }
 
     /* Override do spinner de onboarding skip */
     .btn-skip:hover { background: #e0e0e0; }
@@ -177,8 +173,6 @@
     <div class="cards-grid">
       <div class="card card-metrica destaque"><div class="valor dinheiro" id="hojeVendido">R$ 0</div><div class="rotulo">Vendido hoje</div></div>
       <div class="card card-metrica"><div class="valor" id="hojeVendas">0</div><div class="rotulo">Vendas hoje</div></div>
-      <div class="card card-metrica"><div class="valor dinheiro" id="ticketMedioHoje">R$ 0</div><div class="rotulo">Ticket médio hoje</div></div>
-      <div class="card card-metrica"><div class="valor" id="paHoje">0</div><div class="rotulo">Peças por atendimento</div></div>
       <div class="card card-metrica"><div class="valor dinheiro" id="mesVendido">R$ 0</div><div class="rotulo">Faturamento do mês</div></div>
       <div class="card card-metrica"><div class="valor" id="mesVendas">0</div><div class="rotulo">Vendas no mês</div></div>
     </div>
@@ -241,8 +235,6 @@
       const d = await api('/dashboard');
       document.getElementById('hojeVendido').textContent = moeda(d.hoje.total_bruto);
       document.getElementById('hojeVendas').textContent = d.hoje.num_vendas;
-      document.getElementById('ticketMedioHoje').textContent = moeda(d.hoje.ticket_medio || 0);
-      document.getElementById('paHoje').textContent = (d.hoje.pa || 0).toFixed(1) + ' peças';
       document.getElementById('mesVendido').textContent = moeda(d.mes.bruto);
       document.getElementById('mesVendas').textContent = d.mes.vendas;
 

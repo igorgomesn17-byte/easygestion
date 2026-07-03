@@ -14,18 +14,6 @@ router.get('/', (req, res) => {
   const caixaHoje = db.prepare('SELECT total_bruto, num_vendas FROM caixa_dia WHERE data = ? AND tenant_id = ?').get(hoje, req.tenantId)
                     || { total_bruto: 0, num_vendas: 0 };
 
-  // Peças vendidas hoje (para calcular PA — peças por atendimento)
-  const pecasHoje = db.prepare(`
-    SELECT COALESCE(SUM(vi.qtd), 0) AS pecas
-    FROM venda_itens vi
-    JOIN vendas v ON v.id = vi.venda_id AND v.tenant_id = vi.tenant_id
-    WHERE date(v.data_hora) = ? AND v.tenant_id = ?
-  `).get(hoje, req.tenantId);
-
-  // Calcular métricas: ticket médio e PA (peças por atendimento)
-  const ticketMedioHoje = caixaHoje.num_vendas > 0 ? +(caixaHoje.total_bruto / caixaHoje.num_vendas).toFixed(2) : 0;
-  const paHoje = caixaHoje.num_vendas > 0 ? +(pecasHoje.pecas / caixaHoje.num_vendas).toFixed(2) : 0;
-
   // Faturamento do mes
   const mes = db.prepare(`
     SELECT COALESCE(SUM(total_bruto),0) AS bruto, COALESCE(SUM(num_vendas),0) AS vendas
@@ -96,11 +84,8 @@ router.get('/', (req, res) => {
 
   const marketing = { vendasPorCanal, clientesPorOrigem, leadsVitrine, leadsConvertidos, baseTotal, novosNoMes };
 
-  res.json({
-    hoje: { ...caixaHoje, ticket_medio: ticketMedioHoje, pa: paHoje },
-    mes, meta, aniversariantes, topProdutos, ddmm,
-    estoqueBaixo, estoqueBaixoTotal, marketing
-  });
+  res.json({ hoje: caixaHoje, mes, meta, aniversariantes, topProdutos, ddmm,
+             estoqueBaixo, estoqueBaixoTotal, marketing });
 });
 
 // Conta os dias de funcionamento (segunda a sábado) de um mês 'YYYY-MM'.
