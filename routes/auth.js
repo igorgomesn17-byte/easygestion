@@ -9,6 +9,7 @@ const { hashSenha, verificarSenha, validarSenha, validarNaoReutilizada, limiteFo
 const { gerarSlugUnico } = require('../lib/helpers');
 const jwt = require('jsonwebtoken');
 const { enviarEmail, templateResetSenha } = require('../lib/email');
+const { gerarSecret, gerarQRCode, validarToken } = require('../lib/2fa');
 
 // ✅ CRÍTICO: TOKEN_SECRET é obrigatório em produção (sem fallback)
 const TOKEN_SECRET = process.env.TOKEN_SECRET || (process.env.NODE_ENV !== 'production' ? 'dev-secret-change-in-env' : null);
@@ -62,27 +63,54 @@ function hashAdmin() {
 
 function usuarioAdmin() { return getConfig('admin_usuario', 'igor'); }
 
-// POST /api/admin/login  body: { senha }
-// Login admin (apenas senha — sem email)
+// POST /api/admin/login  body: { senha, token_2fa }
+// Login admin com 2FA opcional
 router.post('/admin/login', limiteAdminPassword, (req, res) => {
   console.log('[AUTH] POST /admin/login chegou na rota!');
-  const { senha } = req.body || {};
+  const { senha, token_2fa } = req.body || {};
 
   if (!senha) {
     return res.status(400).json({ erro: 'Senha é obrigatória' });
   }
 
-  if (verificarSenha(senha, hashAdmin())) {
-    req.session.logado = true;
-    req.session.usuario = usuarioAdmin();
-    req.session.papel = 'admin';
-    req.session.tenant_id = 1;
-    console.log(`[ADMIN LOGIN OK] ${usuarioAdmin()} • ${req.ip} • SESSION ID: ${req.sessionID}`);
-    return res.json({ ok: true, usuario: usuarioAdmin(), papel: 'admin', destino: 'index.html' });
+  if (!verificarSenha(senha, hashAdmin())) {
+    console.warn(`[ADMIN LOGIN FALHA] ${req.ip} • ${new Date().toISOString()}`);
+    return res.status(401).json({ erro: 'Senha de admin incorreta' });
   }
 
-  console.warn(`[ADMIN LOGIN FALHA] ${req.ip} • ${new Date().toISOString()}`);
-  return res.status(401).json({ erro: 'Senha de admin incorreta' });
+  // Se 2FA está ativado (ADMIN_2FA_SECRET no .env), exigir token
+  const admin2faSecret = process.env.ADMIN_2FA_SECRET;
+  if (admin2faSecret) {
+    if (!token_2fa) {
+      // Primeira etapa: senha OK, mas precisa de 2FA
+      req.session.admin_pendente_2fa = true;
+      console.log('[ADMIN LOGIN] Senha OK, aguardando 2FA');
+      return res.status(202).json({
+        ok: false,
+        erro: 'Autenticação 2FA necessária',
+        codigo: 'PENDENTE_2FA',
+        destino: '/admin-2fa.html'
+      });
+    }
+
+    // Validar token 2FA
+    const tokenValido = validarToken(admin2faSecret, token_2fa);
+    if (!tokenValido) {
+      console.warn(`[ADMIN 2FA FALHA] Token inválido • ${req.ip}`);
+      return res.status(401).json({ erro: 'Token 2FA inválido' });
+    }
+    console.log('[ADMIN 2FA] Token válido');
+  }
+
+  // Credenciais OK + 2FA OK (se necessário) → criar session
+  req.session.logado = true;
+  req.session.usuario = usuarioAdmin();
+  req.session.papel = 'admin';
+  req.session.tenant_id = 1;
+  delete req.session.admin_pendente_2fa;
+
+  console.log(`[ADMIN LOGIN OK] ${usuarioAdmin()} • ${req.ip} • SESSION ID: ${req.sessionID}`);
+  return res.json({ ok: true, usuario: usuarioAdmin(), papel: 'admin', destino: 'index.html' });
 });
 
 // POST /api/login  body: { email, senha }
