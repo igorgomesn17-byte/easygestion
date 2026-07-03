@@ -360,6 +360,91 @@ tbody tr:last-child td { border-bottom: none; }
    ============================================================ */
 .overlay-mob { display: none; position: fixed; inset: 0; background: rgba(31,35,41,0.4); z-index: 90; }
 .overlay-mob.ativo { display: block; }
+/* ============================================================
+   Componentes reutilizáveis: PDV, Financeiro, etc
+   ============================================================ */
+
+/* Chip selecionável (PDV: pgto-btn, Financeiro: aba) */
+.chip-selecionavel,
+.pgto-btn,
+.aba {
+  padding: 10px 18px;
+  border: 1.5px solid #DDD;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+.chip-selecionavel:hover,
+.pgto-btn:hover,
+.aba:hover {
+  border-color: var(--dourado);
+  background: var(--dourado-claro);
+}
+.chip-selecionavel.ativo,
+.pgto-btn.sel,
+.aba.ativa {
+  border-color: var(--dourado);
+  background: var(--dourado-claro);
+  color: var(--taupe-escuro);
+}
+.chip-selecionavel.pix,
+.pgto-btn.pix {
+  border-color: var(--verde);
+}
+.chip-selecionavel.pix:hover,
+.pgto-btn.pix:hover {
+  background: #E3F4EA;
+}
+.chip-selecionavel.pix.ativo,
+.pgto-btn.pix.sel {
+  border-color: var(--verde);
+  background: #E3F4EA;
+  color: var(--verde);
+  font-weight: 700;
+}
+
+/* Lista scrollável com itens interativos */
+.lista-scroll,
+.lista-cli {
+  max-height: 180px;
+  overflow-y: auto;
+  border: 1px solid #EEE;
+  border-radius: 8px;
+  margin-top: 4px;
+}
+.lista-scroll-item,
+.lista-cli div {
+  padding: 9px;
+  cursor: pointer;
+  border-bottom: 1px solid #F0F0F0;
+}
+.lista-scroll-item:hover,
+.lista-cli div:hover {
+  background: var(--creme);
+}
+
+/* Badge com categorias (Financeiro: tag-empresa, tag-pessoal) */
+.badge-categoria,
+.tag-empresa,
+.tag-pessoal {
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.badge-empresa,
+.tag-empresa {
+  background: var(--dourado-claro);
+  color: var(--taupe-escuro);
+}
+.badge-pessoal,
+.tag-pessoal {
+  background: #E0D4E8;
+  color: #6B4E8A;
+}
+
 @media (max-width: 1024px) {
   .conteudo { padding: 20px; }
   .cards-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }

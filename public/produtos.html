@@ -308,7 +308,8 @@
           toast('Peça atualizada', 'sucesso');
         } else {
           const r = await api('/produtos', { method: 'POST', body: dados });
-          toast('Peça cadastrada: ' + r.codigo, 'sucesso');
+          console.log('[DEBUG] Resposta POST /produtos:', r);
+          toast('Peça cadastrada: ' + (r?.codigo || r?.id || 'ok'), 'sucesso');
         }
         fecharCadastro();
         carregar();
@@ -338,8 +339,11 @@
       const busca = document.getElementById('busca').value;
       const cat = document.getElementById('filtroCategoria').value;
       const col = document.getElementById('filtroColecao').value;
-      const lista = await api('/produtos?busca=' + encodeURIComponent(busca) + (cat ? '&categoria=' + encodeURIComponent(cat) : '') + (col ? '&colecao=' + encodeURIComponent(col) : ''));
+      const url = '/produtos?busca=' + encodeURIComponent(busca) + (cat ? '&categoria=' + encodeURIComponent(cat) : '') + (col ? '&colecao=' + encodeURIComponent(col) : '');
+      const lista = await api(url);
+      console.log('[DEBUG] GET ' + url, 'resposta:', lista);
       const div = document.getElementById('lista');
+      if (!Array.isArray(lista)) { console.error('[ERRO] lista não é array:', lista); div.innerHTML = '<div class="vazio">Erro ao carregar produtos.</div>'; return; }
       if (lista.length === 0) { div.innerHTML = '<div class="vazio">Nenhuma peça encontrada.</div>'; return; }
       // resumo do filtro: quantas peças e valor
       const totPecas = lista.reduce((s,p)=>s+p.estoque_total,0);
