@@ -512,10 +512,20 @@ async function validarSlug() {
 
 async function salvarSecaoVitrine() {
   try {
-    // Slug é auto-gerado, apenas salva se mudou
-    if (slugAtual) {
-      await api('/config/slug', { method: 'PATCH', body: { slug: slugAtual } });
+    // Slug é auto-gerado, apenas salva se existe e é diferente do salvo
+    const slugInput = document.getElementById('vitrine_slug');
+    const novoSlug = slugInput?.value?.trim().toLowerCase() || '';
+
+    // Buscar slug atual do servidor para comparar
+    const respSlug = await api('/config/slug');
+    const slugSalvo = respSlug.slug || '';
+
+    // Só atualiza slug se mudou
+    if (novoSlug && novoSlug !== slugSalvo) {
+      await api('/config/slug', { method: 'PATCH', body: { slug: novoSlug } });
+      slugAtual = novoSlug;
     }
+
     await salvarSecao('vitrine');
     atualizarLinkVitrine();
     toast('Vitrine salva', 'sucesso');
