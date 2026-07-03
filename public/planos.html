@@ -212,7 +212,7 @@
 
       <div id="badgeDesconto" class="badge-desconto" style="display:none;">Economize 10%</div>
 
-      <div class="preco-destaque" id="precoDestaque">R$ 99,90</div>
+      <div class="preco-destaque" id="precoDestaque">R$ 149,00</div>
       <div class="preco-por" id="precoPor">por mês</div>
 
       <div class="descricao">Tudo que você precisa para gerenciar sua loja com eficiência</div>
@@ -248,12 +248,12 @@
       event.target.classList.add('active');
 
       if (tipo === 'mensal') {
-        document.getElementById('precoDestaque').textContent = 'R$ 99,90';
+        document.getElementById('precoDestaque').textContent = 'R$ 149,00';
         document.getElementById('precoPor').innerHTML = 'por mês';
         document.getElementById('badgeDesconto').style.display = 'none';
       } else {
-        document.getElementById('precoDestaque').textContent = 'R$ 89,90';
-        document.getElementById('precoPor').innerHTML = 'por mês<br><strong style="font-size:11px;color:var(--tinta);">R$ 1.078,80 por ano</strong>';
+        document.getElementById('precoDestaque').textContent = 'R$ 1.490,00';
+        document.getElementById('precoPor').innerHTML = 'por ano<br><strong style="font-size:11px;color:var(--tinta);">economize R$ 298</strong>';
         document.getElementById('badgeDesconto').style.display = 'inline-block';
       }
     }
