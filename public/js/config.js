@@ -438,7 +438,7 @@ async function verificarTokensFocus() {
 // ============================================================
 // VITRINE — Slug validation + links
 // ============================================================
-let slugAtual = '', slugValidado = { disponivel: true }, debounceSlug = null, slugCustomizado = false;
+let slugAtual = '';
 
 function gerarSlugDaNome(nome) {
   if (!nome) return '';
@@ -451,8 +451,6 @@ function gerarSlugDaNome(nome) {
 }
 
 function atualizarSlugAutomatico() {
-  if (slugCustomizado) return; // Se customizado manualmente, não sobrescrever
-
   const nomeLoja = document.getElementById('loja_nome')?.value || '';
   const slugGerado = gerarSlugDaNome(nomeLoja);
   const slugInput = document.getElementById('vitrine_slug');
@@ -460,46 +458,20 @@ function atualizarSlugAutomatico() {
   if (slugInput) {
     slugInput.value = slugGerado;
     slugAtual = slugGerado;
-    slugValidado = { disponivel: true };
-  }
-}
-
-function ativarCustomizacaoSlug() {
-  const slugInput = document.getElementById('vitrine_slug');
-  if (slugInput.hasAttribute('readonly')) {
-    slugInput.removeAttribute('readonly');
-    slugCustomizado = true;
-    slugInput.focus();
-    slugInput.select();
   }
 }
 
 function preencherSlugEVitrine(cfg) {
-  api('/config/slug').then(r => {
-    slugAtual = r.slug || '';
-    const nomeLoja = document.getElementById('loja_nome')?.value || '';
-    const slugGerado = gerarSlugDaNome(nomeLoja);
+  const nomeLoja = document.getElementById('loja_nome')?.value || '';
+  const slugGerado = gerarSlugDaNome(nomeLoja);
 
-    // Se não tem slug salvo, usar gerado do nome
-    if (!slugAtual) {
-      slugAtual = slugGerado;
-    }
+  slugAtual = slugGerado;
+  const slugInput = document.getElementById('vitrine_slug');
+  if (slugInput) {
+    slugInput.value = slugAtual;
+  }
 
-    const slugInput = document.getElementById('vitrine_slug');
-    if (slugInput) {
-      slugInput.value = slugAtual;
-      slugValidado = { disponivel: true };
-    }
-    atualizarLinkVitrine();
-  }).catch(() => {
-    // Se erro na API, gerar a partir do nome
-    atualizarSlugAutomatico();
-  });
-}
-
-function agendarValidacaoSlug() {
-  clearTimeout(debounceSlug);
-  debounceSlug = setTimeout(validarSlug, 500);
+  atualizarLinkVitrine();
 }
 
 async function validarSlug() {
@@ -539,18 +511,10 @@ async function validarSlug() {
 }
 
 async function salvarSecaoVitrine() {
-  const inputSlug = document.getElementById('vitrine_slug');
-  if (!inputSlug) return;
-  const novoSlug = inputSlug.value.trim().toLowerCase();
-
   try {
-    if (novoSlug !== slugAtual) {
-      if (!slugValidado || !slugValidado.disponivel) {
-        toast('Corrija o endereço da vitrine antes de salvar', 'erro');
-        return;
-      }
-      await api('/config/slug', { method: 'PATCH', body: { slug: novoSlug } });
-      slugAtual = novoSlug;
+    // Slug é auto-gerado, apenas salva se mudou
+    if (slugAtual) {
+      await api('/config/slug', { method: 'PATCH', body: { slug: slugAtual } });
     }
     await salvarSecao('vitrine');
     atualizarLinkVitrine();
