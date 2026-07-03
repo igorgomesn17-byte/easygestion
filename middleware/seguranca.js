@@ -23,16 +23,39 @@ function verificarSenha(senha, armazenado) {
 }
 
 // --- Validação de força de senha ---
-// Regra simples: mínimo 8 caracteres (sem requisitos de maiúscula, número ou símbolo)
+// Requisitos: 8+ chars, 1 maiúscula, 1 minúscula, 1 número, 1 símbolo
 // Retorna: { valida: bool, erro: string|null }
 function validarSenha(senha) {
   if (!senha || typeof senha !== 'string') {
     return { valida: false, erro: 'Senha obrigatória' };
   }
   const s = String(senha).trim();
+
+  // 1. Mínimo 8 caracteres
   if (s.length < 8) {
     return { valida: false, erro: 'Senha deve ter no mínimo 8 caracteres' };
   }
+
+  // 2. Pelo menos 1 letra maiúscula
+  if (!/[A-Z]/.test(s)) {
+    return { valida: false, erro: 'Incluir pelo menos 1 letra maiúscula (A-Z)' };
+  }
+
+  // 3. Pelo menos 1 letra minúscula
+  if (!/[a-z]/.test(s)) {
+    return { valida: false, erro: 'Incluir pelo menos 1 letra minúscula (a-z)' };
+  }
+
+  // 4. Pelo menos 1 número
+  if (!/\d/.test(s)) {
+    return { valida: false, erro: 'Incluir pelo menos 1 número (0-9)' };
+  }
+
+  // 5. Pelo menos 1 símbolo
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(s)) {
+    return { valida: false, erro: 'Incluir pelo menos 1 símbolo (!@#$%^&*...)' };
+  }
+
   return { valida: true, erro: null };
 }
 

@@ -11,6 +11,11 @@
     .metas-aneis { display:grid; grid-template-columns:repeat(2,1fr); gap:16px; margin-bottom:20px; }
     @media (max-width:560px){ .metas-aneis{ grid-template-columns:1fr 1fr; gap:10px; } }
 
+    /* Grid uniforme de cards de métricas */
+    .cards-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:12px; margin-bottom:20px; }
+    @media (max-width:860px){ .cards-grid { grid-template-columns:repeat(3, 1fr); } }
+    @media (max-width:560px){ .cards-grid { grid-template-columns:repeat(2, 1fr); } }
+
     /* Override do spinner de onboarding skip */
     .btn-skip:hover { background: #e0e0e0; }
 
@@ -118,6 +123,7 @@
       </div>
       <div style="display:flex; gap:8px; flex-wrap:wrap;">
         <button class="btn btn-escuro" id="btnOlho" onclick="toggleValores()" title="Ocultar/mostrar valores">👁️ Ocultar valores</button>
+        <button class="btn btn-escuro" onclick="abrirVitrine()" title="Ver sua vitrine pública">🔗 Ver vitrine</button>
       </div>
     </div>
 
@@ -146,10 +152,6 @@
       </div>
     </div>
 
-
-    <div style="display:flex; gap:12px; margin-bottom:20px; align-items:center;">
-      <button class="btn btn-start" onclick="abrirVitrine()" style="flex:1; text-align:center; padding:12px 16px;">🔗 Ver minha vitrine</button>
-    </div>
 
     <div class="metas-aneis">
       <div class="anel-card">
