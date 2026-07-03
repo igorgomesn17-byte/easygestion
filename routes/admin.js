@@ -40,60 +40,38 @@ router.get('/', exigirAdminBackoffice, (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'admin-dashboard.html'));
 });
 
-// --- POST /login → autentica admin (usuário admin real na tabela DE usuarios) ---
+// --- POST /login → autentica admin (apenas senha ADMIN_SENHA_HASH do .env) ---
 // Nota: rate limit temporariamente removido para testes (TODO: reativar após beta)
 router.post('/login', (req, res) => {
-  const { nome, senha } = req.body;
+  const { senha } = req.body;
 
-  if (!nome || !senha) {
-    return res.status(400).json({ erro: 'Nome de usuário e senha obrigatórios.' });
+  if (!senha) {
+    return res.status(400).json({ erro: 'Senha obrigatória.' });
   }
 
   try {
-    // 1️⃣ Tentar buscar usuário admin na TABELA (novo sistema LGPD-compliant)
-    let usuario = db.prepare(
-      'SELECT id, tenant_id, nome, email, senha_hash, papel FROM usuarios WHERE nome = ? AND papel = ? AND ativo = 1'
-    ).get(nome, 'admin');
+    // Verificar contra ADMIN_SENHA_HASH do .env
+    const hashAdmin = process.env.ADMIN_SENHA_HASH || null;
 
-    // 2️⃣ Se não encontrou na tabela, tentar ADMIN_SENHA_HASH do .env (compatibilidade)
-    let eh_admin_env = false;
-    let senha_valida = false;
-
-    if (!usuario) {
-      const hashAdmin = process.env.ADMIN_SENHA_HASH || null;
-      if (hashAdmin && verificarSenha(String(senha), hashAdmin)) {
-        eh_admin_env = true;
-        senha_valida = true;
-      }
-    } else {
-      // 3️⃣ Se encontrou usuário na tabela, validar senha
-      if (verificarSenha(String(senha), usuario.senha_hash)) {
-        senha_valida = true;
-      }
-    }
-
-    // ❌ Se senha inválida, retornar erro
-    if (!senha_valida) {
-      // Log detalhado (sem expor senha)
-      const motivo = !usuario ? 'usuário não encontrado' : 'senha incorreta';
-      console.warn(`[ADMIN] Login falhou: ${nome} (${motivo}) • IP: ${req.ip} • ${new Date().toISOString()}`);
+    if (!hashAdmin || !verificarSenha(String(senha), hashAdmin)) {
+      console.warn(`[ADMIN] Login falhou: senha incorreta • IP: ${req.ip} • ${new Date().toISOString()}`);
       return res.status(401).json({
-        erro: 'Usuário ou senha incorretos.',
-        dica: usuario ? 'Verifique a senha.' : 'Usuário admin não existe. Use o script: node scripts/criar-admin.js'
+        erro: 'Senha de admin incorreta.'
       });
     }
 
+    const senha_valida = true;
+
     // ✅ Autenticação bem-sucedida: criar sessão
     req.session.logado = true;
-    req.session.usuario_id = usuario?.id || null;
-    req.session.nome = nome;
-    req.session.email = usuario?.email || null;
+    req.session.usuario_id = null;
+    req.session.nome = 'admin';
+    req.session.email = null;
     req.session.papel = 'admin';
-    req.session.tenant_id = usuario?.tenant_id || 1; // admin sempre é tenant 1
+    req.session.tenant_id = 1;
     req.session.login_em = new Date().toISOString();
 
-    const origem = eh_admin_env ? 'env (ADMIN_SENHA_HASH)' : 'database';
-    console.log(`[ADMIN] ✅ Login bem-sucedido: ${nome} (${origem}) • IP: ${req.ip} • ${new Date().toISOString()}`);
+    console.log(`[ADMIN] ✅ Login bem-sucedido (ADMIN_SENHA_HASH) • IP: ${req.ip} • ${new Date().toISOString()}`);
 
     res.json({
       sucesso: true,
