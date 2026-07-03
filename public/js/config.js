@@ -438,13 +438,17 @@ async function verificarTokensFocus() {
 // ============================================================
 // VITRINE — Slug validation + links
 // ============================================================
-let slugAtual = '', slugValidado = null, debounceSlug = null;
+let slugAtual = '', slugValidado = { disponivel: true }, debounceSlug = null;
 
 function preencherSlugEVitrine(cfg) {
   api('/config/slug').then(r => {
     slugAtual = r.slug || '';
     const slugInput = document.getElementById('vitrine_slug');
-    if (slugInput) slugInput.value = slugAtual;
+    if (slugInput) {
+      slugInput.value = slugAtual;
+      // Se slug já existe, marcar como validado
+      slugValidado = { disponivel: true };
+    }
     atualizarLinkVitrine();
   }).catch(() => {});
 }
@@ -516,11 +520,23 @@ async function salvarSecaoVitrine() {
 
 function atualizarLinkVitrine() {
   const btnVitrine = document.getElementById('btnVerVitrine');
-  if (btnVitrine) btnVitrine.onclick = () => { if (slugAtual) window.open('/' + slugAtual, '_blank'); };
+  if (btnVitrine) {
+    btnVitrine.onclick = () => {
+      if (slugAtual) {
+        window.open('/' + slugAtual, '_blank');
+      } else {
+        toast('Salve a vitrine primeiro para ver o link', 'aviso');
+      }
+    };
+  }
 }
 
 function abrirVitrine() {
-  if (slugAtual) window.open('/' + slugAtual, '_blank');
+  if (slugAtual) {
+    window.open('/' + slugAtual, '_blank');
+  } else {
+    toast('Salve a vitrine primeiro para ver o link', 'aviso');
+  }
 }
 
 // ============================================================
