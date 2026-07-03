@@ -8,6 +8,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { db } = require('../db/database');
 const { apenasAdmin } = require('../middleware/seguranca');
+const { slugDisponivel } = require('../lib/helpers');
 
 // Pasta da LOGO da loja (mesma raiz dos uploads; disco persistente na nuvem).
 const DIR_MARCA = process.env.UPLOADS_DIR
@@ -354,6 +355,37 @@ function lojaPublica(req, res) {
   }
   res.json(obj);
 }
+
+// ============================================================
+// ROTAS DE SLUG (vitrine pública)
+// ============================================================
+
+router.get('/slug', (req, res) => {
+  if (!req.tenantId) return res.status(400).json({ erro: 'Tenant ID não encontrado' });
+  const row = db.prepare('SELECT slug FROM tenants WHERE id = ?').get(req.tenantId);
+  res.json({ slug: row ? row.slug : '' });
+});
+
+router.get('/slug/disponivel', (req, res) => {
+  if (!req.tenantId) return res.status(400).json({ erro: 'Tenant ID não encontrado' });
+  const { slug } = req.query;
+  if (!slug || !/^[a-z0-9-]{3,50}$/.test(slug)) return res.json({ disponivel: false, motivo: 'formato_invalido' });
+  res.json(slugDisponivel(db, slug, req.tenantId));
+});
+
+router.patch('/slug', apenasAdmin, (req, res) => {
+  if (!req.tenantId) return res.status(400).json({ erro: 'Tenant ID não encontrado' });
+  const novoSlug = String(req.body.slug || '').trim().toLowerCase();
+  if (!/^[a-z0-9-]{3,50}$/.test(novoSlug)) {
+    return res.status(400).json({ erro: 'Endereço inválido: use só letras minúsculas, números e hífen (mín. 3 caracteres)' });
+  }
+  const check = slugDisponivel(db, novoSlug, req.tenantId);
+  if (!check.disponivel) {
+    return res.status(409).json({ erro: check.motivo === 'slug_reservado' ? 'Esse endereço é reservado pelo sistema' : 'Esse endereço já está em uso' });
+  }
+  db.prepare('UPDATE tenants SET slug = ? WHERE id = ?').run(novoSlug, req.tenantId);
+  res.json({ ok: true, slug: novoSlug });
+});
 
 module.exports = router;
 module.exports.lojaPublica = lojaPublica;
