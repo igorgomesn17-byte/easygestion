@@ -259,9 +259,9 @@
         const data = await res.json();
 
         if (res.ok && data.ok) {
-          mostrarMensagem('✓ Conta criada Redirecionando...', 'success');
+          mostrarMensagem(data.mensagem || 'Conta criada! Verifique seu email.', 'success');
           setTimeout(() => {
-            window.location.href = data.destino || '/index.html';
+            window.location.href = data.destino || '/verifique-seu-email.html';
           }, 1500);
         } else {
           mostrarMensagem(data.erro || 'Erro ao criar conta', 'error');

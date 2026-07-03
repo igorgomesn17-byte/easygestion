@@ -241,7 +241,8 @@ router.post('/registro', async (req, res) => {
       ok: true,
       mensagem: 'Conta criada! Verifique seu email para confirmar o cadastro.',
       email: email.trim(),
-      codigo: 'VERIFICACAO_PENDENTE'
+      codigo: 'VERIFICACAO_PENDENTE',
+      destino: `/verifique-seu-email.html?email=${encodeURIComponent(email.trim())}`
     });
   } catch (e) {
     console.error('[REGISTRO ERROR]', e.message);

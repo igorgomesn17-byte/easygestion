@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Solicitar Link de Verificação • EasyGestão</title>
+  <link rel="stylesheet" href="css/ds.css">
+  <style>
+    body { min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(160deg, var(--marca) 0%, var(--marca-escura) 100%); padding: 20px; }
+    .auth-card { background: var(--surface); border-radius: 18px; box-shadow: 0 18px 50px rgba(0,0,0,.3);
+      max-width: 420px; width: 100%; padding: 38px 30px; text-align: center; }
+    .logo { margin-bottom: 28px; font-size: 48px; }
+    h1 { color: var(--marca); margin-bottom: 8px; font-size: 24px; font-weight: 700; }
+    .subtitle { color: var(--tinta-2); font-size: 14px; margin-bottom: 28px; }
+    .auth-campo { margin-bottom: 18px; text-align: left; }
+    .auth-campo label { display: block; font-size: .82rem; font-weight: 500; color: var(--tinta-2);
+      margin: 12px 0 5px; }
+    .auth-campo input { width: 100%; min-height: 46px; padding: 12px 14px; border: 1px solid var(--linha);
+      border-radius: var(--radius-sm); font-size: 14px; font-family: inherit; transition: border-color .2s; }
+    .auth-campo input:focus { outline: none; border-color: var(--marca); box-shadow: 0 0 0 3px rgba(26,111,94,.15); }
+    .auth-btn { width: 100%; min-height: 48px; margin-top: 18px; border: none; border-radius: var(--radius-sm);
+      background: var(--marca); color: #fff; font-family: inherit; font-weight: 600; font-size: 14px;
+      cursor: pointer; transition: background .2s, transform .2s; }
+    .auth-btn:hover:not(:disabled) { background: var(--marca-escura); transform: translateY(-2px); }
+    .auth-btn:disabled { opacity: .6; cursor: wait; }
+    .auth-msg { margin-top: 15px; padding: 12px; border-radius: var(--radius-sm); font-size: 13px; display: none; }
+    .auth-msg.error { background: #ffebee; color: var(--vermelho); border: 1px solid #f44336; }
+    .auth-msg.success { background: #e8f5e9; color: #2e7d32; border: 1px solid #4caf50; display: block; }
+    .auth-footer { text-align: center; margin-top: 20px; font-size: 13px; color: var(--tinta-3); }
+    .auth-footer a { color: var(--marca); text-decoration: none; font-weight: 600; }
+    .auth-footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="auth-card">
+    <div class="logo">🔗</div>
+    <h1>Link de Verificação</h1>
+    <p class="subtitle">Digite seu email para receber um novo link de confirmação</p>
+
+    <form id="formSolicitar">
+      <div class="auth-campo">
+        <label for="email">Email da Conta</label>
+        <input
+          type="email"
+          id="email"
+          name="email"
+          placeholder="seu@email.com"
+          required
+          autocomplete="email"
+        >
+      </div>
+
+      <button type="submit" class="auth-btn" id="btnSolicitar">
+        📬 Enviar Link de Verificação
+      </button>
+      <div id="mensagem" class="auth-msg"></div>
+    </form>
+
+    <div class="auth-footer">
+      Já verificou? <a href="/login.html">Entrar</a> | <a href="/registro.html">Criar conta</a>
+    </div>
+  </div>
+
+  <script>
+    function mostrarMensagem(texto, tipo) {
+      const el = document.getElementById('mensagem');
+      el.textContent = texto;
+      el.className = `auth-msg ${tipo}`;
+    }
+
+    document.getElementById('formSolicitar').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const email = document.getElementById('email').value.trim();
+      if (!email.includes('@')) {
+        mostrarMensagem('Email inválido', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('btnSolicitar');
+      btn.disabled = true;
+      btn.textContent = 'Enviando...';
+
+      try {
+        const resp = await fetch('/api/auth/resend-verification', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+
+        const data = await resp.json();
+        if (resp.ok && data.ok) {
+          mostrarMensagem('✓ Email enviado! Verifique sua caixa de entrada.', 'success');
+          document.getElementById('email').value = '';
+          setTimeout(() => {
+            window.location.href = `/verifique-seu-email.html?email=${encodeURIComponent(email)}`;
+          }, 2000);
+        } else {
+          mostrarMensagem(data.mensagem || data.erro || 'Erro ao enviar email', 'error');
+        }
+      } catch (e) {
+        mostrarMensagem('Erro ao conectar com o servidor: ' + e.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '📬 Enviar Link de Verificação';
+      }
+    });
+  </script>
+</body>
+</html>
