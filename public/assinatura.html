@@ -426,7 +426,16 @@
         const alertas = document.getElementById('alertasAssinatura');
         alertas.innerHTML = '';
 
-        if (status.bloqueado) {
+        // Verificar se vem de checkout bem-sucedido
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('checkout') === 'sucesso') {
+          alertas.innerHTML = `<div class="alerta alerta-success">
+            <strong>✅ Pagamento confirmado!</strong><br>
+            Sua assinatura foi ativada com sucesso. Bem-vindo!
+          </div>`;
+          // Limpar URL de query params
+          window.history.replaceState({}, document.title, '/assinatura.html');
+        } else if (status.bloqueado) {
           alertas.innerHTML = `<div class="alerta alerta-danger">
             <strong>⚠️ Sua conta foi bloqueada</strong><br>
             ${status.motivo || 'Pagamento não confirmado'}. Clique em "Gerenciar Pagamento" para reativar.

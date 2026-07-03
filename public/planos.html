@@ -335,18 +335,9 @@
     document.addEventListener('DOMContentLoaded', () => {
       montarLayout();
 
-      // Processar query params (sucesso/cancelamento de checkout)
+      // Processar cancelamento de checkout
       const params = new URLSearchParams(window.location.search);
-      const checkoutStatus = params.get('checkout');
-
-      if (checkoutStatus === 'sucesso') {
-        const sessionId = params.get('session_id');
-        setTimeout(() => {
-          alert('✅ Pagamento confirmado! Seu acesso foi ativado.');
-          // Redirecionar pro dashboard
-          window.location.href = '/index.html';
-        }, 500);
-      } else if (checkoutStatus === 'cancelado') {
+      if (params.get('checkout') === 'cancelado') {
         alert('❌ Checkout cancelado. Tente novamente quando estiver pronto.');
         // Limpar URL
         window.history.replaceState({}, document.title, '/planos.html');
