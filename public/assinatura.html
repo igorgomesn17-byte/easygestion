@@ -390,7 +390,10 @@
     </div>
   </div>
 
+  <script src="js/comum.js"></script>
   <script>
+    const paginaAtiva = 'assinatura';
+
     async function carregarAssinatura() {
       try {
         const resp = await fetch('/api/assinaturas/minha');
@@ -551,6 +554,7 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+      montarLayout(paginaAtiva);
       carregarAssinatura();
       carregarPagamentos();
     });
