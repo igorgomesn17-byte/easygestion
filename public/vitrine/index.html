@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vitrine</title>
+  <link rel="stylesheet" href="/css/ds.css">
+  <link rel="stylesheet" href="/vitrine/css/vitrine.css">
+</head>
+<body>
+  <!-- Header da loja -->
+  <header class="vitrine-header">
+    <div class="vitrine-logo-container">
+      <img id="lojaLogo" src="" alt="Logo" class="vitrine-logo" onerror="this.style.display='none'">
+    </div>
+    <div class="vitrine-header-info">
+      <h1 id="lojaNome">Carregando...</h1>
+      <p id="lojafrase" class="vitrine-frase"></p>
+    </div>
+  </header>
+
+  <!-- Carrinho flutuante (bottom-right) -->
+  <div id="carrinhoFloating" class="carrinho-floating">
+    <button id="btnCarrinho" class="btn-carrinho">
+      🛍️ <span id="carrinhoQtd" class="carrinho-badge">0</span>
+    </button>
+  </div>
+
+  <!-- Modal do carrinho -->
+  <div id="modalCarrinho" class="modal modal-carrinho">
+    <div class="modal-content modal-carrinho-content">
+      <div class="modal-header">
+        <h2>Seu Carrinho</h2>
+        <button class="btn-close" data-close="modalCarrinho">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="carrinhoItens" class="carrinho-itens">
+          <!-- Itens do carrinho aqui -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <p id="carrinhoTotal" class="carrinho-total">Total: R$ 0,00</p>
+        <button id="btnFinalizarWhatsApp" class="btn btn-primary" disabled>
+          Finalizar no WhatsApp
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filtros e grade -->
+  <main class="vitrine-main">
+    <div class="vitrine-filtros">
+      <div class="filtro-grupo">
+        <label>Categoria:</label>
+        <select id="filtroCategoria">
+          <option value="">Todas</option>
+        </select>
+      </div>
+      <div class="filtro-grupo">
+        <label>Coleção:</label>
+        <select id="filtroColecao">
+          <option value="">Todas</option>
+        </select>
+      </div>
+      <div class="filtro-grupo">
+        <input type="text" id="filtroBusca" placeholder="Buscar produto..." class="input-busca">
+      </div>
+    </div>
+
+    <div id="gridProdutos" class="vitrine-grid">
+      <!-- Produtos aqui -->
+    </div>
+  </main>
+
+  <!-- Modal de detalhe do produto (tamanho + qtd + adicionar) -->
+  <div id="modalProduto" class="modal modal-produto">
+    <div class="modal-content modal-produto-content">
+      <div class="modal-header">
+        <h2 id="modalProdutoNome"></h2>
+        <button class="btn-close" data-close="modalProduto">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="produto-detalhe-galeria">
+          <img id="modalProdutoFoto" src="" alt="" class="produto-foto-grande">
+          <div id="galeriaExtraProduto" class="galeria-extra">
+            <!-- Miniaturas aqui -->
+          </div>
+        </div>
+        <div class="produto-detalhe-info">
+          <p class="produto-preco" id="modalProdutoPreco">R$ 0,00</p>
+          <div class="produto-tamanhos">
+            <label>Tamanho:</label>
+            <div id="botoestTamanhoProduto" class="tamanhos-grid">
+              <!-- Botões de tamanho aqui -->
+            </div>
+          </div>
+          <div class="produto-quantidade">
+            <label>Quantidade:</label>
+            <div class="qty-control">
+              <button id="btnQtyMenos" class="btn-qty-control">-</button>
+              <input id="inputQty" type="number" min="1" value="1" class="input-qty">
+              <button id="btnQtyMais" class="btn-qty-control">+</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btnAdicionarCarrinho" class="btn btn-primary">
+          Adicionar ao Carrinho
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/vitrine/js/vitrine.js"></script>
+</body>
+</html>

@@ -130,10 +130,16 @@ router.get('/', (req, res) => {
 });
 
 // GET /api/produtos/vitrine -> catalogo publico (so com estoque, SEM custo/lucro)
+// ⚠️ CRÍTICO: Agora filtra por tenant_id do usuário logado (se chamado de dentro do painel)
+// ou retorna vazio se chamado sem autenticação (rotas públicas usam /api/vitrine/:slug/produtos)
 router.get('/vitrine', (req, res) => {
   const { busca, categoria, colecao } = req.query;
-  let sql = 'SELECT id, codigo, nome, categoria, cor, preco_venda, foto, colecao FROM produtos WHERE ativo = 1';
-  const params = [];
+  // Se não há tenant_id (rota pública chamada diretamente), retornar vazio
+  if (!req.tenantId) {
+    return res.json({ produtos: [], categorias: [], colecoes: [] });
+  }
+  let sql = 'SELECT id, codigo, nome, categoria, cor, preco_venda, foto, colecao FROM produtos WHERE ativo = 1 AND tenant_id = ?';
+  const params = [req.tenantId];
   if (busca) { sql += ' AND nome LIKE ?'; params.push(`%${busca}%`); }
   if (categoria) { sql += ' AND categoria = ?'; params.push(categoria); }
   if (colecao) { sql += ' AND colecao = ?'; params.push(colecao); }

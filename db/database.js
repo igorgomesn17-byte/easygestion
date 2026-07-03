@@ -167,6 +167,7 @@ raw.exec(`INSERT OR IGNORE INTO config (chave, valor) VALUES ('loja_whatsapp_lin
 raw.exec(`INSERT OR IGNORE INTO config (chave, valor) VALUES ('loja_instagram_url', '')`);
 raw.exec(`INSERT OR IGNORE INTO config (chave, valor) VALUES ('loja_maps', '')`);
 raw.exec(`INSERT OR IGNORE INTO config (chave, valor) VALUES ('vitrine_frase', 'Bem-vinda à nossa loja')`);
+raw.exec(`INSERT OR IGNORE INTO config (chave, valor) VALUES ('vitrine_ativa', '1')`);
 // config: IDENTIDADE DA LOJA (v21) — personalização self-service. Nascem neutras.
 // A lojista define na tela de Config: nome, @, logo (caminho do arquivo enviado) e cor da marca.
 raw.exec(`INSERT OR IGNORE INTO config (chave, valor) VALUES ('loja_nome', 'EasyGestão')`);

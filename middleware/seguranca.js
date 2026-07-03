@@ -60,6 +60,7 @@ const PUBLICAS = [
   '/api/loja-publica',
   '/api/lead-vitrine',          // captura de lead na vitrine (POST público)
   '/api/produtos/vitrine',
+  '/api/vitrine',               // vitrine pública por slug (GET /:slug, GET /:slug/produtos)
   '/api/codigo-barras',         // imagens dos códigos (prefixo)
   '/api/admin',                 // backoffice admin (protegido por password/sessão)
   '/api/assinaturas/checkout',  // iniciar checkout Stripe (requer autenticação mas é chamada via fetch)

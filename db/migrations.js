@@ -299,6 +299,35 @@ function executarMigrations(db) {
           db.exec(`CREATE INDEX IF NOT EXISTS idx_usuarios_email_verificado ON usuarios(email_verificado);`);
         }
       }
+    },
+    {
+      nome: '015_tenant_slug',
+      hash: 'v15-tenant-slug',
+      exec: (db) => {
+        const { gerarSlugUnico } = require('../lib/helpers');
+
+        // Adicionar coluna slug em tenants
+        const colunas = db.prepare(`PRAGMA table_info(tenants)`).all().map(c => c.name);
+        if (!colunas.includes('slug')) {
+          db.exec(`ALTER TABLE tenants ADD COLUMN slug TEXT;`);
+        }
+
+        // Backfill: gerar slug único para cada tenant que não tem
+        const tenantsSemSlug = db.prepare('SELECT id, nome_loja FROM tenants WHERE slug IS NULL OR slug = ?').all('');
+        for (const tenant of tenantsSemSlug) {
+          const slugUnico = gerarSlugUnico(db, tenant.nome_loja || `loja-${tenant.id}`, tenant.id);
+          db.prepare('UPDATE tenants SET slug = ? WHERE id = ?').run(slugUnico, tenant.id);
+        }
+
+        // Criar índice único em slug (após backfill estar completo)
+        const indiceExiste = db.prepare(`
+          SELECT name FROM sqlite_master
+          WHERE type='index' AND name='idx_tenants_slug'
+        `).get();
+        if (!indiceExiste) {
+          db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_tenants_slug ON tenants(slug);`);
+        }
+      }
     }
   ];
 

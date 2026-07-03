@@ -258,6 +258,7 @@ app.use('/api/login', limiteLogin);              // brute force na rota /login
 
 // ---------- Rotas PÚBLICAS (sem login) ----------
 app.use('/api', require('./routes/auth'));        // /login /logout /me (auth decide)
+app.use('/api/vitrine', require('./routes/vitrine')); // vitrine pública por slug
 app.get('/api/loja-publica', configRouter.lojaPublica);
 
 // ✅ Admin login PÚBLICO (mas com rate limit agressivo)
@@ -398,6 +399,31 @@ app.use(express.static(path.join(__dirname, 'public'), {
     res.setHeader('ETag', 'W/"' + Date.now() + '"');
   },
 }));
+
+// ---------- Rota pública da vitrine: /:slug (SPA) ----------
+const { SLUGS_RESERVADOS } = require('./lib/helpers');
+app.get('/:slug([a-z0-9-]+)', (req, res, next) => {
+  const { slug } = req.params;
+
+  // Blacklist: se é nome reservado, deixa cair no 404 padrão
+  if (SLUGS_RESERVADOS.has(slug)) {
+    return next();
+  }
+
+  // Verificar se slug existe no banco
+  const tenant = db.prepare('SELECT id FROM tenants WHERE slug = ?').get(slug);
+  if (!tenant) {
+    return next(); // Deixa cair no 404 padrão
+  }
+
+  // Servir a página da vitrine (SPA que busca dados via /api/vitrine/:slug)
+  res.sendFile(path.join(__dirname, 'public', 'vitrine', 'index.html'), (err) => {
+    if (err) {
+      console.error('[VITRINE] Erro ao servir vitrine/index.html:', err);
+      next(err);
+    }
+  });
+});
 
 // ---------- Tratamento de erro centralizado (NÃO vaza stack/detalhe) ----------
 app.use((err, req, res, next) => {

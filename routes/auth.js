@@ -6,6 +6,7 @@ const express = require('express');
 const router = express.Router();
 const { db, getConfig } = require('../db/database');
 const { hashSenha, verificarSenha, validarSenha, validarNaoReutilizada, limiteForgotPassword, limiteResetSenha, limiteAdminPassword } = require('../middleware/seguranca');
+const { gerarSlugUnico } = require('../lib/helpers');
 const jwt = require('jsonwebtoken');
 const { enviarEmail, templateResetSenha } = require('../lib/email');
 
@@ -183,12 +184,15 @@ router.post('/registro', async (req, res) => {
   }
 
   try {
+    // Gerar slug único antes de iniciar transação
+    const slugUnico = gerarSlugUnico(db, nomeLoja);
+
     const tx = db.transaction(() => {
-      // (1) Criar novo tenant
+      // (1) Criar novo tenant com slug gerado
       const infoTenant = db.prepare(`
-        INSERT INTO tenants (nome_loja, email, senha_hash, nome_responsavel, telefone, plano)
-        VALUES (?, ?, ?, ?, ?, 'basico')
-      `).run(nomeLoja, email.trim(), hashSenha(senha), nomeResponsavel, telefoneLimpo);
+        INSERT INTO tenants (nome_loja, email, senha_hash, nome_responsavel, telefone, plano, slug)
+        VALUES (?, ?, ?, ?, ?, 'basico', ?)
+      `).run(nomeLoja, email.trim(), hashSenha(senha), nomeResponsavel, telefoneLimpo, slugUnico);
       const tenantId = infoTenant.lastInsertRowid;
 
       // (2) Criar usuário admin do tenant (email NÃO verificado ainda)
