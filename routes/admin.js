@@ -940,4 +940,69 @@ router.get('/login-history', exigirAdminBackoffice, (req, res) => {
   }
 });
 
+// --- POST /2fa-setup → gera secret TOTP + retorna QR code ---
+// Acesso: apenas POST (sem autenticação de admin ainda, pois é durante setup)
+// Retorna: { secret, qr_code_data_url, backup_codes }
+router.post('/2fa-setup', (req, res) => {
+  try {
+    const { gerarSecret, gerarQRCode } = require('../lib/2fa');
+
+    const secret = gerarSecret();
+    const qrCodeDataUrl = gerarQRCode(secret);
+
+    // Gerar códigos de backup (10 códigos de 8 dígitos cada)
+    const backupCodes = Array.from({ length: 10 }, () => {
+      return Math.random().toString(36).substring(2, 10).toUpperCase();
+    });
+
+    res.json({
+      ok: true,
+      secret,
+      qr_code: qrCodeDataUrl,
+      backup_codes: backupCodes,
+      mensagem: 'Secret 2FA gerado. Escaneie o QR code ou insira o secret manualmente no seu autenticador.'
+    });
+  } catch (err) {
+    console.error('[ADMIN 2FA] Erro ao gerar setup:', err);
+    return res.status(500).json({ erro: 'Erro ao gerar QR code' });
+  }
+});
+
+// --- POST /2fa-confirm → confirma setup e ativa 2FA ---
+// Requer: secret, token, backup_codes
+// Salva em session (por ora) — em produção seria salvo em DB + ENV
+router.post('/2fa-confirm', (req, res) => {
+  const { secret, token, backup_codes } = req.body;
+
+  if (!secret || !token || !Array.isArray(backup_codes) || backup_codes.length === 0) {
+    return res.status(400).json({ erro: 'Dados incompletos para confirmar 2FA' });
+  }
+
+  try {
+    const { validarToken } = require('../lib/2fa');
+
+    // Validar token contra o secret
+    if (!validarToken(secret, token)) {
+      return res.status(401).json({ erro: 'Token 2FA inválido' });
+    }
+
+    // ✅ 2FA confirmado! Salvar na sessão + alertar pra salvar backup codes
+    req.session.admin2faSecret = secret;
+    req.session.admin2faBackupCodes = backup_codes;
+    req.session.logado = true;
+    req.session.papel = 'admin';
+
+    console.log('[ADMIN 2FA] Setup confirmado com sucesso');
+
+    res.json({
+      ok: true,
+      mensagem: '2FA ativado com sucesso! Você será logado agora.',
+      destino: '/admin-dashboard.html'
+    });
+  } catch (err) {
+    console.error('[ADMIN 2FA] Erro ao confirmar setup:', err);
+    return res.status(500).json({ erro: 'Erro ao confirmar 2FA' });
+  }
+});
+
 module.exports = router;
