@@ -414,9 +414,15 @@
         badge.className = `status-badge ${status.status}`;
         badge.textContent = status.status.toUpperCase();
 
+        console.log('[DEBUG] status.status =', status.status);
+
         if (status.status === 'ativo') {
+          console.log('[DEBUG] Ocultando btnUpgrade, mostrando btnPortal');
           document.getElementById('btnPortal').style.display = 'block';
           document.getElementById('btnUpgrade').style.display = 'none';
+        } else {
+          console.log('[DEBUG] btnUpgrade permanece visível');
+          document.getElementById('btnUpgrade').style.display = 'block';
         }
 
         const hoje = new Date();
