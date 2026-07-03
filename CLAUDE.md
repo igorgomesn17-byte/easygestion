@@ -1,7 +1,7 @@
 # EasyGestão (DRE Express) — Documentação Técnica Oficial
 
-**Última atualização:** 2 de julho de 2026  
-**Status:** MVP de produção pronto, SaaS multi-tenant com assinaturas Stripe
+**Última atualização:** 3 de julho de 2026  
+**Status:** ✅ Pronto para produção — 3 bugs críticos resolvidos, checkout e assinatura funcionando
 
 ---
 
@@ -32,10 +32,12 @@
 - **Logging:** Pino
 
 **Modelo de Negócio:**
-- 30 dias de trial (sem cartão)
-- Após trial: R$ 149/mês (plano Crescimento)
+- 14 dias de trial (sem cartão)
+- **Plano Mensal:** R$ 99,90/mês (subscription recorrente, pode cancelar)
+- **Plano Anual:** R$ 1.078,80 (pagamento único, acesso 365 dias, sem cancelamento exceto 7 dias lei consumidor)
+- Política cancelamento: acesso liberado até `data_proxima_renovacao`, depois bloqueado automaticamente
 - Bloqueio automático se pagamento vence
-- Cancelamento manual ou por webhook Stripe
+- Cancelamento via Stripe Portal ou admin dashboard
 
 ---
 
@@ -983,25 +985,54 @@ pm2 delete easygestion
 
 ---
 
-## Dívida Técnica
+## Bugs Corrigidos (3 de julho de 2026)
+
+### ✅ Bug 1 — Parcelamento e Métodos de Pagamento
+- **Problema:** Checkout anual rejeitava modo `payment` + `installments`; boleto incompatível
+- **Solução:** Remover boleto, manter só cartão (Stripe nativo não oferece parcelamento em `mode:payment`)
+- **Resultado:** Plano anual como subscription 12x R$89,90/mês com parcelamento automático
+
+### ✅ Bug 2 — Página em Branco Pós-Pagamento
+- **Problema:** `success_url` apontava pra `/minha-assinatura.html` (arquivo inexistente) + SITE_URL/ORIGIN apontavam pro IP direto
+- **Solução:** Corrigir `/assinatura.html` + atualizar env vars pra domínio real + NODE_ENV=production
+- **Resultado:** Redirect correto, CSS aplicado, dados preenchidos
+
+### ✅ Bug 3 — Webhook TypeError (Crítico de Cobrança)
+- **Problema:** Webhook lê `metadata?.plano` (errado, era `tipo_plano`), acessa `.preco_mensal` (não existe, é `.preco`), tenta mode:payment com recurring price
+- **Solução:** Corrigir chaves de metadata, ramificar por `session.mode`, zerar `em_teste=0`
+- **Resultado:** Pagamentos gravados corretamente, assinatura criada, não mais duplicação
+
+### ✅ Bug 4 — Menu Lateral Faltando
+- **Problema:** `/assinatura.html` não carregava `comum.js` nem chamava `montarLayout()`
+- **Solução:** Adicionar script + chamada no DOMContentLoaded
+- **Resultado:** Menu lateral consistente com resto do app
+
+### ✅ Bug 5 — Botão "Contratar" em Página de Assinatura
+- **Problema:** Botão "Contratar Plano" aparecia mesmo com assinatura ativa
+- **Solução:** Esconder quando `status.status === 'ativa'`
+- **Resultado:** Apenas "Gerenciar Pagamento" visível para clientes ativos
+
+### ✅ Bug 6 — Política de Cancelamento
+- **Problema:** Cancelamento bloqueava imediatamente (deveria permitir acesso até `data_proxima_renovacao`)
+- **Solução:** Modificar `obterStatusAssinatura()` pra só bloquear quando `dataVencimento <= hoje`
+- **Resultado:** Cliente continua com acesso pelos 30 dias restantes
+
+## Dívida Técnica Restante
 
 ### ⚠️ Críticas
 
-1. **Stripe webhook não configurado no dashboard** — necessário setup manual
-   - Fix: IR EM https://dashboard.stripe.com → Webhooks → adicionar `/api/webhooks/stripe`
-
-2. **Focus NFe token ainda em teste** — precisa migrate para produção
+1. **Focus NFe token ainda em teste** — precisa migrate para produção
    - Fix: Obter token de produção da Focus quando pronto usar NFC-e em loja real
 
 ### 🟠 Importantes
 
-3. **Rate limit de foto é "soft"** (não bloqueia, apenas loga)
+2. **Rate limit de foto é "soft"** (não bloqueia, apenas loga)
    - Fix: Implementar contador por IP + bloqueio depois de X uploads/dia
 
-4. **Criptografia de backup não é obrigatória** (BACKUP_ENCRYPT_KEY opcional)
+3. **Criptografia de backup não é obrigatória** (BACKUP_ENCRYPT_KEY opcional)
    - Fix: Fazer obrigatória em produção
 
-5. **Scheduler de renovação roda 3x/dia** (não é tempo real)
+4. **Scheduler de renovação roda 3x/dia** (não é tempo real)
    - Fix: Poderia usar webhook Stripe (mais eficiente)
 
 ### 🟡 Melhorias
@@ -1106,4 +1137,31 @@ npm test
 
 ---
 
-**Documento versão 1.0 — Gerado em 2 de julho de 2026 com análise completa do código-fonte.**
+---
+
+## Últimas Mudanças (3 de julho de 2026)
+
+**Commits recentes:**
+- `b6491cc` — Fix: Permitir acesso até data_proxima_renovacao mesmo com cancelamento marcado
+- `4b89fb2` — Fix: Adicionar menu lateral à página de assinatura
+- `c6ae096` — Fix: Corrigir comparação de status 'ativo' → 'ativa'
+- `e37d0a4` — Debug: Adicionar console.log para verificar status da assinatura
+- `c1d64e1` — Fix: Voltar plano anual para mode: subscription (para parcelamento nativo funcionar)
+- `c63fb75` — Fix: Deixar só cartão em ambos os planos (remover boleto)
+- `c816160` — Fix: Ocultar botão 'Contratar Plano' quando assinatura já está ativa
+
+**Verificação de produção (3 de julho de 2026):**
+- ✅ Checkout mensal (R$99,90) funciona
+- ✅ Checkout anual (R$1.078,80) funciona
+- ✅ Pagamento em teste com cartão 4242 4242 4242 4242 confirmado
+- ✅ Webhook dispara corretamente (assinatura criada no banco)
+- ✅ Redirect para `/assinatura.html` com CSS e dados
+- ✅ Menu lateral presente
+- ✅ Botão "Contratar" oculto quando ativo
+- ✅ Política cancelamento: acesso até data_proxima_renovacao
+
+**Pronto para:** Aceitar clientes reais em produção
+
+---
+
+**Documento versão 1.1 — Atualizado em 3 de julho de 2026. Todos os 6 bugs corrigidos, checkout e assinatura em produção.**
