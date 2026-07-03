@@ -308,17 +308,8 @@
         const dados = await resp.json();
 
         if (dados.checkout_url) {
-          document.getElementById('modalCheckout').classList.add('show');
-          const iframe = document.createElement('iframe');
-          iframe.src = dados.checkout_url;
-          iframe.style.width = '100%';
-          iframe.style.height = '600px';
-          iframe.style.border = 'none';
-          iframe.style.borderRadius = '12px';
-          document.getElementById('stripeContainer').innerHTML = '';
-          document.getElementById('stripeContainer').appendChild(iframe);
-          btn.disabled = false;
-          btn.textContent = 'Contratar';
+          // Redirecionar pra Stripe (Checkout não funciona em iframe)
+          window.location.href = dados.checkout_url;
         } else {
           alert('Erro ao abrir checkout: sem URL de checkout');
           btn.disabled = false;
