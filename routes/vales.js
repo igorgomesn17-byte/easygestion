@@ -97,23 +97,59 @@ router.post('/:codigo/usar', (req, res) => {
   }
 });
 
-// GET /api/vales -> lista vales ativos (filtros opcionais)
+// GET /api/vales -> lista vales (filtros: status, busca, paginação)
 router.get('/', (req, res) => {
-  const { ativo, cliente_id } = req.query;
-  let sql = 'SELECT id, codigo, valor, saldo, data_geracao, validade, cliente_id FROM vales WHERE tenant_id = ?';
+  const { ativo, cliente_id, status, busca, limit, offset } = req.query;
+  let sql = `
+    SELECT vl.id, vl.codigo, vl.valor, vl.saldo, vl.utilizado, vl.data_geracao,
+           vl.validade, vl.cliente_id, vl.ativo, vl.troca_id, vl.venda_utilizacao_id, vl.notas,
+           c.nome AS cliente_nome
+    FROM vales vl
+    LEFT JOIN clientes c ON c.id = vl.cliente_id AND c.tenant_id = vl.tenant_id
+    WHERE vl.tenant_id = ?`;
   const params = [req.tenantId];
 
+  // Filtros legados (compatibilidade)
   if (ativo !== undefined) {
-    sql += ' AND ativo = ?';
+    sql += ' AND vl.ativo = ?';
     params.push(ativo === 'true' ? 1 : 0);
   }
-
   if (cliente_id) {
-    sql += ' AND cliente_id = ?';
+    sql += ' AND vl.cliente_id = ?';
     params.push(cliente_id);
   }
 
-  sql += ' ORDER BY data_geracao DESC LIMIT 100';
+  // Novo filtro por status derivado
+  const hoje = new Date().toISOString().split('T')[0];
+  if (status === 'ativo') {
+    sql += ' AND vl.ativo = 1 AND (vl.validade IS NULL OR vl.validade >= ?)';
+    params.push(hoje);
+  } else if (status === 'utilizado') {
+    sql += ' AND vl.ativo = 0 AND vl.utilizado > 0';
+  } else if (status === 'expirado') {
+    sql += ' AND vl.ativo = 1 AND vl.validade IS NOT NULL AND vl.validade < ?';
+    params.push(hoje);
+  }
+
+  // Busca textual
+  if (busca) {
+    sql += ' AND (vl.codigo LIKE ? OR c.nome LIKE ?)';
+    const like = `%${busca}%`;
+    params.push(like, like);
+  }
+
+  sql += ' ORDER BY vl.data_geracao DESC';
+
+  // Paginação
+  const lim = Math.min(parseInt(limit, 10) || 100, 300);
+  sql += ' LIMIT ?';
+  params.push(lim);
+
+  if (offset) {
+    sql += ' OFFSET ?';
+    params.push(parseInt(offset, 10) || 0);
+  }
+
   const vales = db.prepare(sql).all(...params);
   res.json(vales);
 });

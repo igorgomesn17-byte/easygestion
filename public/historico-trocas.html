@@ -1,53 +1,13 @@
-<DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Histórico de Trocas • DS Store</title>
-  <link rel="stylesheet" href="css/ds.css">
-  <style>
-    .tabela-trocas { width: 100%; border-collapse: collapse; margin-top: 16px; }
-    .tabela-trocas thead { background: var(--surface-2); font-weight: 600; font-size: 0.9rem; }
-    .tabela-trocas th, .tabela-trocas td { padding: 12px 8px; text-align: left; border-bottom: 1px solid var(--surface-2); }
-    .tabela-trocas tbody tr { cursor: pointer; transition: background 0.2s; }
-    .tabela-trocas tbody tr:hover { background: var(--surface-2); }
-    .tabela-trocas .data { text-align: center; font-size: 0.9rem; }
-    .tabela-trocas .moeda { text-align: right; font-weight: 600; color: #27ae60; }
-    .status-badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; }
-    .status-ativa { background: #d4edda; color: #155724; }
-    .status-cancelada { background: #f8d7da; color: #721c24; }
-  </style>
+  <meta http-equiv="refresh" content="0; url=trocas.html">
+  <title>Redirecionando...</title>
 </head>
 <body>
-  <div class="conteudo">
-    <div class="flex-entre">
-      <div><h1>Histórico de trocas</h1><p class="subtitulo">Todas as trocas e devoluções realizadas</p></div>
-    </div>
-
-    <div class="card">
-      <div class="linha" style="gap:8px; flex-wrap:wrap;">
-        <input type="date" id="filtroDE" onchange="carregar()">
-        <input type="date" id="filtroATE" onchange="carregar()">
-        <input type="search" id="busca" placeholder="🔎 Buscar por cliente ou venda..." oninput="render()">
-        <button class="btn" onclick="exportar()">⬇ Exportar CSV</button>
-      </div>
-    </div>
-
-    <table class="tabela-trocas" id="tabela">
-      <thead>
-        <tr>
-          <th style="width:12%;">DATA</th>
-          <th style="width:15%;">VENDA</th>
-          <th style="width:20%;">CLIENTE</th>
-          <th style="width:12%;" class="moeda">VALOR DEV.</th>
-          <th style="width:12%;" class="moeda">VALOR LEV.</th>
-          <th style="width:12%;" class="moeda">DIFERENÇA</th>
-          <th style="width:12%;">STATUS</th>
-          <th style="width:5%;">›</th>
-        </tr>
-      </thead>
-      <tbody id="lista"></tbody>
-    </table>
+  <script>location.replace('trocas.html');</script>
+  Redirecionando para <a href="trocas.html">Trocas / Devoluções</a>...
   </div>
 
   <div class="modal-fundo" id="modalTroca">

@@ -48,7 +48,7 @@ function calcularValidade() {
 // GET /api/trocas -> lista (com filtros de data opcionais)
 router.get('/', (req, res) => {
   const { de, ate, venda_id } = req.query;
-  let sql = `SELECT t.*, v.id AS venda_num FROM trocas t LEFT JOIN vendas v ON v.id = t.venda_id AND v.tenant_id = t.tenant_id WHERE t.tenant_id = ?`;
+  let sql = `SELECT t.*, v.id AS venda_num, c.nome AS cliente_nome FROM trocas t LEFT JOIN vendas v ON v.id = t.venda_id AND v.tenant_id = t.tenant_id LEFT JOIN clientes c ON c.id = v.cliente_id AND c.tenant_id = t.tenant_id WHERE t.tenant_id = ?`;
   const params = [req.tenantId];
   if (venda_id) { sql += ' AND t.venda_id = ?'; params.push(venda_id); }
   if (de)  { sql += ' AND date(t.data_hora) >= ?'; params.push(de); }
@@ -68,7 +68,7 @@ router.get('/prazo/:vendaId', (req, res) => {
 
 // GET /api/trocas/:id -> detalhe com itens
 router.get('/:id', (req, res) => {
-  const t = db.prepare('SELECT * FROM trocas WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenantId);
+  const t = db.prepare('SELECT t.*, c.nome AS cliente_nome FROM trocas t LEFT JOIN vendas v ON v.id = t.venda_id AND v.tenant_id = t.tenant_id LEFT JOIN clientes c ON c.id = v.cliente_id AND c.tenant_id = t.tenant_id WHERE t.id = ? AND t.tenant_id = ?').get(req.params.id, req.tenantId);
   if (!t) return res.status(404).json({ erro: 'Troca não encontrada' });
   const itens = db.prepare('SELECT * FROM troca_itens WHERE troca_id = ? AND tenant_id = ?').all(t.id, req.tenantId);
   t.itens = itens;
@@ -134,6 +134,12 @@ router.patch('/:id/cancelar', (req, res) => {
 
     // marca como cancelada
     db.prepare('UPDATE trocas SET cancelada = 1 WHERE id = ? AND tenant_id = ?').run(troca.id, req.tenantId);
+
+    // Invalida o vale órfão gerado por esta troca, se ainda não foi utilizado
+    db.prepare(`
+      UPDATE vales SET ativo = 0, saldo = 0
+      WHERE troca_id = ? AND tenant_id = ? AND venda_utilizacao_id IS NULL
+    `).run(troca.id, req.tenantId);
 
     // liberar a venda pra poder fazer nova troca (se tinha)
     if (troca.venda_id) {
@@ -300,8 +306,6 @@ router.post('/', (req, res) => {
       if (forma_pagamento === 'dinheiro') {
         db.prepare('UPDATE caixa_dia SET total_dinheiro = total_dinheiro + ?, suprimentos = suprimentos + ? WHERE data = ? AND tenant_id = ?')
           .run(diferenca, diferenca, hoje, req.tenantId);
-        db.prepare(`INSERT INTO caixa_movimentos (data, tenant_id, tipo, valor, forma, motivo) VALUES (?, ?, 'suprimento', ?, ?, ?)`)
-          .run(hoje, req.tenantId, diferenca, 'dinheiro', `troca #${trocaId} (cliente pagou diferença)`);
       } else if (forma_pagamento === 'pix') {
         db.prepare('UPDATE caixa_dia SET total_pix = total_pix + ? WHERE data = ? AND tenant_id = ?').run(diferenca, hoje, req.tenantId);
       } else if (forma_pagamento === 'debito') {
@@ -309,9 +313,11 @@ router.post('/', (req, res) => {
       } else if (forma_pagamento === 'credito_vista') {
         db.prepare('UPDATE caixa_dia SET total_credito = total_credito + ? WHERE data = ? AND tenant_id = ?').run(diferenca, hoje, req.tenantId);
       }
+      // Registrar movimento em caixa_movimentos para todas as formas
+      db.prepare(`INSERT INTO caixa_movimentos (data, tenant_id, tipo, valor, forma, motivo) VALUES (?, ?, 'suprimento', ?, ?, ?)`)
+        .run(hoje, req.tenantId, diferenca, forma_pagamento, `troca #${trocaId} (cliente pagou diferença)`);
     } else if (diferenca < 0) {
       const aFavor = Math.abs(diferenca);
-      console.log('Vale: diferenca=', diferenca, 'aFavor=', aFavor, 'tipo=', typeof aFavor);
 
       // Cliente recebe em vale-crédito
       let clienteId = null;
@@ -320,15 +326,11 @@ router.post('/', (req, res) => {
         clienteId = vendaInfo?.cliente_id || null;
       }
 
-      // Gera código único do vale (simples)
-      const codigoVale = 'VALE-' + Math.random().toString(36).substr(2, 9).toUpperCase();
+      // Gera código único do vale (sem caracteres ambíguos)
+      const codigoVale = gerarCodigoVale();
 
       // Calcula validade: hoje + 30 dias
-      const hoje = new Date();
-      const validade30 = new Date(hoje.getTime() + 30 * 24 * 60 * 60 * 1000);
-      const validadeStr = validade30.toISOString().split('T')[0]; // YYYY-MM-DD
-
-      console.log('Inserindo vale:', { codigo: codigoVale, valor: aFavor, saldo: aFavor, validade: validadeStr });
+      const validadeStr = calcularValidade();
 
       // Insere o vale (direto no BD)
       const infoVale = db.prepare(`
@@ -336,11 +338,8 @@ router.post('/', (req, res) => {
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
       `).run(req.tenantId, codigoVale, aFavor, aFavor, trocaId, clienteId, validadeStr, `Crédito da troca #${trocaId}`);
 
-      console.log('Vale inserido com ID:', infoVale.lastInsertRowid);
-
       // Busca o vale que foi criado
       const valeGerado = db.prepare('SELECT id, codigo, valor, saldo, validade FROM vales WHERE id = ?').get(infoVale.lastInsertRowid);
-      console.log('Vale encontrado:', valeGerado);
 
       return {
         trocaId,
