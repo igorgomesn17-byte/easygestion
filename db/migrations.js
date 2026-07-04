@@ -75,7 +75,7 @@ function executarMigrations(db) {
           db.prepare(`
             INSERT INTO tenants (id, nome_loja, email, senha_hash, nome_responsavel, telefone, status, plano)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-          `).run(1, 'EasyGestão Admin', 'admin@easygestion.com', 'admin', 'Admin', '00000000000', 'ativo', 'admin');
+          `).run(1, 'EasyGestão Admin', 'admin@easygestao.com', 'admin', 'Admin', '00000000000', 'ativo', 'admin');
         }
       }
     },
@@ -378,14 +378,14 @@ function executarMigrations(db) {
         const temAdmin = db.prepare('SELECT 1 FROM admins WHERE 1=1').get();
         if (!temAdmin) {
           const adminSenha = process.env.ADMIN_SENHA_HASH || (process.env.ADMIN_SENHA ? hashSenha(process.env.ADMIN_SENHA) : hashSenha('dsstore'));
-          const adminEmail = process.env.ADMIN_EMAIL || 'admin@easygestion.com';
+          const adminEmail = process.env.ADMIN_EMAIL || 'admin@easygestao.com';
 
           if (!process.env.ADMIN_EMAIL && !process.env.ADMIN_SENHA_HASH && !process.env.ADMIN_SENHA) {
             console.warn(`[MIGRATION] ⚠️ Nenhuma senha de admin configurada (.env). Usando fallback 'dsstore' — configure ADMIN_SENHA ou ADMIN_SENHA_HASH em produção!`);
           }
 
           if (!process.env.ADMIN_EMAIL) {
-            console.warn(`[MIGRATION] ⚠️ ADMIN_EMAIL não configurado. Usando fallback 'admin@easygestion.com' — configure ADMIN_EMAIL em produção!`);
+            console.warn(`[MIGRATION] ⚠️ ADMIN_EMAIL não configurado. Usando fallback 'admin@easygestao.com' — configure ADMIN_EMAIL em produção!`);
           }
 
           db.prepare(`
