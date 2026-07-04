@@ -278,6 +278,26 @@
       });
     }
 
+    // Mudar abas
+    function mudarAba(aba) {
+      document.getElementById('aba-clientes').style.display = 'none';
+      document.getElementById('aba-assinaturas').style.display = 'none';
+      document.getElementById('aba-cobracas').style.display = 'none';
+      document.getElementById('aba-auditoria').style.display = 'none';
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.style.color = '#999';
+        btn.style.borderBottom = 'none';
+        btn.style.marginBottom = '0';
+      });
+      document.getElementById(`aba-${aba}`).style.display = 'block';
+      document.getElementById(`tab-${aba}`).style.color = 'var(--marca)';
+      document.getElementById(`tab-${aba}`).style.borderBottom = '3px solid var(--marca)';
+      document.getElementById(`tab-${aba}`).style.marginBottom = '-10px';
+      if (aba === 'assinaturas') carregarAssinaturas();
+      if (aba === 'cobracas') carregarCobracas();
+      if (aba === 'auditoria') carregarAuditoria();
+    }
+
     // Formatar moeda
     function formatarMoeda(valor) {
       if (typeof valor !== 'number' || isNaN(valor)) return '—';
@@ -674,33 +694,6 @@
 
     let paginaAssinaturas = 1, paginaCobracas = 1, paginaAuditoria = 1;
     let filtroStatusAssinaturas = '', filtroStatusCobracas = '';
-
-    // Mudar de aba
-    function mudarAba(aba) {
-      // Esconder todas
-      document.getElementById('aba-clientes').style.display = 'none';
-      document.getElementById('aba-assinaturas').style.display = 'none';
-      document.getElementById('aba-cobracas').style.display = 'none';
-      document.getElementById('aba-auditoria').style.display = 'none';
-
-      // Desmarcar todos os botões
-      document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.style.color = '#999';
-        btn.style.borderBottom = 'none';
-        btn.style.marginBottom = '0';
-      });
-
-      // Mostrar selecionada
-      document.getElementById(`aba-${aba}`).style.display = 'block';
-      document.getElementById(`tab-${aba}`).style.color = 'var(--marca)';
-      document.getElementById(`tab-${aba}`).style.borderBottom = '3px solid var(--marca)';
-      document.getElementById(`tab-${aba}`).style.marginBottom = '-10px';
-
-      // Carregar dados
-      if (aba === 'assinaturas') carregarAssinaturas();
-      if (aba === 'cobracas') carregarCobracas();
-      if (aba === 'auditoria') carregarAuditoria();
-    }
 
     // Assinaturas
     async function carregarAssinaturas() {
