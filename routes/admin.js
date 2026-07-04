@@ -69,7 +69,6 @@ router.post('/login', (req, res) => {
     // Caso 1: 2FA NÃO está configurado (primeira vez)
     if (!admin2faSecret) {
       // Redirecionar pra página de SETUP
-      sessionStorage.setItem('__admin_senha_temp', senha); // salvar senha temporariamente
       return res.status(202).json({
         ok: false,
         erro: 'Autenticação 2FA necessária',
@@ -81,7 +80,6 @@ router.post('/login', (req, res) => {
     // Caso 2: 2FA já está configurado (próximos logins)
     if (!token_2fa) {
       // Pedir token 2FA
-      sessionStorage.setItem('__admin_senha_temp', senha);
       return res.status(202).json({
         ok: false,
         erro: 'Autenticação 2FA necessária',
