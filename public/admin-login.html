@@ -61,7 +61,7 @@
       </div>
     </div>
 
-    <button id="btn-login" class="auth-btn" onclick="login()">Próximo</button>
+    <button id="btn-login" class="auth-btn">Próximo</button>
 
     <div class="auth-info">
       Acesso reservado aos administradores.
@@ -137,6 +137,9 @@
     // Limpar erro ao digitar
     emailInput.addEventListener('input', () => erroDiv.classList.remove('show'));
     senhaInput.addEventListener('input', () => erroDiv.classList.remove('show'));
+
+    // Listener para o botão de login
+    botao.addEventListener('click', login);
   </script>
 </body>
 </html>
