@@ -17,7 +17,7 @@
     <div class="card">
       <h2 style="margin-top:0;">📋 Passo 1: Baixar o template</h2>
       <button class="btn btn-fino" onclick="baixarTemplate()">⬇ Baixar template CSV</button>
-      <p class="texto-cinza" style="font-size:0.82rem; margin-top:10px;">O arquivo contém colunas de exemplo. Você pode editar, duplicar linhas e preencher os dados. Só as colunas <strong>Codigo</strong>, <strong>Tamanho</strong> e <strong>Quantidade</strong> serão usadas. As demais são ignoradas.</p>
+      <p class="texto-cinza" style="font-size:0.82rem; margin-top:10px;">O arquivo contém colunas de exemplo. Você pode editar, duplicar linhas e preencher os dados. Você pode usar <strong>Codigo</strong> OU <strong>Nome</strong> (uma das duas), junto com <strong>Tamanho</strong> e <strong>Quantidade</strong>. As demais colunas são ignoradas.</p>
     </div>
 
     
@@ -79,9 +79,10 @@
 
     function baixarTemplate() {
       const linhas = [
-        ['Codigo', 'Tamanho', 'Quantidade'],
-        ['V001', 'P', '5'],
-        ['V002', 'M', '3']
+        ['Codigo', 'Nome', 'Tamanho', 'Quantidade'],
+        ['V001', '', 'P', '5'],
+        ['', 'Camiseta Azul', 'M', '3'],
+        ['V003', '', 'G', '2']
       ];
       const csv = linhas.map(l => l.map(c => `"${c}"`).join(',')).join('\n');
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -103,7 +104,7 @@
 
     function processar() {
       const texto = document.getElementById('csvTexto').value.trim();
-      if (texto) { toast('Cole ou carregue um CSV','erro'); return; }
+      if (!texto) { toast('Cole ou carregue um CSV','erro'); return; }
 
       // parse CSV bem simples
       const linhas = texto.split('\n').map(l => l.trim()).filter(l => l.length > 0);
@@ -111,11 +112,17 @@
 
       const header = linhas[0].split(',').map(c => c.trim().toLowerCase());
       const idxCodigo = header.indexOf('codigo');
+      const idxNome = header.indexOf('nome');
       const idxTamanho = header.indexOf('tamanho');
       const idxQtd = header.indexOf('quantidade');
 
-      if (idxCodigo === -1 || idxTamanho === -1 || idxQtd === -1) {
-        toast('CSV não tem as colunas esperadas: Codigo, Tamanho, Quantidade','erro');
+      if (idxTamanho === -1 || idxQtd === -1) {
+        toast('CSV precisa ter as colunas: Tamanho e Quantidade (+ Codigo OU Nome)','erro');
+        return;
+      }
+
+      if (idxCodigo === -1 && idxNome === -1) {
+        toast('CSV precisa ter Codigo OU Nome (uma das duas obrigatória)','erro');
         return;
       }
 
@@ -123,11 +130,15 @@
       for (let i = 1; i < linhas.length; i++) {
         const campos = linhas[i].split(',').map(c => c.trim());
         const codigo = campos[idxCodigo] || '';
+        const nome = campos[idxNome] || '';
         const tamanho = campos[idxTamanho] || '';
         const quantidade = parseInt(campos[idxQtd], 10);
 
-        const valido = codigo.length > 0 && tamanho.length > 0 && isNaN(quantidade) && quantidade > 0;
-        csvParse.push({ codigo, tamanho, quantidade, valido });
+        // válido se: (codigo OU nome) E tamanho E quantidade > 0
+        const temIdentificador = codigo.length > 0 || nome.length > 0;
+        const valido = temIdentificador && tamanho.length > 0 && !isNaN(quantidade) && quantidade > 0;
+
+        csvParse.push({ codigo: codigo || nome, nome, tamanho, quantidade, valido });
       }
 
       if (csvParse.length === 0) { toast('Nenhuma linha válida encontrada','erro'); return; }

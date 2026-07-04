@@ -137,8 +137,9 @@ router.post('/adicionar-tamanho', (req, res) => {
   }
 });
 
-// POST /api/estoque/lote  body: [{ codigo, tamanho, quantidade, motivo? }]
+// POST /api/estoque/lote  body: [{ codigo ou nome, tamanho, quantidade, motivo? }]
 // Entrada de estoque em lote (importação CSV).
+// Aceita busca por CÓDIGO ou por NOME do produto.
 // Retorna { ok: true, processados: N, erros: [{ codigo, tamanho, motivo }] }
 router.post('/lote', (req, res) => {
   const itens = Array.isArray(req.body) ? req.body : [];
@@ -147,27 +148,46 @@ router.post('/lote', (req, res) => {
   const processados = [];
   const erros = [];
 
+  // Query que busca por CÓDIGO OU NOME
   const getVarId = db.prepare(`
-    SELECT v.id FROM variacoes v
+    SELECT v.id, p.codigo, p.nome FROM variacoes v
     JOIN produtos p ON p.id = v.produto_id
-    WHERE p.codigo = ? AND v.tamanho = ? AND p.ativo = 1 AND p.tenant_id = ?
+    WHERE (p.codigo = ? OR LOWER(p.nome) = LOWER(?))
+      AND v.tamanho = ?
+      AND p.ativo = 1
+      AND p.tenant_id = ?
   `);
 
   const tx = db.transaction(() => {
     for (const item of itens) {
-      const { codigo, tamanho, quantidade, motivo } = item;
+      const { codigo, nome, tamanho, quantidade, motivo } = item;
+      const identificador = codigo || nome; // aceita tanto codigo quanto nome
       const qtd = parseInt(quantidade, 10);
 
       // validações básicas
-      if (!codigo || !tamanho || isNaN(qtd) || qtd <= 0) {
-        erros.push({ codigo, tamanho, motivo: 'Dados inválidos (código, tamanho e quantidade > 0 obrigatórios)' });
+      if (!identificador || !tamanho || isNaN(qtd) || qtd <= 0) {
+        erros.push({
+          codigo: identificador || '?',
+          tamanho,
+          motivo: 'Dados inválidos (código OU nome, tamanho e quantidade > 0 obrigatórios)'
+        });
         continue;
       }
 
-      // busca a variação
-      const v = getVarId.get(String(codigo).trim(), String(tamanho).trim().toUpperCase(), req.tenantId);
+      // busca a variação (por código OU nome, o SQL tenta os dois com OR)
+      const v = getVarId.get(
+        String(codigo || '').trim(),
+        String(nome || '').trim(),
+        String(tamanho).trim().toUpperCase(),
+        req.tenantId
+      );
+
       if (!v) {
-        erros.push({ codigo, tamanho, motivo: 'Código/tamanho não encontrado' });
+        erros.push({
+          codigo: identificador,
+          tamanho,
+          motivo: 'Código ou nome não encontrado'
+        });
         continue;
       }
 
@@ -176,9 +196,9 @@ router.post('/lote', (req, res) => {
         db.prepare('UPDATE variacoes SET quantidade = quantidade + ? WHERE id = ?').run(qtd, v.id);
         db.prepare("INSERT INTO movimentos_estoque (variacao_id, tipo, qtd, motivo) VALUES (?, 'entrada', ?, ?)")
           .run(v.id, qtd, motivo || 'entrada em lote');
-        processados.push({ codigo, tamanho, quantidade: qtd });
+        processados.push({ codigo: v.codigo, nome: v.nome, tamanho, quantidade: qtd });
       } catch (e) {
-        erros.push({ codigo, tamanho, motivo: e.message });
+        erros.push({ codigo: identificador, tamanho, motivo: e.message });
       }
     }
   });
