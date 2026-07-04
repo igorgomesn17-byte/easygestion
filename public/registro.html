@@ -56,11 +56,11 @@
     .toggle-senha { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: 0; border: 0;
       cursor: pointer; font-size: 14px; color: #aaa; padding: 4px; margin: 0; transition: color .2s; z-index: 10; }
     .toggle-senha:hover { color: var(--marca); }
-    .auth-btn { width: 100%; min-height: 42px; margin-top: 12px; border: none; border-radius: var(--radius-sm);
-      background: var(--marca); color: #fff; font-family: inherit; font-weight: 600; font-size: 13px;
-      cursor: pointer; transition: background .2s, transform .2s; }
-    .auth-btn:hover:not(:disabled) { background: var(--marca-escura); transform: translateY(-1px);
-      box-shadow: 0 6px 16px rgba(26,111,94,.25); }
+    .auth-btn { width: 100%; min-height: 48px; margin-top: 16px; border: none; border-radius: var(--radius-sm);
+      background: var(--marca); color: #fff; font-family: inherit; font-weight: 700; font-size: 14px;
+      cursor: pointer; transition: all .2s; letter-spacing: 0.3px; }
+    .auth-btn:hover:not(:disabled) { background: var(--marca-escura); transform: translateY(-2px);
+      box-shadow: 0 10px 24px rgba(26,111,94,.3); }
     .auth-btn:disabled { opacity: .6; cursor: wait; }
     .strength-meter { margin-top: 3px; height: 3px; background: var(--linha); border-radius: 1px; overflow: hidden; }
     .strength-bar { height: 100%; width: 0%; transition: width .3s, background-color .3s; background-color: var(--marca); }
@@ -232,27 +232,29 @@
 
       if (valor.length <= 11) {
         // CPF: 123.456.789-01
-        if (valor.length > 5) {
+        if (valor.length > 3) {
           valor = valor.slice(0, 3) + '.' + valor.slice(3);
         }
-        if (valor.length > 9) {
-          valor = valor.slice(0, 9) + '-' + valor.slice(9);
+        if (valor.length > 7) {
+          valor = valor.slice(0, 7) + '.' + valor.slice(7);
+        }
+        if (valor.length > 11) {
+          valor = valor.slice(0, 11) + '-' + valor.slice(11);
         }
       } else {
         // CNPJ: 12.345.678/0001-99
         if (valor.length > 2) {
           valor = valor.slice(0, 2) + '.' + valor.slice(2);
         }
-        if (valor.length > 7) {
-          valor = valor.slice(0, 7) + '.' + valor.slice(7);
+        if (valor.length > 6) {
+          valor = valor.slice(0, 6) + '.' + valor.slice(6);
         }
-        if (valor.length > 12) {
-          valor = valor.slice(0, 12) + '/' + valor.slice(12);
+        if (valor.length > 10) {
+          valor = valor.slice(0, 10) + '/' + valor.slice(10);
         }
-        if (valor.length > 17) {
-          valor = valor.slice(0, 17) + '-' + valor.slice(17);
+        if (valor.length > 15) {
+          valor = valor.slice(0, 15) + '-' + valor.slice(15);
         }
-        valor = valor.slice(0, 18); // Máximo 18 caracteres (14 dígitos + 4 símbolos)
       }
 
       e.target.value = valor;
