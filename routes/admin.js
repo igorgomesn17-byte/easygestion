@@ -18,15 +18,15 @@ const { obterStatusAssinatura } = require('../lib/assinatura');
 const router = express.Router();
 
 // --- Middleware: só admin acessa o backoffice ---
-// Verifica: 1) logado na sessão, 2) papel === 'admin'
+// Verifica: 1) logado na sessão, 2) papel === 'admin' ou 'super_admin'
 function exigirAdminBackoffice(req, res, next) {
   // Se não está logado, nega
   if (!req.session?.logado) {
     return res.status(401).json({ erro: 'Não autenticado. Faça login primeiro.', login: true });
   }
 
-  // Se está logado mas não é admin, nega
-  if (req.session.papel !== 'admin') {
+  // Se está logado mas não é admin ou super_admin, nega
+  if (req.session.papel !== 'admin' && req.session.papel !== 'super_admin') {
     return res.status(403).json({ erro: 'Acesso negado. Apenas admins.' });
   }
 
