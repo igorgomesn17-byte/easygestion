@@ -951,7 +951,10 @@ router.post('/2fa-setup', async (req, res) => {
 
     // Gerar secret TOTP
     const secretObj = gerarSecret(`EasyGestão Admin (${pendente.email})`);
-    const qrCodeDataUrl = await gerarQRCode(secretObj);
+    const qrCodeDataUrl = gerarQRCode(secretObj);
+
+    // Resolver a Promise do QR code
+    const qrCodeDataUrlResolvido = await qrCodeDataUrl;
 
     // Gerar códigos de backup
     const backupCodesPlanos = gerarBackupCodes();
@@ -970,7 +973,7 @@ router.post('/2fa-setup', async (req, res) => {
     res.json({
       ok: true,
       secret: secretObj.base32,
-      qr_code: qrCodeDataUrl,
+      qr_code: qrCodeDataUrlResolvido,
       backup_codes: backupCodesPlanos,
       mensagem: 'Secret 2FA gerado. Escaneie o QR code ou insira o secret manualmente.'
     });
