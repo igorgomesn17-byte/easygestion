@@ -43,7 +43,7 @@ router.get('/', exigirAdminBackoffice, (req, res) => {
 // 1. Valida email + senha contra tabela admins
 // 2. Se válido e 2FA não ativado → cria sessão pendente, retorna código 'PENDENTE_2FA_SETUP'
 // 3. Se válido e 2FA ativado → cria sessão pendente, retorna código 'PENDENTE_2FA'
-// 4. Sessão pendente dura 5 minutos; requer confirmação via /2fa-setup ou /2fa-verify
+// 4. Sessão pendente dura 15 minutos; requer confirmação via /2fa-setup ou /2fa-verify
 // Rate limit: 6 tentativas/15 min (aplicado por middleware)
 router.post('/login', limiteAdminPassword, (req, res) => {
   const { email, senha } = req.body;
@@ -65,13 +65,13 @@ router.post('/login', limiteAdminPassword, (req, res) => {
     // ✅ Email/senha corretos! Determinar próximo passo (2FA setup ou verify)
     const etapa2fa = admin.totp_ativado ? 'PENDENTE_2FA' : 'PENDENTE_2FA_SETUP';
 
-    // Criar sessão intermediária (válida por 5 minutos)
+    // Criar sessão intermediária (válida por 15 minutos)
     req.session.admin_pendente = {
       admin_id: admin.id,
       email: admin.email,
       nome: admin.nome,
       etapa: admin.totp_ativado ? '2fa_verify' : '2fa_setup',
-      expira_em: Date.now() + 5 * 60 * 1000 // 5 minutos
+      expira_em: Date.now() + 15 * 60 * 1000 // 15 minutos
     };
 
     console.log(`[ADMIN] Login: fase 1 bem-sucedida (email/senha) • Admin: ${admin.email} • IP: ${req.ip}`);
