@@ -96,8 +96,8 @@
         const data = await res.json();
 
         // Se 2FA é necessário (status 202)
-        if (res.status === 202 && data.codigo === 'PENDENTE_2FA') {
-          // Salvar a senha temporariamente na sessão pra usar no 2FA
+        if (res.status === 202 && (data.codigo === 'PENDENTE_2FA' || data.codigo === 'PENDENTE_2FA_SETUP')) {
+          // Salvar a senha temporariamente na sessão pra usar no 2FA/setup
           sessionStorage.setItem('__admin_senha_temp', senha);
           window.location.href = data.destino || '/admin-2fa.html';
           return;
@@ -105,7 +105,7 @@
 
         // Se login foi bem-sucedido
         if (res.ok && data.ok) {
-          window.location.href = '/admin-dashboard.html';
+          window.location.href = data.destino || '/admin-dashboard.html';
           return;
         }
 

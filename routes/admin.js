@@ -41,9 +41,12 @@ router.get('/', exigirAdminBackoffice, (req, res) => {
 });
 
 // --- POST /login → autentica admin (apenas senha ADMIN_SENHA_HASH do .env) ---
-// Nota: rate limit temporariamente removido para testes (TODO: reativar após beta)
+// Fluxo:
+// 1. Valida senha
+// 2. Se 2FA não configurado → retorna destino: /admin-2fa-setup.html (primeira vez)
+// 3. Se 2FA configurado → retorna destino: /admin-2fa.html (próximos logins)
 router.post('/login', (req, res) => {
-  const { senha } = req.body;
+  const { senha, token_2fa } = req.body;
 
   if (!senha) {
     return res.status(400).json({ erro: 'Senha obrigatória.' });
@@ -60,9 +63,42 @@ router.post('/login', (req, res) => {
       });
     }
 
-    const senha_valida = true;
+    // ✅ Senha correta! Agora verificar 2FA
+    const admin2faSecret = process.env.ADMIN_2FA_SECRET;
 
-    // ✅ Autenticação bem-sucedida: criar sessão
+    // Caso 1: 2FA NÃO está configurado (primeira vez)
+    if (!admin2faSecret) {
+      // Redirecionar pra página de SETUP
+      sessionStorage.setItem('__admin_senha_temp', senha); // salvar senha temporariamente
+      return res.status(202).json({
+        ok: false,
+        erro: 'Autenticação 2FA necessária',
+        codigo: 'PENDENTE_2FA_SETUP',
+        destino: '/admin-2fa-setup.html'
+      });
+    }
+
+    // Caso 2: 2FA já está configurado (próximos logins)
+    if (!token_2fa) {
+      // Pedir token 2FA
+      sessionStorage.setItem('__admin_senha_temp', senha);
+      return res.status(202).json({
+        ok: false,
+        erro: 'Autenticação 2FA necessária',
+        codigo: 'PENDENTE_2FA',
+        destino: '/admin-2fa.html'
+      });
+    }
+
+    // Caso 3: Validar token 2FA
+    const { validarToken } = require('../lib/2fa');
+    if (!validarToken(admin2faSecret, token_2fa)) {
+      return res.status(401).json({
+        erro: 'Token 2FA inválido'
+      });
+    }
+
+    // ✅ Tudo validado! Criar sessão
     req.session.logado = true;
     req.session.usuario_id = null;
     req.session.nome = 'admin';
@@ -81,11 +117,13 @@ router.post('/login', (req, res) => {
       status: 200,
     });
 
-    console.log(`[ADMIN] ✅ Login bem-sucedido (ADMIN_SENHA_HASH) • IP: ${req.ip} • ${new Date().toISOString()}`);
+    console.log(`[ADMIN] ✅ Login bem-sucedido (2FA) • IP: ${req.ip} • ${new Date().toISOString()}`);
 
     res.json({
+      ok: true,
       sucesso: true,
-      mensagem: 'Logado como administrador'
+      mensagem: 'Logado como administrador',
+      destino: '/admin-dashboard.html'
     });
   } catch (err) {
     console.error('[ADMIN] ❌ Erro ao fazer login:', err.message);
@@ -970,7 +1008,8 @@ router.post('/2fa-setup', async (req, res) => {
 
 // --- POST /2fa-confirm → confirma setup e ativa 2FA ---
 // Requer: secret, token, backup_codes
-// Salva em session (por ora) — em produção seria salvo em DB + ENV
+// Salva secret em process.env (não persiste em .env, mas mantém até próximo restart)
+// Em produção: seria melhor salvar em DB ou arquivo de config seguro
 router.post('/2fa-confirm', (req, res) => {
   const { secret, token, backup_codes } = req.body;
 
@@ -986,13 +1025,20 @@ router.post('/2fa-confirm', (req, res) => {
       return res.status(401).json({ erro: 'Token 2FA inválido' });
     }
 
-    // ✅ 2FA confirmado! Salvar na sessão + alertar pra salvar backup codes
-    req.session.admin2faSecret = secret;
-    req.session.admin2faBackupCodes = backup_codes;
-    req.session.logado = true;
-    req.session.papel = 'admin';
+    // ✅ 2FA confirmado! Ativar globalmente
+    process.env.ADMIN_2FA_SECRET = secret;
+    process.env.ADMIN_2FA_BACKUP_CODES = JSON.stringify(backup_codes);
 
-    console.log('[ADMIN 2FA] Setup confirmado com sucesso');
+    // Também criar sessão pra login imediato
+    req.session.logado = true;
+    req.session.usuario_id = null;
+    req.session.nome = 'admin';
+    req.session.email = null;
+    req.session.papel = 'admin';
+    req.session.tenant_id = 1;
+    req.session.login_em = new Date().toISOString();
+
+    console.log('[ADMIN 2FA] ✅ Setup confirmado e 2FA ativado globalmente');
 
     res.json({
       ok: true,
