@@ -79,20 +79,32 @@
         if (de && ate) url += '&';
         if (ate) url += 'ate=' + ate;
       }
-      const resp = await api(url);
-      dados = resp.vendas || [];
+      try {
+        console.log('[Histórico] 🔄 Carregando vendas de:', url);
+        const resp = await api(url);
+        console.log('[Histórico] ✅ Resposta completa:', {
+          vendas_count: (resp.vendas || []).length,
+          resumo: resp.resumo,
+          raw: resp
+        });
+        dados = resp.vendas || [];
 
-      // Preencher resumo
-      if (resp.resumo) {
-        document.getElementById('resumoTotal').textContent = moeda(resp.resumo.total || 0);
-        document.getElementById('resumoTicket').textContent = moeda(resp.resumo.ticketMedio || 0);
-        document.getElementById('resumoPA').textContent = (resp.resumo.pa || 0).toFixed(2);
-        document.getElementById('resumoLucro').textContent = moeda(resp.resumo.lucro || 0);
-        document.getElementById('resumoComissoes').textContent = moeda(resp.resumo.comissao || 0);
-        document.getElementById('resumoVendas').textContent = resp.resumo.n || 0;
+        // Preencher resumo
+        if (resp.resumo) {
+          console.log('[Histórico] 📊 Preenchendo resumo:', resp.resumo);
+          document.getElementById('resumoTotal').textContent = moeda(resp.resumo.total || 0);
+          document.getElementById('resumoTicket').textContent = moeda(resp.resumo.ticketMedio || 0);
+          document.getElementById('resumoPA').textContent = (resp.resumo.pa || 0).toFixed(2);
+          document.getElementById('resumoLucro').textContent = moeda(resp.resumo.lucro || 0);
+          document.getElementById('resumoComissoes').textContent = moeda(resp.resumo.comissao || 0);
+          document.getElementById('resumoVendas').textContent = resp.resumo.n || 0;
+        }
+
+        render();
+      } catch (e) {
+        console.error('[Histórico] ❌ Erro ao carregar:', e);
+        toast('Erro ao carregar histórico: ' + e.message, 'erro');
       }
-
-      render();
     }
 
     function render() {
