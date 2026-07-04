@@ -204,9 +204,10 @@ EASYGESTION/
 | Signup com verificação de email | ✅ | routes/auth.js, lib/email.js |
 | Reset de senha via email | ✅ | routes/auth.js, lib/email.js |
 | Multi-tenant (isolamento de dados) | ✅ | db/database.js, middleware/seguranca.js |
-| Admin do .env + usuários na tabela | ✅ | routes/auth.js, routes/usuarios.js |
+| **Admin com email+senha no banco** | ✅ | routes/admin.js, db/schema.sql, db/migrations.js |
+| **Admin 2FA (TOTP + backup codes)** | ✅ | routes/admin.js, lib/2fa.js, public/admin-*.html |
 | Papéis (admin, vendedor, relacionamento) | ✅ | middleware/seguranca.js |
-| Rate limit (brute force na rota /login) | ✅ | middleware/seguranca.js |
+| Rate limit (brute force) | ✅ | middleware/seguranca.js, limiteAdminPassword |
 | Validação de força de senha | ✅ | middleware/seguranca.js |
 
 ### ✅ PDV (Ponto de Venda)
@@ -420,6 +421,7 @@ EASYGESTION/
 
 #### Usuários
 - **usuarios** — Login multiusuário (nome, email, senha_hash, papel, tenant_id)
+- **admins** — Contas de admin do backoffice SaaS (email, nome, senha_hash, papel, totp_secret, totp_backup_codes_hash, totp_ativado)
 
 #### Admin
 - **auditoria** — Log de DELETE/PATCH/POST (quem, o quê, quando, antes/depois, IP)
@@ -447,14 +449,18 @@ POST   /api/forgot-password    Solicitar reset de senha
 POST   /api/reset-senha?token  Confirmar reset
 ```
 
-### Admin SaaS
+### Admin SaaS (Backoffice)
 
 ```
-GET    /api/admin              Lista de clientes (admin only)
-POST   /api/admin/login        Login admin via senha
-POST   /api/admin/logout       Logout admin
-GET    /api/admin/:tenantId    Detalhes de um cliente
-PATCH  /api/admin/:tenantId    Bloquear, desbloquear, mudar plano
+POST   /api/admin/login        Login admin (email + senha) → sessão pendente (5 min)
+POST   /api/admin/2fa-setup    Gera secret TOTP + QR code + backup codes
+POST   /api/admin/2fa-confirm  Confirma setup, persiste 2FA no banco
+POST   /api/admin/2fa-verify   Valida token TOTP ou backup code (logins subsequentes)
+POST   /api/admin/logout       Logout admin (destroi sessão)
+GET    /api/admin              Dashboard admin + lista de clientes (admin only)
+GET    /api/admin/clientes     Lista de clientes (tenants) com paginação
+GET    /api/admin/clientes/:id Detalhes de um cliente
+PATCH  /api/admin/clientes/:id Bloquear, desbloquear, mudar plano
 ```
 
 ### Assinaturas
@@ -690,12 +696,17 @@ POST   /api/deploy                   Webhook de deploy (git pull + restart)
 
 ```env
 NODE_ENV=production
-ADMIN_SENHA_HASH=scrypt$...   # OU ADMIN_SENHA (será hasheada ao boot)
 SESSION_SECRET=xxxxx          # 32+ chars aleatório
 ORIGIN=https://seu-dominio.com
 TOKEN_SECRET=xxxxx            # 32+ chars (JWT)
 CERT_CIPHER_KEY=xxxxx         # 32+ chars (AES)
 DEPLOY_TOKEN=xxxxx            # Secret para webhook de deploy
+
+# Admin (novo sistema — banco de dados)
+# ADMIN_SENHA_HASH e ADMIN_SENHA servem apenas como seed inicial da migration 018
+# Após setup, admin está permanentemente armazenado na tabela `admins`
+ADMIN_SENHA_HASH=scrypt$...   # OU ADMIN_SENHA (seed inicial, depois não reutilizado)
+ADMIN_EMAIL=admin@easygestao.com  # Email do admin inicial (opcional, usa fallback)
 ```
 
 ### Assinaturas/Stripe
