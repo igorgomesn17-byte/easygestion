@@ -57,7 +57,7 @@ router.post('/:codigo/usar', (req, res) => {
   const vale = db.prepare(`
     SELECT id, saldo, valor
     FROM vales
-    WHERE codigo = ? AND tenant_id = ? AND ativo = 1
+    WHERE codigo = ? AND tenant_id = ? AND saldo > 0
   `).get(codigo, req.tenantId);
 
   if (!vale) {

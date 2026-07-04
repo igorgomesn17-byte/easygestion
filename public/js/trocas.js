@@ -544,17 +544,19 @@ function renderVales() {
   });
   const div = document.getElementById('listaVales');
   if (arr.length === 0) {
-    div.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:32px;">Nenhum vale encontrado.</td></tr>';
+    div.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:32px;">Nenhum vale encontrado.</td></tr>';
     return;
   }
   div.innerHTML = arr.map(v => {
     const statusBadge = statusVale(v);
+    const usedInfo = v.venda_utilizacao_id ? `Venda #${v.venda_utilizacao_id}` : '—';
     return `<tr>
       <td style="font-family:monospace; font-weight:600;">${esc(v.codigo)}</td>
       <td>${v.cliente_nome ? esc(v.cliente_nome) : '<em>—</em>'}</td>
       <td class="moeda">${moeda(v.valor)}</td>
       <td class="moeda" style="color:${v.saldo > 0 ? '#27ae60' : '#999'};">${moeda(v.saldo)}</td>
       <td>${v.validade ? v.validade.slice(0, 10).split('-').reverse().join('/') : '—'}</td>
+      <td style="font-size:0.85rem; color:#666;">${usedInfo}</td>
       <td><span class="status-badge ${statusBadge.classe}">${statusBadge.texto}</span></td>
       <td style="text-align:center;"><button class="btn btn-fino" onclick="window.location.href='cupom-vale.html?codigo=${esc(v.codigo)}';">📋</button></td>
     </tr>`;
@@ -582,8 +584,8 @@ function exportarVales() {
       'Valor (R$)': v.valor.toFixed(2),
       'Saldo (R$)': v.saldo.toFixed(2),
       'Validade': v.validade ? v.validade.slice(0, 10).split('-').reverse().join('/') : '',
-      'Status': sb.texto,
-      'Utilizado em': v.venda_utilizacao_id ? 'Venda #' + v.venda_utilizacao_id : ''
+      'Usado em': v.venda_utilizacao_id ? 'Venda #' + v.venda_utilizacao_id : '—',
+      'Status': sb.texto
     };
   });
   exportarCSV('vales-' + hojeLocalStr(), linhas);

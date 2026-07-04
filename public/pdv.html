@@ -955,11 +955,15 @@
           }
           if (valorUtilizado > 0) {
             try {
-              await api('/vales/' + valeAtual.codigo + '/usar', {
+              const resVale = await api('/vales/' + valeAtual.codigo + '/usar', {
                 method: 'POST',
                 body: { valor_a_usar: valorUtilizado, venda_id: r.id }
               });
+              if (resVale && resVale.sucesso) {
+                toast(`Vale ${valeAtual.codigo} registrado com sucesso`, 'sucesso');
+              }
             } catch(e) {
+              toast('⚠️ Vale não registrado: ' + (e.message || 'erro desconhecido'), 'aviso');
               console.error('Erro ao registrar uso do vale:', e);
             }
           }
