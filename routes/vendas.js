@@ -9,6 +9,7 @@ const { hojeLocal } = require('../lib/datas');
 const { salvarComprovanteBase64 } = require('../lib/comprovantes');
 const { validarDesconto, validarQuantidade, validarParcelas, validarAcrescimo } = require('../lib/validadores');
 const { obterImposto } = require('./config');
+const { cacheRelatorioPorTenant } = require('../middleware/rate-limit-custoso');
 
 // O vendedor só pode CRIAR venda (POST /). Toda leitura/edição (histórico com
 // lucro/custo, detalhe, cancelamento) é exclusiva do admin. Bloqueia aqui dentro
@@ -210,6 +211,8 @@ router.post('/', (req, res) => {
 
   try {
     const vendaId = tx();
+    const mes = hoje.substring(0, 7); // YYYY-MM para invalidar DRE daquele mês
+    cacheRelatorioPorTenant.invalidarTudo(req.tenantId);
     res.status(201).json({ id: vendaId, total, ...r });
   } catch (e) {
     res.status(500).json({ erro: e.message });
@@ -400,6 +403,7 @@ router.delete('/:id', (req, res) => {
     atualizarCaixaDia(hoje, req.tenantId);
   });
   tx();
+  cacheRelatorioPorTenant.invalidarTudo(req.tenantId);
   res.json({ ok: true });
 });
 

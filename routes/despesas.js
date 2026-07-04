@@ -6,6 +6,7 @@ const express = require('express');
 const router = express.Router();
 const { db } = require('../db/database');
 const { hojeLocal } = require('../lib/datas');
+const { cacheRelatorioPorTenant } = require('../middleware/rate-limit-custoso');
 
 // GET /api/despesas?mes=YYYY-MM&centro=&status=  -> lista despesas do mes
 router.get('/', (req, res) => {
@@ -53,6 +54,7 @@ router.post('/', (req, res) => {
   `).run(req.tenantId, descricao, v, categoria || null, tipo || 'variavel', centro || 'empresa',
     comp, vencimento || null, (pago ? (req.body.data_pagamento || hojeLocal()) : null),
     pago ? 1 : 0, forma_pagamento || null, recorrente ? 1 : 0, obs || null);
+  cacheRelatorioPorTenant.invalidarTudo(req.tenantId);
   res.status(201).json({ id: info.lastInsertRowid });
 });
 
@@ -67,6 +69,7 @@ router.put('/:id', (req, res) => {
   `).run(descricao, parseFloat(valor) || 0, categoria || null, tipo || 'variavel', centro || 'empresa',
     data_competencia, vencimento || null, pago ? 1 : 0,
     pago ? (req.body.data_pagamento || hojeLocal()) : null, forma_pagamento || null, obs || null, req.params.id, req.tenantId);
+  cacheRelatorioPorTenant.invalidarTudo(req.tenantId);
   res.json({ ok: true });
 });
 
@@ -110,12 +113,14 @@ router.post('/:id/pagar', (req, res) => {
   });
 
   tx();
+  cacheRelatorioPorTenant.invalidarTudo(req.tenantId);
   res.json({ ok: true });
 });
 
 // DELETE /api/despesas/:id
 router.delete('/:id', (req, res) => {
   db.prepare('DELETE FROM despesas WHERE id = ? AND tenant_id = ?').run(req.params.id, req.tenantId);
+  cacheRelatorioPorTenant.invalidarTudo(req.tenantId);
   res.json({ ok: true });
 });
 
@@ -142,6 +147,7 @@ router.post('/gerar-mes', (req, res) => {
     }
   });
   tx();
+  cacheRelatorioPorTenant.invalidarTudo(req.tenantId);
   res.json({ ok: true, geradas, jaExistiam, mes });
 });
 

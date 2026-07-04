@@ -90,6 +90,13 @@ const cacheRelatorioPorTenant = (() => {
       cache.delete(k);
     },
 
+    // Invalidar todo cache do tenant (DRE, Curva ABC, etc)
+    invalidarTudo(tenantId) {
+      for (const k of [...cache.keys()]) {
+        if (k.startsWith(`${tenantId}:`)) cache.delete(k);
+      }
+    },
+
     // Limpar tudo (dev/teste)
     limpar() {
       cache.clear();
