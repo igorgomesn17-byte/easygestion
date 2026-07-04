@@ -64,7 +64,7 @@
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { height: 100%; }
+html { height: auto; }
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   background: var(--bg);
@@ -74,6 +74,7 @@ body {
   letter-spacing: -0.006em;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  height: auto;
 }
 @media (prefers-reduced-motion: reduce) { *, ::before, ::after { animation: none ***REMOVED***important; transition: none ***REMOVED***important; } }
 
