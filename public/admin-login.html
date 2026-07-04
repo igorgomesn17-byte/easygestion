@@ -49,14 +49,9 @@
     <div class="auth-erro" id="erro"></div>
 
     <div class="auth-campo">
-      <label>Email</label>
-      <input type="email" id="email" placeholder="admin@easygestao.com" autofocus>
-    </div>
-
-    <div class="auth-campo">
-      <label>Senha</label>
+      <label>Senha de Admin</label>
       <div class="password-wrapper">
-        <input type="password" id="senha" placeholder="Digite sua senha">
+        <input type="password" id="senha" placeholder="Digite a senha de administrador" autofocus>
         <button type="button" class="toggle-senha" id="toggleSenha">👁️</button>
       </div>
     </div>
@@ -69,7 +64,6 @@
   </div>
 
   <script>
-    const emailInput = document.getElementById('email');
     const senhaInput = document.getElementById('senha');
     const botao = document.getElementById('btn-login');
     const erroDiv = document.getElementById('erro');
@@ -81,17 +75,10 @@
     });
 
     async function login() {
-      const email = emailInput.value.trim();
       const senha = senhaInput.value;
 
-      if (!email) {
-        erroDiv.textContent = 'Digite o email';
-        erroDiv.classList.add('show');
-        return;
-      }
-
       if (!senha) {
-        erroDiv.textContent = 'Digite a senha';
+        erroDiv.textContent = 'Digite a senha de administrador';
         erroDiv.classList.add('show');
         return;
       }
@@ -105,21 +92,14 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify({ email, senha })
+          body: JSON.stringify({ senha })
         });
 
         const data = await res.json();
 
-        // Se 2FA é necessário (status 202)
-        if (res.status === 202 && (data.codigo === 'PENDENTE_2FA' || data.codigo === 'PENDENTE_2FA_SETUP')) {
-          // ✅ Não armazenar senha em sessionStorage - tudo é feito no servidor!
-          window.location.href = data.destino || '/admin-2fa.html';
-          return;
-        }
-
-        // Se login foi bem-sucedido (não deve acontecer, mas segurança)
-        if (res.ok && data.ok) {
-          window.location.href = data.destino || '/admin-dashboard.html';
+        // Se login foi bem-sucedido
+        if (res.ok && data.sucesso) {
+          window.location.href = '/admin-dashboard.html';
           return;
         }
 
@@ -142,7 +122,6 @@
     });
 
     // Limpar erro ao digitar
-    emailInput.addEventListener('input', () => erroDiv.classList.remove('show'));
     senhaInput.addEventListener('input', () => erroDiv.classList.remove('show'));
   </script>
 </body>
