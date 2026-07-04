@@ -90,7 +90,7 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
       fontSrc: ["'self'", 'https://fonts.gstatic.com'],
-      scriptSrc: ["'self'", "'unsafe-inline'", 'https://js.stripe.com'],
+      scriptSrc: ["'self'", 'https://js.stripe.com'],
       scriptSrcAttr: ["'unsafe-inline'"],
       imgSrc: ["'self'", 'data:', 'blob:'],
       connectSrc: ["'self'", 'https://api.stripe.com', 'https://checkout.stripe.com', 'https://js.stripe.com'],

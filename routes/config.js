@@ -6,7 +6,7 @@ const router = express.Router();
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { db } = require('../db/database');
+const { db, invalidarCacheConfig } = require('../db/database');
 const { apenasAdmin } = require('../middleware/seguranca');
 const { slugDisponivel } = require('../lib/helpers');
 
@@ -71,6 +71,7 @@ router.post('/', apenasAdmin, (req, res) => {
     for (const [chave, valor] of Object.entries(updates)) stmt.run(chave, String(valor), req.tenantId);
   });
   tx();
+  invalidarCacheConfig(req.tenantId);
   res.json({ ok: true });
 });
 
@@ -81,12 +82,14 @@ router.post('/logo', apenasAdmin, (req, res) => {
   if (!result.ok) return res.status(400).json({ erro: result.erro });
   db.prepare('INSERT INTO config (chave, valor, tenant_id) VALUES (?, ?, ?) ON CONFLICT(chave, tenant_id) DO UPDATE SET valor=excluded.valor')
     .run('loja_logo', result.caminho, req.tenantId);
+  invalidarCacheConfig(req.tenantId);
   res.json({ ok: true, loja_logo: result.caminho });
 });
 
 // Remove a logo (volta a mostrar o nome em texto).
 router.delete('/logo', apenasAdmin, (req, res) => {
   db.prepare("UPDATE config SET valor='' WHERE chave='loja_logo' AND tenant_id = ?").run(req.tenantId);
+  invalidarCacheConfig(req.tenantId);
   res.json({ ok: true });
 });
 

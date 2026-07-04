@@ -322,10 +322,48 @@ function transaction(fn) {
 
 const db = { prepare, exec, transaction, _raw: raw };
 
+// Cache de configurações por tenant (para evitar N*queries por request)
+const cacheConfigPorTenant = (() => {
+  const cache = new Map(); // chave: `${tenantId}:${chave}`
+  const TTL = 5 * 60 * 1000; // 5 minutos (mesmo do cache de relatórios)
+
+  return {
+    get(tenantId, chave) {
+      const k = `${tenantId}:${chave}`;
+      const entry = cache.get(k);
+      if (!entry) return undefined;
+      if (Date.now() - entry.timestamp > TTL) {
+        cache.delete(k);
+        return undefined;
+      }
+      return entry.valor;
+    },
+    set(tenantId, chave, valor) {
+      cache.set(`${tenantId}:${chave}`, { valor, timestamp: Date.now() });
+    },
+    invalidarTenant(tenantId) {
+      for (const k of [...cache.keys()]) {
+        if (k.startsWith(`${tenantId}:`)) cache.delete(k);
+      }
+    },
+    limpar() {
+      cache.clear();
+    }
+  };
+})();
+
 // Helpers de config — suportam tenant_id opcionalmente
 function getConfig(chave, fallback = null, tenantId = 1) {
+  // Tentar ler do cache primeiro
+  const cacheado = cacheConfigPorTenant.get(tenantId, chave);
+  if (cacheado !== undefined) {
+    return cacheado !== null ? cacheado : fallback;
+  }
+  // Se não está em cache, ler do banco e cachear
   const row = db.prepare('SELECT valor FROM config WHERE chave = ? AND tenant_id = ?').get(chave, tenantId);
-  return row ? row.valor : fallback;
+  const valor = row ? row.valor : null;
+  cacheConfigPorTenant.set(tenantId, chave, valor);
+  return valor !== null ? valor : fallback;
 }
 function setConfig(chave, valor, tenantId = 1) {
   db.prepare('INSERT INTO config (chave, valor, tenant_id) VALUES (?, ?, ?) ON CONFLICT(chave, tenant_id) DO UPDATE SET valor = excluded.valor')
@@ -368,4 +406,4 @@ FOCUS.tokenDe = (ambiente) => ambiente === 'producao' ? FOCUS.TOKEN_PRODUCAO : F
 FOCUS.urlDe   = (ambiente) => ambiente === 'producao' ? FOCUS.URL_PRODUCAO : FOCUS.URL_HOMOLOGACAO;
 FOCUS.configurado = (ambiente) => !!FOCUS.tokenDe(ambiente);
 
-module.exports = { db, getConfig, setConfig, DB_PATH, META, FOCUS };
+module.exports = { db, getConfig, setConfig, DB_PATH, META, FOCUS, invalidarCacheConfig: (tenantId) => cacheConfigPorTenant.invalidarTenant(tenantId) };
