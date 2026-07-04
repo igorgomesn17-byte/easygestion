@@ -11,7 +11,7 @@
 const express = require('express');
 const path = require('path');
 const { db } = require('../db/database');
-const { exigirPapel, verificarSenha, hashSenha, limiteAdminPassword } = require('../middleware/seguranca');
+const { exigirPapel, verificarSenha, hashSenha } = require('../middleware/seguranca');
 const { auditarAcao, buscarAuditoria } = require('../middleware/auditoria');
 const { enviarEmail, templateContaBloqueada, templateContaReativada } = require('../lib/email');
 const { obterStatusAssinatura } = require('../lib/assinatura');
@@ -38,48 +38,49 @@ router.get('/', exigirAdminBackoffice, (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'admin-dashboard.html'));
 });
 
-// --- POST /login → autentica admin com email + senha ---
-// Fluxo simples: 1. Valida email + senha contra tabela admins, 2. Loga direto (sem 2FA)
-// Rate limit: 6 tentativas/15 min (aplicado por middleware)
-router.post('/login', limiteAdminPassword, (req, res) => {
-  const { email, senha } = req.body;
+// --- POST /login → autentica admin (apenas senha ADMIN_SENHA_HASH do .env) ---
+router.post('/login', (req, res) => {
+  const { senha } = req.body;
 
-  if (!email || !senha) {
-    return res.status(400).json({ erro: 'Email e senha são obrigatórios.' });
+  if (!senha) {
+    return res.status(400).json({ erro: 'Senha obrigatória.' });
   }
 
   try {
-    // Buscar admin na tabela de banco
-    const admin = db.prepare('SELECT * FROM admins WHERE LOWER(email) = LOWER(?) AND ativo = 1').get(email);
+    // Verificar contra ADMIN_SENHA_HASH do .env
+    const hashAdmin = process.env.ADMIN_SENHA_HASH || null;
 
-    // Senha errada ou admin não encontrado: retornar genérico (não distinguir)
-    if (!admin || !verificarSenha(String(senha), admin.senha_hash)) {
-      console.warn(`[ADMIN] Login falhou: email/senha incorretos ou admin inativo • Email: ${email} • IP: ${req.ip}`);
-      return res.status(401).json({ erro: 'Email ou senha incorretos.' });
+    if (!hashAdmin || !verificarSenha(String(senha), hashAdmin)) {
+      console.warn(`[ADMIN] Login falhou: senha incorreta • IP: ${req.ip} • ${new Date().toISOString()}`);
+      return res.status(401).json({
+        erro: 'Senha de admin incorreta.'
+      });
     }
 
-    // ✅ Email/senha corretos! Logar direto (sem 2FA)
+    // ✅ Autenticação bem-sucedida: criar sessão
     req.session.logado = true;
-    req.session.admin_id = admin.id;
-    req.session.email = admin.email;
-    req.session.nome = admin.nome;
+    req.session.usuario_id = null;
+    req.session.nome = 'admin';
+    req.session.email = null;
     req.session.papel = 'admin';
     req.session.tenant_id = 1;
+    req.session.login_em = new Date().toISOString();
 
-    // Atualizar último login
-    db.prepare("UPDATE admins SET ultimo_login_em = datetime('now','localtime') WHERE id = ?").run(admin.id);
+    // ✅ AUDITORIA: registrar login do admin
+    auditarAcao(req, {
+      acao: 'LOGIN_admin',
+      recurso: 'auditoria_admin',
+      recurso_id: null,
+      antes: null,
+      depois: null,
+      status: 200,
+    });
 
-    console.log(`[ADMIN] ✅ Login bem-sucedido • Admin: ${admin.email} • IP: ${req.ip}`);
+    console.log(`[ADMIN] ✅ Login bem-sucedido (ADMIN_SENHA_HASH) • IP: ${req.ip} • ${new Date().toISOString()}`);
 
     res.json({
-      ok: true,
-      mensagem: 'Login realizado com sucesso',
-      destino: '/admin-dashboard.html',
-      admin: {
-        id: admin.id,
-        email: admin.email,
-        nome: admin.nome
-      }
+      sucesso: true,
+      mensagem: 'Logado como administrador'
     });
   } catch (err) {
     console.error('[ADMIN] ❌ Erro ao fazer login:', err.message);
