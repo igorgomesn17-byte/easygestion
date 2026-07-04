@@ -514,7 +514,7 @@ function exportarHistorico() {
 let dadosVales = [];
 
 function setupVales() {
-  document.getElementById('filtroValeStatus')?.addEventListener('change', renderVales);
+  document.getElementById('filtrarValesBTN')?.addEventListener('click', carregarVales);
   document.getElementById('buscaVale')?.addEventListener('input', renderVales);
   document.getElementById('exportarValesBTN')?.addEventListener('click', exportarVales);
 }
