@@ -72,7 +72,7 @@
     async function carregar() {
       const de = document.getElementById('filtroDE').value;
       const ate = document.getElementById('filtroATE').value;
-      let url = '/api/vendas';
+      let url = '/vendas';
       if (de || ate) {
         url += '?';
         if (de) url += 'de=' + de;
