@@ -38,49 +38,57 @@ router.get('/', exigirAdminBackoffice, (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'admin-dashboard.html'));
 });
 
-// --- POST /login → autentica admin (apenas senha ADMIN_SENHA_HASH do .env) ---
+// --- POST /login → autentica admin com email + senha contra tabela admins ---
 router.post('/login', (req, res) => {
-  const { senha } = req.body;
+  const { email, senha } = req.body;
 
-  if (!senha) {
-    return res.status(400).json({ erro: 'Senha obrigatória.' });
+  if (!email || !senha) {
+    return res.status(400).json({ erro: 'Email e senha são obrigatórios.' });
   }
 
   try {
-    // Verificar contra ADMIN_SENHA_HASH do .env
-    const hashAdmin = process.env.ADMIN_SENHA_HASH || null;
+    // Buscar admin no banco
+    const admin = db.prepare('SELECT * FROM admins WHERE LOWER(email) = LOWER(?) AND ativo = 1').get(email);
 
-    if (!hashAdmin || !verificarSenha(String(senha), hashAdmin)) {
-      console.warn(`[ADMIN] Login falhou: senha incorreta • IP: ${req.ip} • ${new Date().toISOString()}`);
+    if (!admin || !verificarSenha(String(senha), admin.senha_hash)) {
+      console.warn(`[ADMIN] Login falhou: email/senha incorretos • Email: ${email} • IP: ${req.ip}`);
       return res.status(401).json({
-        erro: 'Senha de admin incorreta.'
+        erro: 'Email ou senha incorretos.'
       });
     }
 
     // ✅ Autenticação bem-sucedida: criar sessão
     req.session.logado = true;
-    req.session.usuario_id = null;
-    req.session.nome = 'admin';
-    req.session.email = null;
-    req.session.papel = 'admin';
+    req.session.admin_id = admin.id;
+    req.session.nome = admin.nome;
+    req.session.email = admin.email;
+    req.session.papel = admin.papel;
     req.session.tenant_id = 1;
     req.session.login_em = new Date().toISOString();
+
+    // Atualizar último login
+    db.prepare("UPDATE admins SET ultimo_login_em = datetime('now','localtime') WHERE id = ?").run(admin.id);
 
     // ✅ AUDITORIA: registrar login do admin
     auditarAcao(req, {
       acao: 'LOGIN_admin',
       recurso: 'auditoria_admin',
-      recurso_id: null,
+      recurso_id: admin.id,
       antes: null,
       depois: null,
       status: 200,
     });
 
-    console.log(`[ADMIN] ✅ Login bem-sucedido (ADMIN_SENHA_HASH) • IP: ${req.ip} • ${new Date().toISOString()}`);
+    console.log(`[ADMIN] ✅ Login bem-sucedido • Admin: ${admin.email} • IP: ${req.ip}`);
 
     res.json({
       sucesso: true,
-      mensagem: 'Logado como administrador'
+      mensagem: 'Logado como administrador',
+      admin: {
+        id: admin.id,
+        nome: admin.nome,
+        email: admin.email
+      }
     });
   } catch (err) {
     console.error('[ADMIN] ❌ Erro ao fazer login:', err.message);
