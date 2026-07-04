@@ -7,138 +7,183 @@
   <link rel="stylesheet" href="css/ds.css">
   <style>
     body { min-height: 100vh; display: flex; align-items: center; justify-content: center;
-      background: linear-gradient(160deg, var(--marca) 0%, var(--marca-escura) 100%); padding: 20px; }
-    .auth-card { background: var(--surface); border-radius: 18px; box-shadow: 0 18px 50px rgba(0,0,0,.3);
-      max-width: 420px; width: 100%; padding: 38px 30px; text-align: center; }
-    .logo { margin-bottom: 28px; font-size: 48px; }
-    h1 { color: var(--marca); margin-bottom: 8px; font-size: 24px; font-weight: 700; }
-    .subtitle { color: var(--tinta-2); font-size: 14px; margin-bottom: 28px; }
-    .auth-campo { margin-bottom: 18px; text-align: left; }
-    .auth-campo label { display: block; font-size: .82rem; font-weight: 500; color: var(--tinta-2);
-      margin: 12px 0 5px; }
-    .auth-campo input { width: 100%; min-height: 46px; padding: 12px 14px; border: 1px solid var(--linha);
-      border-radius: var(--radius-sm); font-size: 18px; font-family: monospace; text-align: center;
-      transition: border-color .2s; letter-spacing: 0.5em; }
-    .auth-campo input:focus { outline: none; border-color: var(--marca); box-shadow: 0 0 0 3px rgba(26,111,94,.15); }
-    .auth-btn { width: 100%; min-height: 48px; margin-top: 18px; border: none; border-radius: var(--radius-sm);
-      background: var(--marca); color: #fff; font-family: inherit; font-weight: 600; font-size: 14px;
-      cursor: pointer; transition: background .2s, transform .2s; }
-    .auth-btn:hover:not(:disabled) { background: var(--marca-escura); transform: translateY(-2px); }
-    .auth-btn:disabled { opacity: .6; cursor: wait; }
-    .auth-msg { margin-top: 15px; padding: 12px; border-radius: var(--radius-sm); font-size: 13px; display: none; }
+      background: linear-gradient(135deg, var(--marca) 0%, var(--marca-escura) 100%); padding: 20px; }
+    .auth-card { background: white; border-radius: 12px; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+      max-width: 400px; width: 100%; padding: 40px; }
+    .etapa-badge { display: inline-block; background: var(--marca); color: white; font-size: 11px;
+      font-weight: 700; padding: 4px 10px; border-radius: 4px; margin-bottom: 20px; }
+    .logo { text-align: center; margin-bottom: 20px; font-size: 32px; }
+    h1 { color: var(--marca); margin-bottom: 8px; font-size: 22px; font-weight: 700; text-align: center; }
+    .subtitle { color: #999; font-size: 13px; margin-bottom: 20px; text-align: center; }
+    .auth-campo { margin-bottom: 16px; }
+    .auth-campo label { display: block; font-size: 11px; font-weight: 600; color: var(--marca);
+      margin-bottom: 6px; text-transform: uppercase; }
+    .auth-campo input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px;
+      font-size: 14px; font-family: monospace; text-align: center; letter-spacing: 0.1em; }
+    .auth-campo input:focus { outline: none; border-color: var(--marca); box-shadow: 0 0 0 3px rgba(26, 111, 94, 0.1); }
+    .toggle-group { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; padding: 10px;
+      background: #f5f5f5; border-radius: 6px; }
+    .toggle-group input[type="radio"] { cursor: pointer; }
+    .toggle-group label { cursor: pointer; font-size: 12px; margin: 0; }
+    .auth-btn { width: 100%; padding: 12px; background: var(--marca); color: white; border: none;
+      border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+    .auth-btn:hover:not(:disabled) { background: var(--marca-escura); }
+    .auth-btn:disabled { opacity: 0.6; cursor: wait; }
+    .auth-msg { padding: 10px; border-radius: 4px; font-size: 12px; margin-bottom: 15px; display: none; }
     .auth-msg.error { background: #ffebee; color: var(--vermelho); border: 1px solid #f44336; }
-    .auth-msg.success { background: #e8f5e9; color: #2e7d32; border: 1px solid #4caf50; display: block; }
-    .auth-footer { text-align: center; margin-top: 20px; font-size: 13px; color: var(--tinta-3); }
-    .auth-footer a { color: var(--marca); text-decoration: none; font-weight: 600; }
-    .auth-footer a:hover { text-decoration: underline; }
-    .info-box { background: var(--surface-alt); padding: 15px; border-radius: var(--radius-sm);
-      border-left: 4px solid var(--marca); margin-bottom: 20px; font-size: 13px; color: var(--tinta-2); }
+    .auth-msg.success { background: #e8f5e9; color: #2e7d32; border: 1px solid #4caf50; }
+    .auth-msg.show { display: block; }
+    .info-box { background: #f0f7ff; padding: 10px; border-radius: 6px; border-left: 3px solid #2196f3;
+      margin-bottom: 16px; font-size: 12px; color: #333; line-height: 1.5; }
   </style>
 </head>
 <body>
   <div class="auth-card">
+    <div class="etapa-badge">Etapa 2 de 2 — Verificação 2FA</div>
+
     <div class="logo">🔐</div>
-    <h1>Verificação 2FA</h1>
-    <p class="subtitle">Digite o código do seu autenticador</p>
+    <h1>Insira seu Código</h1>
+
+    <div id="mensagem" class="auth-msg"></div>
 
     <div class="info-box">
-      Digite o código de 6 dígitos do Google Authenticator, Authy ou Microsoft Authenticator
+      Digite o código de 6 dígitos do seu autenticador (Google Authenticator, Authy, Microsoft Authenticator)
     </div>
 
     <form id="form2fa">
+      <div class="toggle-group">
+        <input type="radio" id="tipo-token" name="tipo" value="token" checked>
+        <label for="tipo-token">Código do autenticador</label>
+      </div>
+
+      <div class="toggle-group">
+        <input type="radio" id="tipo-backup" name="tipo" value="backup">
+        <label for="tipo-backup">Código de backup</label>
+      </div>
+
       <div class="auth-campo">
-        <label for="token">Código 2FA (6 dígitos)</label>
+        <label for="codigo" id="label-codigo">Código 2FA (6 dígitos)</label>
         <input
           type="text"
-          id="token"
-          name="token"
+          id="codigo"
           placeholder="000000"
           maxlength="6"
           inputmode="numeric"
           pattern="\d{6}"
           required
-          autocomplete="one-time-code"
         >
       </div>
 
       <button type="submit" class="auth-btn" id="btnEnviar">
         ✓ Verificar
       </button>
-      <div id="mensagem" class="auth-msg"></div>
     </form>
-
-    <div class="auth-footer" style="margin-top: 30px;">
-      <p>Não consegue acessar seu autenticador?</p>
-      <p style="margin-top: 5px; color: #999; font-size: 12px;">Entre em contato com o suporte</p>
-    </div>
   </div>
 
   <script>
+    const formEl = document.getElementById('form2fa');
+    const codigoInput = document.getElementById('codigo');
+    const btnEnviar = document.getElementById('btnEnviar');
+    const mensagemEl = document.getElementById('mensagem');
+    const labelCodigoEl = document.getElementById('label-codigo');
+    const tipoTokenEl = document.getElementById('tipo-token');
+    const tipoBackupEl = document.getElementById('tipo-backup');
+
+    // Toggle entre token (6 dígitos) e backup code (8 caracteres)
+    document.querySelectorAll('input[name="tipo"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        if (tipoBackupEl.checked) {
+          codigoInput.maxLength = 8;
+          codigoInput.pattern = '[A-Z0-9]{8}';
+          codigoInput.placeholder = 'ABCD1234';
+          codigoInput.inputMode = 'text';
+          labelCodigoEl.textContent = 'Código de backup (8 caracteres)';
+        } else {
+          codigoInput.maxLength = 6;
+          codigoInput.pattern = '\\d{6}';
+          codigoInput.placeholder = '000000';
+          codigoInput.inputMode = 'numeric';
+          labelCodigoEl.textContent = 'Código 2FA (6 dígitos)';
+        }
+        codigoInput.value = '';
+        mensagemEl.classList.remove('show');
+        codigoInput.focus();
+      });
+    });
+
     function mostrarMensagem(texto, tipo) {
-      const el = document.getElementById('mensagem');
-      el.textContent = texto;
-      el.className = `auth-msg ${tipo}`;
+      mensagemEl.textContent = texto;
+      mensagemEl.className = `auth-msg ${tipo} show`;
     }
 
-    // Auto-submit quando digita 6 dígitos
-    document.getElementById('token').addEventListener('input', (e) => {
-      if (e.target.value.length === 6) {
-        // pequeno delay para UX
+    // Auto-submit quando completa o código
+    codigoInput.addEventListener('input', (e) => {
+      const valor = e.target.value;
+      const completo = tipoBackupEl.checked ? valor.length === 8 : valor.length === 6;
+      if (completo) {
         setTimeout(() => {
-          document.getElementById('form2fa').dispatchEvent(new Event('submit'));
+          formEl.dispatchEvent(new Event('submit'));
         }, 100);
       }
     });
 
-    document.getElementById('form2fa').addEventListener('submit', async (e) => {
+    formEl.addEventListener('submit', async (e) => {
       e.preventDefault();
 
-      const token = document.getElementById('token').value.trim();
-      if (!/^\d{6}$/.test(token)) {
-        mostrarMensagem('Código deve ter 6 dígitos', 'error');
-        return;
+      const codigo = codigoInput.value.trim();
+      const usarBackup = tipoBackupEl.checked;
+
+      if (usarBackup) {
+        if (!/^[A-Z0-9]{8}$/.test(codigo)) {
+          mostrarMensagem('Código de backup deve ter 8 caracteres', 'error');
+          return;
+        }
+      } else {
+        if (!/^\d{6}$/.test(codigo)) {
+          mostrarMensagem('Código deve ter 6 dígitos', 'error');
+          return;
+        }
       }
 
-      const btn = document.getElementById('btnEnviar');
-      btn.disabled = true;
-      btn.textContent = 'Verificando...';
+      btnEnviar.disabled = true;
+      btnEnviar.textContent = 'Verificando...';
 
       try {
-        const resp = await fetch('/api/admin/login', {
+        const payload = usarBackup ? { backup_code: codigo } : { token: codigo };
+
+        const resp = await fetch('/api/admin/2fa-verify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            senha: sessionStorage.getItem('__admin_senha_temp') || '',
-            token_2fa: token
-          })
+          credentials: 'include',
+          body: JSON.stringify(payload)
         });
 
         const data = await resp.json();
 
         if (resp.ok && data.ok) {
           mostrarMensagem('✓ Autenticado com sucesso!', 'success');
-          sessionStorage.removeItem('__admin_senha_temp');
           setTimeout(() => {
-            window.location.href = data.destino || '/admin.html';
-          }, 500);
+            window.location.href = data.destino || '/admin-dashboard.html';
+          }, 1000);
         } else if (resp.status === 401) {
-          mostrarMensagem('Código inválido. Tente novamente.', 'error');
-          document.getElementById('token').value = '';
-          document.getElementById('token').focus();
+          mostrarMensagem(data.erro || 'Código inválido. Tente novamente.', 'error');
+          codigoInput.value = '';
+          codigoInput.focus();
+        } else if (resp.status === 429) {
+          mostrarMensagem(data.erro || 'Muitas tentativas. Tente novamente em 15 minutos.', 'error');
         } else {
           mostrarMensagem(data.erro || 'Erro na verificação', 'error');
         }
       } catch (err) {
-        mostrarMensagem('Erro ao conectar: ' + err.message, 'error');
+        mostrarMensagem('Erro de conexão: ' + err.message, 'error');
       } finally {
-        btn.disabled = false;
-        btn.textContent = '✓ Verificar';
+        btnEnviar.disabled = false;
+        btnEnviar.textContent = '✓ Verificar';
       }
     });
 
-    // Focus no campo ao carregar
     window.addEventListener('load', () => {
-      document.getElementById('token').focus();
+      codigoInput.focus();
     });
   </script>
 </body>

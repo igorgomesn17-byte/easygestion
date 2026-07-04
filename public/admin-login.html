@@ -10,7 +10,9 @@
       background: linear-gradient(135deg, var(--marca) 0%, var(--marca-escura) 100%); padding: 20px; }
     .auth-card { background: white; border-radius: 12px; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
       width: 90%; max-width: 400px; padding: 40px; }
-    .logo { text-align: center; margin-bottom: 30px; }
+    .etapa-badge { display: inline-block; background: var(--marca); color: white; font-size: 11px;
+      font-weight: 700; padding: 4px 10px; border-radius: 4px; margin-bottom: 20px; }
+    .logo { text-align: center; margin-bottom: 20px; }
     .logo h1 { font-size: 28px; color: var(--marca); margin-bottom: 10px; }
     .logo p { font-size: 14px; color: #999; }
     .auth-campo { margin-bottom: 20px; }
@@ -37,6 +39,8 @@
 </head>
 <body>
   <div class="auth-card">
+    <div class="etapa-badge">Etapa 1 de 2 — Login</div>
+
     <div class="logo">
       <h1>🔐 EasyGestão</h1>
       <p>Painel Administrativo</p>
@@ -45,23 +49,27 @@
     <div class="auth-erro" id="erro"></div>
 
     <div class="auth-campo">
-      <label>Senha de Admin</label>
+      <label>Email</label>
+      <input type="email" id="email" placeholder="admin@easygestao.com" autofocus>
+    </div>
+
+    <div class="auth-campo">
+      <label>Senha</label>
       <div class="password-wrapper">
-        <input type="password" id="senha" placeholder="Digite a senha" autofocus>
+        <input type="password" id="senha" placeholder="Digite sua senha">
         <button type="button" class="toggle-senha" id="toggleSenha">👁️</button>
       </div>
     </div>
 
-    <button id="btn-login" class="auth-btn" onclick="login()">Acessar</button>
+    <button id="btn-login" class="auth-btn" onclick="login()">Próximo</button>
 
     <div class="auth-info">
-      Sistema seguro. Apenas para administradores.
-      <br><br>
-      <a href="/admin-2fa-setup.html" style="color: var(--marca); text-decoration: none; font-weight: 600;">⚙️ Configurar 2FA</a>
+      Sistema seguro com autenticação de dois fatores.
     </div>
   </div>
 
   <script>
+    const emailInput = document.getElementById('email');
     const senhaInput = document.getElementById('senha');
     const botao = document.getElementById('btn-login');
     const erroDiv = document.getElementById('erro');
@@ -73,7 +81,14 @@
     });
 
     async function login() {
+      const email = emailInput.value.trim();
       const senha = senhaInput.value;
+
+      if (!email) {
+        erroDiv.textContent = 'Digite o email';
+        erroDiv.classList.add('show');
+        return;
+      }
 
       if (!senha) {
         erroDiv.textContent = 'Digite a senha';
@@ -90,20 +105,19 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify({ senha })
+          body: JSON.stringify({ email, senha })
         });
 
         const data = await res.json();
 
         // Se 2FA é necessário (status 202)
         if (res.status === 202 && (data.codigo === 'PENDENTE_2FA' || data.codigo === 'PENDENTE_2FA_SETUP')) {
-          // Salvar a senha temporariamente na sessão pra usar no 2FA/setup
-          sessionStorage.setItem('__admin_senha_temp', senha);
+          // ✅ Não armazenar senha em sessionStorage - tudo é feito no servidor!
           window.location.href = data.destino || '/admin-2fa.html';
           return;
         }
 
-        // Se login foi bem-sucedido
+        // Se login foi bem-sucedido (não deve acontecer, mas segurança)
         if (res.ok && data.ok) {
           window.location.href = data.destino || '/admin-dashboard.html';
           return;
@@ -113,24 +127,23 @@
         erroDiv.textContent = data.erro || 'Erro ao autenticar.';
         erroDiv.classList.add('show');
         botao.disabled = false;
-        botao.textContent = 'Acessar';
+        botao.textContent = 'Próximo';
       } catch (err) {
         erroDiv.textContent = 'Erro de conexão. Tente novamente.';
         erroDiv.classList.add('show');
         botao.disabled = false;
-        botao.textContent = 'Acessar';
+        botao.textContent = 'Próximo';
       }
     }
 
     // Enter para submeter
-    senhaInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') login();
+    document.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && document.activeElement !== botao) login();
     });
 
     // Limpar erro ao digitar
-    senhaInput.addEventListener('input', () => {
-      erroDiv.classList.remove('show');
-    });
+    emailInput.addEventListener('input', () => erroDiv.classList.remove('show'));
+    senhaInput.addEventListener('input', () => erroDiv.classList.remove('show'));
   </script>
 </body>
 </html>
