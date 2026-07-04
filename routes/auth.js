@@ -72,97 +72,19 @@ function sanitizar(texto) {
     .replace(/[<>]/g, '');
 }
 
-// Resolve o hash da senha admin:
-// 1) ADMIN_SENHA_HASH (já em hash) tem prioridade;
-// 2) senão ADMIN_SENHA (texto) é hasheada em memória no boot;
-// 3) senão (dev local sem env) usa fallback 'dsstore' — APENAS local.
-let HASH_ADMIN = null;
-function hashAdmin() {
-  if (HASH_ADMIN) return HASH_ADMIN;
-  if (process.env.ADMIN_SENHA_HASH) HASH_ADMIN = process.env.ADMIN_SENHA_HASH;
-  else if (process.env.ADMIN_SENHA) HASH_ADMIN = hashSenha(process.env.ADMIN_SENHA);
-  else HASH_ADMIN = hashSenha('dsstore'); // fallback DEV — em produção sempre setar ADMIN_SENHA
-  return HASH_ADMIN;
-}
+// ⚠️ Nota: Admin agora é armazenado na tabela `admins` (banco de dados)
+// As funções hashAdmin() e usuarioAdmin() foram removidas — admin não vem mais do .env
 
-function usuarioAdmin() { return getConfig('admin_usuario', 'igor'); }
-
-// POST /api/admin/login  body: { senha, token_2fa }
-// Login admin com 2FA opcional
-router.post('/admin/login', limiteAdminPassword, (req, res) => {
-  console.log('[AUTH] POST /admin/login chegou na rota!');
-  const { senha, token_2fa } = req.body || {};
-
-  if (!senha) {
-    return res.status(400).json({ erro: 'Senha é obrigatória' });
-  }
-
-  if (!verificarSenha(senha, hashAdmin())) {
-    console.warn(`[ADMIN LOGIN FALHA] ${req.ip} • ${new Date().toISOString()}`);
-    return res.status(401).json({ erro: 'Senha de admin incorreta' });
-  }
-
-  // ✅ Senha correta! Agora verificar 2FA
-  const admin2faSecret = process.env.ADMIN_2FA_SECRET;
-
-  // Caso 1: 2FA NÃO está configurado (primeira vez)
-  if (!admin2faSecret) {
-    console.log('[ADMIN LOGIN] Senha OK, 2FA não configurado → redirecionar para setup');
-    return res.status(202).json({
-      ok: false,
-      erro: 'Autenticação 2FA necessária',
-      codigo: 'PENDENTE_2FA_SETUP',
-      destino: '/admin-2fa-setup.html'
-    });
-  }
-
-  // Caso 2: 2FA JÁ está configurado (próximos logins)
-  if (!token_2fa) {
-    // Primeira etapa: senha OK, mas precisa de 2FA
-    req.session.admin_pendente_2fa = true;
-    console.log('[ADMIN LOGIN] Senha OK, aguardando 2FA');
-    return res.status(202).json({
-      ok: false,
-      erro: 'Autenticação 2FA necessária',
-      codigo: 'PENDENTE_2FA',
-      destino: '/admin-2fa.html'
-    });
-  }
-
-  // Caso 3: Validar token 2FA
-  const tokenValido = validarToken(admin2faSecret, token_2fa);
-  if (!tokenValido) {
-    console.warn(`[ADMIN 2FA FALHA] Token inválido • ${req.ip}`);
-    return res.status(401).json({ erro: 'Token 2FA inválido' });
-  }
-  console.log('[ADMIN 2FA] Token válido');
-
-  // ✅ Credenciais OK + 2FA OK → criar session
-  req.session.logado = true;
-  req.session.usuario = usuarioAdmin();
-  req.session.papel = 'admin';
-  req.session.tenant_id = 1;
-  delete req.session.admin_pendente_2fa;
-
-  console.log(`[ADMIN LOGIN OK] ${usuarioAdmin()} • ${req.ip} • SESSION ID: ${req.sessionID}`);
-  return res.json({ ok: true, usuario: usuarioAdmin(), papel: 'admin', destino: '/admin-dashboard.html' });
-});
+// ⚠️ NOTA: POST /api/admin/login foi movido para routes/admin.js
+// Este arquivo (auth.js) agora serve apenas para autenticação de tenants/clientes
+// Admin agora faz login via POST /api/admin/login com email + senha, armazenado na tabela admins
 
 // POST /api/login  body: { email, senha }
-// Login por email + senha (para SaaS multi-tenant)
+// Login por email + senha (para SaaS multi-tenant / clientes)
+// ⚠️ Admin agora faz login EXCLUSIVAMENTE via POST /api/admin/login (routes/admin.js)
 router.post('/login', (req, res) => {
   const { email, senha } = req.body || {};
   const destinoCustom = req.query.redirect || req.body.redirect;  // Pode vir de query ou body
-
-  // Se vier vazio (compatibilidade com admin do .env)
-  if (!email && senha && verificarSenha(senha, hashAdmin())) {
-    req.session.logado = true;
-    req.session.usuario = usuarioAdmin();
-    req.session.papel = 'admin';
-    req.session.tenant_id = 1;  // admin do .env sempre é tenant 1
-    console.log(`[LOGIN OK] ${usuarioAdmin()} (admin env) • ${req.ip} • ${new Date().toISOString()}`);
-    return res.json({ ok: true, usuario: usuarioAdmin(), papel: 'admin', destino: destinoCustom || 'index.html' });
-  }
 
   // Login por email (tabela de usuários)
   if (!email || !senha) {

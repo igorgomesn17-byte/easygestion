@@ -11,13 +11,11 @@
 const express = require('express');
 const path = require('path');
 const { db } = require('../db/database');
-const { exigirPapel } = require('../middleware/seguranca');
+const { exigirPapel, verificarSenha, hashSenha, limiteAdminPassword } = require('../middleware/seguranca');
 const { auditarAcao, buscarAuditoria } = require('../middleware/auditoria');
 const { enviarEmail, templateContaBloqueada, templateContaReativada } = require('../lib/email');
 const { obterStatusAssinatura } = require('../lib/assinatura');
 const router = express.Router();
-
-const { verificarSenha, hashSenha } = require('../middleware/seguranca');
 
 // --- Middleware: só admin acessa o backoffice ---
 // Verifica: 1) logado na sessão, 2) papel === 'admin'
@@ -40,88 +38,53 @@ router.get('/', exigirAdminBackoffice, (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'admin-dashboard.html'));
 });
 
-// --- POST /login → autentica admin (apenas senha ADMIN_SENHA_HASH do .env) ---
+// --- POST /login → autentica admin com email + senha ---
 // Fluxo:
-// 1. Valida senha
-// 2. Se 2FA não configurado → retorna destino: /admin-2fa-setup.html (primeira vez)
-// 3. Se 2FA configurado → retorna destino: /admin-2fa.html (próximos logins)
+// 1. Valida email + senha contra tabela admins
+// 2. Se válido e 2FA não ativado → cria sessão pendente, retorna código 'PENDENTE_2FA_SETUP'
+// 3. Se válido e 2FA ativado → cria sessão pendente, retorna código 'PENDENTE_2FA'
+// 4. Sessão pendente dura 5 minutos; requer confirmação via /2fa-setup ou /2fa-verify
 router.post('/login', (req, res) => {
-  const { senha, token_2fa } = req.body;
+  const { email, senha } = req.body;
 
-  if (!senha) {
-    return res.status(400).json({ erro: 'Senha obrigatória.' });
+  if (!email || !senha) {
+    return res.status(400).json({ erro: 'Email e senha são obrigatórios.' });
   }
 
   try {
-    // Verificar contra ADMIN_SENHA_HASH do .env
-    const hashAdmin = process.env.ADMIN_SENHA_HASH || null;
-
-    if (!hashAdmin || !verificarSenha(String(senha), hashAdmin)) {
-      console.warn(`[ADMIN] Login falhou: senha incorreta • IP: ${req.ip} • ${new Date().toISOString()}`);
-      return res.status(401).json({
-        erro: 'Senha de admin incorreta.'
-      });
+    // Rate limit: máx 5 tentativas por 15 min por IP
+    if (!limiteAdminPassword.tryRemoveTokens(1)) {
+      console.warn(`[ADMIN] Login: rate limit atingido • IP: ${req.ip}`);
+      return res.status(429).json({ erro: 'Muitas tentativas. Tente novamente em 15 minutos.' });
     }
 
-    // ✅ Senha correta! Agora verificar 2FA
-    const admin2faSecret = process.env.ADMIN_2FA_SECRET;
+    // Buscar admin na tabela de banco
+    const admin = db.prepare('SELECT * FROM admins WHERE LOWER(email) = LOWER(?) AND ativo = 1').get(email);
 
-    // Caso 1: 2FA NÃO está configurado (primeira vez)
-    if (!admin2faSecret) {
-      // Redirecionar pra página de SETUP
-      return res.status(202).json({
-        ok: false,
-        erro: 'Autenticação 2FA necessária',
-        codigo: 'PENDENTE_2FA_SETUP',
-        destino: '/admin-2fa-setup.html'
-      });
+    // Senha errada ou admin não encontrado: retornar genérico (não distinguir)
+    if (!admin || !verificarSenha(String(senha), admin.senha_hash)) {
+      console.warn(`[ADMIN] Login falhou: email/senha incorretos ou admin inativo • Email: ${email} • IP: ${req.ip}`);
+      return res.status(401).json({ erro: 'Email ou senha incorretos.' });
     }
 
-    // Caso 2: 2FA já está configurado (próximos logins)
-    if (!token_2fa) {
-      // Pedir token 2FA
-      return res.status(202).json({
-        ok: false,
-        erro: 'Autenticação 2FA necessária',
-        codigo: 'PENDENTE_2FA',
-        destino: '/admin-2fa.html'
-      });
-    }
+    // ✅ Email/senha corretos! Determinar próximo passo (2FA setup ou verify)
+    const etapa2fa = admin.totp_ativado ? 'PENDENTE_2FA' : 'PENDENTE_2FA_SETUP';
 
-    // Caso 3: Validar token 2FA
-    const { validarToken } = require('../lib/2fa');
-    if (!validarToken(admin2faSecret, token_2fa)) {
-      return res.status(401).json({
-        erro: 'Token 2FA inválido'
-      });
-    }
+    // Criar sessão intermediária (válida por 5 minutos)
+    req.session.admin_pendente = {
+      admin_id: admin.id,
+      email: admin.email,
+      nome: admin.nome,
+      etapa: admin.totp_ativado ? '2fa_verify' : '2fa_setup',
+      expira_em: Date.now() + 5 * 60 * 1000 // 5 minutos
+    };
 
-    // ✅ Tudo validado! Criar sessão
-    req.session.logado = true;
-    req.session.usuario_id = null;
-    req.session.nome = 'admin';
-    req.session.email = null;
-    req.session.papel = 'admin';
-    req.session.tenant_id = 1;
-    req.session.login_em = new Date().toISOString();
+    console.log(`[ADMIN] Login: fase 1 bem-sucedida (email/senha) • Admin: ${admin.email} • IP: ${req.ip}`);
 
-    // ✅ AUDITORIA: registrar login do admin
-    auditarAcao(req, {
-      acao: 'LOGIN_admin',
-      recurso: 'auditoria_admin',
-      recurso_id: null,
-      antes: null,
-      depois: null,
-      status: 200,
-    });
-
-    console.log(`[ADMIN] ✅ Login bem-sucedido (2FA) • IP: ${req.ip} • ${new Date().toISOString()}`);
-
-    res.json({
-      ok: true,
-      sucesso: true,
-      mensagem: 'Logado como administrador',
-      destino: '/admin-dashboard.html'
+    res.status(202).json({
+      codigo: etapa2fa,
+      destino: admin.totp_ativado ? '/admin-2fa.html' : '/admin-2fa-setup.html',
+      mensagem: admin.totp_ativado ? 'Insira seu código 2FA' : 'Configure sua autenticação 2FA'
     });
   } catch (err) {
     console.error('[ADMIN] ❌ Erro ao fazer login:', err.message);
@@ -134,7 +97,7 @@ router.post('/login', (req, res) => {
 
 // --- POST /logout → encerra sessão admin ---
 router.post('/logout', (req, res) => {
-  const usuario = req.session?.nome || 'unknown';
+  const usuario = req.session?.nome || req.session?.admin_pendente?.email || 'unknown';
   req.session.destroy((err) => {
     console.log(`[ADMIN] Logout: ${usuario}`);
     if (err) {
@@ -977,75 +940,231 @@ router.get('/login-history', exigirAdminBackoffice, (req, res) => {
 });
 
 // --- POST /2fa-setup → gera secret TOTP + retorna QR code ---
-// Acesso: apenas POST (sem autenticação de admin ainda, pois é durante setup)
-// Retorna: { secret, qr_code_data_url, backup_codes }
+// Requer: sessão admin_pendente válida com etapa === '2fa_setup'
+// Armazena: secret_temp e backup_hash_temp na sessão (nunca retorna para o client)
+// Retorna: QR code em claro + secret em claro + backup codes em claro (só pra exibição)
 router.post('/2fa-setup', async (req, res) => {
   try {
-    const { gerarSecret, gerarQRCode } = require('../lib/2fa');
+    // Validar sessão pendente
+    const pendente = req.session?.admin_pendente;
+    if (!pendente || pendente.etapa !== '2fa_setup' || Date.now() > pendente.expira_em) {
+      console.warn(`[ADMIN 2FA-SETUP] Acesso negado: sem sessão pendente válida • IP: ${req.ip}`);
+      return res.status(401).json({ erro: 'Sessão expirada. Faça login novamente.' });
+    }
 
-    const secretObj = gerarSecret();
+    const { gerarSecret, gerarQRCode, gerarBackupCodes } = require('../lib/2fa');
+
+    // Gerar secret TOTP
+    const secretObj = gerarSecret(`EasyGestão Admin (${pendente.email})`);
     const qrCodeDataUrl = await gerarQRCode(secretObj);
 
-    // Gerar códigos de backup (10 códigos de 8 dígitos cada)
-    const backupCodes = Array.from({ length: 10 }, () => {
-      return Math.random().toString(36).substring(2, 10).toUpperCase();
-    });
+    // Gerar códigos de backup
+    const backupCodesPlanos = gerarBackupCodes();
+    const backupCodesHash = backupCodesPlanos.map(code => hashSenha(code));
+
+    // ✅ Armazenar TEMPORARIAMENTE na sessão (não persiste em DB ainda)
+    req.session.admin_2fa_temp = {
+      secret: secretObj.base32,
+      secret_temp_obj: secretObj,
+      backup_codes_hash: backupCodesHash,
+      criado_em: Date.now()
+    };
+
+    console.log(`[ADMIN 2FA-SETUP] Secret gerado • Admin: ${pendente.email} • IP: ${req.ip}`);
 
     res.json({
       ok: true,
-      secret: secretObj.base32, // retornar só a string em base32, não o objeto completo
+      secret: secretObj.base32,
       qr_code: qrCodeDataUrl,
-      backup_codes: backupCodes,
-      mensagem: 'Secret 2FA gerado. Escaneie o QR code ou insira o secret manualmente no seu autenticador.'
+      backup_codes: backupCodesPlanos,
+      mensagem: 'Secret 2FA gerado. Escaneie o QR code ou insira o secret manualmente.'
     });
   } catch (err) {
-    console.error('[ADMIN 2FA] Erro ao gerar setup:', err);
+    console.error('[ADMIN 2FA-SETUP] Erro ao gerar setup:', err);
     return res.status(500).json({ erro: 'Erro ao gerar QR code' });
   }
 });
 
-// --- POST /2fa-confirm → confirma setup e ativa 2FA ---
-// Requer: secret, token, backup_codes
-// Salva secret em process.env (não persiste em .env, mas mantém até próximo restart)
-// Em produção: seria melhor salvar em DB ou arquivo de config seguro
+// --- POST /2fa-confirm → confirma setup e persiste 2FA no banco ---
+// Requer: sessão admin_pendente + admin_2fa_temp + token (6 dígitos)
+// Valida token contra secret temporário, persiste no banco, promove sessão
 router.post('/2fa-confirm', (req, res) => {
-  const { secret, token, backup_codes } = req.body;
+  const { token } = req.body;
 
-  if (!secret || !token || !Array.isArray(backup_codes) || backup_codes.length === 0) {
-    return res.status(400).json({ erro: 'Dados incompletos para confirmar 2FA' });
+  if (!token) {
+    return res.status(400).json({ erro: 'Token 2FA obrigatório.' });
   }
 
   try {
-    const { validarToken } = require('../lib/2fa');
-
-    // Validar token contra o secret
-    if (!validarToken(secret, token)) {
-      return res.status(401).json({ erro: 'Token 2FA inválido' });
+    // Validar sessão pendente
+    const pendente = req.session?.admin_pendente;
+    if (!pendente || pendente.etapa !== '2fa_setup' || Date.now() > pendente.expira_em) {
+      console.warn(`[ADMIN 2FA-CONFIRM] Acesso negado: sem sessão pendente válida • IP: ${req.ip}`);
+      return res.status(401).json({ erro: 'Sessão expirada. Comece o login novamente.' });
     }
 
-    // ✅ 2FA confirmado! Ativar globalmente
-    process.env.ADMIN_2FA_SECRET = secret;
-    process.env.ADMIN_2FA_BACKUP_CODES = JSON.stringify(backup_codes);
+    // Validar que temos o secret temporário
+    const temp2fa = req.session?.admin_2fa_temp;
+    if (!temp2fa || !temp2fa.secret) {
+      console.warn(`[ADMIN 2FA-CONFIRM] Acesso negado: sem secret temporário • Admin: ${pendente.email}`);
+      return res.status(401).json({ erro: 'Secret não encontrado. Comece do passo 1.' });
+    }
 
-    // Também criar sessão pra login imediato
+    const { validarToken } = require('../lib/2fa');
+
+    // Validar token contra o secret temporário
+    if (!validarToken(temp2fa.secret, token)) {
+      console.warn(`[ADMIN 2FA-CONFIRM] Token inválido • Admin: ${pendente.email} • IP: ${req.ip}`);
+      return res.status(401).json({ erro: 'Token 2FA inválido. Tente novamente.' });
+    }
+
+    // ✅ Token válido! Persistir no banco de dados
+    const result = db.prepare(`
+      UPDATE admins
+      SET totp_secret = ?, totp_backup_codes_hash = ?, totp_ativado = 1, ultimo_login_em = ?
+      WHERE id = ?
+    `).run(temp2fa.secret, JSON.stringify(temp2fa.backup_codes_hash), new Date().toISOString(), pendente.admin_id);
+
+    if (result.changes === 0) {
+      return res.status(404).json({ erro: 'Admin não encontrado.' });
+    }
+
+    // ✅ Promover sessão: remove admin_pendente, cria sessão logada
+    delete req.session.admin_pendente;
+    delete req.session.admin_2fa_temp;
+
     req.session.logado = true;
-    req.session.usuario_id = null;
-    req.session.nome = 'admin';
-    req.session.email = null;
+    req.session.admin_id = pendente.admin_id;
+    req.session.nome = pendente.nome;
+    req.session.email = pendente.email;
     req.session.papel = 'admin';
     req.session.tenant_id = 1;
     req.session.login_em = new Date().toISOString();
 
-    console.log('[ADMIN 2FA] ✅ Setup confirmado e 2FA ativado globalmente');
+    // ✅ AUDITORIA: registrar setup de 2FA
+    auditarAcao(req, {
+      acao: 'LOGIN_admin_2fa_setup',
+      recurso: 'admins',
+      recurso_id: pendente.admin_id,
+      antes: null,
+      depois: null,
+      status: 200
+    });
+
+    console.log(`[ADMIN 2FA-CONFIRM] ✅ 2FA ativado e persistido no banco • Admin: ${pendente.email} • IP: ${req.ip}`);
 
     res.json({
       ok: true,
-      mensagem: '2FA ativado com sucesso! Você será logado agora.',
+      mensagem: '2FA ativado com sucesso!',
       destino: '/admin-dashboard.html'
     });
   } catch (err) {
-    console.error('[ADMIN 2FA] Erro ao confirmar setup:', err);
-    return res.status(500).json({ erro: 'Erro ao confirmar 2FA' });
+    console.error('[ADMIN 2FA-CONFIRM] Erro ao confirmar setup:', err);
+    return res.status(500).json({
+      erro: 'Erro ao confirmar 2FA',
+      detalhe: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+});
+
+// --- POST /2fa-verify → valida token ou backup code para login subsequentes ---
+// Requer: sessão admin_pendente com etapa === '2fa_verify' + { token } ou { backup_code }
+// Busca admin no banco, valida token/backup, promove sessão
+// Se backup code: regrava array sem o código consumido
+router.post('/2fa-verify', (req, res) => {
+  const { token, backup_code } = req.body;
+
+  if (!token && !backup_code) {
+    return res.status(400).json({ erro: 'Token ou código de backup obrigatório.' });
+  }
+
+  try {
+    // Validar sessão pendente
+    const pendente = req.session?.admin_pendente;
+    if (!pendente || pendente.etapa !== '2fa_verify' || Date.now() > pendente.expira_em) {
+      console.warn(`[ADMIN 2FA-VERIFY] Acesso negado: sem sessão pendente válida • IP: ${req.ip}`);
+      return res.status(401).json({ erro: 'Sessão expirada. Faça login novamente.' });
+    }
+
+    // Rate limit: máx 5 tentativas por 15 min
+    if (!limiteAdminPassword.tryRemoveTokens(1)) {
+      console.warn(`[ADMIN 2FA-VERIFY] Rate limit atingido • Admin: ${pendente.email} • IP: ${req.ip}`);
+      return res.status(429).json({ erro: 'Muitas tentativas. Tente novamente em 15 minutos.' });
+    }
+
+    // Buscar admin no banco
+    const admin = db.prepare('SELECT * FROM admins WHERE id = ? AND ativo = 1').get(pendente.admin_id);
+    if (!admin) {
+      return res.status(404).json({ erro: 'Admin não encontrado.' });
+    }
+
+    const { validarToken, validarBackupCode } = require('../lib/2fa');
+    let adminNovo = admin; // pode ser modificado se usar backup code
+
+    if (token) {
+      // ✅ Validar token TOTP
+      if (!validarToken(admin.totp_secret, token)) {
+        console.warn(`[ADMIN 2FA-VERIFY] Token inválido • Admin: ${admin.email} • IP: ${req.ip}`);
+        return res.status(401).json({ erro: 'Código 2FA inválido.' });
+      }
+    } else if (backup_code) {
+      // ✅ Validar backup code
+      const backupCodesHash = JSON.parse(admin.totp_backup_codes_hash || '[]');
+      const resultado = validarBackupCode(backupCodesHash, backup_code, verificarSenha);
+
+      if (!resultado.valido) {
+        console.warn(`[ADMIN 2FA-VERIFY] Backup code inválido • Admin: ${admin.email} • IP: ${req.ip}`);
+        return res.status(401).json({ erro: 'Código de backup inválido.' });
+      }
+
+      // ✅ Backup code válido! Remover o código consumido do array
+      const novoArray = backupCodesHash.filter((_, idx) => idx !== resultado.indexConsumido);
+
+      // Atualizar backup codes no banco (remover o índice consumido)
+      db.prepare('UPDATE admins SET totp_backup_codes_hash = ? WHERE id = ?')
+        .run(JSON.stringify(novoArray), admin.id);
+
+      console.log(`[ADMIN 2FA-VERIFY] Backup code consumido • Admin: ${admin.email} • Códigos restantes: ${novoArray.length}`);
+    }
+
+    // ✅ 2FA verificado! Promover sessão
+    delete req.session.admin_pendente;
+
+    req.session.logado = true;
+    req.session.admin_id = admin.id;
+    req.session.nome = admin.nome;
+    req.session.email = admin.email;
+    req.session.papel = admin.papel;
+    req.session.tenant_id = 1;
+    req.session.login_em = new Date().toISOString();
+
+    // Atualizar último login
+    db.prepare('UPDATE admins SET ultimo_login_em = ? WHERE id = ?')
+      .run(new Date().toISOString(), admin.id);
+
+    // ✅ AUDITORIA: registrar login bem-sucedido
+    auditarAcao(req, {
+      acao: 'LOGIN_admin',
+      recurso: 'admins',
+      recurso_id: admin.id,
+      antes: null,
+      depois: null,
+      status: 200
+    });
+
+    console.log(`[ADMIN 2FA-VERIFY] ✅ Login bem-sucedido • Admin: ${admin.email} • IP: ${req.ip}`);
+
+    res.json({
+      ok: true,
+      mensagem: 'Logado com sucesso!',
+      destino: '/admin-dashboard.html'
+    });
+  } catch (err) {
+    console.error('[ADMIN 2FA-VERIFY] Erro ao verificar 2FA:', err);
+    return res.status(500).json({
+      erro: 'Erro ao verificar 2FA',
+      detalhe: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
   }
 });
 
