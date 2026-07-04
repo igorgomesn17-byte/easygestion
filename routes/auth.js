@@ -78,31 +78,42 @@ router.post('/admin/login', limiteAdminPassword, (req, res) => {
     return res.status(401).json({ erro: 'Senha de admin incorreta' });
   }
 
-  // Se 2FA está ativado (ADMIN_2FA_SECRET no .env), exigir token
+  // ✅ Senha correta! Agora verificar 2FA
   const admin2faSecret = process.env.ADMIN_2FA_SECRET;
-  if (admin2faSecret) {
-    if (!token_2fa) {
-      // Primeira etapa: senha OK, mas precisa de 2FA
-      req.session.admin_pendente_2fa = true;
-      console.log('[ADMIN LOGIN] Senha OK, aguardando 2FA');
-      return res.status(202).json({
-        ok: false,
-        erro: 'Autenticação 2FA necessária',
-        codigo: 'PENDENTE_2FA',
-        destino: '/admin-2fa.html'
-      });
-    }
 
-    // Validar token 2FA
-    const tokenValido = validarToken(admin2faSecret, token_2fa);
-    if (!tokenValido) {
-      console.warn(`[ADMIN 2FA FALHA] Token inválido • ${req.ip}`);
-      return res.status(401).json({ erro: 'Token 2FA inválido' });
-    }
-    console.log('[ADMIN 2FA] Token válido');
+  // Caso 1: 2FA NÃO está configurado (primeira vez)
+  if (!admin2faSecret) {
+    console.log('[ADMIN LOGIN] Senha OK, 2FA não configurado → redirecionar para setup');
+    return res.status(202).json({
+      ok: false,
+      erro: 'Autenticação 2FA necessária',
+      codigo: 'PENDENTE_2FA_SETUP',
+      destino: '/admin-2fa-setup.html'
+    });
   }
 
-  // Credenciais OK + 2FA OK (se necessário) → criar session
+  // Caso 2: 2FA JÁ está configurado (próximos logins)
+  if (!token_2fa) {
+    // Primeira etapa: senha OK, mas precisa de 2FA
+    req.session.admin_pendente_2fa = true;
+    console.log('[ADMIN LOGIN] Senha OK, aguardando 2FA');
+    return res.status(202).json({
+      ok: false,
+      erro: 'Autenticação 2FA necessária',
+      codigo: 'PENDENTE_2FA',
+      destino: '/admin-2fa.html'
+    });
+  }
+
+  // Caso 3: Validar token 2FA
+  const tokenValido = validarToken(admin2faSecret, token_2fa);
+  if (!tokenValido) {
+    console.warn(`[ADMIN 2FA FALHA] Token inválido • ${req.ip}`);
+    return res.status(401).json({ erro: 'Token 2FA inválido' });
+  }
+  console.log('[ADMIN 2FA] Token válido');
+
+  // ✅ Credenciais OK + 2FA OK → criar session
   req.session.logado = true;
   req.session.usuario = usuarioAdmin();
   req.session.papel = 'admin';
@@ -110,7 +121,7 @@ router.post('/admin/login', limiteAdminPassword, (req, res) => {
   delete req.session.admin_pendente_2fa;
 
   console.log(`[ADMIN LOGIN OK] ${usuarioAdmin()} • ${req.ip} • SESSION ID: ${req.sessionID}`);
-  return res.json({ ok: true, usuario: usuarioAdmin(), papel: 'admin', destino: 'index.html' });
+  return res.json({ ok: true, usuario: usuarioAdmin(), papel: 'admin', destino: '/admin-dashboard.html' });
 });
 
 // POST /api/login  body: { email, senha }
