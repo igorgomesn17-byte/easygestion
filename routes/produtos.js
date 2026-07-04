@@ -119,12 +119,26 @@ router.get('/', (req, res) => {
 
   const ehAdmin = req.session && req.session.papel === 'admin';
   const produtos = db.prepare(sql).all(...params);
-  const getVariacoes = db.prepare('SELECT id, tamanho, quantidade FROM variacoes WHERE produto_id = ? ORDER BY id');
+
+  // Buscar todas as variações de uma vez (N+1 fix)
+  const produtoIds = produtos.map(p => p.id);
+  const gradePorProduto = new Map();
+  if (produtoIds.length > 0) {
+    const placeholders = produtoIds.map(() => '?').join(',');
+    const todasVariacoes = db.prepare(
+      `SELECT id, produto_id, tamanho, quantidade FROM variacoes WHERE produto_id IN (${placeholders}) ORDER BY produto_id, id`
+    ).all(...produtoIds);
+    for (const v of todasVariacoes) {
+      if (!gradePorProduto.has(v.produto_id)) gradePorProduto.set(v.produto_id, []);
+      gradePorProduto.get(v.produto_id).push({ id: v.id, tamanho: v.tamanho, quantidade: v.quantidade });
+    }
+  }
+
   for (const p of produtos) {
-    p.grade = getVariacoes.all(p.id);
+    p.grade = gradePorProduto.get(p.id) || [];
     p.estoque_total = p.grade.reduce((s, v) => s + v.quantidade, 0);
     if (ehAdmin) p.margem = analisarPreco(p.custo, p.preco_venda);
-    else { delete p.custo; } // não-admin (PDV/relacionamento) não vê custo/margem
+    else { delete p.custo; }
   }
   res.json(produtos);
 });
@@ -145,14 +159,41 @@ router.get('/vitrine', (req, res) => {
   if (colecao) { sql += ' AND colecao = ?'; params.push(colecao); }
   sql += ' ORDER BY criado_em DESC';
   const produtos = db.prepare(sql).all(...params);
-  const getVar = db.prepare('SELECT tamanho, quantidade FROM variacoes WHERE produto_id = ? AND quantidade > 0 ORDER BY id');
+
+  // Buscar variações e fotos de uma vez (N+1 fix)
+  const produtoIds = produtos.map(p => p.id);
+  const gradePorProduto = new Map();
+  const fotosPorProduto = new Map();
+
+  if (produtoIds.length > 0) {
+    const placeholders = produtoIds.map(() => '?').join(',');
+
+    // Buscar variações com estoque
+    const todasVar = db.prepare(
+      `SELECT produto_id, tamanho, quantidade FROM variacoes WHERE produto_id IN (${placeholders}) AND quantidade > 0 ORDER BY produto_id, id`
+    ).all(...produtoIds);
+    for (const v of todasVar) {
+      if (!gradePorProduto.has(v.produto_id)) gradePorProduto.set(v.produto_id, []);
+      gradePorProduto.get(v.produto_id).push({ tamanho: v.tamanho, quantidade: v.quantidade });
+    }
+
+    // Buscar fotos extras
+    const todasFotos = db.prepare(
+      `SELECT produto_id, caminho FROM produto_fotos WHERE produto_id IN (${placeholders}) ORDER BY produto_id, ordem, id`
+    ).all(...produtoIds);
+    for (const f of todasFotos) {
+      if (!fotosPorProduto.has(f.produto_id)) fotosPorProduto.set(f.produto_id, []);
+      fotosPorProduto.get(f.produto_id).push(f.caminho);
+    }
+  }
+
   const comEstoque = [];
   for (const p of produtos) {
-    const grade = getVar.all(p.id);
-    if (grade.length === 0) continue; // so mostra o que tem em estoque
+    const grade = gradePorProduto.get(p.id) || [];
+    if (grade.length === 0) continue;
     p.tamanhos = grade.map(g => g.tamanho);
     // galeria: capa (foto) + extras, na ordem. Só caminhos válidos.
-    p.galeria = [p.foto, ...fotosExtrasDe(p.id)].filter(Boolean);
+    p.galeria = [p.foto, ...(fotosPorProduto.get(p.id) || [])].filter(Boolean);
     // titulo pra vitrine (A14): se o nome for o proprio codigo (cadastro sem nome),
     // mostra Categoria + Cor pra cliente, nunca o codigo cru.
     if (p.nome === p.codigo) {

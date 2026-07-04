@@ -86,8 +86,21 @@ router.get('/:id', (req, res) => {
   c.compras = db.prepare(`
     SELECT id, data_hora, total, forma_pagamento, origem FROM vendas WHERE cliente_id = ? AND tenant_id = ? ORDER BY data_hora DESC
   `).all(c.id, req.tenantId);
-  const getItens = db.prepare('SELECT descricao, qtd, preco_unit FROM venda_itens WHERE venda_id = ? AND tenant_id = ?');
-  for (const compra of c.compras) compra.itens = getItens.all(compra.id, req.tenantId);
+
+  // Buscar itens de todas as compras de uma vez (N+1 fix)
+  const vendaIds = c.compras.map(v => v.id);
+  const itensPorVenda = new Map();
+  if (vendaIds.length > 0) {
+    const placeholders = vendaIds.map(() => '?').join(',');
+    const todosItens = db.prepare(
+      `SELECT venda_id, descricao, qtd, preco_unit FROM venda_itens WHERE venda_id IN (${placeholders}) AND tenant_id = ?`
+    ).all(...vendaIds, req.tenantId);
+    for (const it of todosItens) {
+      if (!itensPorVenda.has(it.venda_id)) itensPorVenda.set(it.venda_id, []);
+      itensPorVenda.get(it.venda_id).push({ descricao: it.descricao, qtd: it.qtd, preco_unit: it.preco_unit });
+    }
+  }
+  for (const compra of c.compras) compra.itens = itensPorVenda.get(compra.id) || [];
   // quem indicou esta cliente (nome) e quantas ela já indicou
   if (c.indicada_por) {
     const ind = db.prepare('SELECT nome FROM clientes WHERE id = ? AND tenant_id = ?').get(c.indicada_por, req.tenantId);
