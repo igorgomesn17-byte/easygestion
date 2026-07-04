@@ -11,7 +11,7 @@
 const express = require('express');
 const path = require('path');
 const { db } = require('../db/database');
-const { exigirPapel, verificarSenha, hashSenha } = require('../middleware/seguranca');
+const { exigirPapel, verificarSenha, hashSenha, limiteAdminPassword } = require('../middleware/seguranca');
 const { auditarAcao, buscarAuditoria } = require('../middleware/auditoria');
 const { enviarEmail, templateContaBloqueada, templateContaReativada } = require('../lib/email');
 const { obterStatusAssinatura } = require('../lib/assinatura');
