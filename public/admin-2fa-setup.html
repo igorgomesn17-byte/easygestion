@@ -9,32 +9,32 @@
     body { min-height: 100vh; display: flex; align-items: center; justify-content: center;
       background: linear-gradient(160deg, var(--marca) 0%, var(--marca-escura) 100%); padding: 20px; }
     .setup-card { background: var(--surface); border-radius: 18px; box-shadow: 0 18px 50px rgba(0,0,0,.3);
-      max-width: 500px; width: 100%; padding: 38px 30px; }
-    .logo { text-align: center; margin-bottom: 28px; font-size: 48px; }
-    h1 { color: var(--marca); margin-bottom: 8px; font-size: 24px; font-weight: 700; text-align: center; }
-    .subtitle { color: var(--tinta-2); font-size: 14px; margin-bottom: 28px; text-align: center; }
-    .step-container { margin-bottom: 28px; }
-    .step-title { font-size: 13px; font-weight: 600; color: var(--marca); text-transform: uppercase;
-      margin-bottom: 12px; }
-    .qr-code-container { text-align: center; margin-bottom: 20px; }
-    .qr-code-container img { max-width: 280px; width: 100%; border: 3px solid var(--linha); border-radius: 12px;
-      padding: 12px; background: white; box-shadow: 0 4px 12px rgba(0,0,0,.1); }
-    .secret-box { background: var(--surface-alt); padding: 14px; border-radius: 8px; border-left: 4px solid var(--marca);
-      margin-bottom: 15px; font-family: monospace; font-size: 13px; word-break: break-all; color: var(--tinta-1); }
-    .copy-btn { display: inline-block; padding: 6px 12px; background: var(--marca); color: white; border: none;
-      border-radius: 4px; font-size: 12px; cursor: pointer; margin-left: 10px; transition: background .2s; }
+      max-width: 600px; width: 100%; padding: 24px 20px; }
+    .logo { text-align: center; margin-bottom: 12px; font-size: 36px; }
+    h1 { color: var(--marca); margin-bottom: 4px; font-size: 20px; font-weight: 700; text-align: center; }
+    .subtitle { color: var(--tinta-2); font-size: 12px; margin-bottom: 16px; text-align: center; }
+    .step-container { margin-bottom: 14px; }
+    .step-title { font-size: 12px; font-weight: 600; color: var(--marca); text-transform: uppercase;
+      margin-bottom: 8px; }
+    .qr-code-container { text-align: center; margin-bottom: 12px; }
+    .qr-code-container img { max-width: 180px; width: 100%; border: 2px solid var(--linha); border-radius: 8px;
+      padding: 8px; background: white; box-shadow: 0 2px 8px rgba(0,0,0,.1); }
+    .secret-box { background: var(--surface-alt); padding: 10px; border-radius: 6px; border-left: 3px solid var(--marca);
+      margin-bottom: 10px; font-family: monospace; font-size: 11px; word-break: break-all; color: var(--tinta-1); }
+    .copy-btn { display: inline-block; padding: 5px 10px; background: var(--marca); color: white; border: none;
+      border-radius: 4px; font-size: 11px; cursor: pointer; margin-left: 8px; transition: background .2s; }
     .copy-btn:hover { background: var(--marca-escura); }
     .copy-btn.copied { background: #4caf50; }
-    .backup-codes-container { background: #fff9c4; padding: 15px; border-radius: 8px; border: 1px solid #ffd700;
-      margin-bottom: 20px; }
-    .backup-codes-title { font-weight: 600; color: #f57f17; margin-bottom: 10px; }
-    .backup-codes-list { font-family: monospace; font-size: 12px; line-height: 1.8; color: var(--tinta-1); }
-    .info-box { background: var(--surface-alt); padding: 12px; border-radius: 8px; border-left: 4px solid #2196f3;
-      margin-bottom: 15px; font-size: 13px; color: var(--tinta-2); line-height: 1.6; }
-    .next-btn { width: 100%; min-height: 48px; margin-top: 15px; border: none; border-radius: var(--radius-sm);
-      background: var(--marca); color: #fff; font-weight: 600; font-size: 14px; cursor: pointer;
+    .backup-codes-container { background: #fff9c4; padding: 10px; border-radius: 6px; border: 1px solid #ffd700;
+      margin-bottom: 10px; }
+    .backup-codes-title { font-weight: 600; color: #f57f17; margin-bottom: 6px; font-size: 11px; }
+    .backup-codes-list { font-family: monospace; font-size: 10px; line-height: 1.6; color: var(--tinta-1); }
+    .info-box { background: var(--surface-alt); padding: 8px; border-radius: 6px; border-left: 3px solid #2196f3;
+      margin-bottom: 10px; font-size: 11px; color: var(--tinta-2); line-height: 1.5; }
+    .next-btn { width: 100%; min-height: 40px; margin-top: 10px; border: none; border-radius: var(--radius-sm);
+      background: var(--marca); color: #fff; font-weight: 600; font-size: 13px; cursor: pointer;
       transition: background .2s, transform .2s; }
-    .next-btn:hover { background: var(--marca-escura); transform: translateY(-2px); }
+    .next-btn:hover { background: var(--marca-escura); transform: translateY(-1px); }
     .next-btn:disabled { opacity: .6; cursor: wait; }
     .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #f3f3f3;
       border-top: 2px solid var(--marca); border-radius: 50%; animation: spin 1s linear infinite;
@@ -92,8 +92,8 @@
     <div class="step-container">
       <div class="step-title">✅ Passo 4 — Digite o código para confirmar</div>
       <input type="text" id="confirmToken" placeholder="000000" maxlength="6" inputmode="numeric" pattern="\d{6}"
-        style="width: 100%; padding: 12px; border: 1px solid var(--linha); border-radius: 6px; font-size: 18px;
-        font-family: monospace; text-align: center; letter-spacing: 0.5em; margin-bottom: 15px;">
+        style="width: 100%; padding: 10px; border: 1px solid var(--linha); border-radius: 6px; font-size: 16px;
+        font-family: monospace; text-align: center; letter-spacing: 0.5em; margin-bottom: 10px;">
       <button type="button" class="next-btn" onclick="confirmarSetup()">✓ Ativar 2FA</button>
     </div>
   </div>
