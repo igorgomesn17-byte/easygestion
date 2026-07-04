@@ -554,33 +554,21 @@
           <h4 style="margin-top: 20px; margin-bottom: 10px;">Assinaturas</h4>
         `;
 
-        if (assinaturas.length === 0) {
+        if (!assinaturas || assinaturas.length === 0) {
           html += '<p>Nenhuma assinatura encontrada.</p>';
         } else {
           assinaturas.forEach(a => {
+            const statusAssinatura = a.cancelada_em ? 'cancelada' : (a.em_teste ? 'teste' : 'ativa');
             html += `
               <div style="background: #f9f9f9; padding: 10px; margin-bottom: 10px; border-radius: 4px;">
                 <p><strong>Plano:</strong> ${a.plano}</p>
-                <p><strong>Status:</strong> ${a.status}</p>
-                <p><strong>Período:</strong> ${formatarData(a.data_inicio)} até ${formatarData(a.data_fim)}</p>
-                <h5>Cobranças:</h5>
+                <p><strong>Valor Mensal:</strong> R$ ${(a.valor_mensal || 0).toFixed(2)}</p>
+                <p><strong>Status:</strong> ${statusAssinatura}</p>
+                <p><strong>Início:</strong> ${formatarData(a.data_inicio)}</p>
+                <p><strong>Próxima Renovação:</strong> ${formatarData(a.data_proxima_renovacao)}</p>
+                ${a.cancelada_em ? `<p><strong>Cancelada em:</strong> ${formatarData(a.cancelada_em)}</p>` : ''}
+              </div>
             `;
-
-            if (a.cobracas.length === 0) {
-              html += '<p style="font-size: 12px;">Nenhuma cobrança.</p>';
-            } else {
-              a.cobracas.forEach(c => {
-                const classeStatus = `status-${c.status}`;
-                html += `
-                  <p style="font-size: 12px; margin: 5px 0;">
-                    ${formatarMoeda(c.valor)} — <span class="status-badge ${classeStatus}">${c.status}</span>
-                    Vence: ${formatarData(c.data_vencimento)}
-                  </p>
-                `;
-              });
-            }
-
-            html += '</div>';
           });
         }
 
