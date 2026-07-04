@@ -44,7 +44,8 @@ router.get('/', exigirAdminBackoffice, (req, res) => {
 // 2. Se válido e 2FA não ativado → cria sessão pendente, retorna código 'PENDENTE_2FA_SETUP'
 // 3. Se válido e 2FA ativado → cria sessão pendente, retorna código 'PENDENTE_2FA'
 // 4. Sessão pendente dura 5 minutos; requer confirmação via /2fa-setup ou /2fa-verify
-router.post('/login', (req, res) => {
+// Rate limit: 6 tentativas/15 min (aplicado por middleware)
+router.post('/login', limiteAdminPassword, (req, res) => {
   const { email, senha } = req.body;
 
   if (!email || !senha) {
@@ -52,12 +53,6 @@ router.post('/login', (req, res) => {
   }
 
   try {
-    // Rate limit: máx 5 tentativas por 15 min por IP
-    if (!limiteAdminPassword.tryRemoveTokens(1)) {
-      console.warn(`[ADMIN] Login: rate limit atingido • IP: ${req.ip}`);
-      return res.status(429).json({ erro: 'Muitas tentativas. Tente novamente em 15 minutos.' });
-    }
-
     // Buscar admin na tabela de banco
     const admin = db.prepare('SELECT * FROM admins WHERE LOWER(email) = LOWER(?) AND ativo = 1').get(email);
 
@@ -1071,7 +1066,8 @@ router.post('/2fa-confirm', (req, res) => {
 // Requer: sessão admin_pendente com etapa === '2fa_verify' + { token } ou { backup_code }
 // Busca admin no banco, valida token/backup, promove sessão
 // Se backup code: regrava array sem o código consumido
-router.post('/2fa-verify', (req, res) => {
+// Rate limit: 6 tentativas/15 min (aplicado por middleware)
+router.post('/2fa-verify', limiteAdminPassword, (req, res) => {
   const { token, backup_code } = req.body;
 
   if (!token && !backup_code) {
@@ -1084,12 +1080,6 @@ router.post('/2fa-verify', (req, res) => {
     if (!pendente || pendente.etapa !== '2fa_verify' || Date.now() > pendente.expira_em) {
       console.warn(`[ADMIN 2FA-VERIFY] Acesso negado: sem sessão pendente válida • IP: ${req.ip}`);
       return res.status(401).json({ erro: 'Sessão expirada. Faça login novamente.' });
-    }
-
-    // Rate limit: máx 5 tentativas por 15 min
-    if (!limiteAdminPassword.tryRemoveTokens(1)) {
-      console.warn(`[ADMIN 2FA-VERIFY] Rate limit atingido • Admin: ${pendente.email} • IP: ${req.ip}`);
-      return res.status(429).json({ erro: 'Muitas tentativas. Tente novamente em 15 minutos.' });
     }
 
     // Buscar admin no banco
