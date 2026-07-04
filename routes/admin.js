@@ -39,11 +39,7 @@ router.get('/', exigirAdminBackoffice, (req, res) => {
 });
 
 // --- POST /login → autentica admin com email + senha ---
-// Fluxo:
-// 1. Valida email + senha contra tabela admins
-// 2. Se válido e 2FA não ativado → cria sessão pendente, retorna código 'PENDENTE_2FA_SETUP'
-// 3. Se válido e 2FA ativado → cria sessão pendente, retorna código 'PENDENTE_2FA'
-// 4. Sessão pendente dura 15 minutos; requer confirmação via /2fa-setup ou /2fa-verify
+// Fluxo simples: 1. Valida email + senha contra tabela admins, 2. Loga direto (sem 2FA)
 // Rate limit: 6 tentativas/15 min (aplicado por middleware)
 router.post('/login', limiteAdminPassword, (req, res) => {
   const { email, senha } = req.body;
@@ -62,24 +58,28 @@ router.post('/login', limiteAdminPassword, (req, res) => {
       return res.status(401).json({ erro: 'Email ou senha incorretos.' });
     }
 
-    // ✅ Email/senha corretos! Determinar próximo passo (2FA setup ou verify)
-    const etapa2fa = admin.totp_ativado ? 'PENDENTE_2FA' : 'PENDENTE_2FA_SETUP';
+    // ✅ Email/senha corretos! Logar direto (sem 2FA)
+    req.session.logado = true;
+    req.session.admin_id = admin.id;
+    req.session.email = admin.email;
+    req.session.nome = admin.nome;
+    req.session.papel = 'admin';
+    req.session.tenant_id = 1;
 
-    // Criar sessão intermediária (válida por 15 minutos)
-    req.session.admin_pendente = {
-      admin_id: admin.id,
-      email: admin.email,
-      nome: admin.nome,
-      etapa: admin.totp_ativado ? '2fa_verify' : '2fa_setup',
-      expira_em: Date.now() + 15 * 60 * 1000 // 15 minutos
-    };
+    // Atualizar último login
+    db.prepare('UPDATE admins SET ultimo_login_em = datetime("now","localtime") WHERE id = ?').run(admin.id);
 
-    console.log(`[ADMIN] Login: fase 1 bem-sucedida (email/senha) • Admin: ${admin.email} • IP: ${req.ip}`);
+    console.log(`[ADMIN] ✅ Login bem-sucedido • Admin: ${admin.email} • IP: ${req.ip}`);
 
-    res.status(202).json({
-      codigo: etapa2fa,
-      destino: admin.totp_ativado ? '/admin-2fa.html' : '/admin-2fa-setup.html',
-      mensagem: admin.totp_ativado ? 'Insira seu código 2FA' : 'Configure sua autenticação 2FA'
+    res.json({
+      ok: true,
+      mensagem: 'Login realizado com sucesso',
+      destino: '/admin-dashboard.html',
+      admin: {
+        id: admin.id,
+        email: admin.email,
+        nome: admin.nome
+      }
     });
   } catch (err) {
     console.error('[ADMIN] ❌ Erro ao fazer login:', err.message);
