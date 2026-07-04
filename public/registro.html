@@ -101,7 +101,19 @@
         >
       </div>
 
-      
+      <div class="auth-campo">
+        <label for="cpf_cnpj">CPF ou CNPJ</label>
+        <input
+          type="text"
+          id="cpf_cnpj"
+          name="cpf_cnpj"
+          placeholder="ex: 123.456.789-01 ou 12.345.678/0001-99"
+          required
+        >
+        <div style="font-size: 12px; color: #999; margin-top: 4px;">Digite CPF (11 dígitos) ou CNPJ (14 dígitos)</div>
+      </div>
+
+
       <div class="auth-campo">
         <label for="telefone">Telefone / WhatsApp</label>
         <input
@@ -179,6 +191,38 @@
   </div>
 
   <script>
+    // Máscara para CPF/CNPJ
+    document.getElementById('cpf_cnpj').addEventListener('input', (e) => {
+      let valor = e.target.value.replace(/\D/g, '');
+
+      if (valor.length <= 11) {
+        // CPF: 123.456.789-01
+        if (valor.length > 5) {
+          valor = valor.slice(0, 3) + '.' + valor.slice(3);
+        }
+        if (valor.length > 9) {
+          valor = valor.slice(0, 9) + '-' + valor.slice(9);
+        }
+      } else {
+        // CNPJ: 12.345.678/0001-99
+        if (valor.length > 2) {
+          valor = valor.slice(0, 2) + '.' + valor.slice(2);
+        }
+        if (valor.length > 7) {
+          valor = valor.slice(0, 7) + '.' + valor.slice(7);
+        }
+        if (valor.length > 12) {
+          valor = valor.slice(0, 12) + '/' + valor.slice(12);
+        }
+        if (valor.length > 17) {
+          valor = valor.slice(0, 17) + '-' + valor.slice(17);
+        }
+        valor = valor.slice(0, 18); // Máximo 18 caracteres (14 dígitos + 4 símbolos)
+      }
+
+      e.target.value = valor;
+    });
+
     // Toggle de visibilidade da senha
     document.getElementById('toggleSenha').addEventListener('click', (e) => {
       e.preventDefault();
@@ -222,6 +266,7 @@
       const email = document.getElementById('email').value.trim();
       const nome_loja = document.getElementById('nome_loja').value.trim();
       const nome_responsavel = document.getElementById('nome_responsavel').value.trim();
+      const cpf_cnpj = document.getElementById('cpf_cnpj').value.trim();
       const telefone = document.getElementById('telefone').value.trim();
       const senha = document.getElementById('senha').value;
       const confirma_senha = document.getElementById('confirma_senha').value;
@@ -253,7 +298,7 @@
         const res = await fetch('/api/registro', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, senha, nome_loja, nome_responsavel, telefone })
+          body: JSON.stringify({ email, senha, nome_loja, nome_responsavel, telefone, cpf_cnpj })
         });
 
         const data = await res.json();

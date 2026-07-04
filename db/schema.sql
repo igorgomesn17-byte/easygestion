@@ -448,6 +448,26 @@ CREATE TABLE IF NOT EXISTS usuarios (
 );
 CREATE INDEX IF NOT EXISTS idx_usuarios_tenant ON usuarios(tenant_id);
 
+-- ----
+-- ADMINS DA PLATAFORMA (backoffice SaaS)
+-- Separado de usuarios porque usuarios é "funcionário de um tenant"
+-- Admins aqui são "administradores do SaaS", estrutura pronta para múltiplos
+-- ----
+CREATE TABLE IF NOT EXISTS admins (
+  id                        INTEGER PRIMARY KEY AUTOINCREMENT,
+  email                     TEXT NOT NULL UNIQUE,
+  nome                      TEXT NOT NULL,
+  senha_hash                TEXT NOT NULL,
+  papel                     TEXT NOT NULL DEFAULT 'super_admin',
+  totp_secret               TEXT,
+  totp_backup_codes_hash    TEXT,
+  totp_ativado              INTEGER NOT NULL DEFAULT 0,
+  ativo                     INTEGER NOT NULL DEFAULT 1,
+  criado_em                 TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+  ultimo_login_em           TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_admins_email ON admins(email);
+
 -- ------------------------------------------------------------
 -- AUDITORIA: log de TODAS as ações administrativas
 -- Registra: quem fez o quê, quando, em qual tenant, e payload da ação

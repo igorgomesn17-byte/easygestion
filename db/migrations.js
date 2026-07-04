@@ -328,6 +328,74 @@ function executarMigrations(db) {
           db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_tenants_slug ON tenants(slug);`);
         }
       }
+    },
+    {
+      nome: '016_add_cpf_cnpj_to_tenants',
+      hash: 'v16-tenant-cpf-cnpj',
+      exec: (db) => {
+        // Adicionar coluna cpf_cnpj em tenants (se não existir)
+        const colunas = db.prepare(`PRAGMA table_info(tenants)`).all().map(c => c.name);
+        if (!colunas.includes('cpf_cnpj')) {
+          db.exec(`ALTER TABLE tenants ADD COLUMN cpf_cnpj TEXT;`);
+        }
+
+        // Criar índice único em cpf_cnpj (após coluna estar garantida)
+        const indiceExiste = db.prepare(`
+          SELECT name FROM sqlite_master
+          WHERE type='index' AND name='idx_tenants_cpf_cnpj'
+        `).get();
+        if (!indiceExiste) {
+          db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_tenants_cpf_cnpj ON tenants(cpf_cnpj);`);
+        }
+      }
+    },
+    {
+      nome: '017_create_admins_table',
+      hash: 'v17-admins-table',
+      exec: (db) => {
+        db.exec(`
+          CREATE TABLE IF NOT EXISTS admins (
+            id                        INTEGER PRIMARY KEY AUTOINCREMENT,
+            email                     TEXT NOT NULL UNIQUE,
+            nome                      TEXT NOT NULL,
+            senha_hash                TEXT NOT NULL,
+            papel                     TEXT NOT NULL DEFAULT 'super_admin',
+            totp_secret               TEXT,
+            totp_backup_codes_hash    TEXT,
+            totp_ativado              INTEGER NOT NULL DEFAULT 0,
+            ativo                     INTEGER NOT NULL DEFAULT 1,
+            criado_em                 TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+            ultimo_login_em           TEXT
+          );
+        `);
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_admins_email ON admins(email);`);
+      }
+    },
+    {
+      nome: '018_seed_admin_from_env',
+      hash: 'v18-seed-admin',
+      exec: (db) => {
+        const temAdmin = db.prepare('SELECT 1 FROM admins WHERE 1=1').get();
+        if (!temAdmin) {
+          const adminSenha = process.env.ADMIN_SENHA_HASH || (process.env.ADMIN_SENHA ? hashSenha(process.env.ADMIN_SENHA) : hashSenha('dsstore'));
+          const adminEmail = process.env.ADMIN_EMAIL || 'admin@easygestion.com';
+
+          if (!process.env.ADMIN_EMAIL && !process.env.ADMIN_SENHA_HASH && !process.env.ADMIN_SENHA) {
+            console.warn(`[MIGRATION] ⚠️ Nenhuma senha de admin configurada (.env). Usando fallback 'dsstore' — configure ADMIN_SENHA ou ADMIN_SENHA_HASH em produção!`);
+          }
+
+          if (!process.env.ADMIN_EMAIL) {
+            console.warn(`[MIGRATION] ⚠️ ADMIN_EMAIL não configurado. Usando fallback 'admin@easygestion.com' — configure ADMIN_EMAIL em produção!`);
+          }
+
+          db.prepare(`
+            INSERT INTO admins (email, nome, senha_hash, papel, ativo)
+            VALUES (?, ?, ?, ?, ?)
+          `).run(adminEmail, 'Admin', adminSenha, 'super_admin', 1);
+
+          console.log(`✅ Admin seed: ${adminEmail}`);
+        }
+      }
     }
   ];
 

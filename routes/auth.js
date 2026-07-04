@@ -7,6 +7,7 @@ const router = express.Router();
 const { db, getConfig } = require('../db/database');
 const { hashSenha, verificarSenha, validarSenha, validarNaoReutilizada, limiteForgotPassword, limiteResetSenha, limiteAdminPassword } = require('../middleware/seguranca');
 const { gerarSlugUnico } = require('../lib/helpers');
+const { cpf, cnpj } = require('cpf-cnpj-validator');
 const jwt = require('jsonwebtoken');
 const { enviarEmail, templateResetSenha } = require('../lib/email');
 const { gerarSecret, gerarQRCode, validarToken } = require('../lib/2fa');
@@ -31,6 +32,29 @@ Gere com:
 const crypto = require('crypto');
 function gerarTokenVerificacao() {
   return crypto.randomBytes(32).toString('hex');
+}
+
+// Validar CPF ou CNPJ com dígito verificador
+function validarCPFCNPJ(valor) {
+  if (!valor || valor.trim() === '') return { valido: false, erro: 'CPF ou CNPJ é obrigatório' };
+
+  const limpo = valor.replace(/\D/g, '');
+
+  if (limpo.length === 11) {
+    if (cpf.isValid(limpo)) {
+      return { valido: true, erro: null, tipo: 'CPF', valor: limpo };
+    }
+    return { valido: false, erro: 'CPF inválido', tipo: 'CPF' };
+  }
+
+  if (limpo.length === 14) {
+    if (cnpj.isValid(limpo)) {
+      return { valido: true, erro: null, tipo: 'CNPJ', valor: limpo };
+    }
+    return { valido: false, erro: 'CNPJ inválido', tipo: 'CNPJ' };
+  }
+
+  return { valido: false, erro: 'CPF ou CNPJ inválido (deve ter 11 ou 14 dígitos)', tipo: null };
 }
 
 // Validação de email (RFC 5322 simplificado)
@@ -186,10 +210,10 @@ router.post('/login', (req, res) => {
   return res.status(401).json({ erro: 'Email ou senha inválidos' });
 });
 
-// POST /api/auth/registro  body: { email, senha, nome_loja, nome_responsavel, telefone }
+// POST /api/auth/registro  body: { email, senha, nome_loja, nome_responsavel, telefone, cpf_cnpj }
 // Cria novo tenant + usuário admin (LGPD terms já foram aceitos no form)
 router.post('/registro', async (req, res) => {
-  const { email, senha, nome_loja, nome_responsavel, telefone } = req.body || {};
+  const { email, senha, nome_loja, nome_responsavel, telefone, cpf_cnpj } = req.body || {};
 
   // Validações
   if (!validarEmail(email)) {
@@ -199,6 +223,14 @@ router.post('/registro', async (req, res) => {
   if (!validacaoSenha.valida) {
     return res.status(400).json({ erro: validacaoSenha.erro });
   }
+
+  // Validar CPF/CNPJ (obrigatório)
+  const valCPFCNPJ = validarCPFCNPJ(cpf_cnpj);
+  if (!valCPFCNPJ.valido) {
+    return res.status(400).json({ erro: valCPFCNPJ.erro });
+  }
+  const cpfCnpjLimpo = valCPFCNPJ.valor;
+
   const nomeLoja = sanitizar(nome_loja);
   const nomeResponsavel = sanitizar(nome_responsavel);
   const telefoneLimpo = sanitizar(telefone);
@@ -222,6 +254,12 @@ router.post('/registro', async (req, res) => {
     return res.status(409).json({ erro: 'Este email já está cadastrado' });
   }
 
+  // Verificar se CPF/CNPJ já existe (único por tenant)
+  const documentoExiste = db.prepare('SELECT id FROM tenants WHERE cpf_cnpj = ?').get(cpfCnpjLimpo);
+  if (documentoExiste) {
+    return res.status(409).json({ erro: 'Este CPF/CNPJ já possui uma conta cadastrada' });
+  }
+
   try {
     // Gerar slug único antes de iniciar transação
     const slugUnico = gerarSlugUnico(db, nomeLoja);
@@ -229,9 +267,9 @@ router.post('/registro', async (req, res) => {
     const tx = db.transaction(() => {
       // (1) Criar novo tenant com slug gerado
       const infoTenant = db.prepare(`
-        INSERT INTO tenants (nome_loja, email, senha_hash, nome_responsavel, telefone, plano, slug)
-        VALUES (?, ?, ?, ?, ?, 'basico', ?)
-      `).run(nomeLoja, email.trim(), hashSenha(senha), nomeResponsavel, telefoneLimpo, slugUnico);
+        INSERT INTO tenants (nome_loja, email, senha_hash, nome_responsavel, telefone, cpf_cnpj, plano, slug)
+        VALUES (?, ?, ?, ?, ?, ?, 'basico', ?)
+      `).run(nomeLoja, email.trim(), hashSenha(senha), nomeResponsavel, telefoneLimpo, cpfCnpjLimpo, slugUnico);
       const tenantId = infoTenant.lastInsertRowid;
 
       // (2) Criar usuário admin do tenant (email NÃO verificado ainda)
