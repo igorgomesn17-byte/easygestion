@@ -67,7 +67,7 @@ router.post('/login', limiteAdminPassword, (req, res) => {
     req.session.tenant_id = 1;
 
     // Atualizar último login
-    db.prepare('UPDATE admins SET ultimo_login_em = datetime("now","localtime") WHERE id = ?').run(admin.id);
+    db.prepare("UPDATE admins SET ultimo_login_em = datetime('now','localtime') WHERE id = ?").run(admin.id);
 
     console.log(`[ADMIN] ✅ Login bem-sucedido • Admin: ${admin.email} • IP: ${req.ip}`);
 
