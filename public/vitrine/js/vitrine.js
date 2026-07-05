@@ -106,6 +106,11 @@ function preencherBotoesContato() {
     const numeroLimpo = dadosLoja.loja_whatsapp.replace(/\D/g, '');
     btnWA.href = `https://wa.me/${numeroLimpo}`;
     btnWA.style.display = 'inline-flex';
+
+    // Footer
+    const footerWA = document.getElementById('footerWhatsApp');
+    footerWA.href = `https://wa.me/${numeroLimpo}`;
+    footerWA.style.display = 'inline-flex';
   }
 
   // Instagram
@@ -113,6 +118,11 @@ function preencherBotoesContato() {
     const btnIG = document.getElementById('btnInstagram');
     btnIG.href = dadosLoja.loja_instagram_url;
     btnIG.style.display = 'inline-flex';
+
+    // Footer
+    const footerIG = document.getElementById('footerInstagram');
+    footerIG.href = dadosLoja.loja_instagram_url;
+    footerIG.style.display = 'inline-flex';
   }
 
   // Google Maps
@@ -120,7 +130,57 @@ function preencherBotoesContato() {
     const btnMaps = document.getElementById('btnMaps');
     btnMaps.href = dadosLoja.loja_maps;
     btnMaps.style.display = 'inline-flex';
+
+    // Footer
+    const footerMaps = document.getElementById('footerMaps');
+    footerMaps.href = dadosLoja.loja_maps;
+    footerMaps.style.display = 'inline-flex';
   }
+
+  // Preencher footer
+  document.getElementById('footerNomeLoja').textContent = dadosLoja.loja_nome || 'Loja';
+
+  if (dadosLoja.loja_endereco) {
+    const footerEndereco = document.getElementById('footerEndereco');
+    footerEndereco.textContent = '📍 ' + dadosLoja.loja_endereco;
+    footerEndereco.style.display = 'block';
+  }
+
+  // Username (Instagram sem @, ou nome da loja)
+  if (dadosLoja.loja_instagram) {
+    const username = dadosLoja.loja_instagram.replace('@', '');
+    document.getElementById('footerUsername').textContent = '@' + username;
+  }
+}
+
+function enviarNewsletter(event) {
+  event.preventDefault();
+
+  const nome = document.getElementById('inputNomeNewsletter').value.trim();
+  const whatsapp = document.getElementById('inputWhatsAppNewsletter').value.trim();
+
+  if (!nome || !whatsapp) {
+    alert('Por favor, preencha seu nome e WhatsApp');
+    return;
+  }
+
+  // Montar mensagem para WhatsApp
+  const numeroLoja = (dadosLoja.loja_whatsapp || '').replace(/\D/g, '');
+  if (!numeroLoja) {
+    alert('Erro: WhatsApp da loja não configurado');
+    return;
+  }
+
+  const mensagem = `Olá! Meu nome é ${nome} e gostaria de receber novidades, promoções e lançamentos. Meu WhatsApp: ${whatsapp}`;
+  const urlEncoded = encodeURIComponent(mensagem);
+  const linkWhatsApp = `https://wa.me/${numeroLoja}?text=${urlEncoded}`;
+
+  // Abrir WhatsApp
+  window.open(linkWhatsApp, '_blank');
+
+  // Limpar formulário
+  document.getElementById('inputNomeNewsletter').value = '';
+  document.getElementById('inputWhatsAppNewsletter').value = '';
 }
 
 function atualizarMetaTags(title, description, image) {

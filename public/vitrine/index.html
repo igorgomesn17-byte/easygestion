@@ -98,6 +98,33 @@
     </div>
   </main>
 
+  <!-- CTA: Newsletter/WhatsApp -->
+  <section class="vitrine-newsletter">
+    <h2>Quer ser a primeira a saber das novidades? ❤️</h2>
+    <p>Deixe seu WhatsApp e receba os lançamentos, promoções e peças novas antes de todo mundo.</p>
+    <form class="newsletter-form" onsubmit="enviarNewsletter(event)">
+      <input type="text" id="inputNomeNewsletter" placeholder="Seu nome" required>
+      <input type="tel" id="inputWhatsAppNewsletter" placeholder="WhatsApp com DDD" required>
+      <button type="submit" class="btn btn-newsletter">Quero receber 🎁</button>
+    </form>
+  </section>
+
+  <!-- Footer -->
+  <footer class="vitrine-footer">
+    <div class="footer-content">
+      <h3 id="footerNomeLoja">Loja</h3>
+      <p id="footerEndereco" style="display:none;"></p>
+
+      <div class="footer-icons">
+        <a id="footerWhatsApp" href="#" target="_blank" class="footer-icon" style="display:none;" title="WhatsApp">💬</a>
+        <a id="footerInstagram" href="#" target="_blank" class="footer-icon" style="display:none;" title="Instagram">📷</a>
+        <a id="footerMaps" href="#" target="_blank" class="footer-icon" style="display:none;" title="Localização">📍</a>
+      </div>
+
+      <p id="footerUsername" class="footer-username"></p>
+    </div>
+  </footer>
+
   <!-- Modal de detalhe do produto (tamanho + qtd + adicionar) -->
   <div id="modalProduto" class="modal modal-produto">
     <div class="modal-content modal-produto-content">
