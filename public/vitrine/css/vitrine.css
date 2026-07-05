@@ -55,16 +55,16 @@ body {
 }
 
 .vitrine-logo-container {
-  height: 120px;
+  height: 200px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
 }
 
 .vitrine-logo {
-  max-height: 120px;
-  max-width: 300px;
+  max-height: 200px;
+  max-width: 400px;
   object-fit: contain;
 }
 
