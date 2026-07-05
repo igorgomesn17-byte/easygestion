@@ -88,12 +88,39 @@ function preencherHeader() {
     lojaLogo.src = dadosLoja.loja_logo;
   }
 
+  // Preencher botões de contato
+  preencherBotoesContato();
+
   // Meta tags OpenGraph (dinâmico)
   atualizarMetaTags(
     dadosLoja.loja_nome || 'Vitrine',
     dadosLoja.vitrine_frase || 'Conheça nossos produtos',
     dadosLoja.loja_logo || ''
   );
+}
+
+function preencherBotoesContato() {
+  // WhatsApp
+  if (dadosLoja.loja_whatsapp) {
+    const btnWA = document.getElementById('btnWhatsApp');
+    const numeroLimpo = dadosLoja.loja_whatsapp.replace(/\D/g, '');
+    btnWA.href = `https://wa.me/${numeroLimpo}`;
+    btnWA.style.display = 'inline-flex';
+  }
+
+  // Instagram
+  if (dadosLoja.loja_instagram_url) {
+    const btnIG = document.getElementById('btnInstagram');
+    btnIG.href = dadosLoja.loja_instagram_url;
+    btnIG.style.display = 'inline-flex';
+  }
+
+  // Google Maps
+  if (dadosLoja.loja_maps) {
+    const btnMaps = document.getElementById('btnMaps');
+    btnMaps.href = dadosLoja.loja_maps;
+    btnMaps.style.display = 'inline-flex';
+  }
 }
 
 function atualizarMetaTags(title, description, image) {
@@ -133,7 +160,9 @@ function atualizarMetaTags(title, description, image) {
 function preencherFiltros(categorias, colecoes) {
   const selectCategoria = document.getElementById('filtroCategoria');
   const selectColecao = document.getElementById('filtroColecao');
+  const botoesColecoes = document.getElementById('botoesColecoes');
 
+  // Preencher selects
   categorias.forEach(cat => {
     const option = document.createElement('option');
     option.value = cat;
@@ -147,11 +176,33 @@ function preencherFiltros(categorias, colecoes) {
     option.textContent = col;
     selectColecao.appendChild(option);
   });
+
+  // Preencher botões de coleções (barra horizontal)
+  botoesColecoes.innerHTML = '';
+  colecoes.forEach(col => {
+    const btn = document.createElement('button');
+    btn.className = 'btn-colecao';
+    btn.textContent = col;
+    btn.dataset.colecao = col;
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.btn-colecao').forEach(b => b.classList.remove('btn-colecao-ativo'));
+      btn.classList.add('btn-colecao-ativo');
+      filtrar();
+    });
+    botoesColecoes.appendChild(btn);
+  });
 }
 
 function filtrar() {
   const categoria = document.getElementById('filtroCategoria').value;
-  const colecao = document.getElementById('filtroColecao').value;
+  let colecao = document.getElementById('filtroColecao').value;
+
+  // Também checar qual botão de coleção está ativo
+  const btnAtivoColecao = document.querySelector('.btn-colecao-ativo');
+  if (btnAtivoColecao && btnAtivoColecao.dataset.colecao) {
+    colecao = btnAtivoColecao.dataset.colecao;
+  }
+
   const busca = document.getElementById('filtroBusca').value.toLowerCase();
 
   const filtrados = todosProdutos.filter(p => {

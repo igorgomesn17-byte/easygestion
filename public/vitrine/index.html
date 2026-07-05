@@ -22,6 +22,19 @@
     </div>
   </header>
 
+  <!-- Botões de contato (WhatsApp, Instagram, Google Maps) -->
+  <div class="vitrine-contato">
+    <a id="btnWhatsApp" href="#" class="btn-contato btn-whatsapp" target="_blank" style="display:none">
+      💬 WhatsApp
+    </a>
+    <a id="btnInstagram" href="#" class="btn-contato btn-instagram" target="_blank" style="display:none">
+      📷 Instagram
+    </a>
+    <a id="btnMaps" href="#" class="btn-contato btn-maps" target="_blank" style="display:none">
+      📍 Como chegar
+    </a>
+  </div>
+
   <!-- Carrinho flutuante (bottom-right) -->
   <div id="carrinhoFloating" class="carrinho-floating">
     <button id="btnCarrinho" class="btn-carrinho">
@@ -52,7 +65,20 @@
 
   <!-- Filtros e grade -->
   <main class="vitrine-main">
-    <div class="vitrine-filtros">
+    <!-- Barra de busca principal -->
+    <div class="vitrine-busca-principal">
+      <input type="text" id="filtroBusca" placeholder="Buscar peça..." class="input-busca-principal">
+    </div>
+
+    <!-- Barra de coleções (horizontal scrollável) -->
+    <div class="vitrine-colecoes">
+      <button class="btn-colecao btn-colecao-ativo" data-colecao="">⭐ Todas coleções</button>
+      <div id="botoesColecoes"></div>
+      <button class="btn-seta-direita">→</button>
+    </div>
+
+    <!-- Filtros (escondidos por padrão, expansível) -->
+    <div class="vitrine-filtros" style="display:none;">
       <div class="filtro-grupo">
         <label>Categoria:</label>
         <select id="filtroCategoria">
@@ -64,9 +90,6 @@
         <select id="filtroColecao">
           <option value="">Todas</option>
         </select>
-      </div>
-      <div class="filtro-grupo">
-        <input type="text" id="filtroBusca" placeholder="Buscar produto..." class="input-busca">
       </div>
     </div>
 
