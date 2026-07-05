@@ -56,7 +56,7 @@
       }
 
       try {
-        const resp = await fetch('/api/auth/verify-email', {
+        const resp = await fetch('/api/verify-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token })
@@ -154,7 +154,7 @@
       }
 
       try {
-        const resp = await fetch('/api/auth/resend-verification', {
+        const resp = await fetch('/api/resend-verification', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email })
