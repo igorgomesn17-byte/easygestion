@@ -86,7 +86,12 @@ function preencherHeader() {
 
   if (dadosLoja.loja_logo) {
     // Adicionar timestamp para forçar reload (cache busting)
-    lojaLogo.src = dadosLoja.loja_logo + '?t=' + Date.now();
+    const urlLogo = dadosLoja.loja_logo + '?t=' + Date.now();
+    console.log('📷 Tentando carregar logo:', urlLogo);
+    lojaLogo.src = urlLogo;
+    lojaLogo.style.display = 'block'; // Garantir que não está escondida
+  } else {
+    console.log('❌ loja_logo está vazio ou undefined');
   }
 
   // Preencher botões de contato
