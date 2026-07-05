@@ -401,7 +401,162 @@
       if (e.target.id === 'modalCad') fecharCadastro();
     });
 
+    // ============================================================
+    // TOUR GUIADO — acionado se ?tour=1 está na URL
+    // ============================================================
+    const isTourActive = new URLSearchParams(window.location.search).get('tour') === '1';
+    let tourStep = 0;
+    const PASSOS_TOUR = [
+      { seletor: 'button[onclick="abrirCadastro()"]', texto: 'Clique aqui para cadastrar sua primeira peça.', posicao: 'bottom' },
+      { seletor: '#nome', texto: 'Dê um nome para a peça. Ex: "Vestido Floral Midi".', posicao: 'right' },
+      { seletor: '#custo', texto: 'Quanto você pagou por essa peça?', posicao: 'right' },
+      { seletor: '#preco', texto: 'Por quanto você vai vender? Clique em "Sugerir preço" se não souber.', posicao: 'right' },
+      { seletor: '#gradeBuilder', texto: 'Marque os tamanhos que você tem em estoque e quantas peças de cada.', posicao: 'top' },
+      { seletor: 'button[onclick="salvar()"]', texto: 'Pronto! Clique aqui para salvar sua primeira peça.', posicao: 'top' },
+    ];
+
+    function iniciarTour() {
+      if (!isTourActive) return;
+      console.log('[TOUR] Iniciando...');
+      mostrarProximoPasso();
+    }
+
+    function mostrarProximoPasso() {
+      if (tourStep >= PASSOS_TOUR.length || !isTourActive) {
+        removerOverlay();
+        return;
+      }
+
+      const paso = PASSOS_TOUR[tourStep];
+      const element = document.querySelector(paso.seletor);
+      if (!element) {
+        tourStep++;
+        mostrarProximoPasso();
+        return;
+      }
+
+      criarOverlay(element, paso);
+      tourStep++;
+    }
+
+    function criarOverlay(element, paso) {
+      removerOverlay();
+
+      const overlay = document.createElement('div');
+      overlay.id = 'tour-overlay';
+      overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,.5);
+        z-index: 9998;
+      `;
+      document.body.appendChild(overlay);
+
+      const rect = element.getBoundingClientRect();
+      const balao = document.createElement('div');
+      balao.id = 'tour-balao';
+      balao.style.cssText = `
+        position: fixed;
+        background: white;
+        border-radius: 8px;
+        padding: 16px;
+        box-shadow: 0 10px 40px rgba(0,0,0,.3);
+        z-index: 9999;
+        max-width: 300px;
+        font-size: 14px;
+        line-height: 1.5;
+      `;
+
+      balao.innerHTML = `
+        <div style="margin-bottom: 12px; color: var(--tinta);">${paso.texto}</div>
+        <div style="display: flex; gap: 8px;">
+          <button style="flex: 1; padding: 8px 12px; background: var(--marca); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;" onclick="window._tourNext?.()">Próximo →</button>
+          <button style="flex: 1; padding: 8px 12px; background: #f0f0f0; color: #333; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;" onclick="window._tourSkip?.()">Pular</button>
+        </div>
+      `;
+
+      // Posicionar balão
+      let top, left;
+      switch (paso.posicao) {
+        case 'bottom':
+          top = rect.bottom + 15;
+          left = rect.left + rect.width / 2 - 150;
+          break;
+        case 'right':
+          top = rect.top + rect.height / 2 - 60;
+          left = rect.right + 15;
+          break;
+        case 'top':
+          top = rect.top - 150;
+          left = rect.left + rect.width / 2 - 150;
+          break;
+      }
+
+      balao.style.top = Math.max(10, top) + 'px';
+      balao.style.left = Math.max(10, Math.min(left, window.innerWidth - 320)) + 'px';
+
+      // Destacar elemento
+      element.style.outline = '3px solid var(--marca)';
+      element.style.outlineOffset = '3px';
+      element.style.position = 'relative';
+      element.style.zIndex = '10000';
+
+      document.body.appendChild(balao);
+    }
+
+    function removerOverlay() {
+      document.querySelectorAll('#tour-overlay, #tour-balao').forEach(el => el.remove());
+      document.querySelectorAll('[style*="outline"]').forEach(el => {
+        el.style.outline = '';
+        el.style.outlineOffset = '';
+      });
+    }
+
+    window._tourNext = mostrarProximoPasso;
+    window._tourSkip = async () => {
+      removerOverlay();
+      try {
+        await fetch('/api/onboarding/estado', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pulado: true }),
+          credentials: 'same-origin'
+        });
+      } catch(e) { console.error(e); }
+      window.location.href = 'index.html';
+    };
+
+    // Interceptar sucesso de salvamento do primeiro produto
+    if (isTourActive) {
+      const salvarOriginal = window.salvar;
+      window.salvar = async function() {
+        const resultado = await salvarOriginal.apply(this, arguments);
+        // Se chegou aqui e tour ainda está ativo, significa que salvou
+        if (document.querySelector('#tour-overlay')) {
+          removerOverlay();
+          toast('🎉 Pronto! Seu primeiro produto foi cadastrado!', 'sucesso');
+          setTimeout(async () => {
+            await fetch('/api/onboarding/estado', {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ etapa: 'concluido', concluido: true }),
+              credentials: 'same-origin'
+            });
+            // Limpar ?tour=1 da URL
+            window.history.replaceState({}, document.title, 'produtos.html');
+            // Redirecionar ao dashboard em 2s
+            setTimeout(() => window.location.href = 'index.html', 2000);
+          }, 1000);
+        }
+        return resultado;
+      };
+    }
+
     carregar();
+    if (isTourActive) iniciarTour();
   </script>
 </body>
 </html>
