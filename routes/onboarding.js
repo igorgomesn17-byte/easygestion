@@ -160,4 +160,145 @@ router.post('/demo-data', exigirLogin, injetarTenant, (req, res) => {
   }
 });
 
+// --- GET /estado → retorna o estado do onboarding (etapa atual, progresso) ---
+router.get('/estado', exigirLogin, injetarTenant, (req, res) => {
+  try {
+    const tenantId = req.tenantId;
+    if (!tenantId) {
+      return res.status(401).json({ erro: 'Tenant não identificado' });
+    }
+
+    const tenant = db.prepare('SELECT onboarding_estado FROM tenants WHERE id = ?').get(tenantId);
+    if (!tenant) {
+      return res.status(404).json({ erro: 'Tenant não encontrado' });
+    }
+
+    const estado = tenant.onboarding_estado ? JSON.parse(tenant.onboarding_estado) : {
+      etapa: 'identidade',
+      concluido: false,
+      pulado: false,
+      banner_dispensado: false
+    };
+
+    res.json(estado);
+  } catch (err) {
+    console.error('[ONBOARDING] Erro ao ler estado:', err);
+    return res.status(500).json({ erro: 'Erro ao ler estado do onboarding' });
+  }
+});
+
+// --- PATCH /estado → atualiza o estado do onboarding (merge com estado atual) ---
+router.patch('/estado', exigirLogin, injetarTenant, (req, res) => {
+  try {
+    const tenantId = req.tenantId;
+    if (!tenantId) {
+      return res.status(401).json({ erro: 'Tenant não identificado' });
+    }
+
+    const updates = req.body || {};
+    const tenant = db.prepare('SELECT onboarding_estado FROM tenants WHERE id = ?').get(tenantId);
+    if (!tenant) {
+      return res.status(404).json({ erro: 'Tenant não encontrado' });
+    }
+
+    // Parse estado atual e fazer merge com updates
+    const estadoAtual = tenant.onboarding_estado ? JSON.parse(tenant.onboarding_estado) : {
+      etapa: 'identidade',
+      concluido: false,
+      pulado: false,
+      banner_dispensado: false
+    };
+
+    const estadoNovo = { ...estadoAtual, ...updates };
+
+    // Atualizar no banco
+    db.prepare('UPDATE tenants SET onboarding_estado = ? WHERE id = ?')
+      .run(JSON.stringify(estadoNovo), tenantId);
+
+    console.log(`✅ [ONBOARDING] Estado atualizado para tenant ${tenantId}:`, estadoNovo);
+
+    res.json(estadoNovo);
+  } catch (err) {
+    console.error('[ONBOARDING] Erro ao atualizar estado:', err);
+    return res.status(500).json({ erro: 'Erro ao atualizar estado do onboarding' });
+  }
+});
+
+// --- GET /progresso → calcula o progresso do checklist gamificado (4 itens, 25% cada) ---
+router.get('/progresso', exigirLogin, injetarTenant, (req, res) => {
+  try {
+    const tenantId = req.tenantId;
+    if (!tenantId) {
+      return res.status(401).json({ erro: 'Tenant não identificado' });
+    }
+
+    // Verificar cada item do checklist
+    const config = db.prepare('SELECT * FROM config WHERE tenant_id = ?').all(tenantId);
+    const configMap = {};
+    config.forEach(row => {
+      configMap[row.chave] = row.valor;
+    });
+
+    const items = [];
+    let percentual = 0;
+
+    // 1. Identidade: loja_nome E marca_cor preenchidos
+    const identidadeCompleta = !!(configMap.loja_nome && configMap.marca_cor);
+    items.push({
+      chave: 'identidade',
+      label: 'Identidade',
+      concluido: identidadeCompleta
+    });
+    if (identidadeCompleta) percentual += 25;
+
+    // 2. Financeiro: markup, regime_fiscal, taxas presentes (ou com valores não-default)
+    // Critério: se a chave existe no config, considera concluído (usuário confirmou/ajustou)
+    const financeiroCompleto = !!(
+      configMap.markup &&
+      configMap.regime_fiscal &&
+      (configMap.taxa_pix || configMap.taxa_debito || configMap.taxa_credito_vista)
+    );
+    items.push({
+      chave: 'financeiro',
+      label: 'Financeiro',
+      concluido: financeiroCompleto
+    });
+    if (financeiroCompleto) percentual += 25;
+
+    // 3. Dados da loja: endereço OU redes sociais preenchidas
+    const dadosCompletos = !!(
+      configMap.loja_endereco ||
+      configMap.loja_telefone ||
+      configMap.loja_instagram ||
+      configMap.loja_whatsapp
+    );
+    items.push({
+      chave: 'dados_loja',
+      label: 'Dados da Loja',
+      concluido: dadosCompletos
+    });
+    if (dadosCompletos) percentual += 25;
+
+    // 4. Produtos: pelo menos 1 produto ativo cadastrado
+    const produtoCount = db.prepare(
+      'SELECT COUNT(*) as cnt FROM produtos WHERE tenant_id = ? AND ativo = 1'
+    ).get(tenantId);
+    const produtosCompleto = produtoCount.cnt > 0;
+    items.push({
+      chave: 'produtos',
+      label: 'Produtos',
+      concluido: produtosCompleto
+    });
+    if (produtosCompleto) percentual += 25;
+
+    res.json({
+      percentual,
+      itens: items
+    });
+  } catch (err) {
+    console.error('[ONBOARDING] Erro ao calcular progresso:', err);
+    return res.status(500).json({ erro: 'Erro ao calcular progresso' });
+  }
+});
+
 module.exports = router;

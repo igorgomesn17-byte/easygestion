@@ -441,6 +441,20 @@ function executarMigrations(db) {
           db.exec(`ALTER TABLE tenants ADD COLUMN primeira_login INTEGER NOT NULL DEFAULT 1;`);
         }
       }
+    },
+    {
+      nome: '022_add_onboarding_estado_to_tenants',
+      hash: 'v22-onboarding-estado',
+      exec: (db) => {
+        // Adicionar coluna onboarding_estado à tabela tenants (JSON serializado)
+        // Estrutura: {"etapa":"identidade"|"produto"|"concluido","concluido":boolean,"pulado":boolean,"banner_dispensado":boolean}
+        const colunaExiste = db.prepare(`
+          PRAGMA table_info(tenants)
+        `).all().some(col => col.name === 'onboarding_estado');
+        if (!colunaExiste) {
+          db.exec(`ALTER TABLE tenants ADD COLUMN onboarding_estado TEXT NOT NULL DEFAULT '{"etapa":"identidade","concluido":false,"pulado":false,"banner_dispensado":false}';`);
+        }
+      }
     }
   ];
 

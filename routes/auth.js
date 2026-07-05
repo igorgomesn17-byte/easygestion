@@ -121,22 +121,33 @@ router.post('/login', (req, res) => {
     req.session.papel = u.papel;
     req.session.tenant_id = u.tenant_id;
 
-    // Se é primeira login, redirecionar para onboarding
-    const tenantData = db.prepare('SELECT primeira_login FROM tenants WHERE id = ?').get(u.tenant_id);
+    // Verificar estado de onboarding para redirecionar corretamente
+    const tenantData = db.prepare('SELECT onboarding_estado FROM tenants WHERE id = ?').get(u.tenant_id);
     let destino = destinoCustom;
-    if (tenantData && tenantData.primeira_login === 1) {
-      // Marcar como não-primeira-login
-      db.prepare('UPDATE tenants SET primeira_login = 0 WHERE id = ?').run(u.tenant_id);
-      destino = 'onboarding.html';
-      console.log(`[LOGIN OK - ONBOARDING] ${u.email} (${u.papel}) • ${req.ip} • ${new Date().toISOString()}`);
-      return res.json({ ok: true, usuario: u.nome, email: u.email, papel: u.papel, destino });
+
+    if (tenantData && tenantData.onboarding_estado) {
+      const estado = JSON.parse(tenantData.onboarding_estado);
+      // Se onboarding não foi concluído ainda, redirecionar para o passo apropriado
+      if (!estado.concluido) {
+        if (estado.etapa === 'identidade') {
+          destino = 'onboarding.html';
+          console.log(`[LOGIN OK - ONBOARDING IDENTIDADE] ${u.email} (${u.papel}) • ${req.ip}`);
+        } else if (estado.etapa === 'produto') {
+          destino = 'produtos.html?tour=1';
+          console.log(`[LOGIN OK - ONBOARDING PRODUTO] ${u.email} (${u.papel}) • ${req.ip}`);
+        }
+      }
     }
 
-    const destinoPadrao = u.papel === 'admin' ? 'index.html'
-      : u.papel === 'vendedor' ? 'pdv.html'
-      : 'relacionamento.html';
-    destino = destinoCustom || destinoPadrao;
-    console.log(`[LOGIN OK] ${u.email} (${u.papel}) • ${req.ip} • ${new Date().toISOString()}`);
+    // Se não foi redirecionar por onboarding, usar destino padrão por papel
+    if (!destino) {
+      const destinoPadrao = u.papel === 'admin' ? 'index.html'
+        : u.papel === 'vendedor' ? 'pdv.html'
+        : 'relacionamento.html';
+      destino = destinoPadrao;
+    }
+
+    console.log(`[LOGIN OK] ${u.email} (${u.papel}) → ${destino} • ${req.ip}`);
     return res.json({ ok: true, usuario: u.nome, email: u.email, papel: u.papel, destino });
   }
 
@@ -226,6 +237,31 @@ router.post('/registro', async (req, res) => {
     });
 
     const r = tx();
+
+    // Inserir defaults financeiros no config (idempotente via INSERT OR IGNORE)
+    const defaultsFinanceiros = {
+      markup: '2.5',
+      embalagem_unit: '0',
+      frete_unit: '0',
+      regime_fiscal: 'simples',
+      imposto_simples: '7.3',
+      comissao_padrao: '0',
+      taxa_pix: '1',
+      taxa_debito: '2',
+      taxa_credito_vista: '3',
+      taxa_credito_2x: '4.5',
+      taxa_credito_3x: '5.5',
+      taxa_credito_4x: '6.5',
+      taxa_credito_5x: '7.5',
+      taxa_credito_6x: '8.5',
+      parcelas_loja_absorve: '0',
+    };
+    const insertConfigStmt = db.prepare(
+      'INSERT OR IGNORE INTO config (chave, valor, tenant_id) VALUES (?, ?, ?)'
+    );
+    for (const [chave, valor] of Object.entries(defaultsFinanceiros)) {
+      insertConfigStmt.run(chave, valor, r.tenantId);
+    }
 
     // (4) Gerar token de verificação de email
     const token = gerarTokenVerificacao();
