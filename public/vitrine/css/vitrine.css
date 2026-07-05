@@ -97,13 +97,19 @@ body {
   color: white;
   border: none;
   cursor: pointer;
-  font-size: 1.5rem;
   display: flex;
   align-items: center;
   justify-content: center;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   transition: all 0.3s ease;
   position: relative;
+  padding: 0;
+}
+
+.btn-carrinho svg {
+  width: 28px;
+  height: 28px;
+  stroke: white;
 }
 
 .btn-carrinho:hover {
