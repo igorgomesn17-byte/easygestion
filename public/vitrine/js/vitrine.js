@@ -77,11 +77,9 @@ async function inicializar() {
 // ============================================================
 
 function preencherHeader() {
-  const lojaNome = document.getElementById('lojaNome');
   const lojaLogo = document.getElementById('lojaLogo');
   const lojafrase = document.getElementById('lojafrase');
 
-  lojaNome.textContent = dadosLoja.loja_nome || 'Vitrine';
   lojafrase.textContent = dadosLoja.vitrine_frase || '';
 
   if (dadosLoja.loja_logo) {
