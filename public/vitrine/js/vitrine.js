@@ -85,7 +85,8 @@ function preencherHeader() {
   lojafrase.textContent = dadosLoja.vitrine_frase || '';
 
   if (dadosLoja.loja_logo) {
-    lojaLogo.src = dadosLoja.loja_logo;
+    // Adicionar timestamp para forçar reload (cache busting)
+    lojaLogo.src = dadosLoja.loja_logo + '?t=' + Date.now();
   }
 
   // Preencher botões de contato
