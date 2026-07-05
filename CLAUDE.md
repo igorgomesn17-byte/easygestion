@@ -1,7 +1,7 @@
 # EasyGestão (DRE Express) — Documentação Técnica Oficial
 
-**Última atualização:** 3 de julho de 2026  
-**Status:** ✅ Pronto para produção — 3 bugs críticos resolvidos, checkout e assinatura funcionando
+**Última atualização:** 5 de julho de 2026  
+**Status:** ✅ Pronto para produção — Vitrine pública 100% funcional, personalização completa, checkout e assinatura operacionais
 
 ---
 
@@ -16,6 +16,7 @@
 - **Assinaturas** SaaS via Stripe (modelo freemium)
 - **NFC-e** (emissão de cupom fiscal, em desenvolvimento)
 - **Inbox omnichannel** (WhatsApp + Instagram, parcial)
+- **Vitrine pública** com personalização 100% dinâmica (logo, cores, contato, newsletter)
 
 **Público-alvo:** Donas de lojas de varejo (feminino) com até 2-3 atendentes, faturamento R$ 10-100k/mês, interior do Brasil.
 
@@ -325,6 +326,23 @@ EASYGESTION/
 
 **Status Inbox:** Em desenvolvimento. Estrutura pronta, integração parcial com Meta.
 
+### ✅ Vitrine Pública (Loja Online)
+
+| Funcionalidade | Status | Arquivos |
+|---|---|---|
+| Logo personalizada (upload no backoffice) | ✅ | routes/vitrine.js, public/vitrine/index.html |
+| Cor da marca dinâmica | ✅ | public/vitrine/css/vitrine.css, public/vitrine/js/vitrine.js |
+| Frase de efeito (subtítulo) com fonte serif itálica | ✅ | public/vitrine/index.html |
+| Botões de contato (WhatsApp, Instagram, Maps) | ✅ | public/vitrine/index.html |
+| Grade de produtos com coleções | ✅ | routes/vitrine.js, public/vitrine/js/vitrine.js |
+| Busca de produtos | ✅ | public/vitrine/js/vitrine.js |
+| Carrinho flutuante com ícone SVG | ✅ | public/vitrine/index.html, public/vitrine/css/vitrine.css |
+| Newsletter CTA ("Quer ser primeira a saber?") | ✅ | public/vitrine/index.html |
+| Footer com endereço + ícones de contato SVG | ✅ | public/vitrine/index.html, public/vitrine/js/vitrine.js |
+| Cache busting para logo (timestamp na URL) | ✅ | public/vitrine/js/vitrine.js |
+| Acesso via slug único (ex: easygestao.com/ds-store) | ✅ | routes/vitrine.js, server.js |
+| Configuração 100% pelo backoffice (/config.html) | ✅ | public/config.html, routes/config.js |
+
 ### ✅ Admin Dashboard (SaaS)
 
 | Funcionalidade | Status | Arquivos |
@@ -569,6 +587,16 @@ GET    /api/nfce/:id/xml             Baixar XML
 GET    /api/auditoria                Listar logs (com filtro ação, recurso, período)
 GET    /api/auditoria/:id            Detalhes de uma ação (antes/depois)
 ```
+
+### Vitrine Pública
+
+```
+GET    /api/vitrine/:slug            Dados públicos da loja (logo, cor, contato, frase)
+GET    /api/vitrine/:slug/produtos   Produtos em estoque com galeria + coleções
+POST   /api/webhooks/meta            Webhook para WhatsApp e Instagram (newsletter)
+```
+
+**Acesso:** `https://www.easygestao.com/{slug}/` — slug gerado automaticamente (ex: "ds-store")
 
 ### Config
 
@@ -1175,4 +1203,50 @@ npm test
 
 ---
 
-**Documento versão 1.1 — Atualizado em 3 de julho de 2026. Todos os 6 bugs corrigidos, checkout e assinatura em produção.**
+## Últimas Mudanças (5 de julho de 2026) — Vitrine Pública
+
+### ✅ Implementação Completa da Vitrine
+
+**Commits recentes:**
+- `360ba6c` — Style: Mudar ícone da sacolinha para SVG elegante
+- `c9b31d7` — Style: Aumentar mais a logo (200px de altura)
+- `a4c0ad3` — Style: Fonte serif itálica no subtítulo e ícones SVG circulares no footer
+- `b3a310b` — Style: Remover nome da loja do header, deixar só logo + frase
+- `76cde15` — Fix: Adicionar cache busting na logo (forçar reload)
+- `e25c047` — Debug: Adicionar console.log para debugar carregamento da logo
+- `04bffc7` — Fix: Corrigir URL do Instagram (remover www e garantir https)
+- `a5e8a3d` — Fix: Vitrine carrega cores da loja dinamicamente com !important
+- `e18fccd` — Redesign: Vitrine agora com layout DS Store - botões de contato e coleções
+
+**Funcionalidades Implementadas:**
+- ✅ Logo personalizada (upload do cliente no backoffice)
+- ✅ Cor da marca dinâmica (color picker)
+- ✅ Frase de efeito com fonte serif itálica elegante
+- ✅ Botões de contato (WhatsApp, Instagram, Google Maps) com links funcionando
+- ✅ Grade de produtos com busca e filtro por coleções
+- ✅ Carrinho flutuante com ícone SVG
+- ✅ Newsletter CTA ("Quer ser primeira a saber das novidades?")
+- ✅ Footer com endereço e ícones de contato (SVG, não emoji)
+- ✅ Acesso via slug único (ex: easygestao.com/ds-store)
+- ✅ Configuração 100% pelo cliente via /config.html → Seção "Loja"
+
+**Cliente consegue configurar:**
+- Logo (PNG/JPG até 2MB)
+- Cor da marca
+- Vitrine Frase
+- WhatsApp (com DDD)
+- Instagram URL
+- Google Maps link
+- Endereço
+
+**Verificação em Produção:**
+- ✅ Vitrine carregando em https://www.easygestao.com/ds-active
+- ✅ Logo visível (200px, cache busting ativo)
+- ✅ Cor marrom/bege sendo aplicada dinamicamente
+- ✅ Botões de contato funcionando
+- ✅ Newsletter form funcionando
+- ✅ Footer com informações corretas
+
+---
+
+**Documento versão 1.2 — Atualizado em 5 de julho de 2026. Vitrine pública 100% funcional e personalizável.**
