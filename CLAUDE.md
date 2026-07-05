@@ -1,7 +1,34 @@
 # EasyGestão (DRE Express) — Documentação Técnica Oficial
 
-**Última atualização:** 5 de julho de 2026  
-**Status:** ✅ Pronto para produção — Vitrine pública 100% funcional, personalização completa, checkout e assinatura operacionais
+**Última atualização:** 4 de julho de 2026  
+**Status:** ✅ Pronto para produção — 3 planos aprovados (Starter/Growth/Enterprise), sem Inbox, NFC-e opcional externo
+
+---
+
+## 🎯 ESTRATÉGIA DE MONETIZAÇÃO (FINAL - 04/07/2026)
+
+**Decisão aprovada por Igor:** 3 planos com modelo otimizado
+
+| Plano | Preço | Público | Limite | Diferencial |
+|---|---|---|---|---|
+| **STARTER** | R$ 99,90/mês | Loja nova (< R$ 20k) | 1.000 produtos, 1 usuário | PDV + estoque + caixa + financeiro |
+| **GROWTH** | R$ 149,90/mês | Loja crescendo (R$ 20-50k) | 5.000 produtos, 5 usuários | Vale-crédito + gráficos + despesas recorrentes |
+| **ENTERPRISE** | R$ 249,90/mês | Loja madura (> R$ 50k) | Ilimitado | Múltiplas lojas + suporte 24h + API |
+
+**Mudanças importantes:**
+- ❌ **Inbox:** Removido completamente (não é prioridade)
+- ⚠️ **NFC-e:** Opcional externo (cliente contrata com Focus, custo não é absorvido por Igor)
+- ✅ **Margem:** Aumenta para 75-82% (sem custos absorvidos)
+- ✅ **Timeline:** 3-4 semanas (reduzido de 5-6)
+
+**MRR esperado (100 clientes):** R$ 12.990  
+**ARR esperado:** R$ 155.880  
+**Margem consolidada:** ~78%
+
+**Documentos de referência:**
+- `RECOMENDACAO_EXECUTIVA_V2.md` — Estratégia final
+- `TAREFAS_DESENVOLVIMENTO.md` — Tarefas a fazer
+- `INVENTARIO_COMPLETO_86_FUNCIONALIDADES.md` — Todas as 86 features
 
 ---
 
@@ -13,9 +40,8 @@
 - **Caixa diário** com conciliação manual
 - **Financeiro** (DRE, fluxo de caixa, despesas)
 - **Clientes** com histórico de compras
-- **Assinaturas** SaaS via Stripe (modelo freemium)
-- **NFC-e** (emissão de cupom fiscal, em desenvolvimento)
-- **Inbox omnichannel** (WhatsApp + Instagram, parcial)
+- **Assinaturas** SaaS via Stripe (3 planos: Starter/Growth/Enterprise)
+- **NFC-e** (opcional, cliente contrata com Focus)
 - **Vitrine pública** com personalização 100% dinâmica (logo, cores, contato, newsletter)
 
 **Público-alvo:** Donas de lojas de varejo (feminino) com até 2-3 atendentes, faturamento R$ 10-100k/mês, interior do Brasil.
@@ -32,13 +58,28 @@
 - **Backup:** AWS S3 (criptografado)
 - **Logging:** Pino
 
-**Modelo de Negócio:**
-- 14 dias de trial (sem cartão)
-- **Plano Mensal:** R$ 99,90/mês (subscription recorrente, pode cancelar)
-- **Plano Anual:** R$ 1.078,80 (pagamento único, acesso 365 dias, sem cancelamento exceto 7 dias lei consumidor)
-- Política cancelamento: acesso liberado até `data_proxima_renovacao`, depois bloqueado automaticamente
+**Modelo de Negócio (3 Planos):**
+
+| Aspecto | Starter | Growth | Enterprise |
+|---|---|---|---|
+| Preço/mês | R$ 99,90 | R$ 149,90 | R$ 249,90 |
+| Preço/ano | R$ 999,00 | R$ 1.349,00 | R$ 2.249,00 |
+| Trial | 14 dias (sem cartão) | 14 dias | 14 dias |
+| Usuários | 1 | 5 | Ilimitados |
+| Produtos | 1.000 | 5.000 | Ilimitado |
+| Vale-crédito | ❌ | ✅ | ✅ |
+| Gráficos/exportação | Básica | Completa | Completa |
+| Múltiplas lojas | ❌ | ❌ | ✅ |
+| Suporte | Email (72h) | Email (72h) | Email 24h + WhatsApp |
+| Público | 60% | 30% | 10% |
+
+**Política geral:**
+- Trial: 14 dias sem cartão
+- Renovação automática conforme ciclo (mensal/anual)
+- Cancelamento: acesso até `data_proxima_renovacao`, depois bloqueado
 - Bloqueio automático se pagamento vence
 - Cancelamento via Stripe Portal ou admin dashboard
+- NFC-e: opcional, cliente contrata com Focus (fora do EasyGestão)
 
 ---
 

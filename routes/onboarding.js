@@ -301,4 +301,38 @@ router.get('/progresso', exigirLogin, injetarTenant, (req, res) => {
   }
 });
 
+// --- POST /dispensar → marca o banner de retomada como dispensado ---
+router.post('/dispensar', exigirLogin, injetarTenant, (req, res) => {
+  try {
+    const tenantId = req.tenantId;
+    if (!tenantId) {
+      return res.status(401).json({ erro: 'Tenant não identificado' });
+    }
+
+    const tenant = db.prepare('SELECT onboarding_estado FROM tenants WHERE id = ?').get(tenantId);
+    if (!tenant) {
+      return res.status(404).json({ erro: 'Tenant não encontrado' });
+    }
+
+    const estadoAtual = tenant.onboarding_estado ? JSON.parse(tenant.onboarding_estado) : {
+      etapa: 'identidade',
+      concluido: false,
+      pulado: false,
+      banner_dispensado: false
+    };
+
+    const estadoNovo = { ...estadoAtual, banner_dispensado: true };
+
+    db.prepare('UPDATE tenants SET onboarding_estado = ? WHERE id = ?')
+      .run(JSON.stringify(estadoNovo), tenantId);
+
+    console.log(`✅ [ONBOARDING] Banner de retomada dispensado para tenant ${tenantId}`);
+
+    res.json(estadoNovo);
+  } catch (err) {
+    console.error('[ONBOARDING] Erro ao dispensar banner:', err);
+    return res.status(500).json({ erro: 'Erro ao dispensar banner' });
+  }
+});
+
 module.exports = router;

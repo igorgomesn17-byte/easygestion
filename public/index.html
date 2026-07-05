@@ -12,105 +12,122 @@
     @media (max-width:560px){ .metas-aneis{ grid-template-columns:1fr 1fr; gap:10px; } }
 
 
-    /* Override do spinner de onboarding skip */
-    .btn-skip:hover { background: #e0e0e0; }
-
-    /* Botão de início com cor dinâmica */
-    .btn-start {
-      background: var(--marca);
-      color: white;
-    }
-    .btn-start:hover {
-      background: var(--marca-escura);
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(26, 111, 94, 0.3);
-    }
-
-    /* Checklist de Onboarding */
-    .onboarding-checklist {
-      background: linear-gradient(135deg, #f5f9f8 0%, #fffbf0 100%);
-      border: 2px solid var(--marca);
-      border-radius: 12px;
-      padding: 20px;
+    /* Novos estilos para card de progresso e banner */
+    .card-progresso {
+      border-left: 4px solid var(--marca);
       margin-bottom: 20px;
-      display: none;
     }
-    .onboarding-checklist.show { display: block; }
-
-    .checklist-titulo {
+    .progresso-titulo {
       font-weight: 700;
       color: var(--marca);
-      margin-bottom: 15px;
+      margin-bottom: 12px;
       display: flex;
       align-items: center;
       gap: 8px;
     }
-
-    .checklist-item {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 10px 0;
-      border-bottom: 1px solid rgba(26, 111, 94, 0.1);
+    .progresso-barra {
+      width: 100%;
+      height: 8px;
+      background: #e0e0e0;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 16px;
     }
-    .checklist-item:last-child { border-bottom: none; }
-
-    .checklist-check {
-      width: 24px;
-      height: 24px;
+    .progresso-barra-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--marca), var(--marca-escura));
+      transition: width 0.3s ease;
+      border-radius: 4px;
+    }
+    .progresso-pct {
+      font-weight: 700;
+      color: var(--marca);
+      font-size: 14px;
+      margin-bottom: 12px;
+    }
+    .progresso-itens {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .progresso-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 8px 0;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .progresso-item:last-child { border-bottom: none; }
+    .progresso-check {
+      width: 20px;
+      height: 20px;
       border: 2px solid #ddd;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: bold;
-      transition: all 0.3s;
+      margin-top: 2px;
+      color: #999;
     }
-    .checklist-item.done .checklist-check {
+    .progresso-item.completo .progresso-check {
       background: #3FA66A;
       color: white;
       border-color: #3FA66A;
     }
-
-    .checklist-label {
+    .progresso-label {
       flex: 1;
-      text-align: left;
       color: #333;
+      font-size: 14px;
     }
-    .checklist-item.done .checklist-label {
+    .progresso-item.completo .progresso-label {
       color: #999;
-      text-decoration: line-through;
     }
 
-    .checklist-action {
-      padding: 4px 12px;
+    /* Banner de retomada */
+    .banner-retomada {
+      background: linear-gradient(135deg, #f9f9f9 0%, #ffffff 100%);
+      border-left: 4px solid var(--marca);
+      padding: 16px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      display: none;
+    }
+    .banner-retomada.show { display: block; }
+    .banner-retomada-titulo {
+      font-weight: 700;
+      color: var(--marca);
+      margin-bottom: 8px;
+      font-size: 15px;
+    }
+    .banner-retomada-descricao {
+      color: #666;
+      font-size: 13px;
+      margin-bottom: 12px;
+      line-height: 1.4;
+    }
+    .banner-retomada-botoes {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .banner-retomada-botoes .btn {
+      padding: 8px 16px;
+      font-size: 13px;
+    }
+    .banner-retomada-botoes .btn-primario {
       background: var(--marca);
       color: white;
-      border: none;
-      border-radius: 4px;
-      font-size: 12px;
-      cursor: pointer;
-      transition: all 0.3s;
     }
-    .checklist-action:hover { background: var(--marca-escura); }
+    .banner-retomada-botoes .btn-primario:hover {
+      background: var(--marca-escura);
+    }
   </style>
 </head>
 <body>
-  
-  <div class="onboarding-modal" id="onboardingWelcome">
-    <div class="onboarding-content">
-      <h1>🎉 Bem-vindo ao EasyGestão</h1>
-      <p>Que bom ter você aqui Vamos começar configurando o essencial para sua loja funcionar?</p>
-      <p style="font-size: 12px; color: #999;">Leva menos de 5 minutos, e você pode pular a qualquer momento.</p>
-      <div class="onboarding-buttons">
-        <button class="btn-skip" onclick="skipOnboarding()">Agora não</button>
-        <button class="btn-start" onclick="startOnboarding()">Vamos lá ▶️</button>
-      </div>
-    </div>
-  </div>
-
   <div class="conteudo">
     <div class="flex-entre">
       <div>
@@ -123,29 +140,24 @@
       </div>
     </div>
 
-    
-    <div class="onboarding-checklist" id="onboardingChecklist">
-      <div class="checklist-titulo">✅ Primeiros Passos</div>
-      <div class="checklist-item" id="check-config">
-        <div class="checklist-check">✓</div>
-        <div class="checklist-label">Configure os dados da sua loja</div>
-        <button class="checklist-action" onclick="irPara('config.html')">Configurar</button>
+    <!-- Banner de retomada de onboarding -->
+    <div class="banner-retomada" id="bannerRetomada">
+      <div class="banner-retomada-titulo">📋 Vamos continuar sua configuração?</div>
+      <div class="banner-retomada-descricao" id="bannerDescricao"></div>
+      <div class="banner-retomada-botoes">
+        <button class="btn btn-primario" id="btnContinuar" onclick="continuarOnboarding()">Continuar</button>
+        <button class="btn btn-fino" onclick="dispensarBanner()">Depois</button>
       </div>
-      <div class="checklist-item" id="check-demo">
-        <div class="checklist-check">✓</div>
-        <div class="checklist-label">Veja como funciona com dados de exemplo</div>
-        <button class="checklist-action" onclick="carregarDadosDemo()">Carregar Demo</button>
+    </div>
+
+    <!-- Card de progresso do onboarding -->
+    <div class="card card-progresso" id="cardProgresso" style="display:none;">
+      <div class="progresso-titulo">✅ Configuração da Sua Loja</div>
+      <div class="progresso-barra">
+        <div class="progresso-barra-fill" id="progressoBarraFill" style="width:0%;"></div>
       </div>
-      <div class="checklist-item" id="check-primeiro-produto">
-        <div class="checklist-check">✓</div>
-        <div class="checklist-label">Cadastre seu primeiro produto</div>
-        <button class="checklist-action" onclick="irPara('estoque.html')">Cadastrar</button>
-      </div>
-      <div class="checklist-item" id="check-primeira-venda">
-        <div class="checklist-check">✓</div>
-        <div class="checklist-label">Faça uma teste (venda fake)</div>
-        <button class="checklist-action" onclick="irPara('pdv.html')">Fazer Venda</button>
-      </div>
+      <div class="progresso-pct" id="progressoPct">0%</div>
+      <ul class="progresso-itens" id="progressoItens"></ul>
     </div>
 
 
@@ -268,88 +280,102 @@
     }
     carregar();
 
-    // ========== ONBOARDING LOGIC ==========
-    async function verificarOnboardingCompleto() {
+    // ========== NOVO ONBOARDING (Gamificado + Retomada) ==========
+
+    // Mapeamento de etapas com destinos
+    const etapaDestinos = {
+      'identidade': 'config.html',
+      'financeiro': 'config.html',
+      'dados_loja': 'config.html',
+      'produto': 'produtos.html'
+    };
+
+    const etapaTextos = {
+      'identidade': 'Falta personalizar sua loja (logo, cores, contato)',
+      'financeiro': 'Falta configurar suas metas e taxas de pagamento',
+      'dados_loja': 'Falta adicionar os dados da sua loja',
+      'produto': 'Falta cadastrar seu primeiro produto'
+    };
+
+    // Carrega e exibe o progresso do onboarding
+    async function carregarProgresso() {
       try {
-        const resp = await api('/me');
-        return resp.onboarding_completado === 1;
+        const prog = await api('/onboarding/progresso');
+
+        // Atualizar barra e percentual
+        const pct = prog.percentual || 0;
+        document.getElementById('progressoBarraFill').style.width = pct + '%';
+        document.getElementById('progressoPct').textContent = Math.round(pct) + '%';
+
+        // Renderizar itens
+        const container = document.getElementById('progressoItens');
+        container.innerHTML = (prog.itens || []).map(item => `
+          <li class="progresso-item ${item.completo ? 'completo' : ''}">
+            <div class="progresso-check">${item.completo ? '✓' : '•'}</div>
+            <div class="progresso-label">${item.nome}</div>
+          </li>
+        `).join('');
+
+        // Mostrar card se não estiver 100% completo
+        if (pct < 100) {
+          document.getElementById('cardProgresso').style.display = 'block';
+        }
       } catch (err) {
-        console.log('Erro ao verificar onboarding:', err);
-        return false;
+        console.error('Erro ao carregar progresso:', err);
       }
     }
 
-    function mostrarModalBemVindo() {
-      const modal = document.getElementById('onboardingWelcome');
-      modal.classList.add('show');
-      localStorage.setItem('onboarding_shown', 'true');
-    }
-
-    function skipOnboarding() {
-      const modal = document.getElementById('onboardingWelcome');
-      modal.classList.remove('show');
-    }
-
-    function startOnboarding() {
-      const modal = document.getElementById('onboardingWelcome');
-      modal.classList.remove('show');
-      document.getElementById('onboardingChecklist').classList.add('show');
-      localStorage.setItem('onboarding_in_progress', 'true');
-    }
-
-    function irPara(url) {
-      window.location.href = url;
-    }
-
-    async function carregarDadosDemo() {
-      if (confirm('Isso vai carregar 5 produtos de exemplo e 2 clientes fake. Continuar?')) {
-        return;
-      }
-
+    // Carrega e exibe o banner de retomada se necessário
+    async function carregarEstadoBanner() {
       try {
-        const btn = event.target;
-        btn.disabled = true;
-        btn.textContent = '⏳ Carregando...';
+        const estado = await api('/onboarding/estado');
 
-        const resp = await fetch('/api/onboarding/demo-data', {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' }
-        });
-
-        if (resp.ok) {
-          throw new Error('Erro ao carregar dados de demo');
+        if (estado.completado) {
+          // Onboarding completo, não mostrar banner
+          document.getElementById('bannerRetomada').classList.remove('show');
+          return;
         }
 
-        const data = await resp.json();
-        alert(`✅ Dados de exemplo carregados\n${data.produtos} produtos + ${data.clientes} clientes`);
+        if (estado.banner_dispensado) {
+          // Usuário clicou "Depois", respeitar por enquanto
+          document.getElementById('bannerRetomada').classList.remove('show');
+          return;
+        }
 
-        // Marcar como feito
-        document.getElementById('check-demo').classList.add('done');
-        btn.textContent = '✅ Pronto';
-        btn.disabled = true;
+        // Mostrar banner
+        const descricao = etapaTextos[estado.etapa] || 'Complete sua configuração para começar a usar o EasyGestão';
+        document.getElementById('bannerDescricao').textContent = descricao;
+        document.getElementById('bannerRetomada').classList.add('show');
 
-        // Recarregar dashboard
-        carregar();
+        // Guardar etapa atual no global pra usar no botão Continuar
+        window.onboardingEtapaAtual = estado.etapa;
       } catch (err) {
-        alert('❌ Erro: ' + err.message);
-        const btn = event.target;
-        btn.disabled = false;
-        btn.textContent = 'Carregar Demo';
+        console.error('Erro ao carregar estado do banner:', err);
       }
     }
 
-    // Ao carregar a página, mostrar modal se for primeira vez
-    (async function initOnboarding() {
-      const foiMostrado = localStorage.getItem('onboarding_shown') === 'true';
-      const estaEmProgresso = localStorage.getItem('onboarding_in_progress') === 'true';
+    // Botão "Continuar" — redireciona baseado na etapa
+    function continuarOnboarding() {
+      const etapa = window.onboardingEtapaAtual || 'identidade';
+      const destino = etapaDestinos[etapa] || 'config.html';
+      window.location.href = destino;
+    }
 
-      if (foiMostrado) {
-        setTimeout(() => mostrarModalBemVindo(), 1000);
-      } else if (estaEmProgresso) {
-        document.getElementById('onboardingChecklist').classList.add('show');
+    // Botão "Depois" — marca como dispensado e esconde
+    async function dispensarBanner() {
+      try {
+        await api('/onboarding/dispensar', 'POST', {});
+        document.getElementById('bannerRetomada').classList.remove('show');
+      } catch (err) {
+        console.error('Erro ao dispensar banner:', err);
+        // Mesmo que falhe, esconder visualmente
+        document.getElementById('bannerRetomada').classList.remove('show');
       }
-    })();
+    }
+
+    // Inicializar ao carregar
+    carregarProgresso();
+    carregarEstadoBanner();
   </script>
 </body>
 </html>
