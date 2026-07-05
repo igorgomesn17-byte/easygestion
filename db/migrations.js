@@ -396,6 +396,38 @@ function executarMigrations(db) {
           console.log(`✅ Admin seed: ${adminEmail}`);
         }
       }
+    },
+    {
+      nome: '019_stripe_webhooks_idempotency',
+      hash: 'v19-stripe-webhooks',
+      exec: (db) => {
+        db.exec(`
+          CREATE TABLE IF NOT EXISTS stripe_webhooks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_id TEXT UNIQUE NOT NULL,
+            event_type TEXT NOT NULL,
+            processed_at INTEGER NOT NULL,
+            created_at INTEGER DEFAULT (cast(strftime('%s', 'now') as integer)),
+            manual_review INTEGER DEFAULT 0
+          );
+        `);
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_stripe_event_id ON stripe_webhooks(event_id);`);
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_stripe_created_at ON stripe_webhooks(created_at DESC);`);
+      }
+    },
+    {
+      nome: '020_caixa_unique_abertura',
+      hash: 'v20-caixa-unique',
+      exec: (db) => {
+        // Criar índice único para evitar múltiplas aberturas do mesmo dia
+        const indiceExiste = db.prepare(`
+          SELECT name FROM sqlite_master
+          WHERE type='index' AND name='idx_caixa_tenant_data_aberto'
+        `).get();
+        if (!indiceExiste) {
+          db.exec(`CREATE UNIQUE INDEX idx_caixa_tenant_data_aberto ON caixa_dia(tenant_id, data) WHERE aberto = 1;`);
+        }
+      }
     }
   ];
 

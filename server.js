@@ -218,13 +218,8 @@ app.get('/api/docs', swaggerUi.setup(swaggerSpec, {
   }
 }));
 
-// Log de TODAS as requisições POST pra API
-app.use('/api', (req, res, next) => {
-  if (req.method === 'POST') {
-    console.log(`[API-POST] ${req.method} ${req.path} | Session: ${req.sessionID} | Logado: ${req.session?.logado}`);
-  }
-  next();
-});
+// Logs de requisições foram desabilitados (risco de segurança — exposição de session IDs)
+// Se precisar debug, usar LOG_LEVEL=debug com logger estruturado (Pino)
 
 // ---------- Webhooks Stripe (ANTES do json parser — precisa do raw body) ----------
 app.use('/api/webhooks/stripe', express.raw({type: 'application/json'}), (req, res, next) => {

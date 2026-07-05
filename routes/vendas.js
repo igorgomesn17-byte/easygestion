@@ -10,6 +10,8 @@ const { salvarComprovanteBase64 } = require('../lib/comprovantes');
 const { validarDesconto, validarQuantidade, validarParcelas, validarAcrescimo } = require('../lib/validadores');
 const { obterImposto } = require('./config');
 const { cacheRelatorioPorTenant } = require('../middleware/rate-limit-custoso');
+const { schemaVenda } = require('../lib/schemas');
+const { z } = require('zod');
 
 // O vendedor só pode CRIAR venda (POST /). Toda leitura/edição (histórico com
 // lucro/custo, detalhe, cancelamento) é exclusiva do admin. Bloqueia aqui dentro
@@ -22,12 +24,63 @@ router.use((req, res, next) => {
   next();
 });
 
-// POST /api/vendas  -> registra uma venda completa
+// POST /api/vendas  -> registra uma venda completa (COM VALIDAÇÃO)
 // body: {
 //   itens: [{ variacao_id, qtd }],
-//   forma_pagamento, parcelas, desconto, cliente_id, observacao, estado (para imposto)
+//   forma_pagamento, parcelas, desconto, cliente_id, observacao
 // }
 router.post('/', (req, res) => {
+  try {
+    // ✅ VALIDAÇÃO COM ZOD: garantir tipos corretos
+    // Itens: validar que qtd e preco são números
+    if (Array.isArray(req.body.itens)) {
+      for (const item of req.body.itens) {
+        if (typeof item.qtd !== 'number' || item.qtd <= 0) {
+          throw new Error(`Item com qtd inválida: ${item.qtd}`);
+        }
+        if (typeof item.preco !== 'number' || item.preco <= 0) {
+          throw new Error(`Item com preco inválido: ${item.preco}`);
+        }
+      }
+    }
+
+    // Forma de pagamento: deve ser enum válido
+    if (req.body.forma_pagamento && !['pix', 'débito', 'crédito', 'dinheiro'].includes(req.body.forma_pagamento)) {
+      throw new Error(`Forma de pagamento inválida: ${req.body.forma_pagamento}`);
+    }
+
+    // Taxa: deve ser número entre 0-10
+    if (req.body.taxa_percentual !== undefined) {
+      const taxa = parseFloat(req.body.taxa_percentual);
+      if (isNaN(taxa) || taxa < 0 || taxa > 10) {
+        throw new Error(`Taxa inválida: ${req.body.taxa_percentual} (deve estar entre 0-10%)`);
+      }
+    }
+
+    // Desconto: deve ser número não-negativo
+    if (req.body.desconto !== undefined) {
+      const desconto = parseFloat(req.body.desconto);
+      if (isNaN(desconto) || desconto < 0) {
+        throw new Error(`Desconto inválido: ${req.body.desconto} (não pode ser negativo)`);
+      }
+    }
+
+    // Parcelas: deve ser número inteiro 1-12
+    if (req.body.parcelas !== undefined) {
+      const parcelas = parseInt(req.body.parcelas, 10);
+      if (isNaN(parcelas) || parcelas < 1 || parcelas > 12) {
+        throw new Error(`Parcelas inválidas: ${req.body.parcelas} (deve estar entre 1-12)`);
+      }
+    }
+
+  } catch (validErr) {
+    return res.status(400).json({
+      erro: 'Dados da venda inválidos',
+      mensagem: validErr.message
+    });
+  }
+
+  // Prosseguir com a lógica original
   const { itens, forma_pagamento, parcelas = 1, desconto = 0, cliente_id = null, vendedor_id = null, observacao = null, origem = 'loja', pagamentos = null, comprovante = null, troco = 0, troco_forma = null, repassar_taxa = true, estado = 'default', categoria = 'default' } = req.body;
   if (!Array.isArray(itens) || itens.length === 0) return res.status(400).json({ erro: 'Venda sem itens' });
   // pagamento: aceita split (array `pagamentos`) ou forma unica (compatibilidade).

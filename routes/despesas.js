@@ -7,6 +7,8 @@ const router = express.Router();
 const { db } = require('../db/database');
 const { hojeLocal } = require('../lib/datas');
 const { cacheRelatorioPorTenant } = require('../middleware/rate-limit-custoso');
+const { schemaFinanceiro } = require('../lib/schemas');
+const { z } = require('zod');
 
 // GET /api/despesas?mes=YYYY-MM&centro=&status=  -> lista despesas do mes
 router.get('/', (req, res) => {
@@ -42,11 +44,41 @@ router.get('/a-pagar', (req, res) => {
   res.json(rows);
 });
 
-// POST /api/despesas -> cria despesa
+// POST /api/despesas -> cria despesa (COM VALIDAÇÃO)
 router.post('/', (req, res) => {
+  try {
+    // ✅ VALIDAÇÃO COM ZOD
+    const dadosDespesa = schemaFinanceiro.parse({
+      descricao: req.body.descricao,
+      categoria: req.body.categoria,
+      valor: req.body.valor,
+      tipo: req.body.tipo,
+      vencimento: req.body.vencimento,
+      paga: req.body.pago === true || req.body.paga === true,
+      empresa_ou_pessoal: req.body.centro === 'pessoal' ? 'pessoal' : 'empresa'
+    });
+
+    const { descricao, valor, categoria, tipo, vencimento } = dadosDespesa;
+
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      const erros = err.errors.map(e => ({
+        campo: e.path.join('.'),
+        mensagem: e.message
+      }));
+      return res.status(400).json({
+        erro: 'Dados da despesa inválidos',
+        detalhes: erros
+      });
+    }
+    throw err;
+  }
+
+  // Prosseguir com a lógica original
   const { descricao, valor, categoria, tipo, centro, data_competencia, vencimento, pago, forma_pagamento, recorrente, obs } = req.body;
   if (!descricao) return res.status(400).json({ erro: 'Descricao obrigatoria' });
   const v = parseFloat(valor) || 0;
+  if (isNaN(v) || v <= 0) return res.status(400).json({ erro: 'Valor deve ser número positivo' });
   const comp = data_competencia || (hojeLocal().slice(0, 7) + '-01');
   const info = db.prepare(`
     INSERT INTO despesas (tenant_id, descricao, valor, categoria, tipo, centro, data_competencia, vencimento, data_pagamento, pago, forma_pagamento, recorrente, obs)

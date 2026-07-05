@@ -89,21 +89,53 @@ router.get('/hoje', (req, res) => {
   res.json(caixa);
 });
 
-// POST /api/caixa/abrir  body: { data?, fundo_troco }
+// POST /api/caixa/abrir  body: { data?, fundo_troco } (COM TRANSAÇÃO PARA EVITAR RACE CONDITION)
 router.post('/abrir', (req, res) => {
-  const data = req.body.data || hojeLocal();
-  const fundo = parseFloat(req.body.fundo_troco) || 0;
-  garantirLinha(data, req.tenantId);
-  const c = db.prepare('SELECT * FROM caixa_dia WHERE data = ? AND tenant_id = ?').get(data, req.tenantId);
-  if (c.fechado) return res.status(400).json({ erro: 'Caixa deste dia já foi fechado.' });
-  const tx = db.transaction(() => {
-    db.prepare(`UPDATE caixa_dia SET fundo_troco = ?, aberto = 1, aberto_em = datetime('now','localtime') WHERE data = ? AND tenant_id = ?`)
-      .run(fundo, data, req.tenantId);
-    db.prepare(`INSERT INTO caixa_movimentos (data, tenant_id, tipo, valor, motivo) VALUES (?, ?, 'abertura', ?, ?)`)
-      .run(data, req.tenantId, fundo, 'fundo de troco');
-  });
-  tx();
-  res.json({ ok: true });
+  try {
+    const data = req.body.data || hojeLocal();
+    const fundo = parseFloat(req.body.fundo_troco) || 0;
+
+    if (isNaN(fundo) || fundo < 0) {
+      return res.status(400).json({ erro: 'Fundo de troco deve ser um número não-negativo' });
+    }
+
+    // ✅ TRANSAÇÃO: tudo dentro do transaction é atomic (tudo ou nada)
+    const abrirCaixa = db.transaction(() => {
+      // PASSO 1: Garantir linha (INSERT OR IGNORE dentro da transação)
+      db.prepare('INSERT OR IGNORE INTO caixa_dia (data, tenant_id) VALUES (?, ?)').run(data, req.tenantId);
+
+      // PASSO 2: Verificar se já está aberto OU fechado
+      const caixa = db.prepare('SELECT aberto, fechado FROM caixa_dia WHERE data = ? AND tenant_id = ?')
+        .get(data, req.tenantId);
+
+      if (caixa.fechado) {
+        throw new Error('Caixa deste dia já foi fechado.');
+      }
+
+      if (caixa.aberto) {
+        throw new Error('Caixa já está aberto.');
+      }
+
+      // PASSO 3: Atualizar caixa (dentro da transação = atomic)
+      db.prepare(`UPDATE caixa_dia SET fundo_troco = ?, aberto = 1, aberto_em = datetime('now','localtime') WHERE data = ? AND tenant_id = ?`)
+        .run(fundo, data, req.tenantId);
+
+      // PASSO 4: Registrar movimento
+      db.prepare(`INSERT INTO caixa_movimentos (data, tenant_id, tipo, valor, motivo) VALUES (?, ?, 'abertura', ?, ?)`)
+        .run(data, req.tenantId, fundo, 'fundo de troco');
+    });
+
+    // Executar transação (mutex interno do SQLite)
+    abrirCaixa();
+
+    res.json({ ok: true, data, fundo_troco: fundo });
+  } catch (err) {
+    if (err.message.includes('Caixa deste dia já foi fechado') || err.message.includes('Caixa já está aberto')) {
+      return res.status(409).json({ erro: err.message });
+    }
+    console.error('[Caixa] Erro ao abrir:', err.message);
+    res.status(500).json({ erro: 'Erro ao abrir caixa' });
+  }
 });
 
 // POST /api/caixa/saldo-conta  body: { data?, saldo }
