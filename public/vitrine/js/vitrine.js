@@ -28,7 +28,10 @@ async function inicializar() {
       return;
     }
 
-    // 2. Preencher header
+    // 2. Aplicar cores do sistema
+    aplicarTemasPersonalizados();
+
+    // 3. Preencher header
     preencherHeader();
 
     // 3. Buscar produtos
@@ -464,6 +467,50 @@ function exibirMensagemErro(msg) {
       </div>
     </div>
   `;
+}
+
+// ============================================================
+// TEMAS PERSONALIZADOS
+// ============================================================
+
+function aplicarTemasPersonalizados() {
+  // Cor da marca (se configurada no sistema)
+  if (dadosLoja.marca_cor) {
+    // Gerar variações de cor (mais escura e mais clara)
+    const corPrincipal = dadosLoja.marca_cor;
+    const corEscura = escurecerCor(corPrincipal, 30);
+    const corClara = clareaarCor(corPrincipal, 30);
+
+    document.documentElement.style.setProperty('--marca', corPrincipal);
+    document.documentElement.style.setProperty('--marca-escura', corEscura);
+    document.documentElement.style.setProperty('--marca-clara', corClara);
+  }
+}
+
+// Escurecer cor hexadecimal
+function escurecerCor(cor, percentual) {
+  const num = parseInt(cor.replace('#', ''), 16);
+  const amt = Math.round(2.55 * percentual);
+  const R = (num >> 16) - amt;
+  const G = (num >> 8 & 0x00FF) - amt;
+  const B = (num & 0x0000FF) - amt;
+  return '#' + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
+    (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
+    (B < 255 ? B < 1 ? 0 : B : 255))
+    .toString(16).slice(1);
+}
+
+// Clarear cor hexadecimal
+function clareaarCor(cor, percentual) {
+  const num = parseInt(cor.replace('#', ''), 16);
+  const amt = Math.round(2.55 * percentual);
+  const R = (num >> 16) + amt;
+  const G = (num >> 8 & 0x00FF) + amt;
+  const B = (num & 0x0000FF) + amt;
+  return '#' + (0x1000000 + (R > 255 ? 255 : R) * 0x10000 +
+    (G > 255 ? 255 : G) * 0x100 +
+    (B > 255 ? 255 : B))
+    .toString(16).slice(1);
 }
 
 // ============================================================
