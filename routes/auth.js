@@ -120,10 +120,22 @@ router.post('/login', (req, res) => {
     req.session.email = u.email;
     req.session.papel = u.papel;
     req.session.tenant_id = u.tenant_id;
+
+    // Se é primeira login, redirecionar para onboarding
+    const tenantData = db.prepare('SELECT primeira_login FROM tenants WHERE id = ?').get(u.tenant_id);
+    let destino = destinoCustom;
+    if (tenantData && tenantData.primeira_login === 1) {
+      // Marcar como não-primeira-login
+      db.prepare('UPDATE tenants SET primeira_login = 0 WHERE id = ?').run(u.tenant_id);
+      destino = 'onboarding.html';
+      console.log(`[LOGIN OK - ONBOARDING] ${u.email} (${u.papel}) • ${req.ip} • ${new Date().toISOString()}`);
+      return res.json({ ok: true, usuario: u.nome, email: u.email, papel: u.papel, destino });
+    }
+
     const destinoPadrao = u.papel === 'admin' ? 'index.html'
       : u.papel === 'vendedor' ? 'pdv.html'
       : 'relacionamento.html';
-    const destino = destinoCustom || destinoPadrao;
+    destino = destinoCustom || destinoPadrao;
     console.log(`[LOGIN OK] ${u.email} (${u.papel}) • ${req.ip} • ${new Date().toISOString()}`);
     return res.json({ ok: true, usuario: u.nome, email: u.email, papel: u.papel, destino });
   }

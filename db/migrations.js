@@ -428,6 +428,19 @@ function executarMigrations(db) {
           db.exec(`CREATE UNIQUE INDEX idx_caixa_tenant_data_aberto ON caixa_dia(tenant_id, data) WHERE aberto = 1;`);
         }
       }
+    },
+    {
+      nome: '021_add_primeira_login_to_tenants',
+      hash: 'v21-primeira-login',
+      exec: (db) => {
+        // Adicionar coluna primeira_login à tabela tenants
+        const colunaExiste = db.prepare(`
+          PRAGMA table_info(tenants)
+        `).all().some(col => col.name === 'primeira_login');
+        if (!colunaExiste) {
+          db.exec(`ALTER TABLE tenants ADD COLUMN primeira_login INTEGER NOT NULL DEFAULT 1;`);
+        }
+      }
     }
   ];
 
