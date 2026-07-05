@@ -481,9 +481,17 @@ function aplicarTemasPersonalizados() {
     const corEscura = escurecerCor(corPrincipal, 30);
     const corClara = clareaarCor(corPrincipal, 30);
 
-    document.documentElement.style.setProperty('--marca', corPrincipal);
-    document.documentElement.style.setProperty('--marca-escura', corEscura);
-    document.documentElement.style.setProperty('--marca-clara', corClara);
+    // Injetar CSS dinâmico no <style id="temaLoja">
+    const styleTema = document.getElementById('temaLoja');
+    if (styleTema) {
+      styleTema.textContent = `
+        :root {
+          --marca: ${corPrincipal} !important;
+          --marca-escura: ${corEscura} !important;
+          --marca-clara: ${corClara} !important;
+        }
+      `;
+    }
   }
 }
 

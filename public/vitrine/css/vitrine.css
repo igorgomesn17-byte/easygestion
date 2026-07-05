@@ -4,6 +4,7 @@
    ============================================================ */
 
 :root {
+  /* Cores padrão - serão sobrescritas pelo JavaScript com base na config da loja */
   --marca: #1a6f5e;
   --marca-escura: #0d3d33;
   --marca-clara: #4a9b89;
