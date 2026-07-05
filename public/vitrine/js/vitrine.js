@@ -115,13 +115,21 @@ function preencherBotoesContato() {
 
   // Instagram
   if (dadosLoja.loja_instagram_url) {
+    let instagramUrl = dadosLoja.loja_instagram_url;
+    // Garantir que tem https:// no início
+    if (!instagramUrl.startsWith('http')) {
+      instagramUrl = 'https://' + instagramUrl;
+    }
+    // Remover www. (Instagram não gosta)
+    instagramUrl = instagramUrl.replace('://www.', '://');
+
     const btnIG = document.getElementById('btnInstagram');
-    btnIG.href = dadosLoja.loja_instagram_url;
+    btnIG.href = instagramUrl;
     btnIG.style.display = 'inline-flex';
 
     // Footer
     const footerIG = document.getElementById('footerInstagram');
-    footerIG.href = dadosLoja.loja_instagram_url;
+    footerIG.href = instagramUrl;
     footerIG.style.display = 'inline-flex';
   }
 
