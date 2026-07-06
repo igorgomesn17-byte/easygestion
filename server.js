@@ -117,13 +117,12 @@ app.use(helmet({
 // Desabilitar ETag (Express gera automaticamente)
 app.set('etag', false);
 
-// Middleware: remover ETag de TODAS as respostas
+// Middleware: remover ETag de TODAS as respostas (inclusive sendFile)
 app.use((req, res, next) => {
-  const originalSend = res.send;
-  res.send = function(data) {
+  res.removeHeader('ETag');
+  res.on('finish', () => {
     res.removeHeader('ETag');
-    return originalSend.call(this, data);
-  };
+  });
   next();
 });
 
