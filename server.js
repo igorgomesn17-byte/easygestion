@@ -111,7 +111,11 @@ app.use(helmet({
   xDownloadOptions: true,
   xPoweredBy: false,
   xXssProtection: true,
+  dnsPrefetchControl: false,
 }));
+
+// Desabilitar ETag (Express gera automaticamente)
+app.set('etag', false);
 
 // ---------- CORS (restrito ao próprio domínio) ----------
 const ORIGIN = process.env.ORIGIN || (EM_PRODUCAO ? false : 'http://localhost:3000');
