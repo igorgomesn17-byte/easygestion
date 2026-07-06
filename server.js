@@ -369,6 +369,7 @@ app.get('/', (req, res, next) => {
   res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
   res.set('Pragma', 'no-cache');
   res.set('Expires', '0');
+  res.removeHeader('ETag');
   res.sendFile(path.join(__dirname, 'public', 'landing.html'), (err) => {
     if (err) {
       console.error('[ROUTE] Erro ao servir landing.html:', err);
