@@ -21,13 +21,11 @@ router.get('/:slug', (req, res) => {
       return res.status(404).json({ erro: 'Loja não encontrada' });
     }
 
-    // Buscar vitrine_ativa: específica do tenant
-    let vitrineAtivaConfig = db.prepare('SELECT valor FROM config WHERE chave = ? AND tenant_id = ?')
+    // Buscar vitrine_ativa: SEMPRE filtrada pelo tenant do slug.
+    // ⚠️ NUNCA fazer fallback global (SELECT sem tenant_id): com 2+ lojas, isso
+    // vazaria a config de OUTRA loja. Sem registro = tratado como inativa.
+    const vitrineAtivaConfig = db.prepare('SELECT valor FROM config WHERE chave = ? AND tenant_id = ?')
       .get('vitrine_ativa', tenant.id);
-    // Se não encontrou específica do tenant, buscar global (qualquer tenant_id)
-    if (!vitrineAtivaConfig) {
-      vitrineAtivaConfig = db.prepare('SELECT valor FROM config WHERE chave = ?').get('vitrine_ativa');
-    }
     const vitrineAtiva = vitrineAtivaConfig?.valor === '1';
 
     if (!vitrineAtiva) {
@@ -38,11 +36,13 @@ router.get('/:slug', (req, res) => {
     }
 
     // Buscar dados públicos da loja (mesmo padrão de /api/loja-publica, mas filtrado)
+    // Defaults por chave para quando o tenant ainda não preencheu (nunca herda de outro tenant).
     const CHAVES_PUBLICAS = [
       'loja_nome', 'loja_endereco', 'loja_instagram', 'loja_telefone',
       'vitrine_frase', 'loja_whatsapp', 'loja_whatsapp_link', 'loja_instagram_url',
       'loja_maps', 'loja_logo', 'marca_cor'
     ];
+    const DEFAULTS_PUBLICOS = { marca_cor: '#1a6f5e' };
 
     const dados = {
       slug: tenant.slug,
@@ -51,13 +51,10 @@ router.get('/:slug', (req, res) => {
     };
 
     for (const chave of CHAVES_PUBLICAS) {
-      // Buscar config: primeiro específica do tenant, depois qualquer uma
-      let config = db.prepare('SELECT valor FROM config WHERE chave = ? AND tenant_id = ?')
+      // SEMPRE filtrado por tenant_id; sem registro usa default local, nunca de outro tenant.
+      const config = db.prepare('SELECT valor FROM config WHERE chave = ? AND tenant_id = ?')
         .get(chave, tenant.id);
-      if (!config) {
-        config = db.prepare('SELECT valor FROM config WHERE chave = ?').get(chave);
-      }
-      dados[chave] = config?.valor || '';
+      dados[chave] = config?.valor || DEFAULTS_PUBLICOS[chave] || '';
     }
 
     res.json(dados);
@@ -77,13 +74,9 @@ router.get('/:slug/produtos', (req, res) => {
       return res.status(404).json({ erro: 'Loja não encontrada' });
     }
 
-    // Buscar vitrine_ativa: específica do tenant
-    let vitrineAtivaConfig = db.prepare('SELECT valor FROM config WHERE chave = ? AND tenant_id = ?')
+    // Buscar vitrine_ativa: SEMPRE filtrada pelo tenant do slug (sem fallback global).
+    const vitrineAtivaConfig = db.prepare('SELECT valor FROM config WHERE chave = ? AND tenant_id = ?')
       .get('vitrine_ativa', tenant.id);
-    // Se não encontrou específica do tenant, buscar global (qualquer tenant_id)
-    if (!vitrineAtivaConfig) {
-      vitrineAtivaConfig = db.prepare('SELECT valor FROM config WHERE chave = ?').get('vitrine_ativa');
-    }
     const vitrineAtiva = vitrineAtivaConfig?.valor === '1';
 
     if (!vitrineAtiva) {

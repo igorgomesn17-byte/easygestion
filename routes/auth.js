@@ -115,40 +115,49 @@ router.post('/login', (req, res) => {
       return res.status(403).json({ erro: 'Sua conta foi bloqueada pelo administrador' });
     }
 
-    req.session.logado = true;
-    req.session.usuario = u.nome;
-    req.session.email = u.email;
-    req.session.papel = u.papel;
-    req.session.tenant_id = u.tenant_id;
+    // Regenera o ID de sessão ANTES de gravar dados (previne fixação de sessão:
+    // o ID anônimo anterior ao login deixa de ser válido).
+    return req.session.regenerate((errRegen) => {
+      if (errRegen) {
+        console.error('[LOGIN] Erro ao regenerar sessão:', errRegen.message);
+        return res.status(500).json({ erro: 'Erro ao iniciar sessão' });
+      }
 
-    // Verificar estado de onboarding para redirecionar corretamente
-    const tenantData = db.prepare('SELECT onboarding_estado FROM tenants WHERE id = ?').get(u.tenant_id);
-    let destino = destinoCustom;
+      req.session.logado = true;
+      req.session.usuario = u.nome;
+      req.session.email = u.email;
+      req.session.papel = u.papel;
+      req.session.tenant_id = u.tenant_id;
 
-    if (tenantData && tenantData.onboarding_estado) {
-      const estado = JSON.parse(tenantData.onboarding_estado);
-      // Se onboarding não foi concluído ainda, redirecionar para o passo apropriado
-      if (!estado.concluido) {
-        if (estado.etapa === 'identidade') {
-          destino = 'onboarding.html';
-          console.log(`[LOGIN OK - ONBOARDING IDENTIDADE] ${u.email} (${u.papel}) • ${req.ip}`);
-        } else if (estado.etapa === 'produto') {
-          destino = 'produtos.html?tour=1';
-          console.log(`[LOGIN OK - ONBOARDING PRODUTO] ${u.email} (${u.papel}) • ${req.ip}`);
+      // Verificar estado de onboarding para redirecionar corretamente
+      const tenantData = db.prepare('SELECT onboarding_estado FROM tenants WHERE id = ?').get(u.tenant_id);
+      let destino = destinoCustom;
+
+      if (tenantData && tenantData.onboarding_estado) {
+        const estado = JSON.parse(tenantData.onboarding_estado);
+        // Se onboarding não foi concluído ainda, redirecionar para o passo apropriado
+        if (!estado.concluido) {
+          if (estado.etapa === 'identidade') {
+            destino = 'onboarding.html';
+            console.log(`[LOGIN OK - ONBOARDING IDENTIDADE] ${u.email} (${u.papel}) • ${req.ip}`);
+          } else if (estado.etapa === 'produto') {
+            destino = 'produtos.html?tour=1';
+            console.log(`[LOGIN OK - ONBOARDING PRODUTO] ${u.email} (${u.papel}) • ${req.ip}`);
+          }
         }
       }
-    }
 
-    // Se não foi redirecionar por onboarding, usar destino padrão por papel
-    if (!destino) {
-      const destinoPadrao = u.papel === 'admin' ? 'index.html'
-        : u.papel === 'vendedor' ? 'pdv.html'
-        : 'relacionamento.html';
-      destino = destinoPadrao;
-    }
+      // Se não foi redirecionar por onboarding, usar destino padrão por papel
+      if (!destino) {
+        const destinoPadrao = u.papel === 'admin' ? 'index.html'
+          : u.papel === 'vendedor' ? 'pdv.html'
+          : 'relacionamento.html';
+        destino = destinoPadrao;
+      }
 
-    console.log(`[LOGIN OK] ${u.email} (${u.papel}) → ${destino} • ${req.ip}`);
-    return res.json({ ok: true, usuario: u.nome, email: u.email, papel: u.papel, destino });
+      console.log(`[LOGIN OK] ${u.email} (${u.papel}) → ${destino} • ${req.ip}`);
+      return res.json({ ok: true, usuario: u.nome, email: u.email, papel: u.papel, destino });
+    });
   }
 
   console.warn(`[LOGIN FALHA] ${email} • ${req.ip} • ${new Date().toISOString()}`);

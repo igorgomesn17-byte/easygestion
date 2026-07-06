@@ -57,38 +57,37 @@ router.post('/login', (req, res) => {
       });
     }
 
-    // ✅ Autenticação bem-sucedida: criar sessão
-    req.session.logado = true;
-    req.session.admin_id = admin.id;
-    req.session.nome = admin.nome;
-    req.session.email = admin.email;
-    req.session.papel = admin.papel;
-    req.session.tenant_id = 1;
-    req.session.login_em = new Date().toISOString();
-
-    // Atualizar último login
-    db.prepare("UPDATE admins SET ultimo_login_em = datetime('now','localtime') WHERE id = ?").run(admin.id);
-
-    // ✅ AUDITORIA: registrar login do admin
-    auditarAcao(req, {
-      acao: 'LOGIN_admin',
-      recurso: 'auditoria_admin',
-      recurso_id: admin.id,
-      antes: null,
-      depois: null,
-      status: 200,
-    });
-
-    console.log(`[ADMIN] ✅ Login bem-sucedido • Admin: ${admin.email} • IP: ${req.ip}`);
-
-    res.json({
-      sucesso: true,
-      mensagem: 'Logado como administrador',
-      admin: {
-        id: admin.id,
-        nome: admin.nome,
-        email: admin.email
+    // ✅ Senha OK — mas NÃO loga ainda. 2FA é obrigatório para o admin do SaaS.
+    // Cria sessão PENDENTE (5 min). O login só se completa em /2fa-verify (se já
+    // configurou TOTP) ou /2fa-confirm (primeira vez, faz setup). Sem 2FA não há
+    // acesso ao painel que controla todos os tenants.
+    const jaTem2fa = admin.totp_ativado === 1 && admin.totp_secret;
+    req.session.regenerate((errRegen) => {
+      if (errRegen) {
+        console.error('[ADMIN] Erro ao regenerar sessão:', errRegen.message);
+        return res.status(500).json({ erro: 'Erro ao iniciar sessão' });
       }
+      req.session.admin_pendente = {
+        admin_id: admin.id,
+        nome: admin.nome,
+        email: admin.email,
+        etapa: jaTem2fa ? '2fa_verify' : '2fa_setup',
+        expira_em: Date.now() + 5 * 60 * 1000, // 5 minutos
+      };
+
+      // Atualizar último login (tentativa de autenticação de 1º fator)
+      db.prepare("UPDATE admins SET ultimo_login_em = datetime('now','localtime') WHERE id = ?").run(admin.id);
+
+      console.log(`[ADMIN] Senha OK, aguardando 2FA (${jaTem2fa ? 'verify' : 'setup'}) • Admin: ${admin.email} • IP: ${req.ip}`);
+
+      res.json({
+        sucesso: true,
+        etapa: jaTem2fa ? '2fa_verify' : '2fa_setup',
+        destino: jaTem2fa ? '/admin-2fa.html' : '/admin-2fa-setup.html',
+        mensagem: jaTem2fa
+          ? 'Digite o código do seu aplicativo autenticador'
+          : 'Configure a autenticação de dois fatores para continuar'
+      });
     });
   } catch (err) {
     console.error('[ADMIN] ❌ Erro ao fazer login:', err.message);
@@ -572,82 +571,12 @@ router.get('/backup-status', exigirAdminBackoffice, (req, res) => {
   }
 });
 
-// --- POST /deploy-secret → fazer git pull e restart (com token secreto, sem autenticação) ---
-router.post('/deploy-secret', (req, res) => {
-  const { token } = req.body;
-  const DEPLOY_TOKEN = process.env.DEPLOY_TOKEN || 'easygestion-deploy-2026';
-
-  if (token !== DEPLOY_TOKEN) {
-    return res.status(401).json({ erro: 'Token inválido' });
-  }
-
-  const { execSync } = require('child_process');
-  try {
-    console.log('[DEPLOY] 🚀 Iniciando deploy via token...');
-
-    // Git pull
-    const cwd = process.env.NODE_ENV === 'production' ? '/var/www/easygestion' : __dirname + '/..';
-    execSync('git fetch origin main && git reset --hard origin/main', { cwd, stdio: 'pipe' });
-    console.log('[DEPLOY] ✅ Git pull concluído');
-
-    res.json({
-      sucesso: true,
-      mensagem: 'Deploy concluído! App será reiniciado em 2s...',
-      timestamp: new Date().toISOString()
-    });
-
-    // Restart after 2 seconds
-    setTimeout(() => {
-      console.log('[DEPLOY] Reiniciando app via pm2...');
-      try {
-        execSync('pm2 restart all', { stdio: 'pipe' });
-      } catch (e) {
-        console.error('[DEPLOY] Erro ao restart pm2:', e.message);
-      }
-    }, 2000);
-  } catch (err) {
-    console.error('[DEPLOY] ❌ Erro durante deploy:', err.message);
-    return res.status(500).json({
-      erro: 'Erro ao fazer deploy',
-      detalhe: process.env.NODE_ENV === 'development' ? err.message : undefined
-    });
-  }
-});
-
-// --- POST /deploy → fazer git pull e restart do app (apenas admin) ---
-router.post('/deploy', exigirAdminBackoffice, (req, res) => {
-  const { execSync } = require('child_process');
-  try {
-    console.log('[DEPLOY] 🚀 Iniciando deploy...');
-
-    // Git pull
-    const cwd = process.env.NODE_ENV === 'production' ? '/var/www/easygestion' : __dirname + '/..';
-    execSync('git fetch origin main && git reset --hard origin/main', { cwd, stdio: 'pipe' });
-    console.log('[DEPLOY] ✅ Git pull concluído');
-
-    res.json({
-      sucesso: true,
-      mensagem: 'Deploy concluído! App será reiniciado em 2s...',
-      timestamp: new Date().toISOString()
-    });
-
-    // Restart after 2 seconds (pm2 vai fazer o restart automático)
-    setTimeout(() => {
-      console.log('[DEPLOY] Reiniciando app via pm2...');
-      try {
-        execSync('pm2 restart all', { stdio: 'pipe' });
-      } catch (e) {
-        console.error('[DEPLOY] Erro ao restart pm2:', e.message);
-      }
-    }, 2000);
-  } catch (err) {
-    console.error('[DEPLOY] ❌ Erro durante deploy:', err.message);
-    return res.status(500).json({
-      erro: 'Erro ao fazer deploy',
-      detalhe: process.env.NODE_ENV === 'development' ? err.message : undefined
-    });
-  }
-});
+// --- Deploy: rotas removidas por segurança (RCE). ---
+// As antigas POST /deploy-secret e POST /deploy executavam `git reset --hard` +
+// `pm2 restart` via execSync. A /deploy-secret tinha token com fallback público
+// e ficava sob o prefixo público /api/admin (sem exigirAdminBackoffice), o que
+// permitia execução remota. Deploy é feito MANUALMENTE via SSH (ver CLAUDE.md).
+// Não reintroduzir deploy por HTTP sem auth de sessão + token sem fallback.
 
 // ============================================================
 // P1 - PAINEL DE ASSINATURAS

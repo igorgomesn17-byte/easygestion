@@ -20,11 +20,27 @@ const SCHEMA_PATH = path.join(__dirname, 'schema.sql');
 // Considerar "existe" se o arquivo tem > 1000 bytes (banco real, não vazio)
 const bankExistedBefore = fs.existsSync(DB_PATH) && fs.statSync(DB_PATH).size > 1000;
 
-// Fazer backup se banco existir e tiver dados reais (segurança extra)
+// Fazer backup se banco existir e tiver dados reais (segurança extra).
+// IMPORTANTE: grava FORA de db/ — backups contêm dados de clientes e NUNCA devem
+// entrar no git. A pasta db/ é versionada; a de backups fica ignorada e separada.
+const BACKUP_DIR = process.env.DB_BACKUP_DIR || path.join(DB_DIR, '..', 'db-backups-locais');
+const MAX_BACKUPS_LOCAIS = parseInt(process.env.MAX_BACKUPS_LOCAIS || '10', 10);
 if (bankExistedBefore && !process.env.SKIP_BACKUP) {
-  const backup = DB_PATH + '.backup-' + new Date().getTime();
-  fs.copyFileSync(DB_PATH, backup);
-  console.log(`💾 Backup criado: ${backup}`);
+  try {
+    if (!fs.existsSync(BACKUP_DIR)) fs.mkdirSync(BACKUP_DIR, { recursive: true });
+    const backup = path.join(BACKUP_DIR, 'dsstore.db.backup-' + new Date().getTime());
+    fs.copyFileSync(DB_PATH, backup);
+    console.log(`💾 Backup criado: ${backup}`);
+    // Teto: mantém só os N backups mais recentes (evita acúmulo infinito de arquivos)
+    const antigos = fs.readdirSync(BACKUP_DIR)
+      .filter(f => f.startsWith('dsstore.db.backup-'))
+      .sort();
+    for (const f of antigos.slice(0, Math.max(0, antigos.length - MAX_BACKUPS_LOCAIS))) {
+      try { fs.unlinkSync(path.join(BACKUP_DIR, f)); } catch (e) { /* ignora */ }
+    }
+  } catch (e) {
+    console.error('⚠️  Falha ao criar backup de boot (seguindo mesmo assim):', e.message);
+  }
 }
 
 const raw = new DatabaseSync(DB_PATH);

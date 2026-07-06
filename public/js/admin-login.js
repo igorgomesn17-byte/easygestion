@@ -40,9 +40,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const data = await res.json();
 
-      // Se login foi bem-sucedido
+      // Senha OK → segue para o 2FA (verify se já configurou, setup na 1ª vez).
+      // O login só se completa após o 2º fator; não vai direto ao dashboard.
       if (res.ok && data.sucesso) {
-        window.location.href = '/admin-dashboard.html';
+        window.location.href = data.destino || '/admin-2fa.html';
         return;
       }
 

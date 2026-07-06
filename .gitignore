@@ -6,6 +6,11 @@ db/dsstore.db
 db/*.db
 db/*.db-shm
 db/*.db-wal
+# backups do banco (contêm dados de clientes — NUNCA versionar)
+db/*.backup-*
+db/*.db.backup-*
+*.backup-*
+db-backups-locais/
 easygestion.db
 easygestion-data/
 uploads/

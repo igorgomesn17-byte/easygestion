@@ -382,21 +382,10 @@ router.post('/analisar-preco', (req, res) => {
   res.json(analisarPreco(custo, preco, { tenantId: req.tenantId }));
 });
 
-// DELETE /api/produtos/:id — deleta um produto e suas variações
-router.delete('/:id', (req, res) => {
-  const id = parseInt(req.params.id, 10);
-  const p = db.prepare('SELECT tenant_id FROM produtos WHERE id = ?').get(id);
-  if (!p || p.tenant_id !== req.tenantId) {
-    return res.status(404).json({ erro: 'Produto não encontrado' });
-  }
-  const tx = db.transaction(() => {
-    db.prepare('DELETE FROM movimentos_estoque WHERE variacao_id IN (SELECT id FROM variacoes WHERE produto_id = ?)').run(id);
-    db.prepare('DELETE FROM variacoes WHERE produto_id = ?').run(id);
-    db.prepare('DELETE FROM produto_fotos WHERE produto_id = ?').run(id);
-    db.prepare('DELETE FROM produtos WHERE id = ?').run(id);
-  });
-  tx();
-  res.json({ ok: true });
-});
+// NOTA: havia um segundo DELETE /:id aqui (hard-delete) que era CÓDIGO MORTO —
+// o Express usa o primeiro handler registrado (o soft-delete `ativo=0` acima, que
+// preserva o histórico de vendas). O segundo nunca rodava e contradizia o primeiro.
+// Removido para não confundir manutenção. Se um dia precisar de hard-delete de
+// produto, faça uma rota com verbo/caminho distinto (ex: DELETE /:id/permanente).
 
 module.exports = router;
