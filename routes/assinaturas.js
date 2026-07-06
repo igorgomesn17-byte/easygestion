@@ -99,13 +99,18 @@ router.post('/checkout', (req, res) => {
 
   try {
     const tenantId = req.session.tenant_id;
-    const { tipo_plano } = req.body;
+    // Novo modelo: plano (tier) + ciclo. Compat: aceita 'tipo_plano' antigo como ciclo.
+    const plano = req.body.plano || 'starter';
+    const ciclo = req.body.ciclo || req.body.tipo_plano || 'mensal';
 
-    if (!tipo_plano || !['mensal', 'anual'].includes(tipo_plano)) {
-      return res.status(400).json({ erro: 'Tipo de plano inválido (use "mensal" ou "anual")' });
+    if (!['starter', 'growth', 'enterprise'].includes(plano)) {
+      return res.status(400).json({ erro: 'Plano inválido (use "starter", "growth" ou "enterprise")' });
+    }
+    if (!['mensal', 'anual'].includes(ciclo)) {
+      return res.status(400).json({ erro: 'Ciclo inválido (use "mensal" ou "anual")' });
     }
 
-    criarCheckoutSession(tenantId, tipo_plano)
+    criarCheckoutSession(tenantId, plano, ciclo)
       .then((session) => {
         console.log('[CHECKOUT] Sucesso:', { session_id: session.id, url_presente: !!session.url });
         res.json({ checkout_url: session.url });

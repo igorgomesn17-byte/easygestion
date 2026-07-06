@@ -12,6 +12,7 @@ const { obterImposto } = require('./config');
 const { cacheRelatorioPorTenant } = require('../middleware/rate-limit-custoso');
 const { schemaVenda } = require('../lib/schemas');
 const { z } = require('zod');
+const { exigirFeature } = require('../middleware/seguranca');
 
 // O vendedor só pode CRIAR venda (POST /). Toda leitura/edição (histórico com
 // lucro/custo, detalhe, cancelamento) é exclusiva do admin. Bloqueia aqui dentro
@@ -394,6 +395,37 @@ router.post('/impacto-desconto', (req, res) => {
 // PATCH /api/vendas/:id/vendedor  body: { vendedor_id }
 // Troca/define o vendedor de uma venda já feita e RECALCULA a comissão e o lucro
 // com o % do novo vendedor (vendedor_id null = remover vendedor, comissão zera).
+// GET /api/vendas/export.csv -> exporta vendas do período em CSV (feature Growth+)
+// Query: de, ate (YYYY-MM-DD). Gate no SERVIDOR — o export do cliente sozinho não basta.
+router.get('/export.csv', exigirFeature('export'), (req, res) => {
+  const { de, ate } = req.query;
+  let sql = `SELECT v.id, v.data_hora, c.nome AS cliente, vd.nome AS vendedor,
+                    v.total, v.desconto, v.forma_pagamento, v.parcelas, v.lucro, v.origem
+             FROM vendas v
+             LEFT JOIN clientes c ON c.id = v.cliente_id
+             LEFT JOIN vendedores vd ON vd.id = v.vendedor_id
+             WHERE v.tenant_id = ? AND (v.deletado IS NULL OR v.deletado = 0)`;
+  const params = [req.tenantId];
+  if (de)  { sql += ' AND date(v.data_hora) >= ?'; params.push(de); }
+  if (ate) { sql += ' AND date(v.data_hora) <= ?'; params.push(ate); }
+  sql += ' ORDER BY v.data_hora DESC LIMIT 5000';
+  const vendas = db.prepare(sql).all(...params);
+
+  const cols = ['id', 'data_hora', 'cliente', 'vendedor', 'total', 'desconto', 'forma_pagamento', 'parcelas', 'lucro', 'origem'];
+  const escCsv = (v) => {
+    if (v == null) v = '';
+    v = String(v).replace(/"/g, '""');
+    return /[";\n]/.test(v) ? `"${v}"` : v;
+  };
+  const linhas = [cols.join(';')];
+  for (const row of vendas) linhas.push(cols.map(c => escCsv(row[c])).join(';'));
+  const csv = '﻿' + linhas.join('\r\n'); // BOM p/ acentos no Excel pt-BR
+
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="vendas-${de || 'inicio'}_${ate || 'hoje'}.csv"`);
+  res.send(csv);
+});
+
 router.patch('/:id/vendedor', (req, res) => {
   const v = db.prepare('SELECT * FROM vendas WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenantId);
   if (!v) return res.status(404).json({ erro: 'Venda não encontrada' });

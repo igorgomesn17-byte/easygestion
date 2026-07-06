@@ -5,6 +5,7 @@
 const express = require('express');
 const router = express.Router();
 const { db } = require('../db/database');
+const { exigirFeature } = require('../middleware/seguranca');
 
 // GET /api/vales/:codigo -> consulta vale (valida e retorna saldo)
 router.get('/:codigo', (req, res) => {
@@ -46,7 +47,7 @@ router.get('/:codigo', (req, res) => {
 
 // POST /api/vales/:codigo/usar -> usar vale em uma venda
 // body: { valor_a_usar, venda_id }
-router.post('/:codigo/usar', (req, res) => {
+router.post('/:codigo/usar', exigirFeature('vale_credito'), (req, res) => {
   const codigo = req.params.codigo.toUpperCase();
   const { valor_a_usar = 0, venda_id = null } = req.body;
 

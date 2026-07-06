@@ -76,8 +76,28 @@ async function api(caminho, opcoes = {}) {
     throw new Error('Sessão expirada');
   }
   const dados = await resp.json().catch(() => ({}));
+  // Bloqueio por plano (limite ou feature indisponível): mostra convite de upgrade
+  // e leva pra tela de planos. Centralizado aqui pra valer em todas as telas.
+  if (resp.status === 403 && dados.upgrade) {
+    tratarBloqueioDePlano(dados);
+    const err = new Error(dados.erro || 'Recurso indisponível no seu plano');
+    err.upgrade = true;
+    throw err;
+  }
   if (!resp.ok) throw new Error(dados.erro || 'Erro na operacao');
   return dados;
+}
+
+// Mostra o motivo do bloqueio e oferece upgrade. Evita spam de toast (debounce).
+let _ultimoUpgradeToast = 0;
+function tratarBloqueioDePlano(dados) {
+  const agora = Date.now();
+  if (agora - _ultimoUpgradeToast < 1500) return;
+  _ultimoUpgradeToast = agora;
+  const msg = (dados && dados.erro) || 'Este recurso não está no seu plano.';
+  toast(msg + ' Toque para ver planos.', 'erro');
+  // leva pra tela de planos após um instante (tempo de ler o toast)
+  setTimeout(() => { location.href = 'planos.html'; }, 1800);
 }
 
 // Chamada de API PÚBLICA (vitrine) — NÃO redireciona pro login em 401

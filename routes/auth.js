@@ -11,6 +11,7 @@ const { cpf, cnpj } = require('cpf-cnpj-validator');
 const jwt = require('jsonwebtoken');
 const { enviarEmail, templateResetSenha } = require('../lib/email');
 const { gerarSecret, gerarQRCode, validarToken } = require('../lib/2fa');
+const { PLANO_PADRAO, definicaoPlano } = require('../lib/planos');
 
 // ✅ CRÍTICO: TOKEN_SECRET é obrigatório em produção (sem fallback)
 const TOKEN_SECRET = process.env.TOKEN_SECRET || (process.env.NODE_ENV !== 'production' ? 'dev-secret-change-in-env' : null);
@@ -218,12 +219,17 @@ router.post('/registro', async (req, res) => {
     // Gerar slug único antes de iniciar transação
     const slugUnico = gerarSlugUnico(db, nomeLoja);
 
+    // Todo tenant novo nasce no plano padrão (Starter). O upgrade acontece no
+    // checkout. Preço/limites vêm da fonte única lib/planos.js.
+    const planoInicial = PLANO_PADRAO;
+    const precoInicial = definicaoPlano(planoInicial).preco_mensal;
+
     const tx = db.transaction(() => {
       // (1) Criar novo tenant com slug gerado
       const infoTenant = db.prepare(`
         INSERT INTO tenants (nome_loja, email, senha_hash, nome_responsavel, telefone, cpf_cnpj, plano, slug)
-        VALUES (?, ?, ?, ?, ?, ?, 'basico', ?)
-      `).run(nomeLoja, email.trim(), hashSenha(senha), nomeResponsavel, telefoneLimpo, cpfCnpjLimpo, slugUnico);
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(nomeLoja, email.trim(), hashSenha(senha), nomeResponsavel, telefoneLimpo, cpfCnpjLimpo, planoInicial, slugUnico);
       const tenantId = infoTenant.lastInsertRowid;
 
       // (2) Criar usuário admin do tenant (email NÃO verificado ainda)
@@ -239,8 +245,8 @@ router.post('/registro', async (req, res) => {
       const dataFim = new Date(hoje.getTime() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
       db.prepare(`
         INSERT INTO assinaturas (tenant_id, plano, valor_mensal, data_inicio, data_proxima_renovacao, em_teste, data_inicio_teste, data_fim_teste)
-        VALUES (?, 'basico', 79.90, ?, ?, 1, ?, ?)
-      `).run(tenantId, dataInicio, dataFim, dataInicio, dataFim);
+        VALUES (?, ?, ?, ?, ?, 1, ?, ?)
+      `).run(tenantId, planoInicial, precoInicial, dataInicio, dataFim, dataInicio, dataFim);
 
       return { tenantId, userId };
     });
@@ -416,9 +422,27 @@ router.post('/logout', (req, res) => {
 });
 
 // GET /api/me  -> quem está logado (usado pela guarda de páginas)
+// Inclui o plano do tenant + suas features/limites, para o front adaptar a UI
+// (esconder/mostrar botões de recursos pagos) sem uma chamada extra.
 router.get('/me', (req, res) => {
-  if (req.session && req.session.logado)
-    return res.json({ logado: true, usuario: req.session.usuario, papel: req.session.papel || 'admin' });
+  if (req.session && req.session.logado) {
+    let plano = null, features = null;
+    try {
+      const { planoDoTenant, definicaoPlano } = require('../lib/planos');
+      if (req.session.tenant_id) {
+        plano = planoDoTenant(req.session.tenant_id);
+        const def = definicaoPlano(plano);
+        features = { ...def.features };
+      }
+    } catch (e) { /* não bloqueia o /me por causa disso */ }
+    return res.json({
+      logado: true,
+      usuario: req.session.usuario,
+      papel: req.session.papel || 'admin',
+      plano,
+      features,
+    });
+  }
   return res.status(401).json({ logado: false });
 });
 

@@ -220,6 +220,51 @@ function exigirPapel(...papeis) {
 // Atalho: só admin
 const apenasAdmin = exigirPapel('admin');
 
+// --- Autorização por PLANO (gate de features e limites por tier) ---
+// Fonte única: lib/planos.js. Requer req.tenantId já injetado (injetarTenant).
+
+// exigirFeature('vale_credito') → 403 {upgrade:true} se o plano do tenant não tem a feature.
+function exigirFeature(feature) {
+  return (req, res, next) => {
+    const { planoDoTenant, temFeature } = require('../lib/planos');
+    if (!req.tenantId) return res.status(401).json({ erro: 'Tenant não identificado' });
+    const plano = planoDoTenant(req.tenantId);
+    if (temFeature(plano, feature)) return next();
+    return res.status(403).json({
+      erro: 'Este recurso não está disponível no seu plano.',
+      upgrade: true,
+      feature,
+      plano_atual: plano,
+    });
+  };
+}
+
+// exigirDentroDoLimite('produtos', contarFn) → 403 {upgrade:true} se já atingiu o teto.
+// contarFn(tenantId) deve devolver a contagem atual do recurso.
+// Usa >= porque a checagem roda ANTES de inserir o novo registro.
+function exigirDentroDoLimite(recurso, contarFn) {
+  return (req, res, next) => {
+    const { planoDoTenant, limiteDe } = require('../lib/planos');
+    if (!req.tenantId) return res.status(401).json({ erro: 'Tenant não identificado' });
+    const plano = planoDoTenant(req.tenantId);
+    const limite = limiteDe(plano, recurso);
+    if (limite === Infinity) return next();
+    let atual;
+    try { atual = contarFn(req.tenantId); } catch (e) { return next(e); }
+    if (atual >= limite) {
+      return res.status(403).json({
+        erro: `Seu plano permite até ${limite} ${recurso}. Faça upgrade para adicionar mais.`,
+        upgrade: true,
+        recurso,
+        limite,
+        atual,
+        plano_atual: plano,
+      });
+    }
+    return next();
+  };
+}
+
 // --- Rate limiters ---
 // Global: protege a API toda contra abuso/DDoS leve
 // Chave combina IP + tenant_id para isolamento multi-tenant (um tenant não afeta outros)
@@ -280,4 +325,4 @@ const limiteResetSenha = rateLimit({
   message: { erro: 'Muitas tentativas de reset. Aguarde 15 minutos.' },
 });
 
-module.exports = { hashSenha, verificarSenha, validarSenha, validarNaoReutilizada, exigirLogin, injetarTenant, validarTenantAtivo, validarTenantId, garantirTenantId, exigirPapel, apenasAdmin, limiteGlobal, limiteLogin, limiteAdminPassword, limiteForgotPassword, limiteResetSenha, ehPublica };
+module.exports = { hashSenha, verificarSenha, validarSenha, validarNaoReutilizada, exigirLogin, injetarTenant, validarTenantAtivo, validarTenantId, garantirTenantId, exigirPapel, apenasAdmin, exigirFeature, exigirDentroDoLimite, limiteGlobal, limiteLogin, limiteAdminPassword, limiteForgotPassword, limiteResetSenha, ehPublica };

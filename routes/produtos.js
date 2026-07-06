@@ -8,6 +8,11 @@ const path = require('path');
 const { db } = require('../db/database');
 const { sugerirPreco, analisarPreco } = require('../lib/calculos');
 const { limiteUploadPorTenant, limiteUploadFrequencia } = require('../middleware/rate-limit-custoso');
+const { exigirDentroDoLimite } = require('../middleware/seguranca');
+
+// Conta produtos ativos do tenant (para o limite por plano).
+const contarProdutos = (tenantId) =>
+  db.prepare('SELECT COUNT(*) AS n FROM produtos WHERE tenant_id = ? AND ativo = 1').get(tenantId).n;
 
 // Guard de papel: GET (busca/consulta) liberado a qualquer logado (PDV usa).
 // Escrita (POST/PUT/DELETE) e precificação com custo (sugerir/analisar) = só admin.
@@ -226,7 +231,7 @@ router.get('/:id', (req, res) => {
 // POST /api/produtos/rapido -> cadastro EXPRESSO no PDV (nome + preço + 1 tamanho)
 // Cria o produto com 1 unidade do tamanho e devolve a VARIAÇÃO pronta pro carrinho.
 // O resto (custo, categoria, foto) o admin completa depois em Produtos.
-router.post('/rapido', (req, res) => {
+router.post('/rapido', exigirDentroDoLimite('produtos', contarProdutos), (req, res) => {
   const tenantId = req.tenantId;
   const nome = String(req.body.nome || '').trim();
   const preco = parseFloat(req.body.preco_venda) || 0;
@@ -262,7 +267,7 @@ router.post('/rapido', (req, res) => {
 
 // POST /api/produtos  -> cadastra produto + grade
 // body: { nome, categoria, descricao, cor, custo, preco_venda, foto, fotos:[base64...], grade: [{tamanho, quantidade}] }
-router.post('/', limiteUploadPorTenant, limiteUploadFrequencia, (req, res) => {
+router.post('/', exigirDentroDoLimite('produtos', contarProdutos), limiteUploadPorTenant, limiteUploadFrequencia, (req, res) => {
   const tenantId = req.tenantId;
   const { nome, categoria, descricao, cor, custo, preco_venda, foto, fotos, grade, colecao } = req.body;
 

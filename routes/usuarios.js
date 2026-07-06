@@ -6,7 +6,11 @@
 const express = require('express');
 const router = express.Router();
 const { db } = require('../db/database');
-const { hashSenha, validarSenha, validarNaoReutilizada } = require('../middleware/seguranca');
+const { hashSenha, validarSenha, validarNaoReutilizada, exigirDentroDoLimite } = require('../middleware/seguranca');
+
+// Conta usuários ativos do tenant (para o limite por plano).
+const contarUsuarios = (tenantId) =>
+  db.prepare('SELECT COUNT(*) AS n FROM usuarios WHERE tenant_id = ? AND ativo = 1').get(tenantId).n;
 
 const PAPEIS = ['admin', 'relacionamento', 'vendedor'];
 
@@ -17,7 +21,7 @@ router.get('/', (req, res) => {
 });
 
 // POST /api/usuarios { nome, senha, papel }
-router.post('/', (req, res) => {
+router.post('/', exigirDentroDoLimite('usuarios', contarUsuarios), (req, res) => {
   const nome = String(req.body.nome || '').trim();
   const senha = String(req.body.senha || '');
   const papel = PAPEIS.includes(req.body.papel) ? req.body.papel : 'relacionamento';

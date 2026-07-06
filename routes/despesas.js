@@ -9,6 +9,8 @@ const { hojeLocal } = require('../lib/datas');
 const { cacheRelatorioPorTenant } = require('../middleware/rate-limit-custoso');
 const { schemaFinanceiro } = require('../lib/schemas');
 const { z } = require('zod');
+const { exigirFeature } = require('../middleware/seguranca');
+const { planoDoTenant, temFeature } = require('../lib/planos');
 
 // GET /api/despesas?mes=YYYY-MM&centro=&status=  -> lista despesas do mes
 router.get('/', (req, res) => {
@@ -62,8 +64,10 @@ router.post('/', (req, res) => {
 
   } catch (err) {
     if (err instanceof z.ZodError) {
-      const erros = err.errors.map(e => ({
-        campo: e.path.join('.'),
+      // Zod 4 usa err.issues; err.errors era o nome no Zod 3 (fallback p/ compat).
+      const problemas = err.issues || err.errors || [];
+      const erros = problemas.map(e => ({
+        campo: Array.isArray(e.path) ? e.path.join('.') : '',
         mensagem: e.message
       }));
       return res.status(400).json({
@@ -76,6 +80,13 @@ router.post('/', (req, res) => {
 
   // Prosseguir com a lógica original
   const { descricao, valor, categoria, tipo, centro, data_competencia, vencimento, pago, forma_pagamento, recorrente, obs } = req.body;
+  // Gate: despesa AVULSA funciona em todos os planos; só a RECORRÊNCIA é Growth+.
+  if (recorrente && !temFeature(planoDoTenant(req.tenantId), 'recorrentes')) {
+    return res.status(403).json({
+      erro: 'Despesas recorrentes estão disponíveis a partir do plano Growth.',
+      upgrade: true, feature: 'recorrentes', plano_atual: planoDoTenant(req.tenantId),
+    });
+  }
   if (!descricao) return res.status(400).json({ erro: 'Descricao obrigatoria' });
   const v = parseFloat(valor) || 0;
   if (isNaN(v) || v <= 0) return res.status(400).json({ erro: 'Valor deve ser número positivo' });
@@ -158,7 +169,7 @@ router.delete('/:id', (req, res) => {
 
 // POST /api/despesas/gerar-mes -> gera as despesas recorrentes (fixas) para um mes
 // body: { mes: 'YYYY-MM' }
-router.post('/gerar-mes', (req, res) => {
+router.post('/gerar-mes', exigirFeature('recorrentes'), (req, res) => {
   const mes = req.body.mes || hojeLocal().slice(0, 7);
   const comp = mes + '-01';
   const modelos = db.prepare('SELECT * FROM despesas WHERE recorrente = 1 AND tenant_id = ?').all(req.tenantId);

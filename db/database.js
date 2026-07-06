@@ -305,6 +305,14 @@ raw.exec(`UPDATE conversa_followups SET tenant_id = 1 WHERE tenant_id IS NULL`);
 raw.exec(`UPDATE conversa_tags SET tenant_id = 1 WHERE tenant_id IS NULL`);
 raw.exec(`UPDATE crm_acoes_enviadas SET tenant_id = 1 WHERE tenant_id IS NULL`);
 
+// --- Migração de nomes de plano legados → tiers padronizados (starter/growth/enterprise) ---
+// Antes, o registro gravava 'basico' (e havia 'pro'/'gratis' espalhados). A fonte
+// única agora é lib/planos.js. Normaliza o histórico para não quebrar os gates.
+raw.exec(`UPDATE tenants     SET plano = 'starter' WHERE plano IN ('basico','gratis') OR plano IS NULL`);
+raw.exec(`UPDATE tenants     SET plano = 'growth'  WHERE plano = 'pro'`);
+raw.exec(`UPDATE assinaturas SET plano = 'starter' WHERE plano IN ('basico','gratis') OR plano IS NULL`);
+raw.exec(`UPDATE assinaturas SET plano = 'growth'  WHERE plano = 'pro'`);
+
 // --- Wrapper para compatibilidade de API (estilo better-sqlite3) ---
 function prepare(sql) {
   const stmt = raw.prepare(sql);
