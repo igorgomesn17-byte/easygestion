@@ -196,7 +196,9 @@ app.use(session({
   secret: process.env.SESSION_SECRET,
   store: store,
   resave: false,
-  saveUninitialized: true,
+  // false: não cria sessão para visitante anônimo (evita encher a tabela sessions
+  // e reduz superfície). A sessão só é gravada quando o login popula dados nela.
+  saveUninitialized: false,
   cookie: {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
@@ -228,8 +230,11 @@ app.use('/api/webhooks/stripe', express.raw({type: 'application/json'}), (req, r
 });
 app.use('/api/webhooks', require('./routes/webhooks'));
 
-// ---------- Webhook de Deploy (puxar código + reiniciar) ----------
-app.use('/api/deploy', require('./routes/deploy'));
+// ---------- Webhook de Deploy: DESABILITADO por segurança ----------
+// Deploy é feito MANUALMENTE via SSH (ver CLAUDE.md). Expor git pull + pm2 restart
+// por HTTP é superfície de RCE desnecessária. Não reabilitar sem auth de sessão +
+// token sem fallback. O arquivo routes/deploy.js permanece só para referência.
+// app.use('/api/deploy', require('./routes/deploy'));
 
 // ---------- Body parsers ----------
 // guarda o corpo cru (raw) p/ validar a assinatura HMAC dos webhooks da Meta
@@ -361,6 +366,9 @@ app.get('/api/monitoring/alerts', (req, res) => {
 // Landing page pública (raiz para visitantes não-autenticados)
 app.get('/', (req, res, next) => {
   console.log('[ROUTE] GET / -> landing.html');
+  res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
   res.sendFile(path.join(__dirname, 'public', 'landing.html'), (err) => {
     if (err) {
       console.error('[ROUTE] Erro ao servir landing.html:', err);
