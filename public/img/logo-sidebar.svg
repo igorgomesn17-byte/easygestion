@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 150" width="200" height="150" fill="none">
+  <!-- Ícone: sacola creme com etiqueta dourada e barrinhas (versão clara p/ fundo colorido) -->
+  <g transform="translate(68 8)">
+    <g transform="rotate(-24 24 62)">
+      <path d="M11 56 a7 7 0 0 1 7 -7 H34 a6 6 0 0 1 6 6 V71 a6 6 0 0 1 -6 6 H18 a7 7 0 0 1 -7 -7 Z" fill="#e7c878"/>
+      <circle cx="21" cy="59" r="3.4" fill="#ffffff" fill-opacity="0.9"/>
+    </g>
+    <path d="M45 46 V36 a15 15 0 0 1 30 0 V46" fill="none" stroke="#f6f2e7" stroke-width="7.5" stroke-linecap="round"/>
+    <path d="M31 45 H89 L83.5 93 a8 8 0 0 1 -8 7 H43.5 a8 8 0 0 1 -8 -7 Z" fill="#f6f2e7"/>
+    <g fill="#1c4a35"><rect x="45" y="74" width="9" height="14" rx="2.5"/><rect x="56" y="66" width="9" height="22" rx="2.5"/><rect x="67" y="58" width="9" height="30" rx="2.5"/></g>
+  </g>
+  <!-- Texto: "Easy" branco + "Gestão" dourado -->
+  <text x="100" y="132" text-anchor="middle" font-family="'Instrument Sans', system-ui, sans-serif" font-size="30" font-weight="700" letter-spacing="-0.5">
+    <tspan fill="#ffffff">Easy</tspan><tspan fill="#e7c878">Gestão</tspan>
+  </text>
+</svg>

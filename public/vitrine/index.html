@@ -22,13 +22,16 @@
   <!-- Botões de contato (WhatsApp, Instagram, Google Maps) -->
   <div class="vitrine-contato">
     <a id="btnWhatsApp" href="#" class="btn-contato btn-whatsapp" target="_blank" style="display:none">
-      💬 WhatsApp
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+      WhatsApp
     </a>
     <a id="btnInstagram" href="#" class="btn-contato btn-instagram" target="_blank" style="display:none">
-      📷 Instagram
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><circle cx="17.5" cy="6.5" r="1.5"></circle></svg>
+      Instagram
     </a>
     <a id="btnMaps" href="#" class="btn-contato btn-maps" target="_blank" style="display:none">
-      📍 Como chegar
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+      Como chegar
     </a>
   </div>
 
@@ -74,7 +77,7 @@
 
     <!-- Barra de coleções (horizontal scrollável) -->
     <div class="vitrine-colecoes">
-      <button class="btn-colecao btn-colecao-ativo" data-colecao="">⭐ Todas coleções</button>
+      <button class="btn-colecao btn-colecao-ativo" data-colecao="">Todas as coleções</button>
       <div id="botoesColecoes"></div>
       <button class="btn-seta-direita">→</button>
     </div>
@@ -102,12 +105,12 @@
 
   <!-- CTA: Newsletter/WhatsApp -->
   <section class="vitrine-newsletter">
-    <h2>Quer ser a primeira a saber das novidades? ❤️</h2>
+    <h2>Quer ser a primeira a saber das novidades?</h2>
     <p>Deixe seu WhatsApp e receba os lançamentos, promoções e peças novas antes de todo mundo.</p>
     <form class="newsletter-form" onsubmit="enviarNewsletter(event)">
       <input type="text" id="inputNomeNewsletter" placeholder="Seu nome" required>
       <input type="tel" id="inputWhatsAppNewsletter" placeholder="WhatsApp com DDD" required>
-      <button type="submit" class="btn btn-newsletter">Quero receber 🎁</button>
+      <button type="submit" class="btn btn-newsletter">Quero receber</button>
     </form>
   </section>
 
@@ -139,6 +142,12 @@
       </div>
 
       <p id="footerUsername" class="footer-username"></p>
+
+      <!-- Selo "feito com EasyGestão" (logo oficial da plataforma) -->
+      <a href="https://www.easygestao.com" target="_blank" rel="noopener" class="footer-selo">
+        <span>Loja feita com</span>
+        <img src="/img/logo-sidebar.svg" alt="EasyGestão">
+      </a>
     </div>
   </footer>
 

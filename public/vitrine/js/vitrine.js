@@ -85,11 +85,8 @@ function preencherHeader() {
   if (dadosLoja.loja_logo) {
     // Adicionar timestamp para forçar reload (cache busting)
     const urlLogo = dadosLoja.loja_logo + '?t=' + Date.now();
-    console.log('📷 Tentando carregar logo:', urlLogo);
     lojaLogo.src = urlLogo;
     lojaLogo.style.display = 'block'; // Garantir que não está escondida
-  } else {
-    console.log('❌ loja_logo está vazio ou undefined');
   }
 
   // Preencher botões de contato
@@ -154,7 +151,7 @@ function preencherBotoesContato() {
 
   if (dadosLoja.loja_endereco) {
     const footerEndereco = document.getElementById('footerEndereco');
-    footerEndereco.textContent = '📍 ' + dadosLoja.loja_endereco;
+    footerEndereco.textContent = dadosLoja.loja_endereco;
     footerEndereco.style.display = 'block';
   }
 
@@ -558,7 +555,7 @@ function exibirMensagemVitrinaIndisponivel() {
       align-items: center;
       justify-content: center;
       min-height: 100vh;
-      background: linear-gradient(135deg, #1a6f5e 0%, #0d3d33 100%);
+      background: var(--marca, #157a63);
       color: white;
       text-align: center;
       padding: 2rem;

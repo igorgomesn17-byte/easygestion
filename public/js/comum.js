@@ -222,7 +222,7 @@ function aplicarMarcaNoChrome(marca) {
       if (txtMarca) txtMarca.style.display = 'none';
     } else {
       // sem logo do cliente → logo padrão do sistema
-      imgLogo.src = 'img/lockup-vertical-color.svg';
+      imgLogo.src = 'img/logo-sidebar.svg';
       imgLogo.style.display = '';
       if (txtMarca) txtMarca.style.display = 'none';
     }
@@ -297,7 +297,7 @@ function montarLayout(paginaAtiva) {
       <div class="overlay-mob" id="overlayMob" onclick="toggleMenuMob()"></div>
       <aside class="sidebar">
         <div class="sidebar-logo">
-          <img src="img/lockup-vertical-color.svg" alt="EasyGestão">
+          <img src="img/logo-sidebar.svg" alt="EasyGestão">
           <span class="marca" style="display:none;">Minha Loja</span>
         </div>
         <nav class="sidebar-nav">${navHTML}</nav>
@@ -375,10 +375,10 @@ function toggleRecolher() {
   const imgLogo = document.querySelector('.sidebar-logo img');
   if (imgLogo) {
     if (isRecolhida) {
-      imgLogo.src = 'img/icon-reversed.svg';
+      imgLogo.src = 'img/logo-sidebar.svg';
     } else {
       carregarMarca().then(marca => {
-        imgLogo.src = marca.logo || 'img/lockup-vertical-color.svg';
+        imgLogo.src = marca.logo || 'img/logo-sidebar.svg';
       });
     }
   }
