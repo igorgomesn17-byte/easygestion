@@ -64,7 +64,7 @@
         <a class="config-subnav-item" data-secao="loja" onclick="trocarSecaoConfig('loja')">Dados da loja</a>
         <a class="config-subnav-item" data-secao="cupom" onclick="trocarSecaoConfig('cupom')">Cupom/Impressão</a>
         <a class="config-subnav-item" data-secao="catalogo" onclick="trocarSecaoConfig('catalogo')">Categorias e Coleções</a>
-        <a class="config-subnav-item" data-secao="vitrine" onclick="trocarSecaoConfig('vitrine')">Vitrine</a>
+        <a class="config-subnav-item" id="subnavVitrine" data-secao="vitrine" onclick="trocarSecaoConfig('vitrine')">Vitrine</a>
         <a class="config-subnav-item" data-secao="fiscal" onclick="trocarSecaoConfig('fiscal')">Fiscal</a>
         <a class="config-subnav-item" data-secao="precos" onclick="trocarSecaoConfig('precos')">Preços e Metas</a>
         <a class="config-subnav-item" data-secao="maquininha" onclick="trocarSecaoConfig('maquininha')">Maquininha</a>
@@ -863,11 +863,27 @@
       document.getElementById('nfce_ambiente').addEventListener('change', checarNfce);
     }
 
+    // Vitrine pública é feature do Growth+. No Starter, escondemos a aba e a
+    // seção de config (o back também bloqueia por slug em routes/vitrine.js).
+    async function aplicarGateVitrine() {
+      try {
+        const me = await fetch('/api/me', { credentials: 'include' }).then(r => r.ok ? r.json() : null);
+        const temVitrine = !!me?.features?.vitrine_publica;
+        if (!temVitrine) {
+          const subnav = document.getElementById('subnavVitrine');
+          const secao = document.getElementById('secaoVitrine');
+          if (subnav) subnav.style.display = 'none';
+          if (secao) secao.style.display = 'none';
+        }
+      } catch (e) { /* em erro, não esconde — degradação segura no front (back ainda barra) */ }
+    }
+
     // Inicializar página
     montarLayout('config');
     carregar();
     checarCertificado();
     verificarTokensFocus();
+    aplicarGateVitrine();
   </script>
 </body>
 </html>

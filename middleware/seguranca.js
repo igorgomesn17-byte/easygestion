@@ -87,6 +87,7 @@ const PUBLICAS = [
   '/api/codigo-barras',         // imagens dos códigos (prefixo)
   '/api/admin',                 // backoffice admin (protegido por password/sessão)
   '/api/assinaturas/checkout',  // iniciar checkout Stripe (requer autenticação mas é chamada via fetch)
+  '/api/assinaturas/planos',    // catálogo público de planos (vitrine de preços, sem login)
 ];
 function ehPublica(caminho) {
   return PUBLICAS.some(p => caminho === p || caminho.startsWith(p));

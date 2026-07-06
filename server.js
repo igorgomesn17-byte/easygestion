@@ -275,6 +275,13 @@ app.use('/api', require('./routes/auth'));        // /login /logout /me (auth de
 app.use('/api/vitrine', require('./routes/vitrine')); // vitrine pública por slug
 app.get('/api/loja-publica', configRouter.lojaPublica);
 
+// Catálogo público de planos (Starter/Growth) — a vitrine de preços consome sem
+// login. Montado ANTES do exigirLogin (linha ~301) para não exigir sessão.
+app.get('/api/assinaturas/planos', (req, res) => {
+  const { planosPublicos } = require('./lib/planos');
+  res.json({ planos: planosPublicos() });
+});
+
 // ✅ Admin login PÚBLICO (mas com rate limit agressivo)
 // POST /api/admin/login → autentica admin via senha (rate limited em routes/admin.js)
 // POST /api/admin/logout → encerra sessão admin

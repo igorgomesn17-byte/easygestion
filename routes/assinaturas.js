@@ -14,6 +14,10 @@ const { obterStatusAssinatura, renovarAssinatura, cancelarAssinatura } = require
 const { criarCheckoutSession, criarPortalSession } = require('../lib/stripe');
 const router = express.Router();
 
+// NOTA: GET /api/assinaturas/planos (catálogo público) é registrado direto no
+// server.js ANTES do middleware exigirLogin, pois precisa ser acessível sem
+// sessão (a vitrine de preços). Não colocar aqui — este router está atrás do guard.
+
 // --- GET /minha → detalhes da assinatura do cliente logado ---
 router.get('/minha', (req, res) => {
   if (!req.session?.logado || !req.session?.tenant_id) {

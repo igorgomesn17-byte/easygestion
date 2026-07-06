@@ -6,279 +6,302 @@
   <title>Escolha seu Plano • EasyGestão</title>
   <link rel="icon" type="image/png" href="favicon.png">
   <link rel="stylesheet" href="css/ds.css">
-  <script src="https://js.stripe.com/v3/"></script>
   <style>
-    .planos-card {
-      background: white;
-      border-radius: var(--radius);
-      padding: 30px;
-      max-width: 500px;
-      margin: 0 auto;
-      box-shadow: var(--shadow-xs);
-      text-align: center;
-    }
-
     .planos-header {
-      margin-bottom: 30px;
+      text-align: center;
+      margin-bottom: 24px;
     }
-
     .planos-header h1 {
       font-size: 24px;
       font-weight: 800;
       color: var(--tinta);
       margin: 0 0 8px;
     }
-
     .planos-header p {
       color: var(--tinta-2);
       margin: 0;
       font-size: 14px;
     }
 
-    .tabs {
+    /* Toggle mensal/anual — reusa a estética de chip do DS */
+    .ciclo-tabs {
       display: flex;
       gap: 8px;
-      margin: 20px 0;
+      margin: 0 auto 28px;
       justify-content: center;
     }
-
-    .tab-btn {
-      padding: 10px 20px;
+    .ciclo-tab {
+      padding: 9px 22px;
       background: var(--surface-alt);
       border: 1px solid var(--linha);
       color: var(--tinta);
       font-weight: 600;
       cursor: pointer;
-      border-radius: 6px;
-      transition: all 0.3s;
+      border-radius: var(--radius-sm);
       font-size: 13px;
+      transition: all .2s;
     }
-
-    .tab-btn.active {
+    .ciclo-tab.ativo {
       background: var(--marca);
-      color: white;
+      color: #fff;
       border-color: var(--marca);
     }
 
-    .plano-titulo {
-      font-size: 14px;
-      color: var(--marca);
+    .planos-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 18px;
+      max-width: 760px;
+      margin: 0 auto;
+      align-items: stretch;
+    }
+
+    .plano-card {
+      background: var(--surface);
+      border: 1px solid var(--linha);
+      border-radius: var(--radius);
+      padding: 26px 22px;
+      box-shadow: var(--sombra-sm);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+    .plano-card.destaque {
+      border: 2px solid var(--marca);
+      box-shadow: var(--sombra);
+    }
+    .plano-selo {
+      position: absolute;
+      top: -12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--marca);
+      color: #fff;
+      font-size: 11px;
       font-weight: 700;
-      margin-bottom: 12px;
+      padding: 4px 12px;
+      border-radius: 999px;
+      letter-spacing: .3px;
     }
 
-    .preco-destaque {
-      font-size: 2.8rem;
-      font-weight: 800;
+    .plano-nome {
+      font-size: 15px;
       color: var(--marca);
-      line-height: 1;
-      margin: 12px 0;
+      font-weight: 800;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: .5px;
     }
-
-    .preco-por {
+    .plano-publico {
       font-size: 12px;
-      color: var(--tinta-2);
-      margin-bottom: 12px;
-      line-height: 1.6;
+      color: var(--tinta-3);
+      margin-bottom: 14px;
+      min-height: 16px;
     }
 
-    .badge-desconto {
+    .plano-preco {
+      font-size: 2.4rem;
+      font-weight: 800;
+      color: var(--tinta);
+      line-height: 1;
+    }
+    .plano-preco .cent { font-size: 1.2rem; }
+    .plano-preco .por {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--tinta-2);
+    }
+    .plano-anual-nota {
+      font-size: 11px;
+      color: var(--tinta-3);
+      margin-top: 4px;
+      min-height: 15px;
+    }
+    .plano-badge-eco {
       display: inline-block;
-      background: var(--dourado);
-      color: white;
-      padding: 5px 10px;
+      background: var(--marca-clara);
+      color: var(--marca-escura);
+      padding: 3px 9px;
       border-radius: 4px;
       font-size: 11px;
-      font-weight: 600;
-      margin-bottom: 12px;
+      font-weight: 700;
+      margin-top: 8px;
     }
 
-    .descricao {
+    .plano-features {
+      list-style: none;
+      margin: 18px 0 22px;
+      padding: 0;
       font-size: 13px;
-      color: var(--tinta-2);
-      margin-bottom: 16px;
-      line-height: 1.5;
+      flex: 1;
     }
-
-    .features {
-      text-align: left;
-      background: var(--surface-alt);
-      border-radius: 8px;
-      padding: 12px;
-      margin-bottom: 16px;
-      font-size: 12px;
-    }
-
-    .features li {
-      margin: 6px 0;
+    .plano-features li {
+      margin: 8px 0;
       display: flex;
-      align-items: center;
+      align-items: flex-start;
+      color: var(--tinta);
+      line-height: 1.4;
     }
-
-    .features li:before {
+    .plano-features li:before {
       content: "\2713";
       color: var(--marca);
       font-weight: bold;
       margin-right: 8px;
-      font-size: 14px;
+      flex-shrink: 0;
     }
 
     .btn-contratar {
       width: 100%;
-      padding: 12px;
+      padding: 13px;
       background: var(--marca);
-      color: white;
+      color: #fff;
       border: none;
-      border-radius: 6px;
-      font-size: 13px;
-      font-weight: 600;
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      font-weight: 700;
       cursor: pointer;
-      transition: all 0.3s;
+      transition: all .2s;
     }
-
-    .btn-contratar:hover:not(:disabled) {
-      background: var(--marca-escura);
-      transform: translateY(-2px);
-      box-shadow: 0 6px 16px rgba(26, 111, 94, 0.25);
+    .btn-contratar.secundario {
+      background: transparent;
+      color: var(--marca);
+      border: 1.5px solid var(--marca);
     }
+    .btn-contratar:hover:not(:disabled) { background: var(--marca-escura); color: #fff; }
+    .btn-contratar:disabled { opacity: .6; cursor: wait; }
 
-    .btn-contratar:disabled {
-      opacity: 0.6;
-      cursor: wait;
-    }
-
-    .modal-overlay {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0,0,0,0.5);
-      z-index: 1000;
-    }
-
-    .modal-overlay.show {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .modal-content {
-      background: white;
-      border-radius: 12px;
-      max-width: 600px;
-      width: 90%;
-      max-height: 90vh;
-      overflow-y: auto;
-      position: relative;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-    }
-
-    .modal-fechar {
-      position: absolute;
-      top: 16px;
-      right: 16px;
-      background: none;
-      border: none;
-      font-size: 24px;
-      cursor: pointer;
-      color: #999;
-      width: 32px;
-      height: 32px;
-      padding: 0;
-      z-index: 1001;
-    }
-
-    .modal-fechar:hover {
-      color: #333;
+    .planos-loading, .planos-erro {
+      text-align: center;
+      color: var(--tinta-2);
+      padding: 40px 0;
+      font-size: 14px;
     }
   </style>
 </head>
-<body style="background: var(--fundo); color: var(--tinta);">
+<body style="background: var(--bg); color: var(--tinta);">
   <div class="conteudo">
     <div class="planos-header">
       <h1>Escolha seu Plano</h1>
       <p>Comece seu período de teste grátis de 14 dias</p>
     </div>
 
-    <div class="tabs">
-      <button class="tab-btn active" onclick="selecionarTab('mensal')">Mensal</button>
-      <button class="tab-btn" onclick="selecionarTab('anual')">Anual</button>
+    <div class="ciclo-tabs">
+      <button class="ciclo-tab ativo" data-ciclo="mensal" onclick="selecionarCiclo('mensal')">Mensal</button>
+      <button class="ciclo-tab" data-ciclo="anual" onclick="selecionarCiclo('anual')">Anual</button>
     </div>
 
-    <div class="planos-card">
-      <div class="plano-titulo">EasyGestão</div>
-
-      <div id="badgeDesconto" class="badge-desconto" style="display:none;">Economize 10%</div>
-
-      <div class="preco-destaque" id="precoDestaque">R$ 99,90</div>
-      <div class="preco-por" id="precoPor">por mês</div>
-
-      <div class="descricao">Tudo que você precisa para gerenciar sua loja com eficiência</div>
-
-      <ul class="features" style="list-style:none;margin:0;padding:12px;">
-        <li>PDV completo com múltiplos caixas</li>
-        <li>Gestão de estoque em tempo real</li>
-        <li>Controle financeiro detalhado</li>
-        <li>Emissão de NFC-e</li>
-        <li>Suporte por email</li>
-      </ul>
-
-      <button class="btn-contratar" onclick="irParaCheckout()">Contratar</button>
-    </div>
-  </div>
-
-  <div class="modal-overlay" id="modalCheckout">
-    <div class="modal-content">
-      <button class="modal-fechar" onclick="fecharModal()">&times;</button>
-      <div id="stripeContainer" style="padding: 24px;"></div>
+    <div id="planosGrid" class="planos-grid">
+      <div class="planos-loading">Carregando planos…</div>
     </div>
   </div>
 
   <script src="js/comum.js"></script>
   <script>
-    let tipoSelecionado = 'mensal';
-    const paginaAtiva = 'planos';
+    let cicloSelecionado = 'mensal';
+    let PLANOS = [];
 
-    function selecionarTab(tipo) {
-      tipoSelecionado = tipo;
+    const fmt = (n) => Number(n).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-      event.target.classList.add('active');
+    // Textos de features por plano (espelham a régua Starter↔Growth).
+    // A fonte da verdade dos PREÇOS/LIMITES é a API; estes bullets são a vitrine.
+    const FEATURES_UI = {
+      starter: [
+        'PDV completo (taxa, imposto, comissão)',
+        'Estoque com grade (tamanho × cor)',
+        'Caixa diário e fechamento',
+        'Clientes + histórico de compras',
+        'Lançamento de despesas',
+        'Emissão de NFC-e',
+        '1 usuário · até 1.000 produtos',
+      ],
+      growth: [
+        'Tudo do Starter, mais:',
+        'DRE e fluxo de caixa',
+        'Relatórios avançados (curva ABC, por canal, por vendedor)',
+        'Vitrine / loja online',
+        'Vale-crédito em trocas',
+        'Despesas recorrentes automáticas',
+        'Exportação de relatórios',
+        '5 usuários · até 5.000 produtos',
+      ],
+    };
 
-      if (tipo === 'mensal') {
-        document.getElementById('precoDestaque').textContent = 'R$ 99,90';
-        document.getElementById('precoPor').innerHTML = 'por mês';
-        document.getElementById('badgeDesconto').style.display = 'none';
-      } else {
-        document.getElementById('precoDestaque').textContent = 'R$ 89,90';
-        document.getElementById('precoPor').innerHTML = 'por mês<br><strong style="font-size:11px;color:var(--tinta);">R$ 1.078,80 por ano</strong>';
-        document.getElementById('badgeDesconto').style.display = 'inline-block';
+    function selecionarCiclo(ciclo) {
+      cicloSelecionado = ciclo;
+      document.querySelectorAll('.ciclo-tab').forEach(t => {
+        t.classList.toggle('ativo', t.dataset.ciclo === ciclo);
+      });
+      renderPlanos();
+    }
+
+    function renderPlanos() {
+      const grid = document.getElementById('planosGrid');
+      if (!PLANOS.length) {
+        grid.innerHTML = '<div class="planos-erro">Não foi possível carregar os planos. Recarregue a página.</div>';
+        return;
+      }
+
+      grid.innerHTML = PLANOS.map((p, i) => {
+        const destaque = p.id === 'growth';
+        const precoMensal = p.preco_mensal;
+        const precoAnual = p.preco_anual;
+        // No ciclo anual mostramos o "por mês equivalente" (anual/12), padrão de SaaS.
+        const valorMostrado = cicloSelecionado === 'anual' ? (precoAnual / 12) : precoMensal;
+
+        const notaAnual = cicloSelecionado === 'anual'
+          ? `<div class="plano-anual-nota">R$ ${fmt(precoAnual)} por ano</div>`
+          : '<div class="plano-anual-nota"></div>';
+
+        // % de economia do anual vs 12x o mensal.
+        const economia = Math.round((1 - (precoAnual / (precoMensal * 12))) * 100);
+        const badgeEco = (cicloSelecionado === 'anual' && economia > 0)
+          ? `<div class="plano-badge-eco">Economize ${economia}%</div>` : '';
+
+        const bullets = (FEATURES_UI[p.id] || []).map(f => `<li>${f}</li>`).join('');
+
+        return `
+          <div class="plano-card ${destaque ? 'destaque' : ''}">
+            ${destaque ? '<div class="plano-selo">Mais escolhido</div>' : ''}
+            <div class="plano-nome">${p.nome}</div>
+            <div class="plano-publico">${p.id === 'starter' ? 'Para começar' : 'Para crescer'}</div>
+            <div class="plano-preco">R$ ${fmt(valorMostrado)}<span class="por"> /mês</span></div>
+            ${notaAnual}
+            ${badgeEco}
+            <ul class="plano-features">${bullets}</ul>
+            <button class="btn-contratar ${destaque ? '' : 'secundario'}"
+                    onclick="irParaCheckout('${p.id}', this)">Contratar ${p.nome}</button>
+          </div>`;
+      }).join('');
+    }
+
+    async function carregarPlanos() {
+      try {
+        const resp = await fetch('/api/assinaturas/planos', { credentials: 'include' });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const dados = await resp.json();
+        PLANOS = dados.planos || [];
+        renderPlanos();
+      } catch (err) {
+        console.error('Erro ao carregar planos:', err);
+        PLANOS = [];
+        renderPlanos();
       }
     }
 
-    async function irParaCheckout() {
-      const btn = event.target;
+    async function irParaCheckout(plano, btn) {
+      const textoOriginal = btn.textContent;
       btn.disabled = true;
-      btn.textContent = 'Verificando...';
+      btn.textContent = 'Verificando…';
 
       try {
-        // Verificar se está autenticado
+        // Verificar autenticação
         const meResp = await fetch('/api/me', { credentials: 'include' });
         if (!meResp.ok) {
-          btn.disabled = false;
-          btn.textContent = 'Contratar';
-          alert('Erro ao verificar autenticação. Tente fazer login novamente.');
           window.location.href = '/login.html?redirect=/planos.html';
           return;
         }
-
         const meData = await meResp.json();
-
         if (!meData.logado) {
-          btn.disabled = false;
-          btn.textContent = 'Contratar';
           alert('Sessão expirada. Por favor, faça login novamente.');
           window.location.href = '/login.html?redirect=/planos.html';
           return;
@@ -288,7 +311,7 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify({ tipo_plano: tipoSelecionado })
+          body: JSON.stringify({ plano: plano, ciclo: cicloSelecionado })
         });
 
         if (!resp.ok) {
@@ -301,45 +324,33 @@
           }
           alert(mensagem);
           btn.disabled = false;
-          btn.textContent = 'Contratar';
+          btn.textContent = textoOriginal;
           return;
         }
 
         const dados = await resp.json();
-
         if (dados.checkout_url) {
-          // Redirecionar pra Stripe (Checkout não funciona em iframe)
-          window.location.href = dados.checkout_url;
+          window.location.href = dados.checkout_url; // Stripe Checkout não roda em iframe
         } else {
           alert('Erro ao abrir checkout: sem URL de checkout');
           btn.disabled = false;
-          btn.textContent = 'Contratar';
+          btn.textContent = textoOriginal;
         }
       } catch (err) {
         console.error('Erro ao processar checkout:', err);
         alert('Erro ao processar: ' + err.message);
         btn.disabled = false;
-        btn.textContent = 'Contratar';
+        btn.textContent = textoOriginal;
       }
     }
 
-    function fecharModal() {
-      document.getElementById('modalCheckout').classList.remove('show');
-      document.getElementById('stripeContainer').innerHTML = '';
-    }
-
-    document.getElementById('modalCheckout').addEventListener('click', (e) => {
-      if (e.target.id === 'modalCheckout') fecharModal();
-    });
-
     document.addEventListener('DOMContentLoaded', () => {
       montarLayout();
+      carregarPlanos();
 
-      // Processar cancelamento de checkout
       const params = new URLSearchParams(window.location.search);
       if (params.get('checkout') === 'cancelado') {
         alert('Checkout cancelado. Tente novamente quando estiver pronto.');
-        // Limpar URL
         window.history.replaceState({}, document.title, '/planos.html');
       }
     });

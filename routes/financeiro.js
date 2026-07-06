@@ -6,7 +6,7 @@ const express = require('express');
 const router = express.Router();
 const { db, getConfig } = require('../db/database');
 const { hojeLocal } = require('../lib/datas');
-const { exigirPapel } = require('../middleware/seguranca');
+const { exigirPapel, exigirFeature } = require('../middleware/seguranca');
 const {
   limiteCálculoCustoso,
   cacheRelatorioPorTenant,
@@ -16,7 +16,7 @@ const {
 } = require('../middleware/rate-limit-custoso');
 
 // GET /api/financeiro/fluxo?mes=YYYY-MM -> resumo de entradas/saidas/saldo do mes
-router.get('/fluxo', exigirPapel('admin'), (req, res) => {
+router.get('/fluxo', exigirPapel('admin'), exigirFeature('relatorios_avancados'), (req, res) => {
   const mes = req.query.mes || hojeLocal().slice(0, 7);
 
   // ENTRADAS: vendas do mes (valor liquido = o que efetivamente cai, ja sem taxa)
@@ -61,7 +61,7 @@ router.get('/fluxo', exigirPapel('admin'), (req, res) => {
 });
 
 // GET /api/financeiro/dre?mes=YYYY-MM -> Demonstracao de Resultado do mes
-router.get('/dre', exigirPapel('admin'), limiteCálculoCustoso, middlewareRelatorioComCache, (req, res) => {
+router.get('/dre', exigirPapel('admin'), exigirFeature('relatorios_avancados'), limiteCálculoCustoso, middlewareRelatorioComCache, (req, res) => {
   const mes = req.query.mes || hojeLocal().slice(0, 7);
 
   // Busca regime fiscal configurado
@@ -166,7 +166,7 @@ router.get('/dre', exigirPapel('admin'), limiteCálculoCustoso, middlewareRelato
 
 // GET /api/financeiro/curva-abc?de=YYYY-MM-DD&ate=YYYY-MM-DD
 // Classifica produtos por faturamento: A (ate 80% do acumulado), B (80-95%), C (95-100%)
-router.get('/curva-abc', limiteCálculoCustoso, middlewareCurvaAbcComCache, (req, res) => {
+router.get('/curva-abc', exigirFeature('relatorios_avancados'), limiteCálculoCustoso, middlewareCurvaAbcComCache, (req, res) => {
   const { de, ate } = req.query;
   let sql = `
     SELECT vi.produto_id, COALESCE(p.nome,'(produto removido)') AS nome, p.codigo, p.categoria,
@@ -215,7 +215,7 @@ router.get('/curva-abc', limiteCálculoCustoso, middlewareCurvaAbcComCache, (req
 });
 
 // GET /api/financeiro/por-canal?de&ate -> faturamento por origem da venda
-router.get('/por-canal', (req, res) => {
+router.get('/por-canal', exigirFeature('relatorios_avancados'), (req, res) => {
   const { de, ate } = req.query;
   let sql = `SELECT COALESCE(origem,'loja') AS canal, COUNT(*) AS n,
                     SUM(total) AS faturamento, SUM(lucro) AS lucro
@@ -231,7 +231,7 @@ router.get('/por-canal', (req, res) => {
 });
 
 // GET /api/financeiro/por-colecao?de&ate -> faturamento e lucro por coleção (via itens vendidos)
-router.get('/por-colecao', (req, res) => {
+router.get('/por-colecao', exigirFeature('relatorios_avancados'), (req, res) => {
   const { de, ate } = req.query;
   let sql = `
     SELECT COALESCE(p.colecao,'(sem coleção)') AS colecao,
@@ -255,7 +255,7 @@ router.get('/por-colecao', (req, res) => {
 });
 
 // GET /api/financeiro/por-vendedor?de&ate -> vendas, lucro e comissão por vendedor
-router.get('/por-vendedor', (req, res) => {
+router.get('/por-vendedor', exigirFeature('relatorios_avancados'), (req, res) => {
   const { de, ate } = req.query;
   let sql = `
     SELECT v.vendedor_id, COALESCE(vd.nome,'(sem vendedor)') AS vendedor, vd.comissao_pct,
@@ -356,7 +356,7 @@ router.post('/conciliacao', exigirPapel('admin'), (req, res) => {
 
 // GET /api/financeiro/fluxo-caixa?mes=YYYY-MM -> Fluxo de caixa real (regime de caixa)
 // Mostra quando o dinheiro realmente entra e sai (considerando prazos de cartão)
-router.get('/fluxo-caixa', exigirPapel('admin'), (req, res) => {
+router.get('/fluxo-caixa', exigirPapel('admin'), exigirFeature('relatorios_avancados'), (req, res) => {
   try {
     const mes = req.query.mes || hojeLocal().slice(0, 7);
     console.log('fluxo-caixa mes:', mes);

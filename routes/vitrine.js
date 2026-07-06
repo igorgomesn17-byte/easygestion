@@ -4,11 +4,20 @@
 const express = require('express');
 const router = express.Router();
 const { db, getConfig } = require('../db/database');
+const { temFeature } = require('../lib/planos');
 
 // Resolver tenant pelo slug (público, sem autenticação)
 function resolverTenantPorSlug(slug) {
   if (!slug || typeof slug !== 'string') return null;
-  return db.prepare('SELECT id, nome_loja, email FROM tenants WHERE slug = ?').get(slug.toLowerCase());
+  return db.prepare('SELECT id, nome_loja, email, slug, plano FROM tenants WHERE slug = ?').get(slug.toLowerCase());
+}
+
+// Vitrine pública é exclusiva do Growth+ (feature 'vitrine_publica'). Como esta é
+// uma API pública por slug (sem sessão do dono), o gate é slug→tenant→plano, não
+// via middleware de sessão. Starter cai aqui e é tratado como loja inexistente
+// (404 — não revela que a loja existe mas está num plano inferior).
+function vitrineLiberadaParaPlano(tenant) {
+  return !!tenant && temFeature(tenant.plano, 'vitrine_publica');
 }
 
 // GET /api/vitrine/:slug — dados públicos da loja (nome, logo, cor, whatsapp, etc)
@@ -17,7 +26,7 @@ router.get('/:slug', (req, res) => {
     const { slug } = req.params;
     const tenant = resolverTenantPorSlug(slug);
 
-    if (!tenant) {
+    if (!tenant || !vitrineLiberadaParaPlano(tenant)) {
       return res.status(404).json({ erro: 'Loja não encontrada' });
     }
 
@@ -70,7 +79,7 @@ router.get('/:slug/produtos', (req, res) => {
     const { slug } = req.params;
     const tenant = resolverTenantPorSlug(slug);
 
-    if (!tenant) {
+    if (!tenant || !vitrineLiberadaParaPlano(tenant)) {
       return res.status(404).json({ erro: 'Loja não encontrada' });
     }
 
