@@ -370,10 +370,17 @@ app.get('/api/monitoring/alerts', (req, res) => {
 // Landing page pública (raiz para visitantes não-autenticados)
 app.get('/', (req, res, next) => {
   console.log('[ROUTE] GET / -> landing.html');
-  res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.set('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
   res.set('Pragma', 'no-cache');
-  res.set('Expires', '0');
-  res.removeHeader('ETag');
+  res.set('Expires', '-1');
+  // Remover ETag APÓS sendFile terminar
+  const originalSendFile = res.sendFile;
+  res.sendFile = function(path, options, callback) {
+    return originalSendFile.call(this, path, options, function(err) {
+      res.removeHeader('ETag');
+      if (typeof callback === 'function') callback(err);
+    });
+  };
   res.sendFile(path.join(__dirname, 'public', 'landing.html'), (err) => {
     if (err) {
       console.error('[ROUTE] Erro ao servir landing.html:', err);
