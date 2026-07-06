@@ -117,6 +117,16 @@ app.use(helmet({
 // Desabilitar ETag (Express gera automaticamente)
 app.set('etag', false);
 
+// Middleware: remover ETag de TODAS as respostas
+app.use((req, res, next) => {
+  const originalSend = res.send;
+  res.send = function(data) {
+    res.removeHeader('ETag');
+    return originalSend.call(this, data);
+  };
+  next();
+});
+
 // ---------- CORS (restrito ao próprio domínio) ----------
 const ORIGIN = process.env.ORIGIN || (EM_PRODUCAO ? false : 'http://localhost:3000');
 if (EM_PRODUCAO && !ORIGIN) {
