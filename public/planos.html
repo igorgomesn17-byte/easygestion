@@ -116,7 +116,7 @@
     }
 
     .features li:before {
-      content: "✓";
+      content: "\2713";
       color: var(--marca);
       font-weight: bold;
       margin-right: 8px;
@@ -231,7 +231,7 @@
 
   <div class="modal-overlay" id="modalCheckout">
     <div class="modal-content">
-      <button class="modal-fechar" onclick="fecharModal()">✕</button>
+      <button class="modal-fechar" onclick="fecharModal()">&times;</button>
       <div id="stripeContainer" style="padding: 24px;"></div>
     </div>
   </div>
@@ -261,7 +261,7 @@
     async function irParaCheckout() {
       const btn = event.target;
       btn.disabled = true;
-      btn.textContent = '⏳ Verificando...';
+      btn.textContent = 'Verificando...';
 
       try {
         // Verificar se está autenticado
@@ -269,7 +269,7 @@
         if (!meResp.ok) {
           btn.disabled = false;
           btn.textContent = 'Contratar';
-          alert('❌ Erro ao verificar autenticação. Tente fazer login novamente.');
+          alert('Erro ao verificar autenticação. Tente fazer login novamente.');
           window.location.href = '/login.html?redirect=/planos.html';
           return;
         }
@@ -279,7 +279,7 @@
         if (!meData.logado) {
           btn.disabled = false;
           btn.textContent = 'Contratar';
-          alert('❌ Sessão expirada. Por favor, faça login novamente.');
+          alert('Sessão expirada. Por favor, faça login novamente.');
           window.location.href = '/login.html?redirect=/planos.html';
           return;
         }
@@ -338,7 +338,7 @@
       // Processar cancelamento de checkout
       const params = new URLSearchParams(window.location.search);
       if (params.get('checkout') === 'cancelado') {
-        alert('❌ Checkout cancelado. Tente novamente quando estiver pronto.');
+        alert('Checkout cancelado. Tente novamente quando estiver pronto.');
         // Limpar URL
         window.history.replaceState({}, document.title, '/planos.html');
       }

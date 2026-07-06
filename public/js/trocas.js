@@ -67,14 +67,14 @@ async function buscarVenda() {
 
     const avisoPrazo = prazoExpirado
       ? `<div class="card" style="background:#fde8e8; border:1px solid var(--vermelho,#c62828); margin:8px 0;">
-           <strong class="texto-vermelho">⛔ Fora do prazo de troca</strong>
+           <strong class="texto-vermelho">Fora do prazo de troca</strong>
            <div style="font-size:0.88rem; margin-top:4px;">Esta compra foi há <strong>${prazo.dias_passados} dias úteis</strong> (limite: ${prazo.prazo}). A troca está bloqueada.</div>
            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; margin-top:8px; font-size:0.88rem;">
              <input type="checkbox" id="forcarPrazo" style="width:18px;height:18px;flex:none;">
              <span>Autorizar exceção (ex: defeito de fábrica) — sob minha responsabilidade</span>
            </label>
          </div>`
-      : `<div class="texto-verde" style="font-size:0.85rem; margin:4px 0;">✓ Dentro do prazo (${prazo.dias_passados} de ${prazo.prazo} dias úteis)</div>`;
+      : `<div class="texto-verde" style="font-size:0.85rem; margin:4px 0;">Dentro do prazo (${prazo.dias_passados} de ${prazo.prazo} dias úteis)</div>`;
 
     document.getElementById('infoVenda').innerHTML = `
       <div class="texto-cinza">Venda #${venda.id} • ${venda.data_hora.slice(0, 10).split('-').reverse().join('/')}
@@ -223,7 +223,7 @@ function recalcular() {
     lbl.textContent = 'Cliente paga (será registrado como venda)';
     areaPag.style.display = 'block';
   } else if (dif < 0) {
-    lbl.innerHTML = '🎟️ Cliente recebe Vale-crédito';
+    lbl.innerHTML = 'Cliente recebe Vale-crédito';
     areaPag.style.display = 'none';
   } else {
     lbl.textContent = 'Sem diferença';
@@ -340,11 +340,11 @@ async function verDetalhes(id) {
     : '<span class="status-badge status-ativa">Ativa</span>';
 
   const formaLabel = {
-    'dinheiro': '💵 Dinheiro',
-    'pix': '📱 Pix',
-    'debito': '💳 Débito',
-    'credito_vista': '💳 Crédito à vista',
-    'vale': '🎟️ Vale-crédito'
+    'dinheiro': 'Dinheiro',
+    'pix': 'Pix',
+    'debito': 'Débito',
+    'credito_vista': 'Crédito à vista',
+    'vale': 'Vale-crédito'
   };
 
   document.getElementById('trocaDetalhes').innerHTML = `
@@ -446,7 +446,7 @@ async function verDetalhes(id) {
 
       ${t.diferenca < 0 ? `
       <div style="border:2px solid #FFC107; border-radius:6px; padding:12px; margin-bottom:16px; background:#FFFBF0;">
-        <strong style="display:block; margin-bottom:8px; color:#F39C12;">🎟️ Vale-crédito gerado</strong>
+        <strong style="display:block; margin-bottom:8px; color:#F39C12;">Vale-crédito gerado</strong>
         <div style="font-size:0.9rem;">
           <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
             <span>Valor:</span>
@@ -462,18 +462,18 @@ async function verDetalhes(id) {
           </div>
           <div style="display:flex; justify-content:space-between; margin-bottom:12px;">
             <span>Status:</span>
-            <strong style="color:#27ae60;">✓ Ativo (válido por 30 dias)</strong>
+            <strong style="color:#27ae60;">Ativo (válido por 30 dias)</strong>
           </div>
-          ${t.vale_codigo ? `<button class="btn" onclick="window.location.href='cupom-vale.html?codigo=${t.vale_codigo}';" style="width:100%; background:#F39C12; color:white; margin-bottom:8px;">📋 Reimprimir comprovante</button>` : ''}
+          ${t.vale_codigo ? `<button class="btn" onclick="window.location.href='cupom-vale.html?codigo=${t.vale_codigo}';" style="width:100%; background:#F39C12; color:white; margin-bottom:8px;">Reimprimir comprovante</button>` : ''}
           <div style="font-size:0.85rem; color:#666; background:white; padding:8px; border-radius:4px; border-left:3px solid #FFC107;">
-            <strong>📌 Dica:</strong> Copie o código acima e use no PDV para aplicar como desconto, ou clique em "Reimprimir" para gerar o comprovante novamente.
+            <strong>Dica:</strong> Copie o código acima e use no PDV para aplicar como desconto, ou clique em "Reimprimir" para gerar o comprovante novamente.
           </div>
         </div>
       </div>
       ` : ''}
 
       ${!t.cancelada ? `
-      <button class="btn" style="background:#E74C3C; color:white; width:100%;" onclick="cancelarTroca(${t.id})">🗑️ Cancelar troca</button>
+      <button class="btn" style="background:#E74C3C; color:white; width:100%;" onclick="cancelarTroca(${t.id})">Cancelar troca</button>
       ` : ''}
     </div>
   `;
@@ -558,7 +558,7 @@ function renderVales() {
       <td>${v.validade ? v.validade.slice(0, 10).split('-').reverse().join('/') : '—'}</td>
       <td style="font-size:0.85rem; color:#666;">${usedInfo}</td>
       <td><span class="status-badge ${statusBadge.classe}">${statusBadge.texto}</span></td>
-      <td style="text-align:center;"><button class="btn btn-fino" onclick="window.location.href='cupom-vale.html?codigo=${esc(v.codigo)}';">📋</button></td>
+      <td style="text-align:center;"><button class="btn btn-fino" onclick="window.location.href='cupom-vale.html?codigo=${esc(v.codigo)}';"></button></td>
     </tr>`;
   }).join('');
 }

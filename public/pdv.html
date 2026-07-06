@@ -28,7 +28,7 @@
       <div>
         <div class="card">
           <div style="display:flex; gap:8px; align-items:center;">
-            <input type="search" id="busca" placeholder="🔎 Buscar peça por nome ou código (ou leia o código de barras)..." autofocus oninput="buscar()" style="flex:1;">
+            <input type="search" id="busca" placeholder="Buscar peça por nome ou código (ou leia o código de barras)..." autofocus oninput="buscar()" style="flex:1;">
             <button class="btn btn-escuro" id="btnPecaNova" onclick="abrirPecaNova()" title="Cadastrar peça nova" style="font-size:1.3rem; line-height:1; padding:0 14px;">+</button>
           </div>
           <div id="fotoProdSel" style="display:none; margin-bottom:12px; text-align:center;">
@@ -39,7 +39,7 @@
       </div>
 
       <div class="card sticky-carrinho">
-        <h2 style="margin-top:0;">🛒 Venda atual</h2>
+        <h2 style="margin-top:0;">Venda atual</h2>
 
         
         <div class="campo">
@@ -74,13 +74,13 @@
 
           <h2>Pagamento</h2>
           <div class="pgto-opcoes">
-            <div class="pgto-btn pix" data-forma="pix" onclick="selPgto(this)">💚 Pix<br><small>sem taxa</small></div>
-            <div class="pgto-btn pix" data-forma="pix_chave" onclick="selPgto(this)">🔑 Pix (chave)<br><small>sem taxa</small></div>
-            <div class="pgto-btn" data-forma="dinheiro" onclick="selPgto(this)">💵 Dinheiro</div>
-            <div class="pgto-btn" data-forma="debito" onclick="selPgto(this)">💳 Débito</div>
-            <div class="pgto-btn" data-forma="credito_vista" onclick="selPgto(this)">💳 Créd. à vista</div>
-            <div class="pgto-btn" data-forma="credito_parcelado" onclick="selPgto(this)">💳 Créd. parcelado</div>
-            <div class="pgto-btn" data-forma="vale" onclick="selPgtoVale(this)">🎟️ Vale-crédito</div>
+            <div class="pgto-btn pix" data-forma="pix" onclick="selPgto(this)">Pix<br><small>sem taxa</small></div>
+            <div class="pgto-btn pix" data-forma="pix_chave" onclick="selPgto(this)">Pix (chave)<br><small>sem taxa</small></div>
+            <div class="pgto-btn" data-forma="dinheiro" onclick="selPgto(this)">Dinheiro</div>
+            <div class="pgto-btn" data-forma="debito" onclick="selPgto(this)">Débito</div>
+            <div class="pgto-btn" data-forma="credito_vista" onclick="selPgto(this)">Créd. à vista</div>
+            <div class="pgto-btn" data-forma="credito_parcelado" onclick="selPgto(this)">Créd. parcelado</div>
+            <div class="pgto-btn" data-forma="vale" onclick="selPgtoVale(this)">Vale-crédito</div>
           </div>
 
           <div id="areaVale" style="display:none; margin-top:12px;">
@@ -115,22 +115,22 @@
               <label style="font-size:0.85rem;">Como devolveu o troco?</label>
               <div style="display:flex; gap:8px; margin-top:4px;">
                 <label style="display:flex; align-items:center; gap:5px; font-weight:600; cursor:pointer;">
-                  <input type="radio" name="trocoForma" value="dinheiro" checked style="width:auto;"> 💵 Dinheiro</label>
+                  <input type="radio" name="trocoForma" value="dinheiro" checked style="width:auto;"> Dinheiro</label>
                 <label style="display:flex; align-items:center; gap:5px; font-weight:600; cursor:pointer;">
-                  <input type="radio" name="trocoForma" value="pix" style="width:auto;"> 💚 Pix</label>
+                  <input type="radio" name="trocoForma" value="pix" style="width:auto;"> Pix</label>
               </div>
             </div>
           </div>
 
           
           <div class="campo mt" id="areaComprovante" style="display:none;">
-            <label>📎 Comprovante do Pix (opcional)</label>
+            <label>Comprovante do Pix (opcional)</label>
             <input type="file" id="comprovanteFile" accept="image/png,image/jpeg,image/webp" onchange="previewComprovante()">
             <div id="comprovantePreview" class="mt"></div>
           </div>
 
           
-          <button class="btn btn-fino mt" id="btnDividir" onclick="abrirSplit()" style="width:100%;">➕ Dividir pagamento (2+ formas)</button>
+          <button class="btn btn-fino mt" id="btnDividir" onclick="abrirSplit()" style="width:100%;">Dividir pagamento (2+ formas)</button>
           <div id="areaSplit" class="campo mt" style="display:none; border:1.5px solid var(--dourado-claro); border-radius:10px; padding:12px;">
             <div class="flex-entre"><strong>Pagamento dividido</strong>
               <button class="btn btn-fino" style="padding:2px 8px;" onclick="fecharSplit()">usar 1 forma</button></div>
@@ -143,7 +143,7 @@
           <div class="campo mt">
             <label>Cliente (opcional)</label>
             <div style="display:flex; gap:8px;">
-              <input type="search" id="buscaCli" placeholder="🔎 Digite o nome do cliente..." oninput="buscarCli()" autocomplete="off" style="flex:1;">
+              <input type="search" id="buscaCli" placeholder="Digite o nome do cliente..." oninput="buscarCli()" autocomplete="off" style="flex:1;">
               <button class="btn btn-fino btn-escuro" onclick="abrirNovoCliente()">+ Novo</button>
             </div>
             <div class="lista-cli" id="listaCli"></div>
@@ -155,8 +155,8 @@
           </div>
 
           <div id="areasBotoesFinalizar">
-            <button id="btnFinalizarNfce" class="btn btn-bloco btn-verde mt" onclick="finalizar(true)">🧾 Finalizar + NFC-e</button>
-            <button id="btnFinalizarSemNfce" class="btn btn-bloco mt" style="background:var(--marrom-taupe,#8a7a6d);" onclick="finalizar(false)">✓ Finalizar (sem nota)</button>
+            <button id="btnFinalizarNfce" class="btn btn-bloco btn-verde mt" onclick="finalizar(true)">Finalizar + NFC-e</button>
+            <button id="btnFinalizarSemNfce" class="btn btn-bloco mt" style="background:var(--marrom-taupe,#8a7a6d);" onclick="finalizar(false)">Finalizar (sem nota)</button>
             <button class="btn btn-bloco mt" style="background:#A99;" onclick="limparCarrinho()">Cancelar</button>
           </div>
           <div id="spinnerFinalizando" style="display:none; text-align:center; padding:20px; gap:12px; flex-direction:column; align-items:center;">
@@ -214,13 +214,13 @@
   
   <div class="modal-fundo" id="modalCaixa" style="z-index:200;">
     <div class="modal">
-      <h2>🔓 Abrir o caixa do dia</h2>
+      <h2>Abrir o caixa do dia</h2>
       <p class="texto-cinza">Antes de vender, abra o caixa informando o fundo de troco (o dinheiro que já está na gaveta pra dar troco). Pode ser 0.</p>
       <div class="campo">
         <label>Fundo de troco (R$)</label>
         <input type="number" id="fundoTroco" step="0.01" value="0" placeholder="0,00" autofocus>
       </div>
-      <button class="btn btn-bloco btn-verde" onclick="abrirCaixa()">✓ Abrir caixa e começar a vender</button>
+      <button class="btn btn-bloco btn-verde" onclick="abrirCaixa()">Abrir caixa e começar a vender</button>
       <div id="caixaFechadoAviso" style="display:none; margin-top:10px;" class="texto-cinza"></div>
     </div>
   </div>
@@ -251,7 +251,7 @@
       try {
         await api('/caixa/abrir', { method:'POST', body:{ fundo_troco: fundo } });
         document.getElementById('modalCaixa').classList.remove('aberto');
-        toast('Caixa aberto Bora vender 🤎', 'sucesso');
+        toast('Caixa aberto Bora vender ', 'sucesso');
         document.getElementById('busca').focus();
       } catch (e) { toast(e.message || 'Não consegui abrir o caixa', 'erro'); }
     }
@@ -300,7 +300,7 @@
         div.innerHTML = lista.map(p => {
           const fotoTag = p.foto
             ? `<img src="/${p.foto}" style="width:48px;height:48px;border-radius:6px;object-fit:cover;flex-shrink:0;">`
-            : `<div style="width:48px;height:48px;border-radius:6px;background:var(--cinza-claro);display:flex;align-items:center;justify-content:center;flex-shrink:0;">👗</div>`;
+            : `<div style="width:48px;height:48px;border-radius:6px;background:var(--cinza-claro);display:flex;align-items:center;justify-content:center;flex-shrink:0;"></div>`;
           return `
           <div class="item-busca" onclick='escolherProduto(${JSON.stringify(p).replace(/'/g,"&#39;")})' style="display:flex; gap:10px; align-items:center;">
             ${fotoTag}
@@ -334,7 +334,7 @@
       if (disp.length === 1) {
         // 1 tamanho com estoque → vai direto pro carrinho
         addCarrinho(disp[0].id, disp[0].tamanho, disp[0].quantidade);
-        toast('✓ ' + (p.nome) + ' adicionado', 'sucesso');
+        toast('' + (p.nome) + ' adicionado', 'sucesso');
         limparBusca();
       } else {
         // vários tamanhos → precisa escolher qual (o código de barras é do produto, não da variação)
@@ -395,7 +395,7 @@
           tamanho: p.tamanho, preco: p.preco_venda, custo: 0, qtd: 1, estoque: p.quantidade });
         document.getElementById('modalPecaNova').classList.remove('aberto');
         limparBusca();
-        toast('Peça cadastrada e adicionada à venda 🤎','sucesso');
+        toast('Peça cadastrada e adicionada à venda ','sucesso');
         renderCarrinho();
       } catch(e){ toast(e.message,'erro'); }
     }
@@ -573,22 +573,22 @@
       if (formaSel === 'vale') {
         if (valeAtual) {
           html = `<div style="background:#FCF3E3; border:1px solid var(--dourado-claro); padding:12px; border-radius:8px; font-size:0.9rem;">
-            <strong style="color:var(--dourado-claro);">🎟️ Vale-crédito aplicado</strong>
+            <strong style="color:var(--dourado-claro);">Vale-crédito aplicado</strong>
             <div class="mt" style="font-size:0.85rem;">Código: <strong>${valeAtual.codigo}</strong></div>
             <div style="font-size:0.85rem;">Saldo disponível: ${moeda(valeAtual.saldo_disponivel)}</div>
           </div>`;
         } else {
           html = `<div style="background:#FFF3CD; border:1px solid #FFC107; padding:12px; border-radius:8px; font-size:0.9rem;">
-            <strong style="color:#856404;">⚠️ Insira o código do vale</strong>
+            <strong style="color:#856404;">Insira o código do vale</strong>
           </div>`;
         }
       } else if (formaSel === 'pix' || formaSel === 'pix_chave') {
         html = `<div style="background:#E3F4EA; border:1px solid var(--verde); padding:12px; border-radius:8px; font-size:0.9rem;">
-          <strong style="color:var(--verde);">💚 Sem taxa! Você recebe ${moeda(total)} em 1 dia útil.</strong>
+          <strong style="color:var(--verde);">Sem taxa! Você recebe ${moeda(total)} em 1 dia útil.</strong>
         </div>`;
       } else if (formaSel === 'dinheiro') {
         html = `<div style="background:#E3F4EA; border:1px solid var(--verde); padding:12px; border-radius:8px; font-size:0.9rem;">
-          <strong style="color:var(--verde);">💵 Recebe na hora: ${moeda(total)}</strong>
+          <strong style="color:var(--verde);">Recebe na hora: ${moeda(total)}</strong>
         </div>`;
       } else if (formaSel === 'credito_parcelado') {
         const taxaPct = obterTaxaParcelada(parcelas);
@@ -662,7 +662,7 @@
         info.innerHTML = `<span class="texto-vermelho">Faltam ${moeda(-troco)} (recebido menor que o total)</span>`;
         formaArea.style.display = 'none';
       } else if (troco === 0) {
-        info.innerHTML = `<span class="texto-verde">Valor exato, sem troco ✓</span>`;
+        info.innerHTML = `<span class="texto-verde">Valor exato, sem troco </span>`;
         formaArea.style.display = 'none';
       } else {
         info.innerHTML = `Troco: <strong class="texto-verde">${moeda(troco)}</strong>`;
@@ -788,7 +788,7 @@
           <select onchange="setSplitForma(${i}, this.value)" style="flex:1;">${opts}</select>
           ${parc}
           ${inputValor}
-          <button class="btn btn-fino" style="padding:2px 8px;" onclick="removerLinhaSplit(${i})">✕</button>
+          <button class="btn btn-fino" style="padding:2px 8px;" onclick="removerLinhaSplit(${i})"></button>
         </div>`;
       }).join('');
       renderSplitResumo();
@@ -799,7 +799,7 @@
       const falta = +(tot - soma).toFixed(2);
       const div = document.getElementById('splitResumo');
       let cor, msg;
-      if (Math.abs(falta) < 0.01) { cor='var(--verde)'; msg=`✓ Fecha certinho (${moeda(tot)})`; }
+      if (Math.abs(falta) < 0.01) { cor='var(--verde)'; msg=`Fecha certinho (${moeda(tot)})`; }
       else if (falta > 0) { cor='#B26B00'; msg=`Falta ${moeda(falta)} de ${moeda(tot)}`; }
       else { cor='var(--vermelho, #C0392B)'; msg=`Passou ${moeda(-falta)} do total (${moeda(tot)})`; }
       div.innerHTML = `<div style="color:${cor}; font-weight:600;">${msg}</div>`;
@@ -833,7 +833,7 @@
     function selCliEl(el) { selCli(el.dataset.id, el.dataset.nome); }
     function selCli(id, nome) {
       document.getElementById('clienteId').value = id;
-      document.getElementById('cliNomeSel').textContent = '👤 ' + nome;
+      document.getElementById('cliNomeSel').textContent = '' + nome;
       document.getElementById('cliSelecionado').style.display = 'block';
       document.getElementById('buscaCli').value = '';
       document.getElementById('listaCli').style.display = 'none';
@@ -863,7 +863,7 @@
         aniversario:document.getElementById('cliAniv').value.trim(),
         origem:document.getElementById('cliOrigem').value }});
       // se o telefone já era de um cliente cadastrado, o backend devolve o existente
-      if (r.ja_existia) toast('Cliente já cadastrado — selecionei o existente 🤎','sucesso');
+      if (r.ja_existia) toast('Cliente já cadastrado — selecionei o existente ','sucesso');
       else toast('Cliente salvo','sucesso');
       document.getElementById('modalCli').classList.remove('aberto');
       ['cliNome','cliTel','cliCidade','cliAniv'].forEach(i=>document.getElementById(i).value='');
@@ -963,7 +963,7 @@
                 toast(`Vale ${valeAtual.codigo} registrado com sucesso`, 'sucesso');
               }
             } catch(e) {
-              toast('⚠️ Vale não registrado: ' + (e.message || 'erro desconhecido'), 'aviso');
+              toast('Vale não registrado: ' + (e.message || 'erro desconhecido'), 'aviso');
               console.error('Erro ao registrar uso do vale:', e);
             }
           }
@@ -974,7 +974,7 @@
         if (comNfce) {
           try {
             await api('/nfce/emitir/' + r.id, { method:'POST', body: { cpf_cliente: '' } });
-            toast('Venda registrada e NFC-e enviada 🤎','sucesso');
+            toast('Venda registrada e NFC-e enviada ','sucesso');
           } catch (e) {
             toast('Venda OK, mas a NFC-e falhou: ' + (e.message||'erro') + '. Emita pelo Histórico.','erro');
           }
@@ -1029,7 +1029,7 @@
         valeAtual = await api('/vales/' + codigo);
         document.getElementById('infoVale').innerHTML = `
           <div style="background:#e8f5e9; padding:8px; border-radius:4px; border-left:4px solid #27ae60;">
-            <strong style="color:#27ae60;">✓ Vale válido</strong>
+            <strong style="color:#27ae60;">Vale válido</strong>
             <div style="font-size:0.9rem; margin-top:4px;">
               Saldo disponível: <strong>${moeda(valeAtual.saldo_disponivel)}</strong>
             </div>
@@ -1040,7 +1040,7 @@
         valeAtual = null;
         document.getElementById('infoVale').innerHTML = `
           <div style="background:#ffebee; padding:8px; border-radius:4px; border-left:4px solid #e74c3c;">
-            <strong style="color:#e74c3c;">✗ ${e.message}</strong>
+            <strong style="color:#e74c3c;">${e.message}</strong>
           </div>
         `;
         atualizarTotais();

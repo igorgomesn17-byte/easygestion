@@ -69,7 +69,7 @@
   <div class="cupom" id="cupom">
     <div class="logo">DS<br>STORE</div>
     <div class="separador"></div>
-    <div class="titulo">🎟️ VALE-CRÉDITO</div>
+    <div class="titulo">VALE-CRÉDITO</div>
     <div class="codigo" id="codigo">VALE-XXXXXX</div>
     <div class="valor" id="valor">R$ 0,00</div>
     <div class="separador"></div>
@@ -79,11 +79,11 @@
     <div id="validade" style="margin-bottom:16px;"></div>
     <div class="separador"></div>
     <div class="aviso">
-      <strong>ℹ️ COMO USAR:</strong><br>
+      <strong>ℹCOMO USAR:</strong><br>
       Apresente este vale na loja para usar como pagamento.<br>
       Uso único — válido em uma só compra (sem troco/sobra).<br>
       Crédito em pix — não reembolsável em dinheiro.<br>
-      <strong>DS STORE ❤️</strong>
+      <strong>DS STORE </strong>
     </div>
     <div class="separador"></div>
     <div style="font-size: 0.8rem; color: #999;">
@@ -92,10 +92,10 @@
   </div>
 
   <div class="botoes">
-    <button class="btn btn-imprimir" onclick="window.print()">🖨️ Imprimir</button>
-    <button class="btn btn-imprimir" onclick="window.print(); setTimeout(() => window.location.href='trocas.html', 2000);">📋 Imprimir e Voltar</button>
-    <button class="btn btn-whatsapp" id="btnWhatsapp" onclick="compartilharWhatsapp()">📱 WhatsApp</button>
-    <button class="btn btn-voltar" onclick="window.location.href='trocas.html'">⬅️ Voltar</button>
+    <button class="btn btn-imprimir" onclick="window.print()">Imprimir</button>
+    <button class="btn btn-imprimir" onclick="window.print(); setTimeout(() => window.location.href='trocas.html', 2000);">Imprimir e Voltar</button>
+    <button class="btn btn-whatsapp" id="btnWhatsapp" onclick="compartilharWhatsapp()">WhatsApp</button>
+    <button class="btn btn-voltar" onclick="window.location.href='trocas.html'">Voltar</button>
   </div>
 
   <script src="js/comum.js"></script>
@@ -124,7 +124,7 @@
 
         // Botão WhatsApp com mensagem
         document.getElementById('btnWhatsapp').onclick = () => {
-          const msg = `🎟️ *Vale-crédito DS Store*\n\n*Código:* ${codigo}\n*Valor:* ${moeda(vale.valor)}\n*Validade:* ${vale.validade ? vale.validade.split('-').reverse().join('/') : '30 dias'}\n\nUse em suas próximas compras!`;
+          const msg = `*Vale-crédito DS Store*\n\n*Código:* ${codigo}\n*Valor:* ${moeda(vale.valor)}\n*Validade:* ${vale.validade ? vale.validade.split('-').reverse().join('/') : '30 dias'}\n\nUse em suas próximas compras!`;
           const link = `https://wa.me/?text=${encodeURIComponent(msg)}`;
           window.open(link, '_blank');
         };

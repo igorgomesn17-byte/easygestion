@@ -60,7 +60,7 @@
   <div class="setup-card">
     <div class="etapa-badge">Etapa 2 de 2 — Configurar 2FA</div>
 
-    <div class="logo">🔐</div>
+    <div class="logo"></div>
     <h1>Ativar Autenticação 2FA</h1>
 
     <div class="error-msg" id="erro"></div>
@@ -82,7 +82,7 @@
         <strong>Não conseguiu escanear?</strong> Copie o secret acima e insira manualmente no seu autenticador.
       </div>
 
-      <button class="next-btn" onclick="mostrarTelaB()">✓ Já escaneei — Continuar</button>
+      <button class="next-btn" onclick="mostrarTelaB()">Já escaneei — Continuar</button>
     </div>
 
     <!-- TELA B: Backup Codes + Confirmação -->
@@ -90,7 +90,7 @@
       <p class="subtitle">Salve esses códigos em um lugar seguro. Use-os se perder acesso ao autenticador.</p>
 
       <div class="backup-codes-container">
-        <div class="backup-codes-title">⚠️ Seus 10 códigos de backup</div>
+        <div class="backup-codes-title">Seus 10 códigos de backup</div>
         <div class="backup-codes-list" id="backupCodesList">—</div>
         <button type="button" class="copy-btn" onclick="copiarBackupCodes()" style="margin-top: 10px; width: calc(100% - 24px);">Copiar todos</button>
       </div>
@@ -107,7 +107,7 @@
 
       <div class="btn-group">
         <button class="next-btn" onclick="voltarTelaA()" style="background: #999;">← Voltar</button>
-        <button class="next-btn" id="btn-confirmar" onclick="confirmarSetup()">✓ Ativar 2FA</button>
+        <button class="next-btn" id="btn-confirmar" onclick="confirmarSetup()">Ativar 2FA</button>
       </div>
     </div>
   </div>
@@ -163,7 +163,7 @@
       if (!secretAtual) return;
       navigator.clipboard.writeText(secretAtual).then(() => {
         const btn = event.target;
-        btn.textContent = '✓ Copiado!';
+        btn.textContent = 'Copiado!';
         setTimeout(() => { btn.textContent = 'Copiar'; }, 2000);
       });
     }
@@ -172,7 +172,7 @@
       const texto = backupCodesAtual.join('\n');
       navigator.clipboard.writeText(texto).then(() => {
         const btn = event.target;
-        btn.textContent = '✓ Copiado!';
+        btn.textContent = 'Copiado!';
         setTimeout(() => { btn.textContent = 'Copiar todos'; }, 2000);
       });
     }
@@ -210,7 +210,7 @@
 
       const btn = document.getElementById('btn-confirmar');
       btn.disabled = true;
-      btn.textContent = '⏳ Confirmando...';
+      btn.textContent = 'Confirmando...';
 
       try {
         const res = await fetch('/api/admin/2fa-confirm', {
@@ -224,7 +224,7 @@
 
         if (res.ok && data.ok) {
           limparErro();
-          alert('✓ 2FA ativado com sucesso!');
+          alert('2FA ativado com sucesso!');
           window.location.href = '/admin-dashboard.html';
         } else if (res.status === 401) {
           mostrarErro('Código inválido. Tente novamente.');
@@ -237,7 +237,7 @@
         mostrarErro('Erro de conexão: ' + err.message);
       } finally {
         btn.disabled = false;
-        btn.textContent = '✓ Ativar 2FA';
+        btn.textContent = 'Ativar 2FA';
       }
     }
 

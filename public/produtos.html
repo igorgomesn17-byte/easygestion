@@ -14,18 +14,18 @@
         <p class="subtitulo">Cadastre as peças, defina o preço e veja o lucro real</p>
       </div>
       <div style="display:flex; gap:8px;">
-        <a class="btn btn-escuro" href="lote.html">⚡ Cadastro em lote</a>
+        <a class="btn btn-escuro" href="lote.html">Cadastro em lote</a>
         <button class="btn" onclick="abrirCadastro()">+ Nova peça</button>
       </div>
     </div>
 
     <div class="card" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-      <input type="search" id="busca" placeholder="🔍 Buscar por nome ou código..." oninput="carregar()" style="flex:1; min-width:200px;">
+      <input type="search" id="busca" placeholder="Buscar por nome ou código..." oninput="carregar()" style="flex:1; min-width:200px;">
       <select id="filtroCategoria" onchange="carregar()" style="max-width:220px;">
-        <option value="">🗂️ Todas as categorias</option>
+        <option value="">Todas as categorias</option>
       </select>
       <select id="filtroColecao" onchange="carregar()" style="max-width:220px;">
-        <option value="">📦 Todas as coleções</option>
+        <option value="">Todas as coleções</option>
       </select>
     </div>
 
@@ -44,7 +44,7 @@
         <label>Fotos da peça <span class="texto-cinza" style="font-weight:400;">(até 5 — a 1ª é a capa)</span></label>
         <div id="galeria" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;"></div>
         <input type="file" id="fotoInput" accept="image/*" capture="environment" multiple style="display:none;" onchange="lerFotos(event)">
-        <div class="texto-cinza mt" style="font-size:0.78rem;">💡 Dica: a primeira foto é a capa (aparece na lista e no PDV). Arraste pra reordenar não — use o ✕ pra remover e adicione na ordem que quiser. Frente, costas e detalhes ajudam a vender</div>
+        <div class="texto-cinza mt" style="font-size:0.78rem;">Dica: a primeira foto é a capa (aparece na lista e no PDV). Arraste pra reordenar não — use o pra remover e adicione na ordem que quiser. Frente, costas e detalhes ajudam a vender</div>
       </div>
 
       <div class="campo">
@@ -80,7 +80,7 @@
 
       <div class="card" style="background:var(--creme); border:1px solid var(--dourado-claro);">
         <div class="flex-entre">
-          <strong>💡 Precificação & Lucro por peça</strong>
+          <strong>Precificação & Lucro por peça</strong>
           <button class="btn btn-fino btn-escuro" type="button" onclick="sugerir()">Sugerir preço</button>
         </div>
         <div id="analisePreco" class="mt texto-cinza">Preencha custo e preço para ver o lucro real.</div>
@@ -114,7 +114,7 @@
         try { COLECOES = JSON.parse(cfg.colecoes || '[]'); } catch(e) { COLECOES = []; }
         const opts = COLECOES.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
         document.getElementById('colecao').innerHTML = '<option value="">— sem coleção —</option>' + opts;
-        document.getElementById('filtroColecao').innerHTML = '<option value="">📦 Todas as coleções</option>' + opts;
+        document.getElementById('filtroColecao').innerHTML = '<option value="">Todas as coleções</option>' + opts;
       } catch(e) {}
     }
     carregarColecoes();
@@ -124,7 +124,7 @@
         await popularSelectCategorias('categoria');
         const cats = await carregarCategorias();
         const opts = cats.map(c=>`<option value="${c}">${rotuloCategoria(c)}</option>`).join('');
-        document.getElementById('filtroCategoria').innerHTML = '<option value="">🗂️ Todas as categorias</option>' + opts;
+        document.getElementById('filtroCategoria').innerHTML = '<option value="">Todas as categorias</option>' + opts;
       } catch(e) {}
     }
     carregarCategorias_produtos();
@@ -176,8 +176,8 @@
         <div style="position:relative; width:80px; height:80px; border-radius:10px; overflow:hidden; border:1.5px solid ${i===0?'var(--dourado)':'var(--dourado-claro)'};">
           <img src="${fonteFoto(f)}" style="width:100%; height:100%; object-fit:cover;">
           ${i===0?'<span style="position:absolute; bottom:0; left:0; right:0; background:rgba(107,88,73,.85); color:#fff; font-size:0.62rem; text-align:center; padding:1px;">CAPA</span>':''}
-          <button type="button" onclick="removerFoto(${i})" title="Remover" style="position:absolute; top:2px; right:2px; width:20px; height:20px; border:none; border-radius:50%; background:rgba(0,0,0,.6); color:#fff; cursor:pointer; font-size:0.8rem; line-height:1;">✕</button>
-          ${i>0?`<button type="button" onclick="tornarCapa(${i})" title="Tornar capa" style="position:absolute; top:2px; left:2px; width:20px; height:20px; border:none; border-radius:50%; background:rgba(201,162,75,.9); color:#fff; cursor:pointer; font-size:0.7rem; line-height:1;">★</button>`:''}
+          <button type="button" onclick="removerFoto(${i})" title="Remover" style="position:absolute; top:2px; right:2px; width:20px; height:20px; border:none; border-radius:50%; background:rgba(0,0,0,.6); color:#fff; cursor:pointer; font-size:0.8rem; line-height:1;"></button>
+          ${i>0?`<button type="button" onclick="tornarCapa(${i})" title="Tornar capa" style="position:absolute; top:2px; left:2px; width:20px; height:20px; border:none; border-radius:50%; background:rgba(201,162,75,.9); color:#fff; cursor:pointer; font-size:0.7rem; line-height:1;"></button>`:''}
         </div>`).join('');
       const btnAdd = galeriaFotos.length < MAX_FOTOS
         ? `<button type="button" onclick="document.getElementById('fotoInput').click()" style="width:80px; height:80px; border-radius:10px; border:1.5px dashed var(--dourado-claro); background:var(--cinza-claro,#F4F5F7); cursor:pointer; color:var(--marrom,#6B5849); font-size:1.6rem;">+</button>`
@@ -231,7 +231,7 @@
             <div><div class="texto-cinza" style="font-size:0.78rem;">LUCRO/PEÇA (cartão)</div>
                  <div class="${cor}" style="font-size:1.5rem; font-weight:700;">${moeda(a.lucro)}</div>
                  <div class="texto-cinza" style="font-size:0.8rem;">margem ${a.margemPct}%</div></div>
-            <div><div class="texto-cinza" style="font-size:0.78rem;">LUCRO/PEÇA (Pix 💳)</div>
+            <div><div class="texto-cinza" style="font-size:0.78rem;">LUCRO/PEÇA (Pix )</div>
                  <div class="texto-verde" style="font-size:1.5rem; font-weight:700;">${moeda(a.lucroPix)}</div>
                  <div class="texto-cinza" style="font-size:0.8rem;">margem ${a.margemPixPct}%</div></div>
             <div><div class="texto-cinza" style="font-size:0.78rem;">MARKUP</div>
@@ -355,7 +355,7 @@
         const lucro = p.margem ? p.margem.lucro : 0;
         const fotoTag = p.foto
           ? `<img src="/${p.foto}" style="width:54px;height:54px;border-radius:8px;object-fit:cover;flex-shrink:0;">`
-          : `<div style="width:54px;height:54px;border-radius:8px;background:var(--cinza-claro);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:1.3rem;">👗</div>`;
+          : `<div style="width:54px;height:54px;border-radius:8px;background:var(--cinza-claro);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:1.3rem;"></div>`;
         return `<div class="card">
           <div class="flex-entre">
             <div style="display:flex; gap:12px; align-items:center;">
@@ -365,7 +365,7 @@
                 <span class="badge badge-dourado">${esc(p.codigo)}</span>
                 ${p.categoria ? `<span class="texto-cinza"> • ${esc(p.categoria)}</span>` : ''}
                 ${p.cor ? `<span class="texto-cinza"> • ${esc(p.cor)}</span>` : ''}
-                ${p.colecao ? `<br><span class="badge" style="background:var(--marrom,#6B5849);color:#fff;font-size:0.7rem;">📦 ${esc(p.colecao)}</span>` : ''}
+                ${p.colecao ? `<br><span class="badge" style="background:var(--marrom,#6B5849);color:#fff;font-size:0.7rem;">${esc(p.colecao)}</span>` : ''}
               </div>
             </div>
             <div class="direita">
@@ -377,9 +377,9 @@
           <div class="mt flex-entre">
             <span class="texto-cinza" style="font-size:0.85rem;">Total em estoque: <strong>${p.estoque_total}</strong> peças</span>
             <div style="display:flex; gap:8px;">
-              <a class="btn btn-fino btn-escuro" href="etiquetas.html?id=${p.id}">🏷️ Etiqueta</a>
+              <a class="btn btn-fino btn-escuro" href="etiquetas.html?id=${p.id}">Etiqueta</a>
               <button class="btn btn-fino" onclick="editar(${p.id})">Editar</button>
-              <button class="btn btn-fino btn-vermelho" onclick="deletar(${p.id}, '${esc(p.codigo)}')">🗑️</button>
+              <button class="btn btn-fino btn-vermelho" onclick="deletar(${p.id}, '${esc(p.codigo)}')"></button>
             </div>
           </div>
         </div>`;
@@ -537,7 +537,7 @@
         // Se chegou aqui e tour ainda está ativo, significa que salvou
         if (document.querySelector('#tour-overlay')) {
           removerOverlay();
-          toast('🎉 Pronto! Seu primeiro produto foi cadastrado!', 'sucesso');
+          toast('Pronto! Seu primeiro produto foi cadastrado!', 'sucesso');
           setTimeout(async () => {
             await fetch('/api/onboarding/estado', {
               method: 'PATCH',

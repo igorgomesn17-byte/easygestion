@@ -112,7 +112,7 @@
         <div class="value" id="val-vencido">—</div>
       </div>
       <div class="admin-card danger">
-        <h3>⚠️ Alertas de Risco</h3>
+        <h3>Alertas de Risco</h3>
         <div class="value" id="val-alertas-total">—</div>
         <p style="font-size: 12px; color: #999; margin-top: 8px;" id="alertas-sumario">—</p>
       </div>
@@ -120,7 +120,7 @@
 
     
     <div class="admin-section" id="secao-alertas" style="display: none;">
-      <h2>🚨 Alertas Ativos (Risco de Churn)</h2>
+      <h2>Alertas Ativos (Risco de Churn)</h2>
       <div id="tabela-alertas">
         <div class="admin-loading">
           <div class="admin-spinner"></div>
@@ -147,7 +147,7 @@
         <input
           type="text"
           id="filtro-busca"
-          placeholder="🔍 Buscar por nome ou email..."
+          placeholder="Buscar por nome ou email..."
           style="padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;"
           onkeyup="aplicarFiltros()"
         >
@@ -192,7 +192,7 @@
     <div id="aba-assinaturas" class="admin-section" style="display: none;">
       <h2>Assinaturas</h2>
       <div style="display: grid; grid-template-columns: 1fr 200px 200px; gap: 10px; margin-bottom: 20px;">
-        <input type="text" placeholder="🔍 Buscar por cliente..." style="padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+        <input type="text" placeholder="Buscar por cliente..." style="padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
         <select onchange="filtrarAssinaturasPor('status', this.value)" style="padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
           <option value="">Todas as assinaturas</option>
           <option value="ativo">Ativas</option>
@@ -215,7 +215,7 @@
     <div id="aba-cobracas" class="admin-section" style="display: none;">
       <h2>Cobranças</h2>
       <div style="display: grid; grid-template-columns: 1fr 200px 200px; gap: 10px; margin-bottom: 20px;">
-        <input type="text" placeholder="🔍 Buscar por cliente..." style="padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+        <input type="text" placeholder="Buscar por cliente..." style="padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
         <select onchange="filtrarCobracasPor('status', this.value)" style="padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
           <option value="">Todas as cobranças</option>
           <option value="pago">Pagas</option>
@@ -357,7 +357,7 @@
         const { alertas, sumario } = await res.json();
 
         // Atualizar card de alertas
-        document.getElementById('val-alertas-total').textContent = sumario.total > 0 ? sumario.total : '✓ 0';
+        document.getElementById('val-alertas-total').textContent = sumario.total > 0 ? sumario.total : '0';
         const sumarioTexto = sumario.total > 0
           ? `${sumario.atraso_pagamento} em atraso • ${sumario.inativo} inativos • R$ ${formatarMoeda(sumario.valor_em_risco)}`
           : 'Sem alertas no momento';
@@ -392,22 +392,22 @@
               case 'atraso_pagamento':
                 tipoLabel = 'Atraso de Pagamento';
                 detalhe = `${alerta.dias_atraso} dias vencido`;
-                icone = '💳';
+                icone = '';
                 break;
               case 'inativo':
                 tipoLabel = 'Inatividade';
                 detalhe = `${alerta.dias_sem_atividade} dias sem usar`;
-                icone = '⏰';
+                icone = '';
                 break;
               case 'nunca_usou':
                 tipoLabel = 'Nunca Usou';
                 detalhe = 'Registrou mas nunca entrou';
-                icone = '👤';
+                icone = '';
                 break;
               default:
                 tipoLabel = alerta.tipo;
                 detalhe = alerta.mensagem || '—';
-                icone = '⚠️';
+                icone = '';
             }
 
             html += `
@@ -422,7 +422,7 @@
                 <td>${formatarData(alerta.criado_em)}</td>
                 <td>
                   <button class="admin-btn-small" onclick="verDetalhes(${alerta.tenant_id})">Ver</button>
-                  <button class="admin-btn-small" style="background: #5cb85c;" onclick="resolverAlerta(${alerta.id})">✓ Resolvido</button>
+                  <button class="admin-btn-small" style="background: #5cb85c;" onclick="resolverAlerta(${alerta.id})">Resolvido</button>
                 </td>
               </tr>
             `;
@@ -651,7 +651,7 @@
 
     // Deletar cliente
     async function deletarCliente(clienteId) {
-      if (!confirm('⚠️ ATENÇÃO: Tem certeza que deseja DELETAR este cliente? Esta ação é IRREVERSÍVEL e apagará todos os dados.')) return;
+      if (!confirm('ATENÇÃO: Tem certeza que deseja DELETAR este cliente? Esta ação é IRREVERSÍVEL e apagará todos os dados.')) return;
       if (!confirm('Tem certeza mesmo? Todos os dados do cliente serão perdidos permanentemente.')) return;
 
       try {
@@ -802,7 +802,7 @@
             <td>${statusBadge}</td>
             <td>${c.tentativas}</td>
             <td>
-              ${c.status !== 'pago' ? `<button class="admin-btn-small" onclick="reprocessarCobranca(${c.id})">🔄 Reprocessar</button>` : '—'}
+              ${c.status !== 'pago' ? `<button class="admin-btn-small" onclick="reprocessarCobranca(${c.id})">Reprocessar</button>` : '—'}
             </td>
           </tr>`;
         });

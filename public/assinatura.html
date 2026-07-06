@@ -385,7 +385,7 @@
 
   <div class="modal-overlay" id="modalCheckout">
     <div class="modal-content">
-      <button class="modal-fechar" onclick="fecharModal()">✕</button>
+      <button class="modal-fechar" onclick="fecharModal()"></button>
       <div id="stripeContainer" style="padding: 24px;"></div>
     </div>
   </div>
@@ -436,19 +436,19 @@
         const params = new URLSearchParams(window.location.search);
         if (params.get('checkout') === 'sucesso') {
           alertas.innerHTML = `<div class="alerta alerta-success">
-            <strong>✅ Pagamento confirmado!</strong><br>
+            <strong>Pagamento confirmado!</strong><br>
             Sua assinatura foi ativada com sucesso. Bem-vindo!
           </div>`;
           // Limpar URL de query params
           window.history.replaceState({}, document.title, '/assinatura.html');
         } else if (status.bloqueado) {
           alertas.innerHTML = `<div class="alerta alerta-danger">
-            <strong>⚠️ Sua conta foi bloqueada</strong><br>
+            <strong>Sua conta foi bloqueada</strong><br>
             ${status.motivo || 'Pagamento não confirmado'}. Clique em "Gerenciar Pagamento" para reativar.
           </div>`;
         } else if (diasRestantes <= 7 && diasRestantes > 0) {
           alertas.innerHTML = `<div class="alerta alerta-warning">
-            <strong>⏰ Sua assinatura vence em ${diasRestantes} dia${diasRestantes == 1 ? '' : 's'}</strong><br>
+            <strong>Sua assinatura vence em ${diasRestantes} dia${diasRestantes == 1 ? '' : 's'}</strong><br>
             Renovaremos automaticamente. Nenhuma ação necessária.
           </div>`;
         }
@@ -476,9 +476,9 @@
 
         cobracas.forEach(c => {
           const statusTexto = {
-            'pago': '✅ Pago',
-            'pendente': '⏳ Pendente',
-            'falhou': '❌ Falhou'
+            'pago': 'Pago',
+            'pendente': 'Pendente',
+            'falhou': 'Falhou'
           }[c.status] || c.status;
 
           corpo.innerHTML += `

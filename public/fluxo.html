@@ -18,7 +18,7 @@
     <div class="flex-entre">
       <div><h1>Fluxo de Caixa & DRE</h1><p class="subtitulo">Quanto entrou, quanto saiu, e o resultado real do mês</p></div>
       <div style="display:flex; gap:8px; align-items:center;">
-        <button class="btn btn-fino btn-escuro nao-imprime" onclick="exportar()">⬇ CSV</button>
+        <button class="btn btn-fino btn-escuro nao-imprime" onclick="exportar()">CSV</button>
         <input type="month" id="mes" onchange="carregar()" style="max-width:170px;">
       </div>
     </div>
@@ -34,9 +34,9 @@
     <div class="cards-grid" style="grid-template-columns:1fr 1fr;">
       
       <div class="card">
-        <h2 style="margin-top:0;">📊 DRE — Resultado do mês</h2>
+        <h2 style="margin-top:0;">DRE — Resultado do mês</h2>
         <div id="dre"><div class="texto-cinza">Carregando...</div></div>
-        <button class="btn btn-bloco mt" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+        <button class="btn btn-bloco mt" onclick="window.print()">Imprimir / Salvar PDF</button>
       </div>
 
       
@@ -85,9 +85,9 @@
         <div class="dre-linha sub" style="margin-top:8px;"><span>(−) Retiradas do dono / pró-labore</span><span class="dinheiro">−${moeda(dre.pro_labore)}</span></div>
         <div class="dre-linha resultado"><span>= SOBROU NO FIM</span><span class="dinheiro ${corFinal}">${moeda(dre.resultado_final)}</span></div>
         <div class="texto-cinza centro mt" style="font-size:0.85rem;">${dre.num_vendas} vendas no mês • o que sobra depois de você se pagar</div>
-        ${dre.resultado_operacional < 0 ? '<div class="card mt" style="background:#FBE6E3;border-left:4px solid var(--vermelho);"><strong class="texto-vermelho">⚠️ A loja operou no vermelho.</strong> As despesas da operação superaram o que sobrou das vendas — antes mesmo das suas retiradas. Veja onde cortar ou quanto precisa vender a mais.</div>'
-          : dre.resultado_final < 0 ? '<div class="card mt" style="background:#FFF3CD;border-left:4px solid var(--dourado);"><strong style="color:#7a5d00;">⚠️ A loja deu lucro, mas as retiradas consumiram tudo.</strong> A operação é saudável; ajuste o tamanho das retiradas pessoais pra sobrar caixa.</div>'
-          : '<div class="card mt" style="background:#E3F4EA;border-left:4px solid var(--verde);"><strong class="texto-verde">🎉 Mês no azul</strong> A loja deu lucro e ainda sobrou caixa depois das suas retiradas.</div>'}`;
+        ${dre.resultado_operacional < 0 ? '<div class="card mt" style="background:#FBE6E3;border-left:4px solid var(--vermelho);"><strong class="texto-vermelho">A loja operou no vermelho.</strong> As despesas da operação superaram o que sobrou das vendas — antes mesmo das suas retiradas. Veja onde cortar ou quanto precisa vender a mais.</div>'
+          : dre.resultado_final < 0 ? '<div class="card mt" style="background:#FFF3CD;border-left:4px solid var(--dourado);"><strong style="color:#7a5d00;">A loja deu lucro, mas as retiradas consumiram tudo.</strong> A operação é saudável; ajuste o tamanho das retiradas pessoais pra sobrar caixa.</div>'
+          : '<div class="card mt" style="background:#E3F4EA;border-left:4px solid var(--verde);"><strong class="texto-verde">Mês no azul</strong> A loja deu lucro e ainda sobrou caixa depois das suas retiradas.</div>'}`;
 
       // por categoria
       const cats = fluxo.por_categoria;

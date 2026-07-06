@@ -15,16 +15,16 @@
     <div class="flex-entre">
       <div><h1>Financeiro</h1><p class="subtitulo">Despesas, contas a pagar e custos</p></div>
       <div style="display:flex; gap:8px; align-items:center;">
-        <button class="btn btn-fino btn-escuro" onclick="exportar()">⬇ CSV</button>
+        <button class="btn btn-fino btn-escuro" onclick="exportar()">CSV</button>
         <input type="month" id="mes" onchange="carregar()" style="max-width:170px;">
       </div>
     </div>
 
     <div class="abas">
-      <div class="aba ativa" data-aba="mes" onclick="trocarAba('mes')">📅 Despesas do mês</div>
-      <div class="aba" data-aba="apagar" onclick="trocarAba('apagar')">⏰ Contas a pagar</div>
-      <div class="aba" data-aba="recorrentes" onclick="trocarAba('recorrentes')">🔁 Despesas fixas</div>
-      <div class="aba" data-aba="conciliacao" onclick="trocarAba('conciliacao')">🏦 Conciliação</div>
+      <div class="aba ativa" data-aba="mes" onclick="trocarAba('mes')">Despesas do mês</div>
+      <div class="aba" data-aba="apagar" onclick="trocarAba('apagar')">Contas a pagar</div>
+      <div class="aba" data-aba="recorrentes" onclick="trocarAba('recorrentes')">Despesas fixas</div>
+      <div class="aba" data-aba="conciliacao" onclick="trocarAba('conciliacao')">Conciliação</div>
     </div>
 
     <div class="flex-entre" style="margin-bottom:14px;">
@@ -43,7 +43,7 @@
       </div>
       <div class="card">
         <div style="display:flex; gap:8px; margin-bottom:10px;">
-          <button class="btn btn-fino btn-escuro" onclick="gerarMes()">🔁 Lançar despesas fixas deste mês</button>
+          <button class="btn btn-fino btn-escuro" onclick="gerarMes()">Lançar despesas fixas deste mês</button>
         </div>
         <div id="listaMes"></div>
       </div>
@@ -53,8 +53,8 @@
     <div id="abaApagar" style="display:none;">
       <div class="card">
         <div style="margin-bottom:14px;">
-          <button class="btn btn-fino btn-escuro" onclick="gerarMes()">🔁 Lançar despesas fixas deste mês</button>
-          <p class="texto-cinza" style="font-size:0.82rem; margin-top:8px;">⚠️ Despesas fixas (aluguel, energia, etc) aparecem aqui após serem lançadas. Clique o botão acima antes de pagar.</p>
+          <button class="btn btn-fino btn-escuro" onclick="gerarMes()">Lançar despesas fixas deste mês</button>
+          <p class="texto-cinza" style="font-size:0.82rem; margin-top:8px;">Despesas fixas (aluguel, energia, etc) aparecem aqui após serem lançadas. Clique o botão acima antes de pagar.</p>
         </div>
         <div id="listaApagar"></div>
       </div>
@@ -73,7 +73,7 @@
       <div class="card">
         <div class="flex-entre" style="flex-wrap:wrap; gap:10px;">
           <div>
-            <h2 style="margin:0;">🏦 Conciliação da conta</h2>
+            <h2 style="margin:0;">Conciliação da conta</h2>
             <p class="subtitulo" style="margin:2px 0 0;">Confira o que passou pela conta no dia e bata com o app do banco</p>
           </div>
           <input type="date" id="concData" onchange="carregarConciliacao()" style="max-width:170px;">
@@ -115,10 +115,10 @@
       <div class="campo">
         <label>Como foi pago? *</label>
         <select id="pagarForma">
-          <option value="dinheiro">💵 Dinheiro (sai da gaveta)</option>
-          <option value="pix">💚 Pix (saída pela conta)</option>
-          <option value="cartao">💳 Cartão/Transferência (saída pela conta)</option>
-          <option value="boleto">📄 Boleto (saída pela conta)</option>
+          <option value="dinheiro">Dinheiro (sai da gaveta)</option>
+          <option value="pix">Pix (saída pela conta)</option>
+          <option value="cartao">Cartão/Transferência (saída pela conta)</option>
+          <option value="boleto">Boleto (saída pela conta)</option>
         </select>
       </div>
       <div class="campo">
@@ -126,11 +126,11 @@
         <input type="date" id="pagarData">
       </div>
       <div id="avisoSemCaixa" style="display:none;" class="card" style="background:var(--dourado-claro); border-left:4px solid var(--dourado); margin-bottom:10px;">
-        <strong>⚠️ Caixa fechado nesta data</strong>
+        <strong>Caixa fechado nesta data</strong>
         <p class="texto-cinza" style="margin:6px 0 0; font-size:0.82rem;">O pagamento será registrado, mas o movimento não entrará no caixa (abra um caixa para esta data antes).</p>
       </div>
       <div class="linha">
-        <button class="btn btn-bloco" onclick="confirmarPagar()">✓ Confirmar pagamento</button>
+        <button class="btn btn-bloco" onclick="confirmarPagar()">Confirmar pagamento</button>
         <button class="btn btn-bloco btn-fantasma" onclick="fecharPagar()">Cancelar</button>
       </div>
     </div>
@@ -160,7 +160,7 @@
       </div>
       <div class="linha">
         <div class="campo"><label>Centro</label>
-          <select id="centro"><option value="empresa">🏪 Empresa</option><option value="pessoal">🏠 Pessoal</option></select>
+          <select id="centro"><option value="empresa">Empresa</option><option value="pessoal">Pessoal</option></select>
         </div>
         <div class="campo"><label>Mês de competência</label><input type="month" id="competencia"></div>
       </div>
@@ -233,7 +233,7 @@
     async function carregarApagar() {
       const lista = await api('/despesas/a-pagar');
       document.getElementById('listaApagar').innerHTML = lista.length===0
-        ? '<div class="vazio">Nenhuma conta a pagar. 🎉</div>'
+        ? '<div class="vazio">Nenhuma conta a pagar. </div>'
         : tabelaDespesas(lista, true);
     }
     async function carregarRecorrentes() {
@@ -248,13 +248,13 @@
         lista.map(d=>`<tr class="${d.pago?'desp-paga':''}">
           <td><strong>${d.descricao}</strong>${d.vencimento?`<br><span class="texto-cinza" style="font-size:0.78rem;">vence ${d.vencimento.split('-').reverse().join('/')}</span>`:''}</td>
           <td>${d.categoria||'—'}</td>
-          <td><span class="badge ${d.centro==='pessoal'?'tag-pessoal':'tag-empresa'}">${d.centro==='pessoal'?'🏠':'🏪'} ${d.centro}</span></td>
+          <td><span class="badge ${d.centro==='pessoal'?'tag-pessoal':'tag-empresa'}">${d.centro==='pessoal'?'':''} ${d.centro}</span></td>
           ${mostrarStatus?`<td>${d.pago?'<span class="badge badge-verde">paga</span>':'<span class="badge badge-vermelho">a pagar</span>'}</td>`:''}
           <td class="direita dinheiro">${moeda(d.valor)}</td>
           <td class="direita" style="white-space:nowrap;">
             ${(d.pago && d.recorrente)?`<button class="btn btn-fino btn-verde" onclick="abrirPagar(${d.id})">pagar</button>`:''}
-            <button class="btn btn-fino btn-escuro" onclick='editar(${JSON.stringify(d).replace(/'/g,"&#39;")})'>✏️</button>
-            <button class="btn btn-fino btn-vermelho" onclick="remover(${d.id})">🗑️</button>
+            <button class="btn btn-fino btn-escuro" onclick='editar(${JSON.stringify(d).replace(/'/g,"&#39;")})'></button>
+            <button class="btn btn-fino btn-vermelho" onclick="remover(${d.id})"></button>
           </td>
         </tr>`).join('')
       }</tbody></table>`;
@@ -382,7 +382,7 @@
 
     // ---------- Conciliação bancária ----------
     let concAtual = null;
-    function rotuloFormaConc(f){ return ({pix:'💚 Pix',debito:'💳 Débito',credito:'💳 Crédito',transferencia:'🏦 Transf.'})[f]||f; }
+    function rotuloFormaConc(f){ return ({pix:'Pix',debito:'Débito',credito:'Crédito',transferencia:'Transf.'})[f]||f; }
     async function carregarConciliacao() {
       const data = document.getElementById('concData').value || hojeLocalStr();
       const c = await api('/financeiro/conciliacao?data=' + data);
@@ -396,7 +396,7 @@
       if (c.entradas_conta>0) linhas.push(`<tr><td>+ Entradas pela conta</td><td class="direita dinheiro">${moeda(c.entradas_conta)}</td></tr>`);
       if (c.saidas_conta>0) linhas.push(`<tr><td>− Saídas pela conta</td><td class="direita dinheiro">−${moeda(c.saidas_conta)}</td></tr>`);
       linhas.push(`<tr style="border-top:2px solid var(--dourado-claro);"><td><strong>= Esperado na conta hoje</strong></td><td class="direita dinheiro"><strong>${temSaldo?moeda(c.esperado):'—'}</strong></td></tr>`);
-      if (c.cartao_receber>0) linhas.push(`<tr><td class="texto-cinza" style="font-size:0.85rem;">💳 Cartão a receber (cai depois, não hoje)</td><td class="direita dinheiro texto-cinza">${moeda(c.cartao_receber)}</td></tr>`);
+      if (c.cartao_receber>0) linhas.push(`<tr><td class="texto-cinza" style="font-size:0.85rem;">Cartão a receber (cai depois, não hoje)</td><td class="direita dinheiro texto-cinza">${moeda(c.cartao_receber)}</td></tr>`);
       document.getElementById('concTabela').innerHTML = linhas.join('');
       previewConcDif();
       // lista de movimentos da conta

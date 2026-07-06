@@ -52,7 +52,7 @@ function aplicarModoValores() {
   const btn = document.getElementById('btnOlho');
   if (!btn) { document.body.classList.remove('valores-ocultos'); return; }
   document.body.classList.toggle('valores-ocultos', valoresOcultos());
-  btn.innerHTML = valoresOcultos() ? '🙈 Mostrar valores' : '👁️ Ocultar valores';
+  btn.innerHTML = valoresOcultos() ? 'Mostrar valores' : 'Ocultar valores';
 }
 function toggleValores() {
   localStorage.setItem('ds-valores-ocultos', valoresOcultos() ? '0' : '1');
@@ -419,7 +419,7 @@ async function abrirWhatsappComTexto(telefone, texto) {
   const tel = String(telefone || '').replace(/\D/g, '');
   const telFull = tel.length <= 11 ? '55' + tel : tel;
   // copia o texto certinho pro clipboard (silencioso se o navegador bloquear)
-  try { await navigator.clipboard.writeText(texto); toast('Mensagem copiada — se algum emoji vier quebrado, cole com Ctrl+V 🤎'); }
+  try { await navigator.clipboard.writeText(texto); toast('Mensagem copiada — se algum emoji vier quebrado, cole com Ctrl+V '); }
   catch (e) { /* sem permissão de clipboard: segue só com o link */ }
   window.open(`https://wa.me/${telFull}?text=${encodeURIComponent(texto)}`, '_blank');
 }
@@ -477,7 +477,7 @@ async function carregarOrigens() {
   if (!_origensCache.length) _origensCache = ['loja','instagram','whatsapp','indicacao'];
   return _origensCache;
 }
-const _ICONE_ORIGEM = { loja:'🏪', instagram:'📷', whatsapp:'💬', indicacao:'🤝', site:'🌐', facebook:'📘' };
+const _ICONE_ORIGEM = { loja:'', instagram:'', whatsapp:'', indicacao:'', site:'', facebook:'' };
 function rotuloOrigem(o) {
   const nomes = { loja:'Loja física', instagram:'Instagram', whatsapp:'WhatsApp', indicacao:'Indicação', site:'Site', facebook:'Facebook' };
   return (_ICONE_ORIGEM[o] ? _ICONE_ORIGEM[o] + ' ' : '') + (nomes[o] || rotuloCategoria(o));

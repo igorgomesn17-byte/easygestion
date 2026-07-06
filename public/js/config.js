@@ -124,7 +124,7 @@ async function enviarLogo(input) {
   try {
     const resp = await api('/config/logo', { method:'POST', body:{ logo: dataUrl } });
     mostrarLogo(resp.loja_logo);
-    toast('Logo atualizada 🎨','sucesso');
+    toast('Logo atualizada ','sucesso');
   } catch (e) { toast(e.message,'erro'); }
   input.value = '';
 }
@@ -177,7 +177,7 @@ function renderizarCategorias() {
   div.innerHTML = categorias.map(c => `
     <div class="chip-tam" style="background:#f9fbfa; border:1px solid #e0e8e5; border-radius:6px; padding:8px 12px; display:flex; justify-content:space-between; align-items:center;">
       <span>${esc(c)}</span>
-      <button class="btn btn-fino btn-vermelho" onclick="removerCategoria('${esc(c)}')" style="padding:4px 8px; font-size:0.75rem;">✕</button>
+      <button class="btn btn-fino btn-vermelho" onclick="removerCategoria('${esc(c)}')" style="padding:4px 8px; font-size:0.75rem;"></button>
     </div>`).join('');
 }
 
@@ -190,7 +190,7 @@ async function adicionarCategoria() {
   await api('/config', { method:'POST', body: { categorias: JSON.stringify(categorias) } });
   input.value = '';
   renderizarCategorias();
-  toast('Categoria adicionada 🎯', 'sucesso');
+  toast('Categoria adicionada ', 'sucesso');
   invalidarCacheColecoes(); // invalida cache pra atualizar selects
 }
 
@@ -218,7 +218,7 @@ function renderizarColecoes() {
     colecoes.map(c => `
     <div class="chip-tam" style="background:#f9fbfa; border:1px solid #e0e8e5; border-radius:6px; padding:8px 12px; display:flex; justify-content:space-between; align-items:center;">
       <span>${esc(c)}</span>
-      <button class="btn btn-fino btn-vermelho" onclick="removerColecao('${esc(c)}')" style="padding:4px 8px; font-size:0.75rem;">✕</button>
+      <button class="btn btn-fino btn-vermelho" onclick="removerColecao('${esc(c)}')" style="padding:4px 8px; font-size:0.75rem;"></button>
     </div>`).join('');
 }
 
@@ -231,7 +231,7 @@ async function adicionarColecao() {
   await api('/config', { method:'POST', body: { colecoes: JSON.stringify(colecoes) } });
   input.value = '';
   renderizarColecoes();
-  toast('Coleção adicionada 📦', 'sucesso');
+  toast('Coleção adicionada ', 'sucesso');
   invalidarCacheColecoes();
 }
 
@@ -272,14 +272,14 @@ async function checarNfce() {
     const temToken = amb === 'producao' ? status.tem_token_producao : status.tem_token_homologacao;
 
     if (temToken) {
-      el.innerHTML = `✅ Token de <strong>${amb === 'producao' ? 'produção' : 'homologação'}</strong> configurado. Pronto pra emitir!`;
+      el.innerHTML = `Token de <strong>${amb === 'producao' ? 'produção' : 'homologação'}</strong> configurado. Pronto pra emitir!`;
       el.style.color = 'var(--verde,#2e7d32)';
     } else {
-      el.innerHTML = `⚠️ Falta adicionar o token de <strong>${amb === 'producao' ? 'produção' : 'homologação'}</strong>. Configure na seção abaixo.`;
+      el.innerHTML = `Falta adicionar o token de <strong>${amb === 'producao' ? 'produção' : 'homologação'}</strong>. Configure na seção abaixo.`;
       el.style.color = 'var(--dourado,#8a6d3b)';
     }
   } catch (e) {
-    el.innerHTML = '⏳ Verificando configuração…';
+    el.innerHTML = 'Verificando configuração…';
     el.style.color = 'var(--cinza,#999)';
   }
 }
@@ -292,16 +292,16 @@ async function checarCertificado() {
   try {
     const s = await api('/nfce/config');
     if (s.certificado_instalado) {
-      el.innerHTML = `✅ Certificado instalado e válido. Vencimento: ${s.certificado_vencimento || 'não informado'}`;
+      el.innerHTML = `Certificado instalado e válido. Vencimento: ${s.certificado_vencimento || 'não informado'}`;
       el.style.color = 'var(--verde,#2e7d32)';
       document.getElementById('btnRemoverCert').style.display = '';
     } else {
-      el.innerHTML = '⚠️ Nenhum certificado instalado ainda.';
+      el.innerHTML = 'Nenhum certificado instalado ainda.';
       el.style.color = 'var(--dourado,#8a6d3b)';
       document.getElementById('btnRemoverCert').style.display = 'none';
     }
   } catch (e) {
-    el.innerHTML = '⚠️ Não foi possível verificar o certificado.';
+    el.innerHTML = 'Não foi possível verificar o certificado.';
     el.style.color = 'var(--cinza,#666)';
   }
 }
@@ -315,7 +315,7 @@ function previewCert(input) {
     return;
   }
   const el = document.getElementById('certStatus');
-  el.innerHTML = `📁 Arquivo selecionado: <strong>${file.name}</strong> (${(file.size / 1024).toFixed(0)}KB)`;
+  el.innerHTML = `Arquivo selecionado: <strong>${file.name}</strong> (${(file.size / 1024).toFixed(0)}KB)`;
   el.style.color = 'var(--azul,#1976d2)';
 }
 
@@ -330,7 +330,7 @@ async function testarCertificado() {
   reader.onload = async (e) => {
     try {
       const el = document.getElementById('certStatus');
-      el.innerHTML = '⏳ Testando certificado…';
+      el.innerHTML = 'Testando certificado…';
 
       const dataUrl = e.target.result;
       const resp = await api('/config/certificado-a1', {
@@ -339,19 +339,19 @@ async function testarCertificado() {
       });
 
       if (resp.ok) {
-        el.innerHTML = `✅ Certificado válido Vencimento: ${resp.vencimento || 'OK'}`;
+        el.innerHTML = `Certificado válido Vencimento: ${resp.vencimento || 'OK'}`;
         el.style.color = 'var(--verde,#2e7d32)';
-        toast('Certificado salvo com segurança 🔐','sucesso');
+        toast('Certificado salvo com segurança ','sucesso');
         document.getElementById('btnRemoverCert').style.display = '';
         document.getElementById('certFile').value = '';
         document.getElementById('certSenha').value = '';
       } else {
-        el.innerHTML = `❌ ${resp.erro || 'Erro ao validar certificado'}`;
+        el.innerHTML = `${resp.erro || 'Erro ao validar certificado'}`;
         el.style.color = 'var(--vermelho,#c62828)';
         toast('Erro: ' + (resp.erro || 'Certificado inválido ou senha incorreta'),'erro');
       }
     } catch (err) {
-      document.getElementById('certStatus').innerHTML = `❌ Erro: ${err.message}`;
+      document.getElementById('certStatus').innerHTML = `Erro: ${err.message}`;
       document.getElementById('certStatus').style.color = 'var(--vermelho,#c62828)';
       toast('Erro ao testar: ' + err.message,'erro');
     }
@@ -391,7 +391,7 @@ async function salvarTokenFocus(ambiente) {
       return;
     }
 
-    toast(`Token de ${ambiente} salvo com segurança 🔐`, 'sucesso');
+    toast(`Token de ${ambiente} salvo com segurança `, 'sucesso');
     document.getElementById(inputId).value = '';
     verificarTokensFocus();
   } catch (e) {
@@ -488,7 +488,7 @@ async function validarSlug() {
   }
 
   if (!/^[a-z0-9-]{3,50}$/.test(valor)) {
-    if (statusEl) statusEl.textContent = '✗';
+    if (statusEl) statusEl.textContent = '';
     if (erroEl) erroEl.textContent = 'Use só letras minúsculas, números e hífen (mín. 3 caracteres).';
     slugValidado = { disponivel: false };
     return;
@@ -498,11 +498,11 @@ async function validarSlug() {
     const r = await api('/config/slug/disponivel?slug=' + encodeURIComponent(valor));
     slugValidado = r;
     if (r.disponivel) {
-      if (statusEl) statusEl.textContent = '✓';
+      if (statusEl) statusEl.textContent = '';
       if (erroEl) erroEl.textContent = '';
     }
     else {
-      if (statusEl) statusEl.textContent = '✗';
+      if (statusEl) statusEl.textContent = '';
       if (erroEl) erroEl.textContent = r.motivo === 'slug_reservado' ? 'Esse endereço é reservado pelo sistema.' : 'Esse endereço já está em uso.';
     }
   } catch (e) {

@@ -25,8 +25,8 @@
       <div class="linha" style="gap:8px; flex-wrap:wrap;">
         <input type="date" id="filtroDE" onchange="carregar()">
         <input type="date" id="filtroATE" onchange="carregar()">
-        <input type="search" id="busca" placeholder="🔎 Buscar por cliente..." oninput="render()">
-        <button class="btn" onclick="exportar()">⬇ Exportar CSV</button>
+        <input type="search" id="busca" placeholder="Buscar por cliente..." oninput="render()">
+        <button class="btn" onclick="exportar()">Exportar CSV</button>
       </div>
     </div>
 
@@ -80,9 +80,9 @@
         if (ate) url += 'ate=' + ate;
       }
       try {
-        console.log('[Histórico] 🔄 Carregando vendas de:', url);
+        console.log('[Histórico] Carregando vendas de:', url);
         const resp = await api(url);
-        console.log('[Histórico] ✅ Resposta completa:', {
+        console.log('[Histórico] Resposta completa:', {
           vendas_count: (resp.vendas || []).length,
           resumo: resp.resumo,
           raw: resp
@@ -91,7 +91,7 @@
 
         // Preencher resumo
         if (resp.resumo) {
-          console.log('[Histórico] 📊 Preenchendo resumo:', resp.resumo);
+          console.log('[Histórico] Preenchendo resumo:', resp.resumo);
           document.getElementById('resumoTotal').textContent = moeda(resp.resumo.total || 0);
           document.getElementById('resumoTicket').textContent = moeda(resp.resumo.ticketMedio || 0);
           document.getElementById('resumoPA').textContent = (resp.resumo.pa || 0).toFixed(2);
@@ -102,7 +102,7 @@
 
         render();
       } catch (e) {
-        console.error('[Histórico] ❌ Erro ao carregar:', e);
+        console.error('[Histórico] Erro ao carregar:', e);
         toast('Erro ao carregar histórico: ' + e.message, 'erro');
       }
     }
@@ -123,7 +123,7 @@
           <td>${rotuloPagamento(v.forma_pagamento)}</td>
           <td class="moeda">${moeda(v.total)}</td>
           <td class="moeda">${moeda(v.lucro)}</td>
-          <td style="text-align:center;">${v.deletado ? '<span style="color:#E74C3C; font-weight:600;">Cancelada</span>' : '<span style="color:#27ae60;">✓</span>'}</td>
+          <td style="text-align:center;">${v.deletado ? '<span style="color:#E74C3C; font-weight:600;">Cancelada</span>' : '<span style="color:#27ae60;"></span>'}</td>
           <td class="num">›</td>
         </tr>`).join('');
     }
@@ -232,7 +232,7 @@
             v.nfce.status === 'autorizado' ? `
               <div style="border: 2px solid #27ae60; border-radius:8px; padding:12px; margin-bottom:16px; background:#f0fdf4;">
                 <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-                  <span style="font-size:1.2rem; color:#27ae60;">✅</span>
+                  <span style="font-size:1.2rem; color:#27ae60;"></span>
                   <strong style="color:#27ae60; font-size:0.95rem;">NFC-e autorizada · ${v.nfce.ambiente}</strong>
                 </div>
                 <div style="font-size:0.9rem; margin-bottom:10px;">
@@ -242,52 +242,52 @@
                   <strong>Chave:</strong> ${esc(v.nfce.chave || '—')}
                 </div>
                 <div style="display:flex; gap:6px; flex-wrap:wrap;">
-                  ${v.nfce.caminho_danfe ? `<a class="btn btn-fino" target="_blank" href="${esc(v.nfce.caminho_danfe.startsWith('http') ? v.nfce.caminho_danfe : 'https://focusnfe.com.br' + v.nfce.caminho_danfe)}" style="background:#8a7a6d; color:white;">📄 Verificar DANFE</a>` : ''}
-                  ${v.nfce.caminho_xml ? `<a class="btn btn-fino" target="_blank" href="${esc(v.nfce.caminho_xml.startsWith('http') ? v.nfce.caminho_xml : 'https://focusnfe.com.br' + v.nfce.caminho_xml)}" style="background:#333; color:white;">📋 XML</a>` : ''}
-                  <button class="btn btn-fino" style="background:#c0392b; color:white;" onclick="cancelarNfce(${v.id}, ${v.nfce.id}, '${esc(v.nfce.chave)}')">✕ Cancelar nota</button>
+                  ${v.nfce.caminho_danfe ? `<a class="btn btn-fino" target="_blank" href="${esc(v.nfce.caminho_danfe.startsWith('http') ? v.nfce.caminho_danfe : 'https://focusnfe.com.br' + v.nfce.caminho_danfe)}" style="background:#8a7a6d; color:white;">Verificar DANFE</a>` : ''}
+                  ${v.nfce.caminho_xml ? `<a class="btn btn-fino" target="_blank" href="${esc(v.nfce.caminho_xml.startsWith('http') ? v.nfce.caminho_xml : 'https://focusnfe.com.br' + v.nfce.caminho_xml)}" style="background:#333; color:white;">XML</a>` : ''}
+                  <button class="btn btn-fino" style="background:#c0392b; color:white;" onclick="cancelarNfce(${v.id}, ${v.nfce.id}, '${esc(v.nfce.chave)}')">Cancelar nota</button>
                 </div>
               </div>
             ` : (v.nfce.status === 'processando' ? `
               <div style="border: 2px solid #f39c12; border-radius:8px; padding:12px; margin-bottom:16px; background:#fef5e7;">
                 <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-                  <span style="font-size:1.2rem;">⏳</span>
+                  <span style="font-size:1.2rem;"></span>
                   <strong style="color:#f39c12; font-size:0.95rem;">NFC-e processando · ${v.nfce.ambiente}</strong>
                 </div>
                 <p style="margin:0; font-size:0.9rem; color:#666;">Aguardando autorização da SEFAZ...</p>
                 <div style="display:flex; gap:6px; margin-top:12px;">
-                  <button class="btn btn-fino" style="background:#f39c12; color:white;" onclick="consultarStatus(${v.id})">🔄 Consultar status</button>
+                  <button class="btn btn-fino" style="background:#f39c12; color:white;" onclick="consultarStatus(${v.id})">Consultar status</button>
                 </div>
               </div>
             ` : `
               <div style="border: 2px solid #e74c3c; border-radius:8px; padding:12px; margin-bottom:16px; background:#fadbd8;">
                 <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-                  <span style="font-size:1.2rem;">❌</span>
+                  <span style="font-size:1.2rem;"></span>
                   <strong style="color:#e74c3c; font-size:0.95rem;">NFC-e rejeitada · ${v.nfce.ambiente}</strong>
                 </div>
                 <p style="margin:0; font-size:0.9rem; color:#666;">${esc(v.nfce.mensagem_sefaz || 'Erro ao emitir')}</p>
                 <div style="display:flex; gap:6px; margin-top:12px;">
-                  <button class="btn btn-fino" style="background:#e74c3c; color:white;" onclick="emitirNfce(${v.id})">🔄 Tentar novamente</button>
+                  <button class="btn btn-fino" style="background:#e74c3c; color:white;" onclick="emitirNfce(${v.id})">Tentar novamente</button>
                 </div>
               </div>
             `)
           ) : `
             <div style="border: 1px dashed #ddd; border-radius:8px; padding:12px; margin-bottom:16px; background:#fafafa;">
               <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-                <span style="font-size:1.2rem;">📋</span>
+                <span style="font-size:1.2rem;"></span>
                 <strong style="color:#666; font-size:0.95rem;">Nota Fiscal (NFC-e) - Produção</strong>
               </div>
               <input type="text" id="cpfCliente_${v.id}" placeholder="CPF na nota (opcional)" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; margin-bottom:8px; font-size:0.9rem;">
-              <button class="btn" style="background:#27ae60; color:white; width:100%;" onclick="emitirNfce(${v.id})">✓ Emitir NFC-e</button>
+              <button class="btn" style="background:#27ae60; color:white; width:100%;" onclick="emitirNfce(${v.id})">Emitir NFC-e</button>
             </div>
           `}
 
           <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
-            <button class="btn" style="background:#8a7a6d; color:white;" onclick="reimprimirCupom(${v.id})">🖨️ Reimprimir cupom</button>
-            <button class="btn" style="background:#333; color:white;" onclick="abrirTroca(${v.id})">➔ Troca / devolução</button>
-            <button class="btn" style="background:#c0392b; color:white;" onclick="cancelarVenda(${v.id})">❌ Cancelar venda</button>
+            <button class="btn" style="background:#8a7a6d; color:white;" onclick="reimprimirCupom(${v.id})">Reimprimir cupom</button>
+            <button class="btn" style="background:#333; color:white;" onclick="abrirTroca(${v.id})">Troca / devolução</button>
+            <button class="btn" style="background:#c0392b; color:white;" onclick="cancelarVenda(${v.id})">Cancelar venda</button>
           </div>
           <div id="botoesTraca" style="display:none; margin-top:8px;">
-            <button class="btn btn-bloco" style="background:#e67e22; color:white;" onclick="removerTraca(${v.id})">🔄 Remover troca</button>
+            <button class="btn btn-bloco" style="background:#e67e22; color:white;" onclick="removerTraca(${v.id})">Remover troca</button>
           </div>
         </div>
       `;
@@ -359,7 +359,7 @@
     }
 
     async function cancelarVenda(vendaId) {
-      if (!confirm('⚠️ Cancelar esta venda? O estoque será devolvido e o caixa será atualizado.')) return;
+      if (!confirm('Cancelar esta venda? O estoque será devolvido e o caixa será atualizado.')) return;
       try {
         await api('/vendas/' + vendaId, { method: 'DELETE' });
         toast('Venda cancelada com sucesso', 'sucesso');
@@ -369,7 +369,7 @@
     }
 
     async function removerTraca(vendaId) {
-      if (!confirm('⚠️ Remover a troca? A venda voltará ao normal sem troca.')) return;
+      if (!confirm('Remover a troca? A venda voltará ao normal sem troca.')) return;
       try {
         const trocas = await api('/trocas?venda_id=' + vendaId);
         if (trocas && trocas.length > 0) {

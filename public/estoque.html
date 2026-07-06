@@ -10,7 +10,7 @@
   <div class="conteudo">
     <div class="flex-entre">
       <div><h1>Estoque</h1><p class="subtitulo">Consulte e ajuste a quantidade de cada peça por tamanho</p></div>
-      <button class="btn btn-escuro" onclick="exportar()">⬇ Exportar CSV</button>
+      <button class="btn btn-escuro" onclick="exportar()">Exportar CSV</button>
     </div>
 
     <div class="cards-grid">
@@ -21,9 +21,9 @@
     </div>
 
     <div class="card" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-      <input type="search" id="busca" placeholder="🔎 Filtrar por nome ou código..." oninput="render()" style="flex:1; min-width:200px;">
+      <input type="search" id="busca" placeholder="Filtrar por nome ou código..." oninput="render()" style="flex:1; min-width:200px;">
       <select id="filtroColecao" onchange="render()" style="max-width:220px;">
-        <option value="">📦 Todas as coleções</option>
+        <option value="">Todas as coleções</option>
       </select>
     </div>
 
@@ -70,7 +70,7 @@
         const cfg = await api('/config');
         try { COLECOES = JSON.parse(cfg.colecoes || '[]'); } catch(e) { COLECOES = []; }
         const opts = COLECOES.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
-        document.getElementById('filtroColecao').innerHTML = '<option value="">📦 Todas as coleções</option>' + opts;
+        document.getElementById('filtroColecao').innerHTML = '<option value="">Todas as coleções</option>' + opts;
       } catch(e) {}
     }
 
@@ -87,7 +87,7 @@
       const al = document.getElementById('alertaBaixo');
       if (baixo.length > 0) {
         al.innerHTML = `<div class="card" style="border-left:4px solid var(--vermelho);">
-          <strong class="texto-vermelho">⚠️ ${baixo.length} ${baixo.length===1?'item':'itens'} em estoque baixo/zerado</strong>
+          <strong class="texto-vermelho">${baixo.length} ${baixo.length===1?'item':'itens'} em estoque baixo/zerado</strong>
           <div class="mt">${baixo.map(b=>`<span class="badge badge-vermelho" style="margin:2px;">${b.nome} ${b.tamanho}: ${b.quantidade}</span>`).join('')}</div>
         </div>`;
       } else al.innerHTML = '';
@@ -114,7 +114,7 @@
           <div class="flex-entre">
             <div><strong>${g.nome}</strong> <span class="badge badge-dourado">${g.codigo}</span>
                  ${g.cor?`<span class="texto-cinza"> • ${g.cor}</span>`:''}<br>
-                 ${g.colecao?`<span class="badge" style="background:var(--marrom,#6B5849);color:#fff;font-size:0.7rem;">📦 ${esc(g.colecao)}</span>`:''}</div>
+                 ${g.colecao?`<span class="badge" style="background:var(--marrom,#6B5849);color:#fff;font-size:0.7rem;">${esc(g.colecao)}</span>`:''}</div>
             <span class="texto-cinza">Total: <strong>${total}</strong></span>
           </div>
           <div class="grade-chips mt">${chips}</div>

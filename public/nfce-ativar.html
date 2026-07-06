@@ -299,7 +299,7 @@
 <body>
   <div class="legal-container">
     <div class="header">
-      <div class="icon">📋</div>
+      <div class="icon"></div>
       <h1>Ativar Nota Fiscal Eletrônica</h1>
       <p>Emita NFC-e automaticamente nas suas vendas</p>
     </div>
@@ -313,7 +313,7 @@
     
     <form id="formNfce" style="display: none;">
       <div class="steps">
-        <strong>📌 Como funciona:</strong>
+        <strong>Como funciona:</strong>
         <ol>
           <li>Você cria uma conta <a href="https://focusnfe.com.br" target="_blank" class="link">na Focus NFe</a> (grátis)</li>
           <li>Copia o TOKEN e CSC ID do seu painel</li>
@@ -324,7 +324,7 @@
 
       <div class="form-group">
         <label for="token">
-          🔑 TOKEN da Conta Focus
+          TOKEN da Conta Focus
         </label>
         <input
           type="password"
@@ -356,14 +356,14 @@
 
       <div class="form-group">
         <label for="ambiente">
-          🌍 Qual é o ambiente?
+          Qual é o ambiente?
         </label>
         <select id="ambiente" name="ambiente" required>
           <option value="homologacao">
-            ✏️ Teste (Homologação) — notas não têm validade fiscal
+            Teste (Homologação) — notas não têm validade fiscal
           </option>
           <option value="producao">
-            ✅ Produção — notas com validade fiscal oficial
+            Produção — notas com validade fiscal oficial
           </option>
         </select>
         <span class="help-text">
@@ -373,7 +373,7 @@
 
       <div class="form-group">
         <label for="serie">
-          🔢 Série da Nota
+          Série da Nota
         </label>
         <input
           type="number"
@@ -390,14 +390,14 @@
       </div>
 
       <button type="submit" class="button">
-        ✅ Ativar NFC-e
+        Ativar NFC-e
       </button>
     </form>
 
     
     <div id="estadoAtivado" style="display: none;">
       <div class="alert success">
-        <strong>✅ NFC-e Ativada</strong>
+        <strong>NFC-e Ativada</strong>
         Você pode emitir notas fiscais automaticamente nas suas vendas.
       </div>
 
@@ -419,11 +419,11 @@
       <div class="divider"></div>
 
       <button type="button" id="btnAlterar" class="button secondary">
-        ✏️ Alterar Configuração
+        Alterar Configuração
       </button>
 
       <button type="button" id="btnDesativar" class="button secondary" style="background: #ffebee; color: #c62828; border-color: #ffcdd2; margin-top: 8px;">
-        🔴 Desativar NFC-e
+        Desativar NFC-e
       </button>
     </div>
 
@@ -495,7 +495,7 @@
       document.getElementById('estadoAtivado').style.display = 'block';
 
       document.getElementById('ambienteAtual').textContent =
-        config.ambiente === 'producao' ? '✅ Produção' : '✏️ Teste (Homologação)';
+        config.ambiente === 'producao' ? 'Produção' : 'Teste (Homologação)';
       document.getElementById('serieAtual').textContent = config.nfce_serie || '1';
       document.getElementById('cscAtual').textContent = config.csc_id || '(não configurado)';
     }
@@ -512,7 +512,7 @@
 
     function mostrarErro(mensagem) {
       const alert = document.getElementById('alertStatus');
-      alert.innerHTML = `<strong>❌ Erro</strong><br>${mensagem}`;
+      alert.innerHTML = `<strong>Erro</strong><br>${mensagem}`;
       alert.className = 'alert error';
     }
 
@@ -550,7 +550,7 @@
         const data = await res.json();
 
         if (res.ok) {
-          mostrarAlerta('✅ NFC-e ativada com sucesso', 'success');
+          mostrarAlerta('NFC-e ativada com sucesso', 'success');
           setTimeout(() => inicializar(), 1000);
         } else {
           mostrarErro(data.erro || 'Erro ao ativar');
@@ -582,7 +582,7 @@
               method: 'POST'
             });
             if (res.ok) {
-              mostrarAlerta('✅ NFC-e desativada', 'success');
+              mostrarAlerta('NFC-e desativada', 'success');
               setTimeout(() => inicializar(), 1000);
             } else {
               const data = await res.json();

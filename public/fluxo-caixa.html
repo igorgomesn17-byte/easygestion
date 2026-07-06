@@ -11,9 +11,9 @@
     <div class="flex-entre">
       <div><h1>Fluxo de Caixa</h1><p class="subtitulo">Quando o dinheiro realmente entra e sai (regime de caixa)</p></div>
       <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-        <button class="btn btn-fino" id="btnDiario" onclick="trocarVisao('diario')" style="font-weight:600;">📅 Diário</button>
-        <button class="btn btn-fino btn-fantasma" id="btnSemanal" onclick="trocarVisao('semanal')">📆 Semanal</button>
-        <button class="btn btn-fino btn-fantasma" id="btnMensal" onclick="trocarVisao('mensal')">📊 Mensal</button>
+        <button class="btn btn-fino" id="btnDiario" onclick="trocarVisao('diario')" style="font-weight:600;">Diário</button>
+        <button class="btn btn-fino btn-fantasma" id="btnSemanal" onclick="trocarVisao('semanal')">Semanal</button>
+        <button class="btn btn-fino btn-fantasma" id="btnMensal" onclick="trocarVisao('mensal')">Mensal</button>
         <input type="month" id="mes" onchange="carregar()" style="max-width:170px;">
       </div>
     </div>
@@ -36,7 +36,7 @@
 
       
       <div class="card">
-        <h2 style="margin-top:0;">📋 Detalhes do dia</h2>
+        <h2 style="margin-top:0;">Detalhes do dia</h2>
         <div style="overflow-x:auto;">
           <table>
             <thead>
@@ -69,7 +69,7 @@
 
       
       <div class="card">
-        <h2 style="margin-top:0;">📅 Semana (seg-dom)</h2>
+        <h2 style="margin-top:0;">Semana (seg-dom)</h2>
         <div style="overflow-x:auto;">
           <table>
             <thead>
@@ -98,7 +98,7 @@
 
       
       <div class="card">
-        <h2 style="margin-top:0;">📅 Linha do tempo do mês</h2>
+        <h2 style="margin-top:0;">Linha do tempo do mês</h2>
         <div style="overflow-x:auto;">
           <table>
             <thead>
@@ -121,7 +121,7 @@
 
       
       <div class="card">
-        <h2 style="margin-top:0;">⏳ A receber (vendas que ainda não caíram na conta)</h2>
+        <h2 style="margin-top:0;">A receber (vendas que ainda não caíram na conta)</h2>
         <div class="cards-grid">
           <div class="card card-metrica"><div class="valor dinheiro" id="aRebDeb">R$ 0</div><div class="rotulo">Débito (em dias)</div></div>
           <div class="card card-metrica"><div class="valor dinheiro" id="aRebCredVista">R$ 0</div><div class="rotulo">Crédito à vista</div></div>
@@ -291,7 +291,7 @@
         const tipoCredVistLabel = fc.prazos.credito_vista_tipo === 'uteis' ? 'úteis' : 'corridos';
         const tipoCredParcLabel = fc.prazos.credito_parc_tipo === 'uteis' ? 'úteis' : 'corridos';
         document.getElementById('aviso').innerHTML = `
-          💡 Prazos: Débito ${fc.prazos.debito_dias} dias <strong>${tipoDebLabel}</strong> | Crédito à vista ${fc.prazos.credito_vista_dias} dias <strong>${tipoCredVistLabel}</strong> | Parcelado ${fc.prazos.credito_parc_dias} dias <strong>${tipoCredParcLabel}</strong>/parc.
+          Prazos: Débito ${fc.prazos.debito_dias} dias <strong>${tipoDebLabel}</strong> | Crédito à vista ${fc.prazos.credito_vista_dias} dias <strong>${tipoCredVistLabel}</strong> | Parcelado ${fc.prazos.credito_parc_dias} dias <strong>${tipoCredParcLabel}</strong>/parc.
         `;
 
         // Carrega visão diária

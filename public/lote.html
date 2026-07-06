@@ -15,14 +15,14 @@
 
     
     <div class="card">
-      <h2 style="margin-top:0;">📋 Passo 1: Baixar o template</h2>
-      <button class="btn btn-fino" onclick="baixarTemplate()">⬇ Baixar template CSV</button>
+      <h2 style="margin-top:0;">Passo 1: Baixar o template</h2>
+      <button class="btn btn-fino" onclick="baixarTemplate()">Baixar template CSV</button>
       <p class="texto-cinza" style="font-size:0.82rem; margin-top:10px;">O arquivo contém colunas de exemplo. Você pode editar, duplicar linhas e preencher os dados. Você pode usar <strong>Codigo</strong> OU <strong>Nome</strong> (uma das duas), junto com <strong>Tamanho</strong> e <strong>Quantidade</strong>. As demais colunas são ignoradas.</p>
     </div>
 
     
     <div class="card">
-      <h2 style="margin-top:0;">📁 Passo 2: Enviar o arquivo ou colar o conteúdo</h2>
+      <h2 style="margin-top:0;">Passo 2: Enviar o arquivo ou colar o conteúdo</h2>
       <div class="linha">
         <div class="campo" style="flex:1;">
           <label>Selecione um arquivo CSV</label>
@@ -39,7 +39,7 @@
 
     
     <div class="card" id="secaoPreview" style="display:none;">
-      <h2 style="margin-top:0;">✅ Passo 3: Confirmar entrada</h2>
+      <h2 style="margin-top:0;">Passo 3: Confirmar entrada</h2>
       <p class="texto-cinza">Revise os itens abaixo. Linhas com erro não serão importadas.</p>
       <div style="overflow-x:auto;">
         <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
@@ -57,13 +57,13 @@
       <div style="margin-top:16px; padding:10px; background:var(--cinza-claro); border-radius:6px;">
         <strong id="resumoLinhas"></strong> • <strong id="resumoValido"></strong> válido(s) • <strong id="resumoErro"></strong> erro(s)
       </div>
-      <button class="btn btn-bloco" id="btnConfirmar" onclick="confirmar()" style="margin-top:16px;">💾 Confirmar entrada de ... peças</button>
+      <button class="btn btn-bloco" id="btnConfirmar" onclick="confirmar()" style="margin-top:16px;">Confirmar entrada de ... peças</button>
       <button class="btn btn-bloco btn-fantasma" onclick="cancelar()" style="margin-top:8px;">Cancelar</button>
     </div>
 
     
     <div class="card" id="secaoResultado" style="display:none;">
-      <h2 style="margin-top:0;">🎉 Pronto</h2>
+      <h2 style="margin-top:0;">Pronto</h2>
       <div id="resultadoMsg"></div>
       <div style="margin-top:16px;">
         <a href="estoque.html" class="btn btn-bloco">Ir para Estoque</a>
@@ -156,7 +156,7 @@
           <td style="padding:8px;">${esc(c.tamanho)}</td>
           <td style="text-align:right; padding:8px;">${c.quantidade}</td>
           <td style="text-align:center; padding:8px;">
-            ${c.valido ? '✅' : '❌'}
+            ${c.valido ? '<span class="badge badge-verde">Válido</span>' : '<span class="badge badge-vermelho">Erro</span>'}
           </td>
         </tr>
       `).join('');
@@ -165,7 +165,7 @@
       document.getElementById('resumoLinhas').textContent = csvParse.length + ' linha' + (csvParse.length===1?'':'s');
       document.getElementById('resumoValido').textContent = validos.length;
       document.getElementById('resumoErro').textContent = erros.length;
-      document.getElementById('btnConfirmar').textContent = '💾 Confirmar entrada de ' + validos.reduce((s,c)=>s+c.quantidade,0) + ' peças';
+      document.getElementById('btnConfirmar').textContent = 'Confirmar entrada de ' + validos.reduce((s,c)=>s+c.quantidade,0) + ' peças';
 
       document.getElementById('secaoPreview').style.display = '';
       document.getElementById('csvTexto').scrollIntoView({ behavior:'smooth' });
@@ -190,12 +190,12 @@
 
     function mostrarResultado(processados, erros) {
       let html = `<div class="card" style="background:var(--verde-claro); border-left:4px solid var(--verde);">
-        <strong class="texto-verde">✅ ${processados} peça(s) adicionada(s) ao estoque</strong>
+        <strong class="texto-verde">${processados} peça(s) adicionada(s) ao estoque</strong>
       </div>`;
 
       if (erros && erros.length > 0) {
         html += `<div class="card" style="background:var(--vermelho-claro); border-left:4px solid var(--vermelho); margin-top:10px;">
-          <strong class="texto-vermelho">⚠️ ${erros.length} item(ns) com erro (não foram importados):</strong>
+          <strong class="texto-vermelho">${erros.length} item(ns) com erro (não foram importados):</strong>
           <ul style="margin:8px 0; padding-left:20px;">
             ${erros.map(e => `<li>${esc(e.codigo)} / ${esc(e.tamanho)}: ${esc(e.motivo)}</li>`).join('')}
           </ul>

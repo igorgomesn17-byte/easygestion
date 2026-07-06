@@ -105,7 +105,7 @@
         const data = await res.json();
 
         if (res.ok && data.ok) {
-          showMessage('✓ Link de recuperação enviado para seu email Verifique sua caixa de entrada.', 'success');
+          showMessage('Link de recuperação enviado para seu email Verifique sua caixa de entrada.', 'success');
           emailInput.value = '';
           setTimeout(() => {
             window.location.href = '/login.html';

@@ -76,7 +76,7 @@
         <!-- SEÇÃO 1: MARCA -->
         <section class="config-secao ativo" id="secaoMarca" data-secao="marca">
           <div class="card">
-            <h2 style="margin-top:0;">🎨 Identidade da sua marca</h2>
+            <h2 style="margin-top:0;">Identidade da sua marca</h2>
             <p class="texto-cinza" style="font-size:0.82rem; margin-top:-6px;">A cara do sistema é sua: coloque a logo e a cor da sua loja. Elas aparecem no topo do sistema, no login e na vitrine.</p>
             <div class="linha">
               <div class="campo" style="flex:1;">
@@ -113,7 +113,7 @@
         <!-- SEÇÃO 2: LOJA -->
         <section class="config-secao" id="secaoLoja" data-secao="loja" style="display:none;">
           <div class="card">
-            <h2 style="margin-top:0;">🏪 Dados da loja (aparecem no cupom)</h2>
+            <h2 style="margin-top:0;">Dados da loja (aparecem no cupom)</h2>
             <div class="campo"><label>Nome</label><input type="text" id="loja_nome"></div>
             <div class="campo"><label>Endereço</label><input type="text" id="loja_endereco"></div>
             <div class="linha">
@@ -127,7 +127,7 @@
         <!-- SEÇÃO 3: CUPOM -->
         <section class="config-secao" id="secaoCupom" data-secao="cupom" style="display:none;">
           <div class="card">
-            <h2 style="margin-top:0;">🖨️ Impressão / PDV</h2>
+            <h2 style="margin-top:0;">Impressão / PDV</h2>
             <div class="campo">
               <label class="switch-linha">
                 <input type="checkbox" id="cupom_auto_imprimir" class="switch-input">
@@ -151,7 +151,7 @@
         <!-- SEÇÃO 4: CATÁLOGO (Categorias + Coleções) -->
         <section class="config-secao" id="secaoCatalogo" data-secao="catalogo" style="display:none;">
           <div class="card">
-            <h2 style="margin-top:0;">🗂️ Categorias de produtos</h2>
+            <h2 style="margin-top:0;">Categorias de produtos</h2>
             <p class="texto-cinza" style="font-size:0.82rem; margin-top:-6px;">Adicione ou remova as categorias que você usa para organizar seus produtos.</p>
             <div id="listaCategorias" style="display:grid; grid-template-columns:1fr auto; gap:8px; margin-bottom:12px;">
             </div>
@@ -161,7 +161,7 @@
             </div>
           </div>
           <div class="card" style="margin-top:16px;">
-            <h2 style="margin-top:0;">📦 Coleções de produtos</h2>
+            <h2 style="margin-top:0;">Coleções de produtos</h2>
             <p class="texto-cinza" style="font-size:0.82rem; margin-top:-6px;">Crie coleções para agrupar seus produtos por linha, estação ou tema.</p>
             <div id="listaColecoes" style="display:grid; grid-template-columns:1fr auto; gap:8px; margin-bottom:12px;">
             </div>
@@ -170,14 +170,14 @@
               <button class="btn btn-fino btn-verde" onclick="adicionarColecao()">+ Adicionar</button>
             </div>
           </div>
-          <p class="texto-cinza" style="font-size:0.8rem; margin-top:12px;">💾 Categorias e coleções são salvas automaticamente.</p>
+          <p class="texto-cinza" style="font-size:0.8rem; margin-top:12px;">Categorias e coleções são salvas automaticamente.</p>
         </section>
 
         <!-- SEÇÃO 5: VITRINE (NOVA) -->
         <!-- SEÇÃO 5: VITRINE -->
         <section class="config-secao" id="secaoVitrine" data-secao="vitrine" style="display:none;">
           <div class="card">
-            <h2 style="margin-top:0;">🏬 Vitrine da sua loja</h2>
+            <h2 style="margin-top:0;">Vitrine da sua loja</h2>
             <p class="texto-cinza" style="font-size:0.82rem; margin-top:-6px;">Mostre seus produtos numa página pública, sem precisar de login.</p>
 
             <div class="campo">
@@ -234,7 +234,7 @@
         <!-- SEÇÃO 6: FISCAL (Dados cadastrais + Certificado A1 + Tokens Focus) -->
         <section class="config-secao" id="secaoFiscal" data-secao="fiscal" style="display:none;">
           <div class="card">
-            <h2 style="margin-top:0;">🏢 Dados cadastrais / fiscais</h2>
+            <h2 style="margin-top:0;">Dados cadastrais / fiscais</h2>
             <p class="texto-cinza" style="font-size:0.82rem; margin-top:-6px;">Usados no cupom e nos relatórios. Necessários quando ligar a emissão de nota fiscal.</p>
             <div class="campo"><label>Razão social</label><input type="text" id="loja_razao_social" placeholder="Nome empresarial registrado"></div>
             <div class="linha">
@@ -253,7 +253,7 @@
           </div>
 
           <div class="card" style="margin-top:16px;">
-            <h2 style="margin-top:0;">🔐 Certificado A1 (Assinatura digital)</h2>
+            <h2 style="margin-top:0;">Certificado A1 (Assinatura digital)</h2>
             <p class="texto-cinza" style="font-size:0.82rem; margin-top:-6px;">Necessário para emitir NFC-e. O arquivo fica seguro no servidor (criptografado). Sua senha é usada só aqui e não é salva.</p>
             <div id="certStatus" class="texto-cinza" style="font-size:0.85rem; margin-bottom:10px;">Verificando…</div>
             <div class="linha">
@@ -267,12 +267,12 @@
                 <input type="password" id="certSenha" placeholder="●●●●●●">
               </div>
             </div>
-            <button class="btn btn-fino" onclick="testarCertificado()">🔍 Testar certificado</button>
+            <button class="btn btn-fino" onclick="testarCertificado()">Testar certificado</button>
             <button class="btn btn-fino btn-vermelho" id="btnRemoverCert" onclick="removerCertificado()" style="display:none; margin-left:6px;">Remover</button>
           </div>
 
           <div class="card" style="margin-top:16px;">
-            <h2 style="margin-top:0;">🧾 Nota Fiscal (NFC-e)</h2>
+            <h2 style="margin-top:0;">Nota Fiscal (NFC-e)</h2>
             <div id="nfceStatus" class="texto-cinza" style="font-size:0.85rem; margin-bottom:10px;"></div>
             <label class="switch-linha" style="margin-bottom:12px;">
               <input type="checkbox" id="nfce_ativo" class="switch-input">
@@ -304,7 +304,7 @@
               </div>
             </details>
             <div style="margin-top:16px; padding-top:16px; border-top:1px solid #e0e8e5;">
-              <h3 style="margin:0 0 12px; font-size:0.95rem;">🔑 Token de Autenticação (Focus NFe)</h3>
+              <h3 style="margin:0 0 12px; font-size:0.95rem;">Token de Autenticação (Focus NFe)</h3>
               <p class="texto-cinza" style="font-size:0.82rem; margin-bottom:12px;">Gere o token na <a href="https://focusnfe.com.br" target="_blank" style="color:#1a6f5e; text-decoration:underline;">Focus NFe</a> e cole aqui. O token fica criptografado e seguro no servidor.</p>
               <div class="linha">
                 <div class="campo">
@@ -337,15 +337,15 @@
         <!-- SEÇÃO 7: PREÇOS E METAS -->
         <section class="config-secao" id="secaoPrecos" data-secao="precos" style="display:none;">
           <div class="card">
-            <h2 style="margin-top:0;">🎯 Metas de venda</h2>
+            <h2 style="margin-top:0;">Metas de venda</h2>
             <div class="linha">
               <div class="campo"><label>Meta do mês (R$)</label><input type="number" id="meta_mensal" step="0.01"></div>
             </div>
-            <p class="texto-cinza" style="font-size:0.82rem;">💡 A <strong>meta do dia</strong> é calculada sozinha: meta do mês ÷ dias de funcionamento (segunda a sábado) do mês.</p>
+            <p class="texto-cinza" style="font-size:0.82rem;">A <strong>meta do dia</strong> é calculada sozinha: meta do mês ÷ dias de funcionamento (segunda a sábado) do mês.</p>
           </div>
 
           <div class="card" style="margin-top:16px;">
-            <h2 style="margin-top:0;">💰 Precificação</h2>
+            <h2 style="margin-top:0;">Precificação</h2>
             <div class="linha">
               <div class="campo"><label>Markup (multiplicador do custo)</label><input type="number" id="markup" step="0.1"></div>
               <div class="campo"><label>Embalagem por peça (R$)</label><input type="number" id="embalagem_unit" step="0.01"></div>
@@ -355,7 +355,7 @@
           </div>
 
           <div class="card" style="margin-top:16px;">
-            <h2 style="margin-top:0;">🧾 Imposto e comissão</h2>
+            <h2 style="margin-top:0;">Imposto e comissão</h2>
             <div class="linha">
               <div class="campo"><label>Regime fiscal</label>
                 <select id="regime_fiscal">
@@ -377,7 +377,7 @@
         <!-- SEÇÃO 8: MAQUININHA -->
         <section class="config-secao" id="secaoMaquininha" data-secao="maquininha" style="display:none;">
           <div class="card">
-            <h2 style="margin-top:0;">💳 Taxas da maquininha (%)</h2>
+            <h2 style="margin-top:0;">Taxas da maquininha (%)</h2>
             <div class="linha">
               <div class="campo"><label>Pix</label><input type="number" id="taxa_pix" step="0.01"></div>
               <div class="campo"><label>Débito</label><input type="number" id="taxa_debito" step="0.01"></div>
@@ -398,10 +398,10 @@
           </div>
 
           <div class="card" style="margin-top:16px;">
-            <h2 style="margin-top:0;">🏦 Maquininha / Prazos de recebimento</h2>
+            <h2 style="margin-top:0;">Maquininha / Prazos de recebimento</h2>
             <p class="texto-cinza" style="font-size:0.82rem; margin-top:-6px;">Configuram quando as vendas aparecem no Fluxo de Caixa (quando o dinheiro cai na conta):</p>
             <div class="linha">
-              <div class="campo"><label>💳 Débito</label><input type="number" id="prazo_debito_dias" min="1" step="1" style="max-width:80px;"></div>
+              <div class="campo"><label>Débito</label><input type="number" id="prazo_debito_dias" min="1" step="1" style="max-width:80px;"></div>
               <div class="campo"><label>Tipo</label>
                 <select id="prazo_debito_tipo" style="max-width:140px;">
                   <option value="uteis">dias úteis</option>
@@ -410,7 +410,7 @@
               </div>
             </div>
             <div class="linha">
-              <div class="campo"><label>💳 Crédito à vista</label><input type="number" id="prazo_credito_vista_dias" min="1" step="1" style="max-width:80px;"></div>
+              <div class="campo"><label>Crédito à vista</label><input type="number" id="prazo_credito_vista_dias" min="1" step="1" style="max-width:80px;"></div>
               <div class="campo"><label>Tipo</label>
                 <select id="prazo_credito_vista_tipo" style="max-width:140px;">
                   <option value="corridos">dias corridos</option>
@@ -419,7 +419,7 @@
               </div>
             </div>
             <div class="linha">
-              <div class="campo"><label>💳 Crédito parcelado</label><input type="number" id="prazo_credito_parc_dias" min="1" step="1" style="max-width:80px;"></div>
+              <div class="campo"><label>Crédito parcelado</label><input type="number" id="prazo_credito_parc_dias" min="1" step="1" style="max-width:80px;"></div>
               <div class="campo"><label>Tipo</label>
                 <select id="prazo_credito_parc_tipo" style="max-width:140px;">
                   <option value="corridos">dias corridos</option>
@@ -597,7 +597,7 @@
       try {
         const resp = await api('/config/logo', { method:'POST', body:{ logo: dataUrl } });
         mostrarLogo(resp.loja_logo);
-        toast('Logo atualizada 🎨','sucesso');
+        toast('Logo atualizada ','sucesso');
       } catch (e) { toast(e.message,'erro'); }
       input.value = '';
     }
@@ -643,7 +643,7 @@
       div.innerHTML = categorias.map(c => `
         <div class="chip-tam" style="background:#f9fbfa; border:1px solid #e0e8e5; border-radius:6px; padding:8px 12px; display:flex; justify-content:space-between; align-items:center;">
           <span>${esc(c)}</span>
-          <button class="btn btn-fino btn-vermelho" onclick="removerCategoria('${esc(c)}')" style="padding:4px 8px; font-size:0.75rem;">✕</button>
+          <button class="btn btn-fino btn-vermelho" onclick="removerCategoria('${esc(c)}')" style="padding:4px 8px; font-size:0.75rem;"></button>
         </div>`).join('');
     }
     async function adicionarCategoria() {
@@ -655,7 +655,7 @@
       await api('/config', { method:'POST', body: { categorias: JSON.stringify(categorias) } });
       input.value = '';
       renderizarCategorias();
-      toast('Categoria adicionada 🎯', 'sucesso');
+      toast('Categoria adicionada ', 'sucesso');
       invalidarCacheColecoes();
     }
     async function removerCategoria(cat) {
@@ -680,7 +680,7 @@
         colecoes.map(c => `
         <div class="chip-tam" style="background:#f9fbfa; border:1px solid #e0e8e5; border-radius:6px; padding:8px 12px; display:flex; justify-content:space-between; align-items:center;">
           <span>${esc(c)}</span>
-          <button class="btn btn-fino btn-vermelho" onclick="removerColecao('${esc(c)}')" style="padding:4px 8px; font-size:0.75rem;">✕</button>
+          <button class="btn btn-fino btn-vermelho" onclick="removerColecao('${esc(c)}')" style="padding:4px 8px; font-size:0.75rem;"></button>
         </div>`).join('');
     }
     async function adicionarColecao() {
@@ -692,7 +692,7 @@
       await api('/config', { method:'POST', body: { colecoes: JSON.stringify(colecoes) } });
       input.value = '';
       renderizarColecoes();
-      toast('Coleção adicionada 📦', 'sucesso');
+      toast('Coleção adicionada ', 'sucesso');
       invalidarCacheColecoes();
     }
     async function removerColecao(col) {
@@ -710,16 +710,16 @@
       try {
         const s = await api('/nfce/config');
         if (s.certificado_instalado) {
-          el.innerHTML = `✅ Certificado instalado e válido. Vencimento: ${s.certificado_vencimento || 'não informado'}`;
+          el.innerHTML = `Certificado instalado e válido. Vencimento: ${s.certificado_vencimento || 'não informado'}`;
           el.style.color = 'var(--verde,#2e7d32)';
           document.getElementById('btnRemoverCert').style.display = '';
         } else {
-          el.innerHTML = '⚠️ Nenhum certificado instalado ainda.';
+          el.innerHTML = 'Nenhum certificado instalado ainda.';
           el.style.color = 'var(--dourado,#8a6d3b)';
           document.getElementById('btnRemoverCert').style.display = 'none';
         }
       } catch (e) {
-        el.innerHTML = '⚠️ Não foi possível verificar o certificado.';
+        el.innerHTML = 'Não foi possível verificar o certificado.';
         el.style.color = 'var(--cinza,#666)';
       }
     }
@@ -732,7 +732,7 @@
         return;
       }
       const el = document.getElementById('certStatus');
-      el.innerHTML = `📁 Arquivo selecionado: <strong>${file.name}</strong> (${(file.size / 1024).toFixed(0)}KB)`;
+      el.innerHTML = `Arquivo selecionado: <strong>${file.name}</strong> (${(file.size / 1024).toFixed(0)}KB)`;
       el.style.color = 'var(--azul,#1976d2)';
     }
     async function testarCertificado() {
@@ -744,26 +744,26 @@
       reader.onload = async (e) => {
         try {
           const el = document.getElementById('certStatus');
-          el.innerHTML = '⏳ Testando certificado…';
+          el.innerHTML = 'Testando certificado…';
           const dataUrl = e.target.result;
           const resp = await api('/config/certificado-a1', {
             method: 'POST',
             body: { certificado: dataUrl, senha }
           });
           if (resp.ok) {
-            el.innerHTML = `✅ Certificado válido. Vencimento: ${resp.vencimento || 'OK'}`;
+            el.innerHTML = `Certificado válido. Vencimento: ${resp.vencimento || 'OK'}`;
             el.style.color = 'var(--verde,#2e7d32)';
-            toast('Certificado salvo com segurança 🔐','sucesso');
+            toast('Certificado salvo com segurança ','sucesso');
             document.getElementById('btnRemoverCert').style.display = '';
             document.getElementById('certFile').value = '';
             document.getElementById('certSenha').value = '';
           } else {
-            el.innerHTML = `❌ ${resp.erro || 'Erro ao validar certificado'}`;
+            el.innerHTML = `${resp.erro || 'Erro ao validar certificado'}`;
             el.style.color = 'var(--vermelho,#c62828)';
             toast('Erro: ' + (resp.erro || 'Certificado inválido ou senha incorreta'),'erro');
           }
         } catch (err) {
-          document.getElementById('certStatus').innerHTML = `❌ Erro: ${err.message}`;
+          document.getElementById('certStatus').innerHTML = `Erro: ${err.message}`;
           document.getElementById('certStatus').style.color = 'var(--vermelho,#c62828)';
           toast('Erro ao testar: ' + err.message,'erro');
         }
@@ -799,7 +799,7 @@
           toast(`Erro: ${data.erro || 'Falha ao salvar'}`, 'erro');
           return;
         }
-        toast(`Token de ${ambiente} salvo com segurança 🔐`, 'sucesso');
+        toast(`Token de ${ambiente} salvo com segurança `, 'sucesso');
         document.getElementById(inputId).value = '';
         verificarTokensFocus();
       } catch (e) {
@@ -848,14 +848,14 @@
         const amb = document.getElementById('nfce_ambiente').value || 'producao';
         const temToken = amb === 'producao' ? status.tem_token_producao : status.tem_token_homologacao;
         if (temToken) {
-          el.innerHTML = `✅ Token de <strong>${amb === 'producao' ? 'produção' : 'homologação'}</strong> configurado. Pronto pra emitir!`;
+          el.innerHTML = `Token de <strong>${amb === 'producao' ? 'produção' : 'homologação'}</strong> configurado. Pronto pra emitir!`;
           el.style.color = 'var(--verde,#2e7d32)';
         } else {
-          el.innerHTML = `⚠️ Falta adicionar o token de <strong>${amb === 'producao' ? 'produção' : 'homologação'}</strong>. Configure na seção abaixo.`;
+          el.innerHTML = `Falta adicionar o token de <strong>${amb === 'producao' ? 'produção' : 'homologação'}</strong>. Configure na seção abaixo.`;
           el.style.color = 'var(--dourado,#8a6d3b)';
         }
       } catch (e) {
-        el.innerHTML = '⏳ Verificando configuração…';
+        el.innerHTML = 'Verificando configuração…';
         el.style.color = 'var(--cinza,#999)';
       }
     }

@@ -12,7 +12,7 @@
       <div><h1>Clientes</h1><p class="subtitulo">Cadastro e histórico de vendas</p></div>
       <button class="btn" onclick="abrir()">+ Novo cliente</button>
     </div>
-    <div class="card"><input type="search" id="busca" placeholder="🔎 Buscar por nome ou telefone..." oninput="carregar()"></div>
+    <div class="card"><input type="search" id="busca" placeholder="Buscar por nome ou telefone..." oninput="carregar()"></div>
     <div id="lista"></div>
   </div>
 
@@ -54,7 +54,7 @@
           <div class="flex-entre">
             <div>
               <strong style="font-size:1.05rem;">${esc(c.nome)}</strong>
-              ${c.total_gasto > 1000 ? '<span class="badge badge-dourado">⭐ VIP</span>' : ''}
+              ${c.total_gasto > 1000 ? '<span class="badge badge-dourado">VIP</span>' : ''}
               <div class="texto-cinza" style="font-size:0.85rem;">
                 ${esc(c.telefone)||'sem telefone'} ${c.cidade?'• '+esc(c.cidade):''}</div>
             </div>
@@ -107,8 +107,8 @@
       acoes.style.display = 'flex';
       acoes.innerHTML = `
         <button class="btn btn-fino ${c.arquivado?'':'btn-escuro'}" onclick="toggleArquivar(${c.id}, ${c.arquivado?0:1})">
-          ${c.arquivado ? '📂 Reativar cliente' : '🗄️ Arquivar'}</button>
-        <button class="btn btn-fino" style="background:#C0392B;color:#fff;" onclick="excluirCliente(${c.id})">🗑️ Excluir</button>`;
+          ${c.arquivado ? 'Reativar cliente' : 'Arquivar'}</button>
+        <button class="btn btn-fino" style="background:#C0392B;color:#fff;" onclick="excluirCliente(${c.id})">Excluir</button>`;
       const h = c.compras||[];
       document.getElementById('historico').innerHTML = `<h2>Histórico (${h.length})</h2>` + (h.length===0
         ? '<p class="texto-cinza">Nenhuma compra ainda.</p>'

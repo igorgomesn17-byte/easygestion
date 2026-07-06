@@ -204,7 +204,7 @@
 </head>
 <body>
   <div class="legal-container">
-    <h1>📋 Log de Auditoria (LGPD)</h1>
+    <h1>Log de Auditoria (LGPD)</h1>
 
     
     <div id="statsCard" class="card" style="display: none;">
@@ -239,7 +239,7 @@
         </div>
         <div style="display: flex; gap: 8px; align-items: flex-end;">
           <button onclick="carregarLogs()" class="secondary">Filtrar</button>
-          <button onclick="exportarCSV()" class="secondary">📥 Exportar CSV</button>
+          <button onclick="exportarCSV()" class="secondary">Exportar CSV</button>
         </div>
       </div>
     </div>
@@ -247,7 +247,7 @@
     
     <div class="card">
       <h2>Histórico</h2>
-      <div id="loading" class="loading" style="display: none;">⏳ Carregando...</div>
+      <div id="loading" class="loading" style="display: none;">Carregando...</div>
       <div id="error" class="error" style="display: none;"></div>
       <div class="table-responsive" id="tableContainer">
         <table>
@@ -312,7 +312,7 @@
         }
       } catch (err) {
         console.error(err);
-        document.getElementById('error').textContent = `❌ ${err.message}`;
+        document.getElementById('error').textContent = `${err.message}`;
         document.getElementById('error').style.display = 'block';
       } finally {
         document.getElementById('loading').style.display = 'none';

@@ -34,7 +34,7 @@
 </head>
 <body>
   <div class="auth-card">
-    <div class="logo">🔒</div>
+    <div class="logo"></div>
     <h1>Verificar Email</h1>
 
     <div id="conteudo">
@@ -80,7 +80,7 @@
       const conteudo = document.getElementById('conteudo');
       conteudo.innerHTML = `
         <div class="auth-status sucesso">
-          <p style="font-size: 48px;">✅</p>
+          <p style="font-size: 48px;"></p>
           <p style="font-size: 18px; font-weight: 600;">${mensagem}</p>
           <p style="margin-top: 10px; color: #555;">Você pode fazer login agora.</p>
         </div>
@@ -96,7 +96,7 @@
       const conteudo = document.getElementById('conteudo');
       conteudo.innerHTML = `
         <div class="auth-status erro">
-          <p style="font-size: 48px;">⏰</p>
+          <p style="font-size: 48px;"></p>
           <p style="font-size: 18px; font-weight: 600;">${data.erro}</p>
           <p style="margin-top: 10px; color: #555;">Vamos reenviar o link de verificação.</p>
         </div>
@@ -125,7 +125,7 @@
       const conteudo = document.getElementById('conteudo');
       conteudo.innerHTML = `
         <div class="auth-status erro">
-          <p style="font-size: 48px;">❌</p>
+          <p style="font-size: 48px;"></p>
           <p style="font-size: 18px; font-weight: 600;">Erro na Verificação</p>
         </div>
         <div class="auth-erro-detalhado">
@@ -175,7 +175,7 @@
       const conteudo = document.getElementById('conteudo');
       conteudo.innerHTML = `
         <div class="auth-status sucesso">
-          <p style="font-size: 48px;">📧</p>
+          <p style="font-size: 48px;"></p>
           <p style="font-size: 18px; font-weight: 600;">Email reenviado!</p>
           <p style="margin-top: 10px; color: #555;">
             Verifique sua caixa de entrada em <strong>${email}</strong>

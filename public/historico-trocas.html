@@ -78,11 +78,11 @@
         : '<span class="status-badge status-ativa">Ativa</span>';
 
       const formaLabel = {
-        'dinheiro': '💵 Dinheiro',
-        'pix': '📱 Pix',
-        'debito': '💳 Débito',
-        'credito_vista': '💳 Crédito à vista',
-        'vale': '🎟️ Vale-crédito'
+        'dinheiro': 'Dinheiro',
+        'pix': 'Pix',
+        'debito': 'Débito',
+        'credito_vista': 'Crédito à vista',
+        'vale': 'Vale-crédito'
       };
 
       document.getElementById('trocaDetalhes').innerHTML = `
@@ -183,7 +183,7 @@
           ` : ''}
 
           ${!t.cancelada ? `
-          <button class="btn" style="background:#E74C3C; color:white; width:100%;" onclick="cancelarTroca(${t.id})">🗑️ Cancelar troca</button>
+          <button class="btn" style="background:#E74C3C; color:white; width:100%;" onclick="cancelarTroca(${t.id})">Cancelar troca</button>
           ` : ''}
         </div>
       `;

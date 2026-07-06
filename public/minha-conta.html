@@ -276,7 +276,7 @@
         const data = await res.json();
 
         if (res.ok && data.ok) {
-          showMessage('✓ Senha alterada com sucesso', 'success', 'mensagemSenha');
+          showMessage('Senha alterada com sucesso', 'success', 'mensagemSenha');
           document.getElementById('formSenha').reset();
         } else {
           showMessage(data.erro || 'Erro ao alterar senha', 'error', 'mensagemSenha');
@@ -349,7 +349,7 @@
         const data = await res.json();
 
         if (res.ok && data.ok) {
-          showMessage('✓ Conta deletada. Você será redirecionado...', 'success', 'mensagemDelete');
+          showMessage('Conta deletada. Você será redirecionado...', 'success', 'mensagemDelete');
           setTimeout(() => {
             window.location.href = '/login.html';
           }, 2000);

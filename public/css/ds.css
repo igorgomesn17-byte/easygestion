@@ -1,82 +1,92 @@
 /* ============================================================
-   DS SISTEMA — Design System estilo ERP profissional (ref. Olist/Tiny)
-   Sidebar lateral · branco/cinza enterprise · marrom DS como acento
-   Tipografia: Inter
+   EasyGestão — Design System (v2)
+   Direção: ferramenta financeira confiável e calma (ref. Mercury/Ramp/Nubank).
+   Superfícies chapadas separadas por borda 1px (não por elevação).
+   Cor da marca usada como SINAL (ações, estados), não como tinta de painel.
+   Tipografia carrega a hierarquia. Zero gradiente decorativo, sombras discretas.
+
+   DROP-IN: mantém os MESMOS nomes de classe e tokens da v1 — as 43 telas e o
+   comum.js consomem estes nomes/vars sem alteração. O contrato de cor dinâmica
+   (--marca / --marca-escura / --marca-clara sobrescritos em runtime pelo JS) é
+   preservado.
    ============================================================ */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
 
 :root {
-  /* COR DA MARCA (personalizável por loja) — o JS sobrescreve --marca, --marca-escura
-     e --marca-clara em runtime com a cor que a lojista escolhe na tela de Config.
-     Default = verde EasyGestão. O "essencial visível" usa var(--marca). */
-  --marca: #1a6f5e;
-  --marca-escura: #0d3d35;
-  --marca-clara: #2a8870;
+  /* COR DA MARCA (personalizável por loja) — o comum.js sobrescreve estas três
+     em runtime com a cor que a lojista escolhe. Default = verde EasyGestão. */
+  --marca: #157a63;
+  --marca-escura: #0e5647;
+  --marca-clara: #e7f3ef;   /* tom claro p/ fundos sutis de estado ativo */
 
-  /* Marca EasyGestão — verde como acento */
-  --marrom: #1a6f5e;
-  --marrom-escuro: #0d3d35;
-  --marrom-claro: #2a8870;
-  --marrom-suave: #e8f5f0;     /* fundo sutil do item ativo */
-  --dourado: #c39a36;
-  --dourado-claro: #d9b85c;
+  /* Aliases herdados (telas antigas usam estes nomes de "marrom") — mantidos
+     apontando para a cor de marca para não quebrar nada. */
+  --marrom: var(--marca);
+  --marrom-escuro: var(--marca-escura);
+  --marrom-claro: var(--marca);
+  --marrom-suave: var(--marca-clara);       /* fundo do item ativo */
+  --dourado: #b78a2e;                        /* acento quente, uso pontual */
+  --dourado-claro: #f3ead6;
+  --dourado-escuro: #8f6c22;
 
-  /* Aliases compatibilidade (telas usam estes nomes) */
-  --taupe: var(--marrom);
-  --taupe-escuro: var(--marrom-escuro);
-  --taupe-claro: var(--marrom-claro);
-  --dourado-escuro: var(--marrom);
+  --taupe: var(--marca);
+  --taupe-escuro: var(--marca-escura);
+  --taupe-claro: var(--marca);
 
-  /* Neutros enterprise — EasyGestão */
-  --bg: #faf9f7;            /* fundo da area de trabalho — creme sutil */
-  --surface: #FFFFFF;        /* cards, sidebar, superficies */
-  --surface-2: #f5f3f0;      /* zebra/hover sutil */
-  --linha: #e8e3dd;          /* bordas */
-  --linha-forte: #ddd6ce;
-  --tinta: #2d3436;          /* texto principal */
-  --tinta-2: #5b6470;        /* texto secundario */
-  --tinta-3: #99a0ab;        /* placeholder/terciario */
+  /* Neutros — base quase-branca, borda que faz a separação (não a sombra) */
+  --bg: #f7f8f8;             /* fundo da área de trabalho */
+  --surface: #ffffff;        /* cards, sidebar, superfícies */
+  --surface-2: #f2f4f3;      /* zebra / hover sutil */
+  --surface-alt: #f2f4f3;    /* alias usado por algumas telas */
+  --linha: #e6e9e8;          /* bordas — o principal separador visual */
+  --linha-forte: #d4d9d7;
+  --tinta: #1a2420;          /* texto principal — quase preto esverdeado */
+  --tinta-2: #5c6763;        /* texto secundário */
+  --tinta-3: #98a19d;        /* placeholder / terciário */
 
   /* Aliases de cor antigos usados nas telas */
   --preto: var(--tinta);
-  --grafite: #3A414B;
+  --grafite: #33403b;
   --cinza: var(--tinta-2);
   --cinza-claro: var(--bg);
   --creme: var(--surface-2);
   --branco: var(--surface);
 
-  /* Semanticas */
-  --verde: #1E9E63; --verde-bg: #E6F6EE;
-  --vermelho: #D64545; --vermelho-bg: #FBEAEA;
-  --amarelo: #C0871A; --amarelo-bg: #FBF1DD;
-  --azul: #2D6FE0; --azul-bg: #E8F0FE;
+  /* Semânticas — dessaturadas, sóbrias (nada de neon) */
+  --verde: #1a8a5a; --verde-bg: #e6f4ec;
+  --vermelho: #c0392b; --vermelho-bg: #fbeceb;
+  --amarelo: #a6791a; --amarelo-bg: #f8f0dc;
+  --azul: #2f6bd8; --azul-bg: #e9f0fc;
 
-  /* Sombras suaves */
-  --sombra-sm: 0 1px 2px rgba(31,35,41,0.05), 0 1px 3px rgba(31,35,41,0.06);
-  --sombra: 0 1px 3px rgba(31,35,41,0.06), 0 4px 14px rgba(31,35,41,0.07);
-  --sombra-lg: 0 10px 34px rgba(31,35,41,0.12);
+  /* Sombras — discretas. Card se separa por BORDA, não por elevação.
+     Blur máximo ~12px em qualquer sombra do sistema. */
+  --sombra-sm: 0 1px 2px rgba(20, 36, 32, 0.04);
+  --sombra: 0 1px 3px rgba(20, 36, 32, 0.06);
+  --sombra-lg: 0 4px 12px rgba(20, 36, 32, 0.08);
+  /* alias herdado */
+  --shadow-xs: var(--sombra-sm);
 
-  --radius: 12px;
-  --radius-sm: 8px;
-  --sidebar-w: 248px;
-  --sidebar-min: 68px;
-  --topbar-h: 60px;
+  --radius: 10px;
+  --radius-sm: 7px;
+  --sidebar-w: 244px;
+  --sidebar-min: 66px;
+  --topbar-h: 58px;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html { height: auto; }
+html { height: auto; -webkit-text-size-adjust: 100%; }
 body {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Instrument Sans', system-ui, -apple-system, sans-serif;
   background: var(--bg);
   color: var(--tinta);
   font-size: 14.5px;
-  line-height: 1.55;
-  letter-spacing: -0.006em;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  font-feature-settings: "cv11", "ss01";
   height: auto;
 }
-@media (prefers-reduced-motion: reduce) { *, ::before, ::after { animation: none ***REMOVED***important; transition: none ***REMOVED***important; } }
+@media (prefers-reduced-motion: reduce) { *, ::before, ::after { animation: none !important; transition: none !important; } }
 
 /* ============================================================
    LAYOUT (sidebar + main)
@@ -88,29 +98,30 @@ body {
   background: var(--surface); border-right: 1px solid var(--linha);
   position: fixed; inset: 0 auto 0 0; z-index: 100;
   display: flex; flex-direction: column;
-  transition: width 0.2s ease;
+  transition: width 0.18s ease;
 }
+/* Logo: faixa com a COR DA MARCA, igual à topbar — o topo do sistema fica uniforme.
+   A logo da lojista (fundo transparente) aparece bem sobre a cor. */
 .sidebar-logo {
-  display: flex; align-items: center; justify-content: center; gap: 11px;
-  padding: 16px 12px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  padding: 18px 14px; flex-shrink: 0;
   background: var(--marca);
   border-bottom: 1px solid var(--marca-escura);
-  min-height: 140px;
+  min-height: 122px;
 }
-.sidebar-logo img { height: auto; width: 100%; object-fit: contain; filter: drop-shadow(0 2px 8px rgba(0,0,0,.2)); transition: height 0.2s ease, width 0.2s ease; }
-.sidebar-logo .marca { font-weight: 700; font-size: 1.05rem; letter-spacing: 1.5px; color: #fff; white-space: nowrap; }
-/* quando recolhida, a logo encolhe pra caber e mostra só o ícone */
-.app.recolhida .sidebar-logo { padding: 14px 6px; min-height: 68px; }
-.app.recolhida .sidebar-logo img { max-height: 50px; max-width: 50px; width: auto; height: auto; }
+.sidebar-logo img { height: auto; width: 100%; max-height: 92px; object-fit: contain; transition: max-height 0.18s ease; }
+.sidebar-logo .marca { font-weight: 700; font-size: 1.05rem; letter-spacing: -0.01em; color: #fff; white-space: nowrap; }
+.app.recolhida .sidebar-logo { padding: 14px 6px; min-height: 60px; }
+.app.recolhida .sidebar-logo img { max-height: 38px; max-width: 38px; width: auto; }
 
 .sidebar-nav { flex: 1; overflow-y: auto; padding: 10px 12px; }
 .sidebar-nav::-webkit-scrollbar { width: 6px; }
 .sidebar-nav::-webkit-scrollbar-thumb { background: var(--linha-forte); border-radius: 3px; }
 
 .nav-grupo-titulo {
-  font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px;
-  color: var(--tinta-3); padding: 16px 12px 7px; display: flex; justify-content: space-between; align-items: center;
-  user-select: none; transition: color 0.2s;
+  font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px;
+  color: var(--tinta-3); padding: 15px 12px 6px; display: flex; justify-content: space-between; align-items: center;
+  user-select: none; transition: color 0.15s;
 }
 .nav-grupo-titulo:hover { color: var(--tinta-2); }
 .nav-grupo-toggle { font-size: 0.7rem; }
@@ -119,35 +130,37 @@ body {
 .app.recolhida .nav-grupo-items.collapsed { display: none; }
 .nav-link {
   display: flex; align-items: center; gap: 11px;
-  padding: 9px 12px; border-radius: var(--radius-sm);
+  padding: 8px 11px; border-radius: var(--radius-sm);
   color: var(--tinta-2); text-decoration: none;
   font-weight: 500; font-size: 0.9rem; cursor: pointer;
-  position: relative; transition: background 0.13s, color 0.13s;
+  position: relative; transition: background 0.12s, color 0.12s;
 }
 .nav-link:hover { background: var(--surface-2); color: var(--tinta); }
-.nav-link.ativo { background: var(--marrom-suave); color: var(--marrom-escuro); font-weight: 600; }
+/* Ativo: fundo claro da marca + texto na marca. Sem barra pesada; sinal sutil. */
+.nav-link.ativo { background: var(--marca-clara); color: var(--marca-escura); font-weight: 600; }
 .nav-link.ativo::before {
   content: ''; position: absolute; left: -12px; top: 50%; transform: translateY(-50%);
-  width: 3px; height: 20px; background: var(--marca); border-radius: 0 3px 3px 0;
+  width: 3px; height: 18px; background: var(--marca); border-radius: 0 3px 3px 0;
 }
-.nav-link svg { width: 18px; height: 18px; flex-shrink: 0; stroke-width: 1.85; }
+.nav-link svg { width: 18px; height: 18px; flex-shrink: 0; stroke-width: 1.75; }
 .nav-link .txt { white-space: nowrap; overflow: hidden; }
 .sidebar-rodape { padding: 10px 12px; border-top: 1px solid var(--linha); }
 
 /* Main */
 .main { flex: 1; margin-left: var(--sidebar-w); display: flex; flex-direction: column; min-width: 0; }
+/* Topbar com a COR DA MARCA (a lojista escolhe a cor em Config; o topo acompanha). */
 .topbar {
   height: var(--topbar-h); background: var(--marca); border-bottom: 1px solid var(--marca-escura);
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding: 0 24px; position: sticky; top: 0; z-index: 50;
 }
-.topbar .btn-menu { display: none; background: none; border: none; cursor: pointer; padding: 6px; color: rgba(255,255,255,0.7); }
+.topbar .btn-menu { display: none; background: none; border: none; cursor: pointer; padding: 6px; color: rgba(255,255,255,0.85); }
 .topbar .btn-menu svg { width: 22px; height: 22px; }
-.topbar .topbar-titulo { font-weight: 600; font-size: 1.02rem; color: #fff; }
-.topbar .data-hora { font-size: 0.82rem; color: rgba(255,255,255,0.6); }
+.topbar .topbar-titulo { font-weight: 600; font-size: 1rem; color: #fff; letter-spacing: -0.01em; }
+.topbar .data-hora { font-size: 0.82rem; color: rgba(255,255,255,0.65); font-variant-numeric: tabular-nums; }
 
-.conteudo { padding: 26px 28px; max-width: 1280px; width: 100%; margin: 0 auto; animation: fadeUp 0.35s cubic-bezier(0.16,1,0.3,1); }
-@keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.conteudo { padding: 26px 28px; max-width: 1280px; width: 100%; margin: 0 auto; animation: fadeUp 0.3s cubic-bezier(0.16,1,0.3,1); }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
 /* Recolhida */
 .app.recolhida .sidebar { width: var(--sidebar-min); }
@@ -157,23 +170,26 @@ body {
 .app.recolhida .nav-link.ativo::before { left: -12px; }
 
 /* ============================================================
-   TIPOGRAFIA
+   TIPOGRAFIA — a hierarquia mora aqui (tamanho + peso), não em caixas
    ============================================================ */
-h1 { font-size: 1.4rem; font-weight: 700; letter-spacing: -0.02em; }
-h2 { font-size: 1.05rem; font-weight: 600; letter-spacing: -0.01em; margin: 22px 0 12px; }
+h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; }
+h2 { font-size: 1.12rem; font-weight: 600; letter-spacing: -0.015em; margin: 22px 0 12px; }
+h3 { font-size: 0.98rem; font-weight: 600; letter-spacing: -0.01em; }
 .subtitulo { color: var(--tinta-2); font-size: 0.9rem; margin-bottom: 22px; }
 
 /* ============================================================
-   CARDS
+   CARDS — chapados, separados por borda 1px
    ============================================================ */
 .card { background: var(--surface); border: 1px solid var(--linha); border-radius: var(--radius); padding: 20px; box-shadow: var(--sombra-sm); margin-bottom: 18px; }
-.cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(178px, 1fr)); gap: 16px; }
+.cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(178px, 1fr)); gap: 14px; }
 .card-metrica { display: flex; flex-direction: column; gap: 6px; }
-.card-metrica .valor { font-size: 1.7rem; font-weight: 700; letter-spacing: -0.025em; color: var(--tinta); line-height: 1; }
-.card-metrica .rotulo { font-size: 0.76rem; color: var(--tinta-2); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
-.card-metrica.destaque { background: var(--marca); border: none; }
+.card-metrica .valor { font-size: 1.7rem; font-weight: 700; letter-spacing: -0.03em; color: var(--tinta); line-height: 1.05; font-variant-numeric: tabular-nums; }
+.card-metrica .rotulo { font-size: 0.74rem; color: var(--tinta-2); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+/* Card destaque: uma superfície de marca chapada (o ÚNICO bloco colorido grande,
+   e mesmo assim pontual). Nada de gradiente. */
+.card-metrica.destaque { background: var(--marca); border: 1px solid var(--marca); }
 .card-metrica.destaque .valor { color: #fff; }
-.card-metrica.destaque .rotulo { color: rgba(255,255,255,0.72); }
+.card-metrica.destaque .rotulo { color: rgba(255,255,255,0.78); }
 
 /* ============================================================
    BARRA DE META
@@ -181,35 +197,37 @@ h2 { font-size: 1.05rem; font-weight: 600; letter-spacing: -0.01em; margin: 22px
 .meta-box { background: var(--surface); border: 1px solid var(--linha); border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--sombra-sm); margin-bottom: 16px; }
 .meta-box .meta-topo { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
 .meta-box .meta-nome { font-weight: 600; color: var(--tinta); }
-.meta-box .meta-valores { font-size: 0.86rem; color: var(--tinta-2); }
-.barra { height: 9px; background: var(--linha); border-radius: 999px; overflow: hidden; position: relative; }
-.barra-preench { height: 100%; background: linear-gradient(90deg, var(--marrom-claro), var(--marrom)); border-radius: 999px; transition: width 0.6s cubic-bezier(0.4,0,0.2,1); min-width: 2px; }
-.barra-preench.batida { background: linear-gradient(90deg, var(--verde), #157A4B); }
+.meta-box .meta-valores { font-size: 0.86rem; color: var(--tinta-2); font-variant-numeric: tabular-nums; }
+.barra { height: 8px; background: var(--surface-2); border-radius: 999px; overflow: hidden; position: relative; }
+/* Progresso funcional PODE ter cor sólida de marca (comunica dado, não decora) */
+.barra-preench { height: 100%; background: var(--marca); border-radius: 999px; transition: width 0.6s cubic-bezier(0.4,0,0.2,1); min-width: 2px; }
+.barra-preench.batida { background: var(--verde); }
 .barra-pct { font-size: 0.76rem; font-weight: 700; color: var(--tinta-2); margin-top: 6px; display: inline-block; }
 
 /* ============================================================
-   BOTOES
+   BOTOES — sólidos, sem sombra colorida/glow
    ============================================================ */
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 7px;
-  background: var(--marca); color: #fff; border: none;
-  padding: 9px 16px; border-radius: var(--radius-sm);
+  background: var(--marca); color: #fff; border: 1px solid var(--marca);
+  padding: 9px 15px; border-radius: var(--radius-sm);
   font-family: inherit; font-weight: 600; font-size: 0.88rem; cursor: pointer;
   text-decoration: none; white-space: nowrap;
-  transition: background 0.15s, box-shadow 0.15s, transform 0.05s;
+  transition: background 0.14s, border-color 0.14s, transform 0.04s;
 }
-.btn:hover { background: var(--marca-escura); box-shadow: var(--sombra); }
+.btn:hover { background: var(--marca-escura); border-color: var(--marca-escura); }
 .btn:active { transform: translateY(1px); }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn svg { width: 16px; height: 16px; stroke-width: 2; }
 .btn-escuro { background: var(--marca); color: #fff; }
 .btn-escuro:hover { background: var(--marca-escura); }
-.btn-verde { background: var(--verde); }
-.btn-verde:hover { background: #157A4B; }
-.btn-vermelho { background: var(--vermelho); }
-.btn-vermelho:hover { background: #B83A3A; }
+.btn-verde { background: var(--verde); border-color: var(--verde); }
+.btn-verde:hover { background: #157a4b; border-color: #157a4b; }
+.btn-vermelho { background: var(--vermelho); border-color: var(--vermelho); }
+.btn-vermelho:hover { background: #a83226; border-color: #a83226; }
+/* Fantasma: a ação secundária — contorno, sem preenchimento */
 .btn-fantasma { background: transparent; color: var(--tinta-2); border: 1px solid var(--linha-forte); }
-.btn-fantasma:hover { background: var(--surface-2); color: var(--tinta); box-shadow: none; }
+.btn-fantasma:hover { background: var(--surface-2); color: var(--tinta); border-color: var(--linha-forte); }
 .btn-fino { padding: 6px 11px; font-size: 0.8rem; }
 .btn-bloco { width: 100%; padding: 12px; font-size: 0.95rem; }
 
@@ -225,34 +243,36 @@ input, select, textarea {
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 input::placeholder, textarea::placeholder { color: var(--tinta-3); }
-input:focus, select:focus, textarea:focus { outline: none; border-color: var(--marrom); box-shadow: 0 0 0 3px rgba(107,88,73,0.13); }
+/* Foco: anel na cor de marca (sinal de foco = uso legítimo da cor) */
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--marca); box-shadow: 0 0 0 3px var(--marca-clara); }
 .linha { display: flex; gap: 14px; flex-wrap: wrap; }
 .linha > * { flex: 1; min-width: 130px; }
 
 /* ============================================================
-   TABELAS (estilo enterprise)
+   TABELAS (estilo enterprise, denso e legível)
    ============================================================ */
 table { width: 100%; border-collapse: collapse; background: var(--surface); }
-thead th { background: var(--surface-2); text-align: left; padding: 11px 14px; font-size: 0.71rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--tinta-2); font-weight: 700; border-bottom: 1px solid var(--linha); }
-td { padding: 12px 14px; border-bottom: 1px solid var(--linha); font-size: 0.9rem; }
-tbody tr { transition: background 0.12s; }
+thead th { background: var(--surface); text-align: left; padding: 10px 14px; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--tinta-2); font-weight: 600; border-bottom: 1px solid var(--linha-forte); }
+td { padding: 11px 14px; border-bottom: 1px solid var(--linha); font-size: 0.9rem; }
+tbody tr { transition: background 0.1s; }
 tbody tr:hover td { background: var(--surface-2); }
 tbody tr:last-child td { border-bottom: none; }
+.dinheiro, td .dinheiro { font-variant-numeric: tabular-nums; }
 
 /* ============================================================
    CHIPS / BADGES / PIX
    ============================================================ */
 .grade-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip-tam { display: inline-flex; flex-direction: column; align-items: center; border: 1px solid var(--linha-forte); border-radius: var(--radius-sm); padding: 6px 12px; min-width: 52px; background: var(--surface); }
-.chip-tam .t { font-weight: 700; color: var(--marrom); font-size: 0.88rem; }
-.chip-tam .q { font-size: 0.76rem; color: var(--tinta-2); }
+.chip-tam .t { font-weight: 700; color: var(--marca); font-size: 0.88rem; }
+.chip-tam .q { font-size: 0.76rem; color: var(--tinta-2); font-variant-numeric: tabular-nums; }
 .chip-tam.zerado { opacity: 0.4; }
 
-.badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 0.72rem; font-weight: 600; }
+.badge { display: inline-block; padding: 3px 9px; border-radius: 6px; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.01em; }
 .badge-verde { background: var(--verde-bg); color: var(--verde); }
 .badge-amarelo { background: var(--amarelo-bg); color: var(--amarelo); }
 .badge-vermelho { background: var(--vermelho-bg); color: var(--vermelho); }
-.badge-dourado { background: var(--marrom-suave); color: var(--marrom-escuro); }
+.badge-dourado { background: var(--marca-clara); color: var(--marca-escura); }
 
 .pix-destaque { background: var(--verde-bg); border: 1px solid var(--verde); color: var(--verde); padding: 11px; border-radius: var(--radius-sm); text-align: center; font-weight: 600; }
 
@@ -262,7 +282,6 @@ tbody tr:last-child td { border-bottom: none; }
 .texto-verde { color: var(--verde); font-weight: 600; }
 .texto-vermelho { color: var(--vermelho); font-weight: 600; }
 .texto-cinza { color: var(--tinta-2); }
-.dinheiro { font-variant-numeric: tabular-nums; }
 .centro { text-align: center; }
 .direita { text-align: right; }
 .mt { margin-top: 16px; }
@@ -272,9 +291,9 @@ tbody tr:last-child td { border-bottom: none; }
 /* ============================================================
    MODAL
    ============================================================ */
-.modal-fundo { position: fixed; inset: 0; background: rgba(31,35,41,0.42); backdrop-filter: blur(3px); display: none; align-items: center; justify-content: center; z-index: 200; padding: 16px; }
-.modal-fundo.aberto { display: flex; animation: fadeUp 0.2s ease; }
-.modal { background: var(--surface); border-radius: var(--radius); padding: 24px; max-width: 540px; width: 100%; max-height: 92vh; overflow-y: auto; box-shadow: var(--sombra-lg); }
+.modal-fundo { position: fixed; inset: 0; background: rgba(20,36,32,0.4); backdrop-filter: blur(2px); display: none; align-items: center; justify-content: center; z-index: 200; padding: 16px; }
+.modal-fundo.aberto { display: flex; animation: fadeUp 0.18s ease; }
+.modal { background: var(--surface); border: 1px solid var(--linha); border-radius: var(--radius); padding: 24px; max-width: 540px; width: 100%; max-height: 92vh; overflow-y: auto; box-shadow: var(--sombra-lg); }
 .modal h2 { margin-top: 0; }
 .modal-fechar { float: right; font-size: 1.4rem; cursor: pointer; color: var(--tinta-3); border: none; background: none; line-height: 1; }
 .modal-fechar:hover { color: var(--tinta); }
@@ -282,7 +301,7 @@ tbody tr:last-child td { border-bottom: none; }
 /* ============================================================
    TOAST
    ============================================================ */
-#toast { position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%) translateY(8px); background: var(--tinta); color: #fff; padding: 12px 22px; border-radius: 999px; box-shadow: var(--sombra-lg); z-index: 300; opacity: 0; transition: opacity 0.25s, transform 0.25s; pointer-events: none; font-weight: 600; font-size: 0.88rem; }
+#toast { position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%) translateY(8px); background: var(--tinta); color: #fff; padding: 12px 22px; border-radius: 8px; box-shadow: var(--sombra-lg); z-index: 300; opacity: 0; transition: opacity 0.22s, transform 0.22s; pointer-events: none; font-weight: 600; font-size: 0.88rem; }
 #toast.mostra { opacity: 1; transform: translateX(-50%) translateY(0); }
 #toast.erro { background: var(--vermelho); }
 #toast.sucesso { background: var(--verde); }
@@ -291,7 +310,7 @@ tbody tr:last-child td { border-bottom: none; }
    VALIDAÇÃO E ESTADOS
    ============================================================ */
 .campo.erro input, .campo.erro select, .campo.erro textarea {
-  border-color: var(--vermelho); box-shadow: 0 0 0 3px rgba(214,69,69,0.12);
+  border-color: var(--vermelho); box-shadow: 0 0 0 3px var(--vermelho-bg);
 }
 .campo-erro-msg { color: var(--vermelho); font-size: 0.78rem; margin-top: 4px; display: none; }
 .campo.erro .campo-erro-msg { display: block; }
@@ -304,104 +323,102 @@ tbody tr:last-child td { border-bottom: none; }
 @keyframes girar { to { transform: rotate(360deg); } }
 
 /* ============================================================
-   ANÉIS DE META (promovido de index.html)
+   ANÉIS DE META
    ============================================================ */
 .anel-card {
-  background: var(--surface); border: 1px solid var(--linha); border-radius: 16px;
+  background: var(--surface); border: 1px solid var(--linha); border-radius: var(--radius);
   padding: 18px 14px; display: flex; flex-direction: column; align-items: center; gap: 8px;
   box-shadow: var(--sombra-sm);
 }
-.anel-titulo { font-size: 0.92rem; font-weight: 600; color: var(--tinta-2); }
+.anel-titulo { font-size: 0.9rem; font-weight: 600; color: var(--tinta-2); }
 .anel { width: 150px; height: 150px; max-width: 42vw; }
 .anel-fundo { fill: none; stroke: var(--surface-2); stroke-width: 11; }
 .anel-prog {
-  fill: none; stroke: var(--dourado); stroke-width: 11; stroke-linecap: round;
+  fill: none; stroke: var(--marca); stroke-width: 11; stroke-linecap: round;
   transform: rotate(-90deg); transform-origin: 50% 50%;
   stroke-dasharray: 326.7; stroke-dashoffset: 326.7;
   transition: stroke-dashoffset 0.9s ease, stroke 0.3s;
 }
 .anel-prog.batida { stroke: var(--verde); }
 .anel-pct {
-  font-size: 24px; font-weight: 700; fill: var(--marrom);
-  text-anchor: middle; dominant-baseline: central;
+  font-size: 24px; font-weight: 700; fill: var(--tinta);
+  text-anchor: middle; dominant-baseline: central; font-variant-numeric: tabular-nums;
 }
-.anel-valores { font-size: 0.86rem; color: var(--tinta-2); text-align: center; }
+.anel-valores { font-size: 0.86rem; color: var(--tinta-2); text-align: center; font-variant-numeric: tabular-nums; }
 
 /* ============================================================
-   MODAL DE ONBOARDING (promovido de index.html)
+   MODAL DE ONBOARDING
    ============================================================ */
 .onboarding-modal {
   position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-  background: rgba(0, 0, 0, 0.6); display: flex; align-items: center; justify-content: center;
-  z-index: 2000; opacity: 0; visibility: hidden; transition: opacity 0.3s, visibility 0.3s;
+  background: rgba(20,36,32,0.5); display: flex; align-items: center; justify-content: center;
+  z-index: 2000; opacity: 0; visibility: hidden; transition: opacity 0.28s, visibility 0.28s;
 }
 .onboarding-modal.show { opacity: 1; visibility: visible; }
 .onboarding-content {
-  background: white; border-radius: 16px; padding: 40px; max-width: 500px;
-  width: 90%; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2); text-align: center;
+  background: var(--surface); border: 1px solid var(--linha); border-radius: var(--radius); padding: 40px; max-width: 500px;
+  width: 90%; box-shadow: var(--sombra-lg); text-align: center;
 }
-.onboarding-content h1 {
-  font-size: 28px; margin-bottom: 15px; color: var(--marca);
-}
-.onboarding-content p {
-  color: #666; margin-bottom: 20px; line-height: 1.6;
-}
-.onboarding-buttons {
-  display: flex; gap: 10px; margin-top: 30px;
-}
+.onboarding-content h1 { font-size: 26px; margin-bottom: 15px; color: var(--marca); }
+.onboarding-content p { color: var(--tinta-2); margin-bottom: 20px; line-height: 1.6; }
+.onboarding-buttons { display: flex; gap: 10px; margin-top: 30px; }
 .onboarding-buttons button {
-  flex: 1; padding: 12px 20px; border: none; border-radius: 8px;
-  font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.3s;
+  flex: 1; padding: 12px 20px; border: 1px solid transparent; border-radius: var(--radius-sm);
+  font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s;
 }
-.btn-skip { background: #f0f0f0; color: #333; }
-.btn-skip:hover { background: #ddd; }
+.btn-skip { background: var(--surface-2); color: var(--tinta-2); border-color: var(--linha-forte); }
+.btn-skip:hover { background: var(--linha); color: var(--tinta); }
 
 /* ============================================================
    RESPONSIVO
    ============================================================ */
-.overlay-mob { display: none; position: fixed; inset: 0; background: rgba(31,35,41,0.4); z-index: 90; }
+.overlay-mob { display: none; position: fixed; inset: 0; background: rgba(20,36,32,0.4); z-index: 90; }
 .overlay-mob.ativo { display: block; }
+
 /* ============================================================
    Componentes reutilizáveis: PDV, Financeiro, etc
    ============================================================ */
-
-/* Chip selecionável (PDV: pgto-btn, Financeiro: aba) */
+/* Chip selecionável (PDV: pgto-btn, Financeiro: aba). Ativo usa a marca como
+   sinal (fundo claro + borda marca), não o dourado saturado de antes. */
 .chip-selecionavel,
 .pgto-btn,
 .aba {
-  padding: 10px 18px;
-  border: 1.5px solid #DDD;
-  border-radius: 8px;
-  background: #fff;
+  padding: 10px 16px;
+  border: 1px solid var(--linha-forte);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
   cursor: pointer;
   font-weight: 600;
-  transition: all 0.2s;
+  font-size: 0.88rem;
+  color: var(--tinta-2);
+  transition: all 0.15s;
 }
 .chip-selecionavel:hover,
 .pgto-btn:hover,
 .aba:hover {
-  border-color: var(--dourado);
-  background: var(--dourado-claro);
+  border-color: var(--marca);
+  color: var(--tinta);
 }
 .chip-selecionavel.ativo,
 .pgto-btn.sel,
 .aba.ativa {
-  border-color: var(--dourado);
-  background: var(--dourado-claro);
-  color: var(--taupe-escuro);
+  border-color: var(--marca);
+  background: var(--marca-clara);
+  color: var(--marca-escura);
 }
 .chip-selecionavel.pix,
 .pgto-btn.pix {
-  border-color: var(--verde);
+  border-color: var(--linha-forte);
 }
 .chip-selecionavel.pix:hover,
 .pgto-btn.pix:hover {
-  background: #E3F4EA;
+  border-color: var(--verde);
+  background: var(--verde-bg);
 }
 .chip-selecionavel.pix.ativo,
 .pgto-btn.pix.sel {
   border-color: var(--verde);
-  background: #E3F4EA;
+  background: var(--verde-bg);
   color: var(--verde);
   font-weight: 700;
 }
@@ -411,19 +428,19 @@ tbody tr:last-child td { border-bottom: none; }
 .lista-cli {
   max-height: 180px;
   overflow-y: auto;
-  border: 1px solid #EEE;
-  border-radius: 8px;
+  border: 1px solid var(--linha);
+  border-radius: var(--radius-sm);
   margin-top: 4px;
 }
 .lista-scroll-item,
 .lista-cli div {
   padding: 9px;
   cursor: pointer;
-  border-bottom: 1px solid #F0F0F0;
+  border-bottom: 1px solid var(--linha);
 }
 .lista-scroll-item:hover,
 .lista-cli div:hover {
-  background: var(--creme);
+  background: var(--surface-2);
 }
 
 /* Badge com categorias (Financeiro: tag-empresa, tag-pessoal) */
@@ -431,19 +448,19 @@ tbody tr:last-child td { border-bottom: none; }
 .tag-empresa,
 .tag-pessoal {
   padding: 4px 10px;
-  border-radius: 4px;
-  font-size: 0.85rem;
+  border-radius: 6px;
+  font-size: 0.82rem;
   font-weight: 600;
 }
 .badge-empresa,
 .tag-empresa {
-  background: var(--dourado-claro);
-  color: var(--taupe-escuro);
+  background: var(--marca-clara);
+  color: var(--marca-escura);
 }
 .badge-pessoal,
 .tag-pessoal {
-  background: #E0D4E8;
-  color: #6B4E8A;
+  background: #ece7f3;
+  color: #6b4e8a;
 }
 
 @media (max-width: 1024px) {
@@ -468,7 +485,7 @@ tbody tr:last-child td { border-bottom: none; }
   cursor: pointer; transition: background 0.13s, color 0.13s;
 }
 .config-subnav-item:hover { background: var(--surface-2); color: var(--tinta); }
-.config-subnav-item.ativo { background: var(--marrom-suave); color: var(--marrom-escuro); font-weight: 600; }
+.config-subnav-item.ativo { background: var(--marca-clara); color: var(--marca-escura); font-weight: 600; }
 .config-paineis { flex: 1; min-width: 0; }
 
 /* ============================================================

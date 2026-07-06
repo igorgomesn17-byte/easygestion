@@ -36,7 +36,7 @@
 </head>
 <body>
   <div class="auth-card">
-    <div class="logo">📧</div>
+    <div class="logo"></div>
     <h1>Verifique seu Email</h1>
 
     <div class="auth-status">
@@ -47,7 +47,7 @@
 
     <div class="auth-botoes">
       <button class="auth-btn-primary" id="btnReenviar" onclick="reenviarVerificacao()">
-        📬 Reenviar Email
+        Reenviar Email
       </button>
       <button class="auth-btn-secondary" onclick="window.location.href='/login.html'">
         Já verifiquei, ir para login
@@ -93,7 +93,7 @@
 
         const data = await resp.json();
         if (resp.ok) {
-          mostrarMensagem('✓ Email reenviado com sucesso! Verifique sua caixa de entrada.', 'success');
+          mostrarMensagem('Email reenviado com sucesso! Verifique sua caixa de entrada.', 'success');
         } else {
           mostrarMensagem(data.erro || 'Erro ao reenviar email', 'error');
         }
@@ -101,7 +101,7 @@
         mostrarMensagem('Erro ao conectar com o servidor: ' + e.message, 'error');
       } finally {
         btn.disabled = false;
-        btn.textContent = '📬 Reenviar Email';
+        btn.textContent = 'Reenviar Email';
       }
     }
 
