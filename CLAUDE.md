@@ -1,6 +1,6 @@
 # EasyGestão (DRE Express) — Documentação Técnica Oficial
 
-**Última atualização:** 6 de julho de 2026  
+**Última atualização:** 7 de julho de 2026 (auditoria doc × código)  
 **Status:** ✅ No ar em produção — **2 planos** (Starter/Growth), Enterprise congelado, Stripe em modo TEST
 
 ---
@@ -160,7 +160,7 @@ EASYGESTION/
 │   ├── auditoria.js            # Log de ações administrativas
 │   └── logger-middleware.js      # Logging de requisições
 │
-├── routes/                      # Rotas da API (23 arquivos)
+├── routes/                      # Rotas da API (26 arquivos)
 │   ├── auth.js                 # Login, logout, signup, reset senha
 │   ├── admin.js                # Dashboard SaaS (clientes, planos, bloqueio)
 │   ├── assinaturas.js          # Stripe checkout, portal, status
@@ -213,18 +213,25 @@ EASYGESTION/
 │   ├── estoque.html            # Controle de estoque
 │   ├── caixa.html              # Operação do caixa
 │   ├── clientes.html           # CRM de clientes
-│   ├── financeiro.html         # Dashboard financeiro
-│   ├── dre.html                # DRE (Demonstração de Resultado)
-│   ├── fluxo-caixa.html        # Fluxo de caixa
+│   ├── financeiro.html         # Despesas / contas a pagar / conciliação
+│   ├── fluxo.html              # Fluxo de caixa + DRE + GRÁFICOS (SVG inline)
+│   ├── fluxo-caixa.html        # Fluxo de caixa (regime de caixa, timeline)
 │   ├── assinatura.html         # Detalhes da assinatura
-│   ├── config.html             # Configurações da loja
+│   ├── config.html             # Configurações da loja + vitrine
 │   ├── auditoria.html          # Consulta de logs
-│   ├── css/ds.css              # Design system único (migrado de Bootstrap)
+│   ├── admin-dashboard.html    # Backoffice SaaS (clientes, planos, cobranças)
+│   ├── admin-login.html / admin-2fa*.html  # Login admin + 2FA
+│   ├── landing.html            # Landing pública (marketing, Playfair+Poppins)
+│   ├── vitrine/                # Vitrine pública por slug (index.html, css/, js/)
+│   ├── css/ds.css              # Design system único
 │   ├── img/                    # Logo, ícones, marca
 │   └── [30+ mais templates]
+│   # NOTA: dre.html NÃO existe (o DRE mora em fluxo.html); inbox.html foi deletado
 │
 ├── tests/                       # Testes
-│   └── golden-path.test.js     # Teste de fluxo completo
+│   ├── golden-path.test.js     # Teste de fluxo completo
+│   ├── validadores.test.js     # Testes de validadores
+│   └── cross-tenant.test.js    # Isolamento entre tenants
 │
 ├── scripts/                     # Utilitários
 │   ├── backup.js               # Backup local
@@ -233,7 +240,7 @@ EASYGESTION/
 │
 ├── .github/                     # CI/CD
 │   └── workflows/
-│       └── deploy.yml          # GitHub Actions (build + deploy Render)
+│       └── deploy.yml          # EC2/PM2 (mas deploy é MANUAL via SSH — ver seção Deploy)
 │
 └── docs/                        # Documentação
     ├── STRIPE-SETUP.md         # Guia de setup Stripe
@@ -359,19 +366,9 @@ EASYGESTION/
 - Token da Focus ainda em teste (precisa validação)
 - Alguns campos extras do XML podem estar faltando
 
-### ✅ Inbox Omnichannel
+### ❌ Inbox Omnichannel — REMOVIDO da vitrine (não é prioridade)
 
-| Funcionalidade | Status | Arquivos |
-|---|---|---|
-| Receber mensagens WhatsApp (Meta Cloud API) | 🟡 | routes/webhooks.js, lib/email.js |
-| Receber mensagens Instagram (Meta Cloud API) | 🟡 | routes/webhooks.js |
-| Enviar mensagens WhatsApp | 🟡 | lib/email.js |
-| Conversa organizada por cliente | 🟡 | db/schema.sql (conversas table) |
-| Histórico de mensagens | 🟡 | db/schema.sql (mensagens table) |
-| Kanban de estágios (novo, negociando, comprou, não levou) | 🟡 | public/inbox.html |
-| Tags e follow-ups | 🟡 | db/schema.sql |
-
-**Status Inbox:** Em desenvolvimento. Estrutura pronta, integração parcial com Meta.
+**Status:** A tela `public/inbox.html` foi **deletada** e o Inbox saiu do produto (decisão de monetização 04/07). Sobram resquícios NÃO usados no código: `lib/inbox.js` está **órfão** (não é importado por ninguém), e as tabelas `conversas`, `mensagens`, `conversa_followups`, `conversa_tags` continuam no `db/schema.sql` (inofensivas, mas mortas). Os webhooks Meta (`routes/webhooks.js`) e `lib/meta.js` existem mas o fluxo de inbox não está plugado em nenhuma UI. **Não recomendar nem construir em cima disso sem antes decidir religar o Inbox.**
 
 ### ✅ Vitrine Pública (Loja Online)
 
@@ -478,11 +475,8 @@ EASYGESTION/
 #### NFC-e
 - **nfce** — Uma linha por emissão (venda_id, status, número, chave, DANFE)
 
-#### Inbox
-- **conversas** — Thread por cliente+canal (WhatsApp, Instagram)
-- **mensagens** — Log append-only de mensagens
-- **conversa_followups** — Lembretes agendados
-- **conversa_tags** — Tags livres (ex: "interessada vestido")
+#### Inbox (tabelas mortas — Inbox foi removido)
+- **conversas**, **mensagens**, **conversa_followups**, **conversa_tags** — ainda existem no schema mas NÃO são usadas (o Inbox saiu do produto). Não construir em cima delas sem decisão de religar o Inbox.
 
 #### Usuários
 - **usuarios** — Login multiusuário (nome, email, senha_hash, papel, tenant_id)
@@ -1074,10 +1068,10 @@ pm2 delete easygestion
 ### 🔴 Não Implementado
 
 - Mobile app (web-only por enquanto)
-- Relatórios avançados (gráficos, exportação)
 - Sincronização com ERPs
 - Marketplace integrado
 - API pública para clientes
+- Relatórios avançados por canal/coleção/vendedor e curva ABC: os ENDPOINTS existem em `routes/financeiro.js` (gated no Growth) mas **não têm tela** que os consuma ainda
 
 ---
 
@@ -1111,7 +1105,7 @@ pm2 delete easygestion
 ### ✅ Bug 6 — Política de Cancelamento
 - **Problema:** Cancelamento bloqueava imediatamente (deveria permitir acesso até `data_proxima_renovacao`)
 - **Solução:** Modificar `obterStatusAssinatura()` pra só bloquear quando `dataVencimento <= hoje`
-- **Resultado:** Cliente continua com acesso pelos 30 dias restantes
+- **Resultado:** Cliente continua com acesso até `data_proxima_renovacao`
 
 ## Dívida Técnica Restante
 
@@ -1135,19 +1129,21 @@ pm2 delete easygestion
 
 6. **Inbox parcial** — receber ok, enviar precisa rodar em background job
 7. **CRM sem automação** — régua está pronta mas não é acionada
-8. **Dashboard admin sem gráficos** — só lista textual (nota: a tela `fluxo.html` do lojista já tem gráficos SVG — composição do resultado + despesas por categoria; o admin ainda não)
-9. **Relatórios sem exportação** — sem CSV/PDF
+8. **Dashboard admin sem gráficos** — só lista textual (a tela `fluxo.html` do lojista já tem gráficos SVG; o backoffice admin ainda não)
+9. **Exportação parcial** — CSV existe (`/api/vendas/export.csv` e o botão CSV em `fluxo.html`, ambos gated no Growth via `export`); falta PDF e exportação dos relatórios por canal/vendedor
 10. **Sem notificação de churn** — alerta existe mas não envia email/SMS
+11. **`lib/inbox.js` órfão + tabelas de inbox mortas** — resquício do Inbox removido; limpar quando for seguro
 
 ---
 
 ## Roadmap Recomendado
 
-### Phase 1 (1-2 semanas) — Preparar go-live
+> **Nota:** o sistema JÁ está no ar em produção (www.easygestao.com). O bloqueio pra faturar de verdade é virar o Stripe de TEST pra LIVE (ver seção Stripe). Roadmap abaixo é o que falta pra maturidade.
 
-- [ ] Testar fluxo completo em produção (trial → checkout → pago)
-- [ ] Configurar webhook Stripe no dashboard
-- [ ] Rodar teste de carga (100 vendas/dia simultâneas)
+### Phase 1 — Faturar de verdade
+
+- [ ] **Virar Stripe pra LIVE** (chaves `sk_live_`/`pk_live_` + recriar os 4 Prices em modo live)
+- [ ] Testar fluxo completo em produção com pagamento real (trial → checkout → pago)
 - [ ] Backup restauração (testar restore de S3)
 - [ ] Monitorar logs em produção (erro patterns)
 
@@ -1332,4 +1328,18 @@ npm test
 
 ---
 
-**Documento versão 1.4 — Atualizado em 7 de julho de 2026. Trial no Growth; admin muda plano de verdade (com features seguindo). Stripe ainda em modo TEST.**
+## Auditoria doc × código (7 de julho de 2026)
+
+Varredura pra remover o que não existe mais. Corrigido:
+- **Inbox:** o topo dizia "removido" mas havia seção detalhada + tabelas ativas. `public/inbox.html` foi deletado; `lib/inbox.js` está órfão; tabelas de inbox continuam no schema mas mortas. Seção remarcada como ❌ removido.
+- **`dre.html` não existe** — o DRE mora em `fluxo.html` (que também tem os gráficos). Estrutura de pastas corrigida.
+- **`deploy.yml`** é EC2/PM2, não "Render". E o deploy é manual via SSH.
+- **Testes:** são 3 arquivos (golden-path, validadores, cross-tenant), não 1.
+- **Rotas:** 26, não 23.
+- **Relatórios/gráficos/exportação** não são mais "🔴 não implementado" — gráficos no `fluxo.html` e CSV existem; o que falta é tela pros relatórios por canal/vendedor (endpoints existem).
+- **2FA admin CONFIRMADO ativo** no código (login exige TOTP) — a memory que dizia "sem 2FA" é que está desatualizada.
+- Resquícios de trial de 30 dias e preços antigos em bugs/roadmap ajustados.
+
+---
+
+**Documento versão 1.5 — Atualizado em 7 de julho de 2026. Auditoria doc × código: removido o que não existe mais (Inbox, dre.html, deploy Render). Trial no Growth; admin muda plano. Stripe ainda em modo TEST.**
