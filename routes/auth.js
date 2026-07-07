@@ -11,7 +11,7 @@ const { cpf, cnpj } = require('cpf-cnpj-validator');
 const jwt = require('jsonwebtoken');
 const { enviarEmail, templateResetSenha } = require('../lib/email');
 const { gerarSecret, gerarQRCode, validarToken } = require('../lib/2fa');
-const { PLANO_PADRAO, definicaoPlano } = require('../lib/planos');
+const { definicaoPlano } = require('../lib/planos');
 
 // ✅ CRÍTICO: TOKEN_SECRET é obrigatório em produção (sem fallback)
 const TOKEN_SECRET = process.env.TOKEN_SECRET || (process.env.NODE_ENV !== 'production' ? 'dev-secret-change-in-env' : null);
@@ -219,9 +219,11 @@ router.post('/registro', async (req, res) => {
     // Gerar slug único antes de iniciar transação
     const slugUnico = gerarSlugUnico(db, nomeLoja);
 
-    // Todo tenant novo nasce no plano padrão (Starter). O upgrade acontece no
-    // checkout. Preço/limites vêm da fonte única lib/planos.js.
-    const planoInicial = PLANO_PADRAO;
+    // Todo tenant novo começa o trial de 14 dias no GROWTH (plano completo) —
+    // assim experimenta tudo (DRE, gráficos, vitrine, relatórios) antes de escolher.
+    // Ao fim do trial, se não assinar, é bloqueado e escolhe o plano na tela de planos.
+    // Preço/limites/features vêm da fonte única lib/planos.js.
+    const planoInicial = 'growth';
     const precoInicial = definicaoPlano(planoInicial).preco_mensal;
 
     const tx = db.transaction(() => {
