@@ -335,7 +335,7 @@ EASYGESTION/
 
 | Funcionalidade | Status | Arquivos |
 |---|---|---|
-| Trial de 14 dias (sem cartão) | ✅ | lib/assinatura.js, routes/auth.js |
+| Trial de 14 dias (sem cartão) — **começa no plano Growth** (completo) | ✅ | lib/assinatura.js, routes/auth.js |
 | Integração Stripe (checkout session) | ✅ | lib/stripe.js, routes/assinaturas.js |
 | Renovação automática (scheduler 3x/dia) | ✅ | lib/renovacao-scheduler.js |
 | Webhook Stripe (subscription_updated, invoice.payment_succeeded) | ✅ | routes/webhooks.js |
@@ -397,7 +397,7 @@ EASYGESTION/
 | Lista de clientes (tenants) | ✅ | routes/admin.js, public/admin-dashboard.html |
 | Status de cada tenant (trial, pago, bloqueado, cancelado) | ✅ | routes/admin.js |
 | Bloqueio manual de tenant | ✅ | routes/admin.js |
-| Upgrade/downgrade de plano | ✅ | routes/admin.js |
+| Upgrade/downgrade manual de plano (modal Starter/Growth + ciclo) | ✅ | routes/admin.js, public/admin-dashboard.html |
 | Login com senha (não OAuth) | ✅ | routes/admin.js, middleware/seguranca.js |
 | Histórico de cobranças por tenant | ✅ | routes/admin.js |
 | Alertas de churn | ✅ | routes/admin.js, lib/alertas.js |
@@ -525,7 +525,12 @@ POST   /api/admin/logout       Logout admin (destroi sessão)
 GET    /api/admin              Dashboard admin + lista de clientes (admin only)
 GET    /api/admin/clientes     Lista de clientes (tenants) com paginação
 GET    /api/admin/clientes/:id Detalhes de um cliente
-PATCH  /api/admin/clientes/:id Bloquear, desbloquear, mudar plano
+PATCH  /api/admin/clientes/:id Bloquear/desbloquear cliente (+ email)
+PATCH  /api/admin/assinaturas/:id Mudar plano manualmente — body { plano, ciclo }.
+                              Valida contra lib/planos.js, deriva o valor de lá, e
+                              atualiza assinaturas.plano E tenants.plano na mesma
+                              transação (senão os gates de feature não seguem).
+                              É ajuste manual — NÃO altera o que o Stripe cobra.
 ```
 
 ### Assinaturas
@@ -864,7 +869,7 @@ UPLOADS_DIR=/data/uploads # Onde salvar fotos de produtos
 5. Usuário clica link (verifica token expira em 24h)
 6. Backend cria entrada em `tenants` table
 7. Usuário é logado automaticamente
-8. Redireciona pra dashboard (trial ativado, 14 dias)
+8. Redireciona pra dashboard (trial ativado, 14 dias, **no plano Growth** — cliente experimenta tudo antes de escolher; `routes/auth.js` grava `plano='growth'` em tenants e assinaturas)
 
 ### Login
 
@@ -1318,4 +1323,13 @@ npm test
 
 ---
 
-**Documento versão 1.3 — Atualizado em 6 de julho de 2026. Relançamento com 2 planos, gating real e landing nova. Stripe em modo TEST.**
+## Últimas Mudanças (7 de julho de 2026) — Trial no Growth + Admin conserta plano
+
+**Commits:** `34c386d` (trial no Growth) e `552e674` (admin plano).
+
+- **Trial começa no Growth:** `routes/auth.js` agora grava `plano='growth'` no cadastro (era `PLANO_PADRAO`/starter). Todo tenant novo experimenta o plano completo (DRE, gráficos, vitrine, relatórios) nos 14 dias de teste. Ao fim do trial, comportamento inalterado: bloqueia → tela de planos. Gates e status de trial são ortogonais (`temFeature` lê `tenants.plano`; `obterStatusAssinatura` ignora o nome do plano), então liberar features no trial não afeta o bloqueio. Tenants existentes não mudaram.
+- **Admin "Alterar plano" consertado:** o botão do `admin-dashboard.html` estava com planos antigos (basico/crescimento/profissional) e preços errados, e o `PATCH /assinaturas/:id` só atualizava `assinaturas.plano` — não `tenants.plano` (que os gates leem), deixando features inconsistentes. Agora: modal com seletor Starter/Growth + ciclo, valor derivado de `lib/planos.js`, e atualiza as DUAS tabelas na mesma transação. É ajuste manual/administrativo — **não** altera o que o Stripe cobra (pra cortesia/suporte, não pra cobrança real).
+
+---
+
+**Documento versão 1.4 — Atualizado em 7 de julho de 2026. Trial no Growth; admin muda plano de verdade (com features seguindo). Stripe ainda em modo TEST.**
