@@ -11,6 +11,21 @@
     .dre-linha.destaque { font-weight:700; font-size:1.05rem; border-top:2px solid var(--dourado-claro); border-bottom:none; }
     .dre-linha.resultado { font-weight:700; font-size:1.25rem; border-top:2px solid var(--taupe); margin-top:4px; }
     .barra-cat { height:14px; background:var(--dourado); border-radius:8px; }
+
+    /* --- Gráfico de composição do resultado (barra empilhada horizontal) --- */
+    .comp-barra { display:flex; width:100%; height:34px; border-radius:8px; overflow:hidden; background:var(--surface-alt); margin:6px 0 18px; }
+    .comp-seg { height:100%; position:relative; transition:opacity .15s; }
+    .comp-seg + .comp-seg { box-shadow:inset 2px 0 0 var(--surface); } /* gap de 2px entre fills */
+    .comp-seg:hover { opacity:.82; }
+    .comp-legenda { display:flex; flex-wrap:wrap; gap:8px 16px; }
+    .comp-item { display:flex; align-items:center; gap:7px; font-size:0.86rem; }
+    .comp-bolinha { width:11px; height:11px; border-radius:3px; flex-shrink:0; }
+    .comp-item .cval { color:var(--tinta-2); }
+    .comp-legenda-sobra { margin-top:10px; padding-top:10px; border-top:1px solid var(--linha); }
+    /* barra de categoria com rótulo de % */
+    .cat-linha { margin-bottom:12px; }
+    .cat-topo { display:flex; justify-content:space-between; font-size:0.9rem; margin-bottom:3px; }
+    .cat-pct { color:var(--tinta-3); font-size:0.8rem; margin-left:6px; }
   </style>
 </head>
 <body>
@@ -31,8 +46,15 @@
       <div class="card card-metrica"><div class="valor dinheiro texto-vermelho" id="fApagar">R$ 0</div><div class="rotulo">Ainda a pagar</div></div>
     </div>
 
+    <div class="card" id="cardComposicao" style="display:none;">
+      <h2 style="margin-top:0;">Cada R$ 100 que entraram, foram pra onde?</h2>
+      <p class="texto-cinza" style="margin-top:-6px; font-size:0.86rem;">A régua abaixo mostra como sua receita se divide entre custos, despesas e o que sobrou.</p>
+      <div class="comp-barra" id="compBarra"></div>
+      <div class="comp-legenda" id="compLegenda"></div>
+    </div>
+
     <div class="cards-grid" style="grid-template-columns:1fr 1fr;">
-      
+
       <div class="card">
         <h2 style="margin-top:0;">DRE — Resultado do mês</h2>
         <div id="dre"><div class="texto-cinza">Carregando...</div></div>
@@ -89,15 +111,57 @@
           : dre.resultado_final < 0 ? '<div class="card mt" style="background:#FFF3CD;border-left:4px solid var(--dourado);"><strong style="color:#7a5d00;">A loja deu lucro, mas as retiradas consumiram tudo.</strong> A operação é saudável; ajuste o tamanho das retiradas pessoais pra sobrar caixa.</div>'
           : '<div class="card mt" style="background:#E3F4EA;border-left:4px solid var(--verde);"><strong class="texto-verde">Mês no azul</strong> A loja deu lucro e ainda sobrou caixa depois das suas retiradas.</div>'}`;
 
-      // por categoria
+      // gráfico de composição do resultado
+      montarComposicao(dre);
+
+      // por categoria (barras com % da despesa total)
       const cats = fluxo.por_categoria;
+      const totalCat = cats.reduce((s,c)=>s+c.valor, 0) || 1;
       const maxV = cats.length ? Math.max(...cats.map(c=>c.valor)) : 1;
       document.getElementById('porCategoria').innerHTML = cats.length===0
         ? '<div class="texto-cinza">Sem despesas neste mês.</div>'
-        : cats.map(c=>`<div style="margin-bottom:10px;">
-            <div class="flex-entre" style="font-size:0.9rem;"><span>${c.categoria}</span><strong class="dinheiro">${moeda(c.valor)}</strong></div>
+        : cats.map(c=>`<div class="cat-linha">
+            <div class="cat-topo"><span>${c.categoria}<span class="cat-pct">${Math.round(c.valor/totalCat*100)}%</span></span><strong class="dinheiro">${moeda(c.valor)}</strong></div>
             <div class="barra-cat" style="width:${Math.max(c.valor/maxV*100,3)}%;"></div>
           </div>`).join('');
+    }
+
+    // Barra de composição: quebra a receita bruta em fatias (custos → despesas → sobra).
+    // Paleta validada p/ daltonismo + rótulo direto em cada fatia (não depende só de cor).
+    function montarComposicao(dre) {
+      const receita = dre.receita_bruta || 0;
+      const card = document.getElementById('cardComposicao');
+      if (receita <= 0) { card.style.display = 'none'; return; }
+      card.style.display = 'block';
+
+      // Fatias na ordem que o dinheiro "sai" da receita. Sobra = resultado operacional (se positivo).
+      const sobra = Math.max(dre.resultado_operacional || 0, 0);
+      const fatias = [
+        { nome: 'Impostos',        valor: dre.impostos || 0,           cor: '#c0392b' },
+        { nome: 'Custo das peças', valor: dre.cmv || 0,                cor: '#a6791a' },
+        { nome: 'Taxas + comissão',valor: (dre.taxas_cartao||0)+(dre.comissoes||0)+(dre.embalagem||0), cor: '#8e5aa8' },
+        { nome: 'Despesas da loja',valor: (dre.despesas_fixas||0)+(dre.despesas_variaveis||0), cor: '#2f6bd8' },
+        { nome: 'Sobrou',          valor: sobra,                       cor: '#1a8a5a' },
+      ].filter(f => f.valor > 0);
+
+      // largura de cada segmento como % da receita bruta
+      const barra = fatias.map(f => {
+        const pct = f.valor / receita * 100;
+        const rotulo = pct >= 9 ? `<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.74rem;font-weight:600;text-shadow:0 1px 2px rgba(0,0,0,.25);">${Math.round(pct)}%</span>` : '';
+        return `<div class="comp-seg" style="width:${pct}%;background:${f.cor};" title="${f.nome}: ${moeda(f.valor)} (${pct.toFixed(1)}%)">${rotulo}</div>`;
+      }).join('');
+      document.getElementById('compBarra').innerHTML = barra;
+
+      const legenda = fatias.map(f => {
+        const pct = Math.round(f.valor / receita * 100);
+        const ehSobra = f.nome === 'Sobrou';
+        return `<div class="comp-item ${ehSobra?'comp-legenda-sobra':''}" style="${ehSobra?'width:100%;':''}">
+          <span class="comp-bolinha" style="background:${f.cor};"></span>
+          <span>${f.nome}</span>
+          <span class="cval">${moeda(f.valor)} · ${pct}%</span>
+        </div>`;
+      }).join('');
+      document.getElementById('compLegenda').innerHTML = legenda;
     }
 
     function exportar() {

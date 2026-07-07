@@ -1130,7 +1130,7 @@ pm2 delete easygestion
 
 6. **Inbox parcial** — receber ok, enviar precisa rodar em background job
 7. **CRM sem automação** — régua está pronta mas não é acionada
-8. **Dashboard admin sem gráficos** — só lista textual
+8. **Dashboard admin sem gráficos** — só lista textual (nota: a tela `fluxo.html` do lojista já tem gráficos SVG — composição do resultado + despesas por categoria; o admin ainda não)
 9. **Relatórios sem exportação** — sem CSV/PDF
 10. **Sem notificação de churn** — alerta existe mas não envia email/SMS
 
@@ -1310,6 +1310,7 @@ npm test
 - **Gates novos:** DRE + fluxo + relatórios avançados e vitrine pública agora exclusivos do Growth (features `relatorios_avancados` e `vitrine_publica` em `lib/planos.js`). Aplicados em `routes/financeiro.js` (7 rotas) e `routes/vitrine.js` (por slug→plano). Despesas (lançamento) continuam no Starter.
 - **Endpoint público:** `GET /api/assinaturas/planos` (registrado em `server.js` antes do `exigirLogin` + na lista `PUBLICAS` de `middleware/seguranca.js`) serve o catálogo via `planosPublicos()`.
 - **Front:** `planos.html` reescrita com 2 cards que buscam preço da API e mandam `{ plano, ciclo }` no checkout; `config.html` esconde a aba Vitrine no Starter; **`landing.html` refeita do zero** (foco em explicar funcionalidades, mantém Playfair+Poppins/verde+dourado, animações de reveal).
+- **Gráficos (novo):** `fluxo.html` ganhou 2 gráficos SVG inline (sem lib externa — CSP bloqueia CDN): (1) barra de composição do resultado ("cada R$100 foi pra onde") quebrando a receita em impostos/CMV/taxas/despesas/sobra com rótulo direto e paleta validada p/ daltonismo; (2) barras de "para onde foi o dinheiro" com % por categoria. Alimentados pelos dados que `/financeiro/dre` e `/financeiro/fluxo` já retornam.
 
 **Stripe (06/07):** os 4 Prices foram criados no modo **TEST** e validados via API (batem com o código, recorrentes, brl, ativos; checkout session cria com sucesso). Servidor em `sk_test_`/`pk_test_`. **Pra faturar de verdade:** virar chaves + Prices pra LIVE.
 
