@@ -1,34 +1,37 @@
 # EasyGestão (DRE Express) — Documentação Técnica Oficial
 
-**Última atualização:** 4 de julho de 2026  
-**Status:** ✅ Pronto para produção — 3 planos aprovados (Starter/Growth/Enterprise), sem Inbox, NFC-e opcional externo
+**Última atualização:** 6 de julho de 2026  
+**Status:** ✅ No ar em produção — **2 planos** (Starter/Growth), Enterprise congelado, Stripe em modo TEST
 
 ---
 
-## 🎯 ESTRATÉGIA DE MONETIZAÇÃO (FINAL - 04/07/2026)
+## 🎯 ESTRATÉGIA DE MONETIZAÇÃO (ATUAL - 06/07/2026)
 
-**Decisão aprovada por Igor:** 3 planos com modelo otimizado
+**Decisão aprovada por Igor:** relançamento com **2 planos** (Enterprise saiu por hora — congelado no código, fora da vitrine).
 
-| Plano | Preço | Público | Limite | Diferencial |
-|---|---|---|---|---|
-| **STARTER** | R$ 99,90/mês | Loja nova (< R$ 20k) | 1.000 produtos, 1 usuário | PDV + estoque + caixa + financeiro |
-| **GROWTH** | R$ 149,90/mês | Loja crescendo (R$ 20-50k) | 5.000 produtos, 5 usuários | Vale-crédito + gráficos + despesas recorrentes |
-| **ENTERPRISE** | R$ 249,90/mês | Loja madura (> R$ 50k) | Ilimitado | Múltiplas lojas + suporte 24h + API |
+| Plano | Preço/mês | Preço/ano | Público | Limite | Diferencial |
+|---|---|---|---|---|---|
+| **STARTER** | R$ 69,90 | R$ 699,00 | Loja começando | 1.000 produtos, 1 usuário | PDV + estoque com grade + caixa + clientes + **lançamento de despesas** + NFC-e |
+| **GROWTH** | R$ 119,90 | R$ 1.199,00 | Loja crescendo | 5.000 produtos, 5 usuários | **+ DRE + fluxo + relatórios avançados + vitrine online** + vale-crédito + despesas recorrentes + exportação |
+
+**Régua de corte Starter↔Growth (o que sobe pro Growth):**
+- **DRE, fluxo de caixa e relatórios avançados** (curva ABC, por canal, por coleção, por vendedor) — corte seco: no Starter o lojista LANÇA despesas mas NÃO vê o resultado.
+- **Vitrine pública** (loja online por slug) — exclusiva do Growth.
+- Vale-crédito, despesas recorrentes automáticas, exportação CSV, 5 usuários, 5.000 produtos.
+
+**Enterprise:** congelado. Existe em `lib/planos.js` (preços/limites/features + `multiplas_lojas`/`api`) mas fora de `PLANOS_PUBLICOS`. Pra religar, adicionar `'enterprise'` em `PLANOS_PUBLICOS`.
 
 **Mudanças importantes:**
 - ❌ **Inbox:** Removido completamente (não é prioridade)
 - ⚠️ **NFC-e:** Opcional externo (cliente contrata com Focus, custo não é absorvido por Igor)
-- ✅ **Margem:** Aumenta para 75-82% (sem custos absorvidos)
-- ✅ **Timeline:** 3-4 semanas (reduzido de 5-6)
+- 🟡 **Stripe em TEST:** o sistema está no ar mas com chaves `sk_test_`/`pk_test_` — ninguém paga de verdade. Pra faturar, virar chaves + Prices pra LIVE (ver seção Stripe abaixo).
 
-**MRR esperado (100 clientes):** R$ 12.990  
-**ARR esperado:** R$ 155.880  
-**Margem consolidada:** ~78%
+**MRR esperado (100 clientes, mix 60/40):** ~R$ 89,90/cliente médio → ~R$ 8.990/mês
 
 **Documentos de referência:**
-- `RECOMENDACAO_EXECUTIVA_V2.md` — Estratégia final
-- `TAREFAS_DESENVOLVIMENTO.md` — Tarefas a fazer
+- `RECOMENDACAO_EXECUTIVA_V2.md` — Estratégia (histórico, previa 3 planos)
 - `INVENTARIO_COMPLETO_86_FUNCIONALIDADES.md` — Todas as 86 features
+- **Fonte da verdade dos planos:** `lib/planos.js` (preços, limites, features) — sempre importar daqui, nunca hardcodar.
 
 ---
 
@@ -40,7 +43,7 @@
 - **Caixa diário** com conciliação manual
 - **Financeiro** (DRE, fluxo de caixa, despesas)
 - **Clientes** com histórico de compras
-- **Assinaturas** SaaS via Stripe (3 planos: Starter/Growth/Enterprise)
+- **Assinaturas** SaaS via Stripe (2 planos: Starter/Growth; Enterprise congelado)
 - **NFC-e** (opcional, cliente contrata com Focus)
 - **Vitrine pública** com personalização 100% dinâmica (logo, cores, contato, newsletter)
 
@@ -58,20 +61,23 @@
 - **Backup:** AWS S3 (criptografado)
 - **Logging:** Pino
 
-**Modelo de Negócio (3 Planos):**
+**Modelo de Negócio (2 Planos ativos + Enterprise congelado):**
 
-| Aspecto | Starter | Growth | Enterprise |
+| Aspecto | Starter | Growth | ~~Enterprise~~ (congelado) |
 |---|---|---|---|
-| Preço/mês | R$ 99,90 | R$ 149,90 | R$ 249,90 |
-| Preço/ano | R$ 999,00 | R$ 1.349,00 | R$ 2.249,00 |
-| Trial | 14 dias (sem cartão) | 14 dias | 14 dias |
-| Usuários | 1 | 5 | Ilimitados |
-| Produtos | 1.000 | 5.000 | Ilimitado |
-| Vale-crédito | ❌ | ✅ | ✅ |
-| Gráficos/exportação | Básica | Completa | Completa |
-| Múltiplas lojas | ❌ | ❌ | ✅ |
-| Suporte | Email (72h) | Email (72h) | Email 24h + WhatsApp |
-| Público | 60% | 30% | 10% |
+| Preço/mês | R$ 69,90 | R$ 119,90 | ~~R$ 249,90~~ |
+| Preço/ano | R$ 699,00 | R$ 1.199,00 | ~~R$ 2.249,00~~ |
+| Trial | 14 dias (sem cartão) | 14 dias | — |
+| Usuários | 1 | 5 | ~~Ilimitados~~ |
+| Produtos | 1.000 | 5.000 | ~~Ilimitado~~ |
+| Vale-crédito | ❌ | ✅ | — |
+| DRE + fluxo + relatórios | ❌ | ✅ | — |
+| Vitrine pública (loja online) | ❌ | ✅ | — |
+| Despesas recorrentes / exportação | ❌ | ✅ | — |
+| Múltiplas lojas / API | ❌ | ❌ | ~~✅~~ |
+| Suporte | Email (72h) | Email (72h) | — |
+
+> **Gating implementado** (06/07/2026): as travas acima são reais no código, não só marketing. Backend: `exigirFeature('relatorios_avancados')` em `routes/financeiro.js` (DRE/fluxo/curva-abc/por-canal/por-colecao/por-vendedor); vitrine por slug→plano em `routes/vitrine.js`; `exigirDentroDoLimite` em produtos/usuários; `exigirFeature('vale_credito'|'recorrentes'|'export')` nas respectivas rotas. Front: 403 `{upgrade:true}` tratado por `tratarBloqueioDePlano` em `comum.js`; config.html esconde vitrine no Starter.
 
 **Política geral:**
 - Trial: 14 dias sem cartão
@@ -329,7 +335,7 @@ EASYGESTION/
 
 | Funcionalidade | Status | Arquivos |
 |---|---|---|
-| Trial de 30 dias (sem cartão) | ✅ | lib/assinatura.js, routes/auth.js |
+| Trial de 14 dias (sem cartão) | ✅ | lib/assinatura.js, routes/auth.js |
 | Integração Stripe (checkout session) | ✅ | lib/stripe.js, routes/assinaturas.js |
 | Renovação automática (scheduler 3x/dia) | ✅ | lib/renovacao-scheduler.js |
 | Webhook Stripe (subscription_updated, invoice.payment_succeeded) | ✅ | routes/webhooks.js |
@@ -672,11 +678,16 @@ POST   /api/deploy                   Webhook de deploy (git pull + restart)
 - `stripe.subscriptions.cancel()` — Cancelar assinatura
 
 **Variáveis de ambiente:**
-- `STRIPE_SECRET_KEY` — Chave secreta (test/live)
-- `STRIPE_PUBLISHABLE_KEY` — Chave pública
+- `STRIPE_SECRET_KEY` — Chave secreta (test/live). **Atualmente em produção usa `sk_test_`.**
+- `STRIPE_PUBLISHABLE_KEY` — Chave pública (`pk_test_` em produção)
 - `STRIPE_WEBHOOK_SECRET` — Assinatura do webhook
-- `STRIPE_PRICE_MENSAL` — Price ID do plano mensal
-- `STRIPE_PRICE_ANUAL` — Price ID do plano anual
+- `STRIPE_PRICE_STARTER_MENSAL` / `STRIPE_PRICE_STARTER_ANUAL` — Price IDs do Starter (69,90 / 699,00)
+- `STRIPE_PRICE_GROWTH_MENSAL` / `STRIPE_PRICE_GROWTH_ANUAL` — Price IDs do Growth (119,90 / 1.199,00)
+- `STRIPE_PRICE_MENSAL` / `STRIPE_PRICE_ANUAL` — legado; se as vars STARTER não existirem, viram fallback do Starter (ver `lib/stripe.js:24-25`)
+
+**Matriz de Price IDs:** `lib/stripe.js` resolve `PRICE_IDS[tier][ciclo]` via `priceIdDe(tier, ciclo)`. Enterprise tem `STRIPE_PRICE_ENTERPRISE_*` (não configurado — plano congelado).
+
+**⚠️ Modo test vs live:** um Price criado no modo LIVE não é visível por uma chave `sk_test_` (e vice-versa). Erro típico: *"a similar object exists in live mode, but a test mode key was used"*. Ao virar pra live, recriar os 4 Prices no modo live e trocar as 3 chaves juntas.
 
 **Webhook esperado:** evento `checkout.session.completed` → cria assinatura no banco
 
@@ -781,11 +792,13 @@ ADMIN_EMAIL=admin@easygestao.com  # Email do admin inicial (opcional, usa fallba
 ### Assinaturas/Stripe
 
 ```env
-STRIPE_SECRET_KEY=sk_live_...
-STRIPE_PUBLISHABLE_KEY=pk_live_...
-STRIPE_WEBHOOK_SECRET=whsec_live_...
-STRIPE_PRICE_MENSAL=price_xxx
-STRIPE_PRICE_ANUAL=price_xxx
+STRIPE_SECRET_KEY=sk_live_...        # produção atual usa sk_test_
+STRIPE_PUBLISHABLE_KEY=pk_live_...   # produção atual usa pk_test_
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_PRICE_STARTER_MENSAL=price_xxx   # 69,90/mês
+STRIPE_PRICE_STARTER_ANUAL=price_xxx    # 699,00/ano
+STRIPE_PRICE_GROWTH_MENSAL=price_xxx    # 119,90/mês
+STRIPE_PRICE_GROWTH_ANUAL=price_xxx     # 1.199,00/ano
 ```
 
 ### Email/SendGrid
@@ -851,7 +864,7 @@ UPLOADS_DIR=/data/uploads # Onde salvar fotos de produtos
 5. Usuário clica link (verifica token expira em 24h)
 6. Backend cria entrada em `tenants` table
 7. Usuário é logado automaticamente
-8. Redireciona pra dashboard (trial ativado, 30 dias)
+8. Redireciona pra dashboard (trial ativado, 14 dias)
 
 ### Login
 
@@ -910,16 +923,16 @@ UPLOADS_DIR=/data/uploads # Onde salvar fotos de produtos
 
 ### Assinatura (Trial → Pago)
 
-1. **Dias 1-30:** Trial ativo, acesso 100%, nenhuma restrição
-2. **Dia 31:** Trial expira
+1. **Dias 1-14:** Trial ativo, acesso 100%, nenhuma restrição
+2. **Dia 15:** Trial expira
    - `middleware/seguranca.js` detecta `trial_expirado`
    - Redireciona pra `/planos.html`
-3. Usuário escolhe plano (R$ 149/mês)
-4. Clica "Contratar Agora"
+3. Usuário escolhe plano (Starter R$ 69,90 ou Growth R$ 119,90) e ciclo (mensal/anual)
+4. Clica "Contratar"
 5. Frontend:
    - Valida autenticação (`GET /api/me`)
    - Se não logado: redireciona `/login.html?redirect=/planos.html`
-   - Se logado: `POST /api/assinaturas/checkout` com `tipo_plano=mensal`
+   - Se logado: `POST /api/assinaturas/checkout` com `{ plano, ciclo }` (o card escolhido + o toggle)
 6. Backend:
    - Busca tenant_id da sessão
    - Chama `lib/stripe.js criarCheckoutSession()`
@@ -927,14 +940,12 @@ UPLOADS_DIR=/data/uploads # Onde salvar fotos de produtos
 7. Frontend redireciona pra Stripe (preenche cartão)
 8. Stripe processa pagamento
 9. Se sucesso: Stripe envia webhook `POST /api/webhooks/stripe`
-10. Backend:
-    - Cria entry em `assinaturas` (plano='mensal', data_proxima_renovacao = hoje + 30 dias)
-    - Cria entry em `cobracas` (status='pago', data_pagamento=hoje)
-    - Marca `tenants.status = 'pago'`
-    - Marca `tenants.data_ativado = hoje`
+10. Backend (`processarWebhookStripe` em `lib/stripe.js`):
+    - Grava em `assinaturas`: `plano` = TIER (starter/growth), `valor_mensal` normalizado, `data_proxima_renovacao` = hoje + 30 (mensal) ou + 365 (anual)
+    - Marca `tenants.status = 'ativo'` e `tenants.plano = <tier>` (fonte que os gates leem)
 11. Usuário redireciona pra `/index.html` (acesso restaurado)
-12. **Dia 60:** Scheduler tenta renovar (webhook de `subscription_updated` de novo)
-13. Se falhar: `tenants.status = 'vencida'` → bloqueado
+12. **Próximo ciclo:** webhook `invoice.payment_succeeded` renova; scheduler 3x/dia é backup
+13. Se falhar: após tentativas, `tenants.status = 'bloqueado'`
 
 ### Renovação Automática (Scheduler)
 
@@ -1290,4 +1301,20 @@ npm test
 
 ---
 
-**Documento versão 1.2 — Atualizado em 5 de julho de 2026. Vitrine pública 100% funcional e personalizável.**
+## Últimas Mudanças (6 de julho de 2026) — Relançamento 2 Planos
+
+**Commit:** `7b0393f` — "Planos: 2 planos (Starter 69,90 / Growth 119,90) + gates DRE/vitrine + landing nova"
+
+**O que mudou:**
+- **Preços:** Starter R$ 99,90 → **R$ 69,90** (R$ 699/ano); Growth R$ 149,90 → **R$ 119,90** (R$ 1.199/ano). Enterprise congelado (fora de `PLANOS_PUBLICOS` em `lib/planos.js`).
+- **Gates novos:** DRE + fluxo + relatórios avançados e vitrine pública agora exclusivos do Growth (features `relatorios_avancados` e `vitrine_publica` em `lib/planos.js`). Aplicados em `routes/financeiro.js` (7 rotas) e `routes/vitrine.js` (por slug→plano). Despesas (lançamento) continuam no Starter.
+- **Endpoint público:** `GET /api/assinaturas/planos` (registrado em `server.js` antes do `exigirLogin` + na lista `PUBLICAS` de `middleware/seguranca.js`) serve o catálogo via `planosPublicos()`.
+- **Front:** `planos.html` reescrita com 2 cards que buscam preço da API e mandam `{ plano, ciclo }` no checkout; `config.html` esconde a aba Vitrine no Starter; **`landing.html` refeita do zero** (foco em explicar funcionalidades, mantém Playfair+Poppins/verde+dourado, animações de reveal).
+
+**Stripe (06/07):** os 4 Prices foram criados no modo **TEST** e validados via API (batem com o código, recorrentes, brl, ativos; checkout session cria com sucesso). Servidor em `sk_test_`/`pk_test_`. **Pra faturar de verdade:** virar chaves + Prices pra LIVE.
+
+**Verificação em produção:** health 200; `/api/assinaturas/planos` retorna os 2 planos com preços novos; landing nova servindo; `easygestion` online no PM2.
+
+---
+
+**Documento versão 1.3 — Atualizado em 6 de julho de 2026. Relançamento com 2 planos, gating real e landing nova. Stripe em modo TEST.**
