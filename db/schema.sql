@@ -704,9 +704,12 @@ CREATE INDEX IF NOT EXISTS idx_tokens_usuario ON tokens_verificacao(usuario_id);
 -- ============================================================
 -- ALERTAS_CLIENTES (Observabilidade de risco de churn)
 -- ============================================================
+-- tenant_id NÃO é UNIQUE sozinho: um tenant pode ter vários alertas ativos ao
+-- mesmo tempo (ex.: atraso_pagamento E inativo simultaneamente). A unicidade
+-- real é por (tenant_id, tipo) enquanto não resolvido — ver índice abaixo.
 CREATE TABLE IF NOT EXISTS alertas_clientes (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  tenant_id INTEGER NOT NULL UNIQUE,
+  tenant_id INTEGER NOT NULL,
   tipo TEXT NOT NULL,                      -- 'atraso_pagamento', 'inativo', 'nunca_usou', 'erro_integracao', 'suporte_aberto'
   dias_sem_atividade INTEGER DEFAULT 0,    -- quantos dias sem login/uso
   valor_em_risco REAL DEFAULT 0,           -- MRR desse cliente em risco

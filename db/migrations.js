@@ -455,6 +455,56 @@ function executarMigrations(db) {
           db.exec(`ALTER TABLE tenants ADD COLUMN onboarding_estado TEXT NOT NULL DEFAULT '{"etapa":"identidade","concluido":false,"pulado":false,"banner_dispensado":false}';`);
         }
       }
+    },
+    {
+      nome: '023_fix_alertas_clientes_unique_constraint',
+      hash: 'v23-alertas-tenant-tipo-unique',
+      exec: (db) => {
+        // BUG: tenant_id era UNIQUE sozinho, mas lib/alertas.js gera um alerta por
+        // (tenant_id, tipo) — um tenant pode estar 'atraso_pagamento' E 'inativo' ao
+        // mesmo tempo. O INSERT do segundo tipo violava o UNIQUE e o scheduler
+        // logava "UNIQUE constraint failed: alertas_clientes.tenant_id" toda vez
+        // que rodava. Recria a tabela sem o UNIQUE solto na coluna e adiciona um
+        // índice único parcial em (tenant_id, tipo) só para alertas ainda ativos
+        // (resolvido_em IS NULL), que é a unicidade real que o código espera.
+        try {
+          const constraintAntigo = db.prepare(`
+            SELECT sql FROM sqlite_master
+            WHERE type='table' AND name='alertas_clientes' AND sql LIKE '%tenant_id INTEGER NOT NULL UNIQUE%'
+          `).get();
+          if (constraintAntigo) {
+            db.exec(`
+              CREATE TABLE alertas_clientes_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tenant_id INTEGER NOT NULL,
+                tipo TEXT NOT NULL,
+                dias_sem_atividade INTEGER DEFAULT 0,
+                valor_em_risco REAL DEFAULT 0,
+                dias_atraso INTEGER DEFAULT 0,
+                mensagem TEXT,
+                criado_em TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+                resolvido_em TEXT,
+                FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+              );
+              INSERT INTO alertas_clientes_new SELECT id, tenant_id, tipo, dias_sem_atividade, valor_em_risco, dias_atraso, mensagem, criado_em, resolvido_em FROM alertas_clientes;
+              DROP TABLE alertas_clientes;
+              ALTER TABLE alertas_clientes_new RENAME TO alertas_clientes;
+              CREATE INDEX IF NOT EXISTS idx_alertas_tipo ON alertas_clientes(tipo);
+              CREATE INDEX IF NOT EXISTS idx_alertas_ativo ON alertas_clientes(resolvido_em);
+              CREATE INDEX IF NOT EXISTS idx_alertas_tenant ON alertas_clientes(tenant_id);
+            `);
+          }
+          // Índice único parcial: só um alerta ATIVO por (tenant_id, tipo).
+          // Idempotente — roda mesmo se a tabela já tiver sido recriada acima.
+          db.exec(`
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_alertas_tenant_tipo_ativo
+            ON alertas_clientes(tenant_id, tipo) WHERE resolvido_em IS NULL;
+          `);
+        } catch (e) {
+          console.error('Migration 023 (alertas_clientes) falhou:', e.message);
+          throw e;
+        }
+      }
     }
   ];
 
