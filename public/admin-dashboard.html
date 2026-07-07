@@ -252,10 +252,30 @@
     <div class="admin-modal-content">
       <h3>Detalhes do Cliente</h3>
       <div id="modal-body">
-        
+
       </div>
       <div class="admin-modal-actions">
         <button class="btn btn-secondary" onclick="fecharModal()">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="admin-modal" id="modal-plano">
+    <div class="admin-modal-content">
+      <h3>Alterar plano do cliente</h3>
+      <p style="font-size:13px;">O plano e as funcionalidades (DRE, vitrine, etc.) mudam na hora. Não gera cobrança no Stripe — é ajuste manual.</p>
+      <input type="hidden" id="editPlanoAssinaturaId">
+      <label style="display:block;margin:14px 0 5px;font-weight:600;font-size:14px;">Plano</label>
+      <select id="editPlanoSelect" style="width:100%;padding:9px;border:1px solid #ccc;border-radius:6px;" onchange="atualizarPreviaPlano()"></select>
+      <label style="display:block;margin:14px 0 5px;font-weight:600;font-size:14px;">Ciclo</label>
+      <select id="editPlanoCiclo" style="width:100%;padding:9px;border:1px solid #ccc;border-radius:6px;" onchange="atualizarPreviaPlano()">
+        <option value="mensal">Mensal</option>
+        <option value="anual">Anual</option>
+      </select>
+      <p id="editPlanoPrevia" style="margin-top:14px;font-size:14px;color:#333;"></p>
+      <div class="admin-modal-actions">
+        <button class="btn btn-secondary" onclick="document.getElementById('modal-plano').classList.remove('show')">Cancelar</button>
+        <button class="btn btn-primary" onclick="salvarPlano()">Salvar</button>
       </div>
     </div>
   </div>
@@ -756,18 +776,52 @@
       carregarAssinaturas();
     }
 
-    function editarAssinatura(id, planoAtual) {
-      const novoPlano = prompt(`Editar plano (atual: ${planoAtual}):\nOpciones: basico, crescimento, profissional`, planoAtual);
-      if (!novoPlano || novoPlano === planoAtual) return;
+    // Catálogo de planos (Starter/Growth) buscado uma vez da fonte da verdade.
+    let CATALOGO_PLANOS = [];
+    async function garantirCatalogoPlanos() {
+      if (CATALOGO_PLANOS.length) return;
+      try {
+        const r = await fetch('/api/assinaturas/planos', { credentials: 'include' });
+        const d = await r.json();
+        CATALOGO_PLANOS = d.planos || [];
+      } catch (e) { CATALOGO_PLANOS = []; }
+    }
 
-      const valorPlano = { basico: 99, crescimento: 149, profissional: 299 }[novoPlano];
-      if (!valorPlano) { alert('Plano inválido'); return; }
+    async function editarAssinatura(id, planoAtual) {
+      await garantirCatalogoPlanos();
+      if (!CATALOGO_PLANOS.length) { alert('Não foi possível carregar os planos. Recarregue a página.'); return; }
 
+      const sel = document.getElementById('editPlanoSelect');
+      sel.innerHTML = CATALOGO_PLANOS.map(p => `<option value="${p.id}">${p.nome}</option>`).join('');
+      // Pré-seleciona o plano atual, se for um dos vendáveis
+      if (CATALOGO_PLANOS.some(p => p.id === planoAtual)) sel.value = planoAtual;
+      document.getElementById('editPlanoCiclo').value = 'mensal';
+      document.getElementById('editPlanoAssinaturaId').value = id;
+      atualizarPreviaPlano();
+      document.getElementById('modal-plano').classList.add('show');
+    }
+
+    function atualizarPreviaPlano() {
+      const plano = CATALOGO_PLANOS.find(p => p.id === document.getElementById('editPlanoSelect').value);
+      const ciclo = document.getElementById('editPlanoCiclo').value;
+      if (!plano) return;
+      const valor = ciclo === 'anual'
+        ? `R$ ${plano.preco_anual.toLocaleString('pt-BR',{minimumFractionDigits:2})}/ano`
+        : `R$ ${plano.preco_mensal.toLocaleString('pt-BR',{minimumFractionDigits:2})}/mês`;
+      document.getElementById('editPlanoPrevia').textContent = `Cliente ficará no ${plano.nome} — ${valor}.`;
+    }
+
+    function salvarPlano() {
+      const id = document.getElementById('editPlanoAssinaturaId').value;
+      const plano = document.getElementById('editPlanoSelect').value;
+      const ciclo = document.getElementById('editPlanoCiclo').value;
       fetchAdmin(`/assinaturas/${id}`, {
         method: 'PATCH',
-        body: JSON.stringify({ plano: novoPlano, valor_mensal: valorPlano })
+        body: JSON.stringify({ plano, ciclo })
       }).then(res => res.json()).then(data => {
-        alert(data.mensagem || 'Assinatura atualizada');
+        if (data.erro) { alert('Erro: ' + data.erro); return; }
+        alert(data.mensagem || 'Plano atualizado');
+        document.getElementById('modal-plano').classList.remove('show');
         carregarAssinaturas();
       }).catch(err => alert('Erro: ' + err.message));
     }

@@ -15,6 +15,7 @@ const { exigirPapel, verificarSenha, hashSenha, limiteAdminPassword } = require(
 const { auditarAcao, buscarAuditoria } = require('../middleware/auditoria');
 const { enviarEmail, templateContaBloqueada, templateContaReativada } = require('../lib/email');
 const { obterStatusAssinatura } = require('../lib/assinatura');
+const { definicaoPlano, normalizarPlano, PLANOS } = require('../lib/planos');
 const router = express.Router();
 
 // --- Middleware: só admin acessa o backoffice ---
@@ -670,11 +671,22 @@ router.get('/assinaturas', exigirAdminBackoffice, (req, res) => {
 router.patch('/assinaturas/:id', exigirAdminBackoffice, (req, res) => {
   try {
     const assinaturaId = parseInt(req.params.id, 10);
-    const { plano, valor_mensal } = req.body;
+    const { plano: planoBruto, ciclo = 'mensal' } = req.body;
 
-    if (!plano || !valor_mensal) {
-      return res.status(400).json({ erro: 'Plano e valor_mensal obrigatórios' });
+    // Valida o plano contra a fonte única (lib/planos.js). Só aceita tiers reais.
+    if (!planoBruto || !PLANOS[normalizarPlano(planoBruto)] || normalizarPlano(planoBruto) !== String(planoBruto).toLowerCase()) {
+      return res.status(400).json({ erro: `Plano inválido. Use: ${Object.keys(PLANOS).join(', ')}` });
     }
+    const plano = normalizarPlano(planoBruto);
+    if (!['mensal', 'anual'].includes(ciclo)) {
+      return res.status(400).json({ erro: 'Ciclo inválido (use "mensal" ou "anual")' });
+    }
+
+    // Valor NUNCA vem do front — deriva da fonte da verdade. Anual é normalizado por mês.
+    const def = definicaoPlano(plano);
+    const valorMensal = ciclo === 'anual'
+      ? Math.round((def.preco_anual / 12) * 100) / 100
+      : def.preco_mensal;
 
     // Buscar assinatura
     const antes = db.prepare('SELECT * FROM assinaturas WHERE id = ?').get(assinaturaId);
@@ -682,14 +694,16 @@ router.patch('/assinaturas/:id', exigirAdminBackoffice, (req, res) => {
       return res.status(404).json({ erro: 'Assinatura não encontrada' });
     }
 
-    // Atualizar
-    const result = db.prepare(
-      'UPDATE assinaturas SET plano = ?, valor_mensal = ? WHERE id = ?'
-    ).run(plano, valor_mensal, assinaturaId);
-
-    if (result.changes === 0) {
-      return res.status(404).json({ erro: 'Assinatura não encontrada' });
-    }
+    // Atualizar assinatura E tenant na mesma transação. CRÍTICO: os gates de feature
+    // (temFeature) leem tenants.plano — sem atualizar as duas, o plano muda mas as
+    // features (DRE, vitrine, etc) não seguem, deixando o cliente inconsistente.
+    const tx = db.transaction(() => {
+      db.prepare('UPDATE assinaturas SET plano = ?, valor_mensal = ? WHERE id = ?')
+        .run(plano, valorMensal, assinaturaId);
+      db.prepare('UPDATE tenants SET plano = ? WHERE id = ?')
+        .run(plano, antes.tenant_id);
+    });
+    tx();
 
     // Buscar dados DEPOIS
     const depois = db.prepare('SELECT * FROM assinaturas WHERE id = ?').get(assinaturaId);
@@ -704,9 +718,9 @@ router.patch('/assinaturas/:id', exigirAdminBackoffice, (req, res) => {
       status: 200
     });
 
-    console.log(`[ADMIN] Assinatura ${assinaturaId} atualizada: ${antes.plano} → ${plano}`);
+    console.log(`[ADMIN] Assinatura ${assinaturaId} (tenant ${antes.tenant_id}): ${antes.plano} → ${plano} (${ciclo}, R$${valorMensal}/mês). tenants.plano também atualizado.`);
 
-    res.json({ sucesso: true, mensagem: 'Assinatura atualizada', assinatura: depois });
+    res.json({ sucesso: true, mensagem: `Plano alterado para ${def.nome} (${ciclo})`, assinatura: depois });
   } catch (err) {
     console.error('[ADMIN] Erro ao atualizar assinatura:', err);
     return res.status(500).json({ erro: 'Erro ao atualizar assinatura' });
