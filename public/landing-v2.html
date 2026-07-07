@@ -1,0 +1,1184 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>EasyGestão · o sistema que mostra se sua loja de moda deu lucro de verdade</title>
+<meta name="description" content="PDV, estoque com grade por tamanho, caixa que fecha e o resultado do mês numa tela só. Feito para loja de moda, em linguagem de gente. 14 dias grátis, sem cartão."/>
+<link rel="canonical" href="https://www.easygestao.com/"/>
+
+<!-- Open Graph / social -->
+<meta property="og:type" content="website"/>
+<meta property="og:title" content="EasyGestão · descubra se sua loja deu lucro de verdade"/>
+<meta property="og:description" content="PDV, estoque com grade, caixa e o resultado do mês numa tela só. Feito para loja de moda. 14 dias grátis, sem cartão."/>
+<meta property="og:url" content="https://www.easygestao.com/"/>
+<meta property="og:image" content="/img/marca/lockup-vertical-color.svg"/>
+<meta property="og:locale" content="pt_BR"/>
+<meta name="twitter:card" content="summary_large_image"/>
+<meta name="twitter:title" content="EasyGestão · descubra se sua loja deu lucro de verdade"/>
+<meta name="twitter:description" content="PDV, estoque com grade, caixa e o resultado do mês numa tela só. Feito para loja de moda."/>
+<meta name="theme-color" content="#0e2e28"/>
+
+<link rel="icon" type="image/png" href="/favicon.png"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;0,800;0,900;1,500;1,600&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+  :root{
+    /* marca: verde/dourado editorial */
+    --verde:#1a6f5e;
+    --verde-esc:#143f37;
+    --verde-prof:#0e2e28;
+    --verde-claro:#e7f3ef;
+    --dourado:#c39a36;
+    --dourado-claro:#e7c878;
+    --dourado-suave:#f3ead6;
+    --creme:#f9fbfa;
+    --creme-2:#f1f6f3;
+    --tinta:#243b35;
+    --tinta-2:#52685f;
+    --tinta-3:#89998f;
+    --linha:#dfe9e4;
+    --branco:#ffffff;
+
+    /* tokens do app (ds.css): usados nas representações fiéis das telas */
+    --app-bg:#f7f8f8;
+    --app-surface:#ffffff;
+    --app-surface-2:#f2f4f3;
+    --app-linha:#e6e9e8;
+    --app-tinta:#1a2420;
+    --app-tinta-2:#5c6763;
+    --app-tinta-3:#98a19d;
+    --app-marca:#157a63;
+    --app-verde:#1a8a5a;
+    --app-verde-bg:#e6f4ec;
+    --app-vermelho:#c0392b;
+    --app-amarelo:#a6791a;
+    --app-azul:#2f6bd8;
+
+    --serif:'Playfair Display',Georgia,serif;
+    --sans:'Poppins',system-ui,sans-serif;
+    --app-font:'Instrument Sans',system-ui,sans-serif;
+    --r:14px;
+    --r-sm:9px;
+    --sombra:0 18px 50px -18px rgba(20,63,55,.28);
+    --sombra-sm:0 6px 20px -8px rgba(20,63,55,.18);
+    --sombra-app:0 24px 60px -24px rgba(14,46,40,.42);
+    --maxw:1140px;
+  }
+
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:var(--sans);
+    color:var(--tinta);
+    background:var(--creme);
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+    overflow-x:hidden;
+  }
+  h1,h2,h3{font-family:var(--serif);line-height:1.1;font-weight:700;color:var(--verde-esc)}
+  a{text-decoration:none;color:inherit}
+  img{max-width:100%;display:block}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+  ::selection{background:var(--dourado-claro);color:var(--verde-prof)}
+
+  /* ---------- BOTÕES ---------- */
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:9px;
+    font-family:var(--sans);font-weight:600;font-size:14.5px;
+    padding:12px 24px;border-radius:999px;cursor:pointer;border:0;
+    transition:transform .18s ease,box-shadow .18s ease,background .18s ease,color .18s ease,border-color .18s ease;
+    white-space:nowrap;
+  }
+  .btn-primary{background:var(--verde);color:#fff;box-shadow:var(--sombra-sm)}
+  .btn-primary:hover{background:var(--verde-esc);transform:translateY(-2px);box-shadow:var(--sombra)}
+  .btn-ghost{background:transparent;color:var(--verde-esc);padding:12px 16px}
+  .btn-ghost:hover{color:var(--verde)}
+  .btn-outline{background:transparent;color:var(--verde-esc);border:1.5px solid var(--linha)}
+  .btn-outline:hover{border-color:var(--verde);color:var(--verde);background:var(--verde-claro)}
+  .btn-lg{padding:16px 32px;font-size:16px}
+  .btn-ouro{background:var(--dourado);color:var(--verde-prof)}
+  .btn-ouro:hover{background:var(--dourado-claro);transform:translateY(-2px)}
+
+  /* ---------- NAV ---------- */
+  .nav{
+    position:sticky;top:0;z-index:60;
+    background:rgba(249,251,250,.82);
+    backdrop-filter:saturate(180%) blur(14px);
+    -webkit-backdrop-filter:saturate(180%) blur(14px);
+    border-bottom:1px solid transparent;
+    transition:border-color .25s ease,background .25s ease;
+  }
+  .nav.scrolled{border-bottom-color:var(--linha);background:rgba(249,251,250,.94)}
+  .nav-in{display:flex;align-items:center;justify-content:space-between;height:70px}
+  .brand{display:flex;align-items:center;gap:11px}
+  .brand img{height:30px;width:auto}
+  .brand .wordmark{font-family:var(--serif);font-weight:800;font-size:21px;color:var(--verde-esc);letter-spacing:-.3px}
+  .brand .wordmark span{color:var(--dourado)}
+  .nav-links{display:flex;align-items:center;gap:30px}
+  .nav-links a{font-size:14.5px;font-weight:500;color:var(--tinta-2);transition:color .18s ease}
+  .nav-links a:hover{color:var(--verde)}
+  .nav-actions{display:flex;align-items:center;gap:8px}
+
+  /* ---------- HERO ---------- */
+  .hero{position:relative;padding:82px 0 78px;overflow:hidden}
+  .hero::before{
+    content:"";position:absolute;inset:0;z-index:-2;
+    background:
+      radial-gradient(58% 48% at 84% 4%,rgba(195,154,54,.16),transparent 68%),
+      radial-gradient(66% 56% at 2% 96%,rgba(26,111,94,.11),transparent 70%);
+  }
+  .hero::after{
+    content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
+    background-image:radial-gradient(rgba(20,63,55,.045) 1px,transparent 1px);
+    background-size:26px 26px;
+    -webkit-mask-image:radial-gradient(75% 60% at 50% 40%,#000,transparent 78%);
+    mask-image:radial-gradient(75% 60% at 50% 40%,#000,transparent 78%);
+  }
+  .hero-grid{display:grid;grid-template-columns:1.02fr .98fr;gap:60px;align-items:center}
+  .eyebrow{
+    display:inline-flex;align-items:center;gap:9px;
+    font-size:12.5px;font-weight:600;letter-spacing:.2px;
+    color:var(--verde-esc);background:var(--branco);border:1px solid var(--linha);
+    padding:7px 15px 7px 9px;border-radius:999px;margin-bottom:24px;box-shadow:var(--sombra-sm);
+  }
+  .eyebrow .pin{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:22px;height:22px;border-radius:50%;background:var(--verde-claro);color:var(--verde);
+  }
+  .hero h1{font-size:clamp(40px,5.6vw,64px);letter-spacing:-1px;margin-bottom:24px;font-weight:800}
+  .hero h1 em{font-style:italic;color:var(--verde);position:relative;white-space:nowrap;font-weight:700}
+  .hero h1 em::after{
+    content:"";position:absolute;left:-2px;right:-2px;bottom:4px;height:11px;
+    background:var(--dourado-claro);opacity:.55;z-index:-1;border-radius:4px;
+    transform:rotate(-.4deg);
+  }
+  .hero .lead{font-size:19px;color:var(--tinta-2);max-width:530px;margin-bottom:34px}
+  .hero-cta{display:flex;flex-wrap:wrap;gap:14px;align-items:center}
+  .hero-note{font-size:13.5px;color:var(--tinta-3);margin-top:20px;display:flex;align-items:center;gap:9px}
+  .hero-note svg{flex-shrink:0;color:var(--verde)}
+
+  /* ============================================================
+     APP FRAME: moldura genérica das telas do sistema (fiel ao ds.css)
+     ============================================================ */
+  .appframe{
+    background:var(--app-surface);border-radius:16px;overflow:hidden;
+    border:1px solid var(--app-linha);box-shadow:var(--sombra-app);
+    font-family:var(--app-font);color:var(--app-tinta);
+  }
+  .appframe.tilt{transform:perspective(1600px) rotateY(-4deg) rotateX(2deg)}
+  .app-topbar{
+    display:flex;align-items:center;gap:8px;height:40px;padding:0 14px;
+    background:var(--app-surface-2);border-bottom:1px solid var(--app-linha);
+  }
+  .app-topbar .dot{width:11px;height:11px;border-radius:50%;background:#d7dcda}
+  .app-topbar .dot.r{background:#e6a6a0}.app-topbar .dot.y{background:var(--dourado-claro)}.app-topbar .dot.g{background:#a9d4c4}
+  .app-url{
+    margin-left:10px;font-size:11.5px;color:var(--app-tinta-3);background:var(--app-surface);
+    border:1px solid var(--app-linha);border-radius:6px;padding:4px 12px;line-height:1;
+  }
+  .app-body{display:flex;min-height:340px}
+  /* sidebar do app */
+  .app-side{
+    width:180px;flex-shrink:0;background:var(--app-surface);border-right:1px solid var(--app-linha);
+    padding:14px 10px;display:flex;flex-direction:column;gap:2px;
+  }
+  .app-side .side-logo{display:flex;align-items:center;gap:8px;padding:4px 8px 14px;font-weight:700;font-size:14px;color:var(--app-marca)}
+  .app-side .side-logo .mk{width:20px;height:20px;border-radius:6px;background:var(--app-marca)}
+  .app-nav{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;font-size:12.5px;color:var(--app-tinta-2);font-weight:500}
+  .app-nav .ic{width:15px;height:15px;flex-shrink:0;opacity:.7}
+  .app-nav.on{background:var(--app-verde-bg);color:var(--app-marca);font-weight:600}
+  .app-nav.on .ic{opacity:1}
+  .app-main{flex:1;padding:20px 22px;background:var(--app-bg);min-width:0}
+  .app-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+  .app-h h4{font-family:var(--app-font);font-size:15px;font-weight:600;color:var(--app-tinta);letter-spacing:-.2px}
+  .app-h .per{font-size:11.5px;color:var(--app-tinta-3);background:var(--app-surface);border:1px solid var(--app-linha);padding:4px 10px;border-radius:6px}
+  .app-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+  .app-metric{background:var(--app-surface);border:1px solid var(--app-linha);border-radius:10px;padding:13px 14px}
+  .app-metric .k{font-size:10.5px;color:var(--app-tinta-3);font-weight:500;margin-bottom:5px;letter-spacing:.2px}
+  .app-metric .v{font-size:19px;font-weight:700;color:var(--app-tinta);letter-spacing:-.4px;font-variant-numeric:tabular-nums}
+  .app-metric .v.pos{color:var(--app-verde)}
+  .app-metric .v.warn{color:var(--app-amarelo)}
+  .app-metric .d{font-size:10.5px;font-weight:600;margin-top:3px}
+  .app-metric .d.up{color:var(--app-verde)}.app-metric .d.down{color:var(--app-vermelho)}
+
+  /* barra de composição de resultado (como fluxo.html) */
+  .app-panel{background:var(--app-surface);border:1px solid var(--app-linha);border-radius:10px;padding:15px 16px}
+  .app-panel .pt{font-size:12px;font-weight:600;color:var(--app-tinta);margin-bottom:3px}
+  .app-panel .ps{font-size:11px;color:var(--app-tinta-3);margin-bottom:12px}
+  .compo{display:flex;height:26px;border-radius:6px;overflow:hidden;margin-bottom:12px}
+  .compo span{display:block;height:100%}
+  .compo .imp{background:#c9a24a}
+  .compo .cmv{background:#6b8f7f}
+  .compo .tax{background:#b98a5e}
+  .compo .desp{background:#a56b60}
+  .compo .sobra{background:var(--app-marca)}
+  .compo-leg{display:flex;flex-wrap:wrap;gap:8px 14px;font-size:10.5px;color:var(--app-tinta-2)}
+  .compo-leg i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+
+  .hero-badge-float{
+    position:absolute;background:var(--app-surface);border:1px solid var(--app-linha);
+    border-radius:12px;box-shadow:var(--sombra-app);padding:11px 14px;font-family:var(--app-font);
+    display:flex;align-items:center;gap:10px;
+  }
+  .hero-badge-float .ico{width:34px;height:34px;border-radius:9px;background:var(--app-verde-bg);display:flex;align-items:center;justify-content:center;color:var(--app-marca);flex-shrink:0}
+  .hero-badge-float .t{font-size:10.5px;color:var(--app-tinta-3);font-weight:500}
+  .hero-badge-float .n{font-size:15px;font-weight:700;color:var(--app-tinta);line-height:1.1;font-variant-numeric:tabular-nums}
+  .hero-visual{position:relative}
+  .hero-badge-float.b1{right:-14px;top:26px;z-index:3}
+  .hero-badge-float.b2{left:-22px;bottom:34px;z-index:3}
+
+  /* ---------- FAIXA DE CONFIANÇA (marquee) ---------- */
+  .faixa{background:var(--verde-prof);color:#cfe3db;padding:20px 0;overflow:hidden;position:relative}
+  /* fade nas bordas pra o loop parecer infinito de verdade */
+  .faixa::before,.faixa::after{content:"";position:absolute;top:0;bottom:0;width:90px;z-index:2;pointer-events:none}
+  .faixa::before{left:0;background:linear-gradient(90deg,var(--verde-prof),transparent)}
+  .faixa::after{right:0;background:linear-gradient(270deg,var(--verde-prof),transparent)}
+  .faixa-track{display:flex;width:max-content;animation:marquee 34s linear infinite}
+  .faixa:hover .faixa-track{animation-play-state:paused}
+  .faixa-item{display:inline-flex;align-items:center;gap:9px;font-size:14px;white-space:nowrap;padding:0 26px;position:relative}
+  /* separador em ponto dourado entre os itens */
+  .faixa-item::after{content:"";position:absolute;right:-3px;top:50%;width:4px;height:4px;border-radius:50%;background:var(--dourado);opacity:.5;transform:translateY(-50%)}
+  .faixa-item svg{color:var(--dourado-claro);flex-shrink:0}
+  .faixa-item b{color:#fff;font-weight:600}
+  @keyframes marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+  /* ---------- SEÇÃO GENÉRICA ---------- */
+  section.blk{padding:92px 0}
+  .sec-head{text-align:center;max-width:660px;margin:0 auto 56px}
+  .sec-head.left{text-align:left;margin-left:0}
+  .sec-tag{
+    display:inline-block;font-size:12.5px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;
+    color:var(--dourado);margin-bottom:14px;
+  }
+  .sec-head h2{font-size:clamp(30px,3.8vw,45px);letter-spacing:-.6px;margin-bottom:16px;font-weight:800}
+  .sec-head h2 em{font-style:italic;color:var(--verde)}
+  .sec-head p{font-size:17.5px;color:var(--tinta-2)}
+
+  /* ---------- DOR ---------- */
+  .dor{background:var(--creme-2)}
+  .dor-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+  .dor-card{
+    background:var(--branco);border:1px solid var(--linha);border-radius:var(--r);padding:30px 26px;
+    position:relative;overflow:hidden;
+  }
+  .dor-card{transition:transform .22s ease,box-shadow .22s ease,border-color .22s ease}
+  .dor-card:hover{transform:translateY(-4px);box-shadow:var(--sombra);border-color:var(--verde-claro)}
+  .dor-card:hover::before{color:var(--dourado-claro)}
+  .dor-card::before{content:"“";position:absolute;top:-18px;right:14px;font-family:var(--serif);font-size:96px;color:var(--verde-claro);line-height:1;transition:color .25s ease}
+  .dor-card .q{font-family:var(--serif);font-style:italic;font-size:20px;color:var(--verde-esc);margin-bottom:10px;position:relative}
+  .dor-card p{font-size:14.5px;color:var(--tinta-2);position:relative}
+  .dor-foot{text-align:center;margin-top:42px;font-size:18px;color:var(--tinta-2)}
+  .dor-foot b{color:var(--verde-esc);font-weight:600;font-style:italic;font-family:var(--serif)}
+
+  /* ---------- FUNCIONALIDADES ---------- */
+  .feat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+  .feat{
+    background:var(--branco);border:1px solid var(--linha);border-radius:var(--r);padding:28px 26px;
+    transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease;
+  }
+  .feat:hover{transform:translateY(-5px);box-shadow:var(--sombra);border-color:var(--verde-claro)}
+  .feat-ico{
+    width:50px;height:50px;border-radius:13px;margin-bottom:18px;
+    background:var(--verde-claro);display:flex;align-items:center;justify-content:center;color:var(--verde);
+    transition:background .22s ease,color .22s ease,transform .22s ease;
+  }
+  .feat:hover .feat-ico{background:var(--verde);color:#fff;transform:scale(1.06) rotate(-3deg)}
+  .feat h3{font-size:19px;margin-bottom:8px;color:var(--tinta)}
+  .feat p{font-size:14.5px;color:var(--tinta-2)}
+  .badge-growth{
+    display:inline-flex;align-items:center;gap:5px;margin-top:14px;font-size:11px;font-weight:600;letter-spacing:.2px;
+    color:var(--dourado);background:var(--dourado-suave);padding:4px 11px;border-radius:999px;
+  }
+  .badge-growth::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--dourado)}
+
+  /* ---------- FLUXO (passo a passo com telas) ---------- */
+  .fluxo{background:var(--branco)}
+  .step{
+    display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center;
+    padding:34px 0;
+  }
+  .step:nth-child(even) .step-visual{order:-1}
+  .step-visual .appframe{transition:transform .3s ease,box-shadow .3s ease}
+  .step-visual .appframe:hover{transform:translateY(-6px);box-shadow:0 30px 70px -28px rgba(14,46,40,.5)}
+  .step-num{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:42px;height:42px;border-radius:12px;background:var(--verde);color:#fff;
+    font-family:var(--serif);font-weight:800;font-size:20px;margin-bottom:18px;box-shadow:var(--sombra-sm);
+  }
+  .step-txt h3{font-size:26px;margin-bottom:12px;letter-spacing:-.4px}
+  .step-txt p{font-size:16px;color:var(--tinta-2);margin-bottom:14px}
+  .step-list{list-style:none;display:flex;flex-direction:column;gap:9px}
+  .step-list li{display:flex;align-items:flex-start;gap:10px;font-size:14.5px;color:var(--tinta)}
+  .step-list li svg{flex-shrink:0;margin-top:3px;color:var(--verde)}
+
+  /* PDV mini-tela */
+  .pdv{font-family:var(--app-font)}
+  .pdv-grid{display:grid;grid-template-columns:1.3fr 1fr;gap:0}
+  .pdv-cat{padding:16px;background:var(--app-bg)}
+  .pdv-search{display:flex;align-items:center;gap:8px;background:var(--app-surface);border:1px solid var(--app-linha);border-radius:8px;padding:9px 12px;font-size:12px;color:var(--app-tinta-3);margin-bottom:12px}
+  .pdv-prods{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .pdv-prod{background:var(--app-surface);border:1px solid var(--app-linha);border-radius:8px;padding:9px;text-align:center;transition:border-color .18s ease,transform .18s ease}
+  .pdv-prod:hover{border-color:var(--app-marca);transform:translateY(-2px)}
+  .pdv-prod .th{height:38px;border-radius:5px;background:linear-gradient(135deg,#eef2f0,#e2e9e5);margin-bottom:6px}
+  .pdv-prod .nm{font-size:9.5px;color:var(--app-tinta-2);line-height:1.2;margin-bottom:2px}
+  .pdv-prod .pr{font-size:11px;font-weight:700;color:var(--app-tinta)}
+  .pdv-cart{background:var(--app-surface);border-left:1px solid var(--app-linha);padding:16px;display:flex;flex-direction:column}
+  .pdv-cart .ct{font-size:12px;font-weight:600;margin-bottom:12px}
+  .pdv-item{display:flex;justify-content:space-between;align-items:center;font-size:11px;padding:8px 0;border-bottom:1px solid var(--app-linha)}
+  .pdv-item .nm{color:var(--app-tinta)}.pdv-item .sz{color:var(--app-tinta-3);font-size:9.5px}
+  .pdv-item .vl{font-weight:600;font-variant-numeric:tabular-nums}
+  .pdv-tot{margin-top:auto;padding-top:12px}
+  .pdv-tot .row{display:flex;justify-content:space-between;font-size:11px;color:var(--app-tinta-2);margin-bottom:5px}
+  .pdv-tot .row.big{font-size:15px;font-weight:700;color:var(--app-tinta);margin-top:6px}
+  .pdv-pgto{display:flex;gap:6px;margin-top:12px}
+  .pdv-pgto span{flex:1;text-align:center;font-size:10px;font-weight:600;padding:7px 0;border-radius:6px;border:1px solid var(--app-linha);color:var(--app-tinta-2)}
+  .pdv-pgto span.on{background:var(--app-marca);color:#fff;border-color:var(--app-marca)}
+
+  /* grade de estoque */
+  .grade{font-family:var(--app-font);padding:18px}
+  .grade-head{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+  .grade-head .th{width:52px;height:52px;border-radius:8px;background:linear-gradient(135deg,#eef2f0,#e2e9e5);flex-shrink:0}
+  .grade-head .nm{font-size:14px;font-weight:600}
+  .grade-head .cd{font-size:11px;color:var(--app-tinta-3)}
+  .grade-tbl{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+  .grade-cell{text-align:center;border:1px solid var(--app-linha);border-radius:7px;padding:8px 0;background:var(--app-surface)}
+  .grade-cell .tam{font-size:10px;color:var(--app-tinta-3);font-weight:600;margin-bottom:3px}
+  .grade-cell .qt{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}
+  .grade-cell.low{background:#fbeceb;border-color:#f2c9c4}
+  .grade-cell.low .qt{color:var(--app-vermelho)}
+  .grade-cell.zero{background:var(--app-surface-2);opacity:.6}
+
+  /* caixa */
+  .cxa{font-family:var(--app-font);padding:18px}
+  .cxa-row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--app-linha);font-size:12.5px}
+  .cxa-row .lb{color:var(--app-tinta-2);display:flex;align-items:center;gap:8px}
+  .cxa-row .lb .tag{width:7px;height:7px;border-radius:2px}
+  .cxa-row .vl{font-weight:600;font-variant-numeric:tabular-nums}
+  .cxa-fim{display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding:14px 16px;background:var(--app-verde-bg);border-radius:10px}
+  .cxa-fim .lb{font-size:13px;font-weight:600;color:var(--app-marca)}
+  .cxa-fim .vl{font-size:18px;font-weight:700;color:var(--app-marca);font-variant-numeric:tabular-nums}
+
+  /* vitrine */
+  .vit{font-family:var(--app-font);background:#fff}
+  .vit-hero{background:linear-gradient(135deg,#2b1d14,#3d2a1c);padding:22px 20px;text-align:center;color:#f6f2e7}
+  .vit-hero .lg{font-family:var(--serif);font-size:20px;font-weight:800;letter-spacing:1px}
+  .vit-hero .sub{font-family:var(--serif);font-style:italic;font-size:12px;opacity:.85;margin-top:4px}
+  .vit-hero .cts{display:flex;justify-content:center;gap:8px;margin-top:12px}
+  .vit-hero .cts span{width:26px;height:26px;border-radius:50%;background:rgba(246,242,231,.15);display:flex;align-items:center;justify-content:center}
+  .vit-prods{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:16px}
+  .vit-prod{transition:transform .18s ease}
+  .vit-prod:hover{transform:translateY(-3px)}
+  .vit-prod .th{aspect-ratio:3/4;border-radius:8px;background:linear-gradient(135deg,#efe7dd,#e2d5c6);margin-bottom:6px}
+  .vit-prod .nm{font-size:10px;color:var(--app-tinta-2);line-height:1.2}
+  .vit-prod .pr{font-size:11px;font-weight:700;color:#3d2a1c}
+
+  /* ---------- DEMONSTRAÇÃO ---------- */
+  .demo{background:var(--verde-prof);color:#eaf3ef;position:relative;overflow:hidden}
+  .demo::before{content:"";position:absolute;top:-20%;left:-10%;width:600px;height:600px;border-radius:50%;background:radial-gradient(circle,rgba(195,154,54,.14),transparent 62%)}
+  .demo .sec-head h2{color:#fff}
+  .demo .sec-head h2 em{color:var(--dourado-claro)}
+  .demo .sec-head .sec-tag{color:var(--dourado-claro)}
+  .demo .sec-head p{color:#bcd4cc}
+  .demo-grid{display:grid;grid-template-columns:1.3fr 1fr;gap:22px;position:relative}
+  .demo-col{display:flex;flex-direction:column;gap:22px}
+  .demo-cap{margin-top:14px}
+  .demo-cap h4{font-family:var(--serif);color:#fff;font-size:19px;margin-bottom:5px}
+  .demo-cap p{color:#a9c6bd;font-size:14px}
+
+  /* ---------- DIFERENCIAIS ---------- */
+  .dif-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:22px}
+  .dif{display:flex;gap:18px;background:var(--branco);border:1px solid var(--linha);border-radius:var(--r);padding:28px 26px;transition:transform .22s ease,box-shadow .22s ease,border-color .22s ease}
+  .dif:hover{transform:translateY(-4px);box-shadow:var(--sombra);border-color:var(--verde-claro)}
+  .dif-ico{flex-shrink:0;width:46px;height:46px;border-radius:12px;background:var(--verde-esc);display:flex;align-items:center;justify-content:center;color:var(--dourado-claro);transition:transform .22s ease,background .22s ease}
+  .dif:hover .dif-ico{transform:scale(1.06);background:var(--verde)}
+  .dif h3{font-size:18px;margin-bottom:7px;color:var(--tinta)}
+  .dif p{font-size:14.5px;color:var(--tinta-2)}
+
+  /* ---------- PLANOS ---------- */
+  .toggle-wrap{display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:40px}
+  .toggle-wrap .lb{font-size:14.5px;font-weight:600;color:var(--tinta-3);cursor:pointer;transition:color .2s}
+  .toggle-wrap .lb.on{color:var(--verde-esc)}
+  .switch{position:relative;width:52px;height:29px;border-radius:999px;background:var(--verde);cursor:pointer;flex-shrink:0;transition:background .2s;border:0}
+  .switch .knob{position:absolute;top:3px;left:3px;width:23px;height:23px;border-radius:50%;background:#fff;transition:transform .22s ease;box-shadow:0 2px 5px rgba(0,0,0,.2)}
+  .switch.anual .knob{transform:translateX(23px)}
+  .eco{font-size:11.5px;font-weight:600;color:var(--verde);background:var(--verde-claro);padding:3px 9px;border-radius:999px}
+  .planos-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:24px;max-width:860px;margin:0 auto;align-items:stretch}
+  .plano{
+    background:var(--branco);border:1px solid var(--linha);border-radius:20px;
+    padding:36px 32px;display:flex;flex-direction:column;position:relative;transition:transform .2s ease,box-shadow .2s ease;
+  }
+  .plano:hover{transform:translateY(-4px);box-shadow:var(--sombra)}
+  .plano.destaque{border:2px solid var(--verde);box-shadow:var(--sombra)}
+  .plano-selo{
+    position:absolute;top:-14px;left:50%;transform:translateX(-50%);
+    background:var(--verde);color:#fff;font-size:12px;font-weight:600;
+    padding:6px 18px;border-radius:999px;letter-spacing:.2px;white-space:nowrap;
+  }
+  .plano-nome{font-family:var(--serif);font-weight:700;font-size:25px;color:var(--verde-esc)}
+  .plano-para{font-size:13.5px;color:var(--tinta-3);margin-bottom:22px;min-height:20px}
+  .plano-preco{display:flex;align-items:baseline;gap:4px;min-height:56px}
+  .plano-preco .cif{font-size:22px;font-weight:600;color:var(--tinta-2);align-self:flex-start;margin-top:8px}
+  .plano-preco .val{font-family:var(--serif);font-weight:800;font-size:54px;color:var(--verde);line-height:1;font-variant-numeric:tabular-nums}
+  .plano-preco .per{font-size:15px;color:var(--tinta-3)}
+  .plano-anual{font-size:13px;color:var(--tinta-3);margin-top:8px;min-height:18px}
+  .plano-anual b{color:var(--verde);font-weight:600}
+  .plano ul{list-style:none;margin:24px 0 28px;display:flex;flex-direction:column;gap:13px;flex:1}
+  .plano li{display:flex;align-items:flex-start;gap:11px;font-size:14.5px;color:var(--tinta)}
+  .plano li svg{flex-shrink:0;margin-top:2px;color:var(--verde)}
+  .plano li.mais{font-weight:600;color:var(--verde-esc)}
+  .plano li.off{color:var(--tinta-3)}
+  .plano li.off svg{color:var(--tinta-3)}
+  .planos-foot{text-align:center;margin-top:34px;font-size:14.5px;color:var(--tinta-2)}
+
+  /* ---------- FAQ ---------- */
+  .faq{background:var(--creme-2)}
+  .faq-list{max-width:780px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+  details.faq-item{
+    background:var(--branco);border:1px solid var(--linha);border-radius:var(--r-sm);
+    padding:4px 24px;transition:box-shadow .2s ease,border-color .2s ease;
+  }
+  details.faq-item[open]{box-shadow:var(--sombra-sm);border-color:var(--verde-claro)}
+  details.faq-item summary{
+    cursor:pointer;list-style:none;padding:20px 0;font-weight:600;font-size:16px;
+    color:var(--verde-esc);display:flex;justify-content:space-between;align-items:center;gap:16px;
+  }
+  details.faq-item summary::-webkit-details-marker{display:none}
+  .plus{flex-shrink:0;width:22px;height:22px;position:relative;transition:transform .25s ease;color:var(--verde)}
+  details.faq-item[open] .plus{transform:rotate(45deg)}
+  details.faq-item .ans{padding:0 0 22px;font-size:15px;color:var(--tinta-2)}
+
+  /* ---------- CTA FINAL ---------- */
+  .cta-final{padding:100px 0}
+  .cta-box{
+    background:linear-gradient(135deg,var(--verde-esc),var(--verde-prof));
+    border-radius:28px;padding:70px 40px;text-align:center;position:relative;overflow:hidden;
+    box-shadow:var(--sombra);
+  }
+  .cta-box::before{content:"";position:absolute;bottom:-42%;left:-8%;width:480px;height:480px;border-radius:50%;background:radial-gradient(circle,rgba(195,154,54,.2),transparent 60%)}
+  .cta-box::after{content:"";position:absolute;top:-40%;right:-6%;width:400px;height:400px;border-radius:50%;background:radial-gradient(circle,rgba(26,111,94,.4),transparent 62%)}
+  .cta-box h2{color:#fff;font-size:clamp(32px,4.2vw,48px);margin-bottom:18px;position:relative;font-weight:800}
+  .cta-box h2 em{font-style:italic;color:var(--dourado-claro)}
+  .cta-box p{color:#bcd4cc;font-size:18px;max-width:540px;margin:0 auto 34px;position:relative}
+  .cta-box .cta-sub{margin-top:20px;font-size:14px;color:#9dbdb2;position:relative}
+
+  /* ---------- FOOTER ---------- */
+  footer{background:var(--verde-prof);color:#8fb3a8;padding:56px 0 32px}
+  .foot-top{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:32px;padding-bottom:36px;border-bottom:1px solid rgba(255,255,255,.08)}
+  .foot-brand img{height:30px;margin-bottom:14px}
+  .foot-brand .foot-logo{font-family:var(--serif);font-weight:800;font-size:20px;color:#fff;margin-bottom:14px}
+  .foot-brand .foot-logo span{color:var(--dourado)}
+  .foot-tag{font-size:14px;max-width:320px;line-height:1.7}
+  .foot-col h5{color:#fff;font-family:var(--sans);font-size:13px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;margin-bottom:16px}
+  .foot-col a{display:block;font-size:14px;margin-bottom:11px;color:#a9c6bd;transition:color .18s}
+  .foot-col a:hover{color:var(--dourado-claro)}
+  .foot-copy{margin-top:26px;font-size:12.5px;color:#6f938a;text-align:center}
+
+  /* ---------- reveal ---------- */
+  .reveal{opacity:0;transform:translateY(24px);transition:opacity .7s ease,transform .7s ease}
+  .reveal.in{opacity:1;transform:none}
+  .reveal.d1{transition-delay:.08s}.reveal.d2{transition-delay:.16s}.reveal.d3{transition-delay:.24s}
+
+  /* ---------- RESPONSIVO ---------- */
+  @media(max-width:980px){
+    .feat-grid{grid-template-columns:repeat(2,1fr)}
+  }
+  @media(max-width:860px){
+    .hero{padding:56px 0 60px}
+    .hero-grid{grid-template-columns:1fr;gap:52px}
+    .appframe.tilt{transform:none}
+    .hero-visual{max-width:520px;margin:0 auto}
+    .hero-badge-float.b2{left:-8px}
+    .dor-grid,.feat-grid,.dif-grid,.planos-grid{grid-template-columns:1fr}
+    .planos-grid{max-width:440px}
+    .step,.demo-grid{grid-template-columns:1fr;gap:34px}
+    .step:nth-child(even) .step-visual{order:0}
+    .app-side{display:none}
+    section.blk{padding:64px 0}
+    .nav-links{display:none}
+    .foot-top{grid-template-columns:1fr 1fr;gap:26px}
+    .foot-brand{grid-column:1/-1}
+  }
+  @media(max-width:520px){
+    .nav-actions .btn-ghost{display:none}
+    .brand .wordmark{font-size:19px}
+    .foot-top{grid-template-columns:1fr}
+    .pdv-grid{grid-template-columns:1fr}
+    .app-cards{grid-template-columns:1fr 1fr}
+  }
+  @media(prefers-reduced-motion:reduce){
+    .reveal{opacity:1;transform:none;transition:none}
+    html{scroll-behavior:auto}
+    .appframe.tilt{transform:none}
+    .faixa-track{animation:none;width:100%;flex-wrap:wrap;justify-content:center;gap:12px 8px}
+    .faixa .faixa-item[aria-hidden="true"]{display:none}
+  }
+</style>
+</head>
+<body>
+
+<!-- ===================== NAV ===================== -->
+<nav class="nav" id="nav">
+  <div class="wrap nav-in">
+    <a href="/" class="brand" aria-label="EasyGestão, início">
+      <img src="/img/marca/logo-easygestion.png" alt="EasyGestão" class="brand-logo" onerror="this.style.display='none';var w=this.parentNode.querySelector('.wordmark');if(w)w.style.display='inline'"/>
+      <span class="wordmark" style="display:none">Easy<span>Gestão</span></span>
+    </a>
+    <div class="nav-links">
+      <a href="#funcionalidades">Funcionalidades</a>
+      <a href="#como-funciona">Como funciona</a>
+      <a href="#planos">Planos</a>
+      <a href="#faq">Perguntas</a>
+    </div>
+    <div class="nav-actions">
+      <a href="/login.html" class="btn btn-ghost">Já tenho conta</a>
+      <a href="/registro.html" class="btn btn-primary">Testar grátis</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ===================== HERO ===================== -->
+<header class="hero">
+  <div class="wrap hero-grid">
+    <div class="hero-txt reveal">
+      <span class="eyebrow">
+        <span class="pin" aria-hidden="true">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        </span>
+        Gestão feita para loja de moda
+      </span>
+      <h1>Sua loja vendeu bem. Mas <em>deu lucro?</em></h1>
+      <p class="lead">O EasyGestão junta PDV, estoque com grade, caixa e financeiro numa tela só. E te mostra, em linguagem de gente, quanto realmente sobrou no fim do mês.</p>
+      <div class="hero-cta">
+        <a href="/registro.html" class="btn btn-primary btn-lg">Testar 14 dias grátis</a>
+        <a href="#como-funciona" class="btn btn-outline btn-lg">Ver como funciona</a>
+      </div>
+      <p class="hero-note">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        Sem cartão pra testar. Cancele quando quiser, sem multa.
+      </p>
+    </div>
+
+    <!-- Representação fiel do painel de Resultado (DRE) -->
+    <div class="hero-visual reveal d1">
+      <div class="appframe tilt" role="img" aria-label="Tela de resultado do mês no EasyGestão, mostrando faturamento, custos, margem e a composição do resultado">
+        <div class="app-topbar" aria-hidden="true">
+          <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+          <span class="app-url">easygestao.com/painel</span>
+        </div>
+        <div class="app-body">
+          <aside class="app-side" aria-hidden="true">
+            <div class="side-logo"><span class="mk"></span>EasyGestão</div>
+            <div class="app-nav"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Painel</div>
+            <div class="app-nav"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v4H3zM3 7v14h18V7"/></svg>PDV</div>
+            <div class="app-nav"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7 12 3 4 7v10l8 4 8-4z"/></svg>Estoque</div>
+            <div class="app-nav on"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 5-6"/></svg>Resultado</div>
+            <div class="app-nav"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>Clientes</div>
+          </aside>
+          <div class="app-main">
+            <div class="app-h">
+              <h4>Resultado do mês</h4>
+              <span class="per">Julho 2026</span>
+            </div>
+            <div class="app-cards">
+              <div class="app-metric"><div class="k">Faturamento</div><div class="v">R$ 41.900</div><div class="d up">▲ 12% vs. jun</div></div>
+              <div class="app-metric"><div class="k">Custos + taxas</div><div class="v">R$ 33.660</div><div class="d down">▼ 3% vs. jun</div></div>
+              <div class="app-metric"><div class="k">Lucro do mês</div><div class="v pos">R$ 8.240</div><div class="d up">margem 19,6%</div></div>
+            </div>
+            <div class="app-panel">
+              <div class="pt">De cada R$ 100 que entraram…</div>
+              <div class="ps">para onde foi o dinheiro em julho</div>
+              <div class="compo" aria-hidden="true">
+                <span class="cmv" style="width:52%"></span>
+                <span class="imp" style="width:7%"></span>
+                <span class="tax" style="width:5%"></span>
+                <span class="desp" style="width:16%"></span>
+                <span class="sobra" style="width:20%"></span>
+              </div>
+              <div class="compo-leg">
+                <span><i class="cmv" style="background:#6b8f7f"></i>Mercadoria 52%</span>
+                <span><i class="imp" style="background:#c9a24a"></i>Imposto 7%</span>
+                <span><i class="tax" style="background:#b98a5e"></i>Taxas 5%</span>
+                <span><i class="desp" style="background:#a56b60"></i>Despesas 16%</span>
+                <span><i class="sobra" style="background:#157a63"></i>Sobrou 20%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="hero-badge-float b1" aria-hidden="true">
+        <span class="ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
+        <span><span class="t">Sobrou no mês</span><br><span class="n">R$ 8.240</span></span>
+      </div>
+      <div class="hero-badge-float b2" aria-hidden="true">
+        <span class="ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7 12 3 4 7v10l8 4 8-4z"/><path d="m8 5 8 4"/></svg></span>
+        <span><span class="t">Estoque em grade</span><br><span class="n">P · M · G · GG</span></span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ===================== FAIXA DE CONFIANÇA (marquee) ===================== -->
+<section class="faixa" aria-label="Garantias">
+  <div class="faixa-track" id="faixaTrack">
+    <span class="faixa-item"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><b>14 dias grátis</b>, sem cartão</span>
+    <span class="faixa-item"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Cancele <b>quando quiser</b></span>
+    <span class="faixa-item"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><b>Backup automático</b> todo dia</span>
+    <span class="faixa-item"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Seus dados <b>protegidos</b></span>
+    <span class="faixa-item"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7 12 3 4 7v10l8 4 8-4z"/></svg>Nascido numa <b>loja de moda de verdade</b></span>
+    <span class="faixa-item"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h18v4H3zM3 7v14h18V7M9 12h6"/></svg>Funciona <b>no navegador</b></span>
+    <!-- cópia idêntica pro loop ser perfeito (invisível pra leitores de tela) -->
+    <span class="faixa-item" aria-hidden="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><b>14 dias grátis</b>, sem cartão</span>
+    <span class="faixa-item" aria-hidden="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Cancele <b>quando quiser</b></span>
+    <span class="faixa-item" aria-hidden="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><b>Backup automático</b> todo dia</span>
+    <span class="faixa-item" aria-hidden="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Seus dados <b>protegidos</b></span>
+    <span class="faixa-item" aria-hidden="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7 12 3 4 7v10l8 4 8-4z"/></svg>Nascido numa <b>loja de moda de verdade</b></span>
+    <span class="faixa-item" aria-hidden="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h18v4H3zM3 7v14h18V7M9 12h6"/></svg>Funciona <b>no navegador</b></span>
+  </div>
+</section>
+
+<!-- ===================== DOR ===================== -->
+<section class="blk dor">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="sec-tag">Soa familiar?</span>
+      <h2>Você trabalha o mês inteiro e no fim não sabe se ganhou</h2>
+      <p>A loja movimenta, o Instagram bomba, mas a conta nunca sobra do jeito que devia. O problema quase nunca é vender. É enxergar o que acontece depois da venda.</p>
+    </div>
+    <div class="dor-grid">
+      <div class="dor-card reveal">
+        <p class="q">"Vendi bastante, cadê o dinheiro?"</p>
+        <p>Faturamento não é lucro. Sem descontar mercadoria, imposto e taxa da maquininha, você comemora um número que já foi embora.</p>
+      </div>
+      <div class="dor-card reveal d1">
+        <p class="q">"Não sei o que tenho no estoque."</p>
+        <p>Vende o vestido no tamanho M sem saber que só restava o GG. Compra de novo o que está encalhado e falta o que gira.</p>
+      </div>
+      <div class="dor-card reveal d2">
+        <p class="q">"O caixa nunca bate."</p>
+        <p>Sangria no caderninho, Pix na conta pessoal, troco de cabeça. No fim do dia, a diferença aparece e você nem sabe de onde veio.</p>
+      </div>
+    </div>
+    <p class="dor-foot">O EasyGestão foi feito pra <b>tirar essas três dúvidas da sua cabeça</b>, todo dia, sem planilha.</p>
+  </div>
+</section>
+
+<!-- ===================== FUNCIONALIDADES ===================== -->
+<section class="blk" id="funcionalidades">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="sec-tag">O que o sistema faz</span>
+      <h2>Tudo que a sua loja precisa, <em>numa tela só</em></h2>
+      <p>Sem palavra difícil, sem menu que ninguém entende. Cada função foi pensada pra rotina de quem vende roupa no balcão.</p>
+    </div>
+    <div class="feat-grid">
+      <div class="feat reveal">
+        <div class="feat-ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M2 10h20M6 18v2M18 18v2"/></svg></div>
+        <h3>PDV completo</h3>
+        <p>Venda com código de barras, calcule taxa da maquininha, imposto e comissão automaticamente. Divida o pagamento (Pix + cartão) e imprima o cupom.</p>
+      </div>
+      <div class="feat reveal d1">
+        <div class="feat-ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7 12 3 4 7v10l8 4 8-4z"/><path d="M4 7l8 4 8-4M12 11v10"/></svg></div>
+        <h3>Estoque com grade</h3>
+        <p>Cada peça por tamanho e quantidade (P, M, G, GG…). Fotos, coleções, código de barras e alerta quando o tamanho que vende está acabando.</p>
+      </div>
+      <div class="feat reveal d2">
+        <div class="feat-ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M6 9v.01M18 15v.01"/></svg></div>
+        <h3>Caixa que fecha</h3>
+        <p>Abra com fundo de troco, registre sangria e suprimento, e feche conferindo o contado com o esperado. A diferença aparece na hora.</p>
+      </div>
+      <div class="feat reveal">
+        <div class="feat-ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6"/><rect x="12" y="8" width="3" height="10"/><rect x="17" y="5" width="3" height="13"/></svg></div>
+        <h3>Despesas no controle</h3>
+        <p>Lance aluguel, energia, fornecedor: fixas ou variáveis, da loja ou pessoais. Você sabe pra onde o dinheiro está indo antes que falte.</p>
+      </div>
+      <div class="feat reveal d1">
+        <div class="feat-ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg></div>
+        <h3>Clientes e histórico</h3>
+        <p>Quem comprou, quanto gastou, quando faz aniversário e por onde chegou (Instagram, indicação, loja). Sua base vira ativo, não caderninho.</p>
+      </div>
+      <div class="feat reveal d2">
+        <div class="feat-ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3 17 6-6 4 4 8-8"/><path d="M17 7h4v4"/></svg></div>
+        <h3>Resultado e fluxo de caixa</h3>
+        <p>DRE mensal e fluxo de caixa em gráfico simples: quanto entrou, pra onde foi e quanto sobrou de verdade. O número que importa, sem contador.</p>
+        <span class="badge-growth">Plano Growth</span>
+      </div>
+      <div class="feat reveal">
+        <div class="feat-ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18M3 9l2-5h14l2 5M5 9v11h14V9"/><path d="M9 13h6"/></svg></div>
+        <h3>Vitrine online</h3>
+        <p>Sua loja com link próprio, sua logo e sua cor. Catálogo com os produtos em estoque, busca e botões de WhatsApp, Instagram e Maps.</p>
+        <span class="badge-growth">Plano Growth</span>
+      </div>
+      <div class="feat reveal d1">
+        <div class="feat-ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/><path d="M9 13h6M9 17h4"/></svg></div>
+        <h3>NFC-e quando precisar</h3>
+        <p>Emissão de nota fiscal de consumidor integrada. Opcional: você ativa e contrata a emissão só quando a sua loja precisar.</p>
+      </div>
+      <div class="feat reveal d2">
+        <div class="feat-ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 3 7v6c0 5 4 8 9 9 5-1 9-4 9-9V7z"/></svg></div>
+        <h3>Trocas e devoluções</h3>
+        <p>Registre a peça devolvida e a levada, com a diferença calculada sozinha. Reembolso ou complemento, tudo refletido no resultado.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== FLUXO / COMO FUNCIONA ===================== -->
+<section class="blk fluxo" id="como-funciona">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="sec-tag">Como funciona</span>
+      <h2>Do produto à venda, e da venda ao <em>resultado</em></h2>
+      <p>Você não precisa mudar como sua loja trabalha. O sistema acompanha a rotina que já existe e organiza o que hoje mora em caderno e cabeça.</p>
+    </div>
+
+    <!-- Passo 1: estoque com grade -->
+    <div class="step reveal">
+      <div class="step-txt">
+        <span class="step-num">1</span>
+        <h3>Cadastre seus produtos com grade</h3>
+        <p>Cada peça com foto, coleção e código de barras, e o estoque por tamanho, do jeito que a moda funciona.</p>
+        <ul class="step-list">
+          <li><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Grade P · M · G · GG com quantidade por tamanho</li>
+          <li><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Alerta vermelho quando o tamanho que vende está acabando</li>
+        </ul>
+      </div>
+      <div class="step-visual">
+        <div class="appframe" role="img" aria-label="Cadastro de produto com grade de tamanhos, um deles em alerta de estoque baixo">
+          <div class="grade">
+            <div class="grade-head">
+              <span class="th"></span>
+              <div><div class="nm">Vestido midi linho</div><div class="cd">Cód. VES-042 · Coleção Alto Verão</div></div>
+            </div>
+            <div class="grade-tbl">
+              <div class="grade-cell"><div class="tam">PP</div><div class="qt">4</div></div>
+              <div class="grade-cell"><div class="tam">P</div><div class="qt">9</div></div>
+              <div class="grade-cell"><div class="tam">M</div><div class="qt">11</div></div>
+              <div class="grade-cell low"><div class="tam">G</div><div class="qt">2</div></div>
+              <div class="grade-cell zero"><div class="tam">GG</div><div class="qt">0</div></div>
+              <div class="grade-cell"><div class="tam">XG</div><div class="qt">3</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Passo 2: PDV -->
+    <div class="step reveal">
+      <div class="step-txt">
+        <span class="step-num">2</span>
+        <h3>Venda no balcão sem perder tempo</h3>
+        <p>Bipa o código, escolhe o tamanho, define a forma de pagamento. A taxa, o imposto e a comissão entram sozinhos no cálculo.</p>
+        <ul class="step-list">
+          <li><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Pagamento dividido: Pix, débito, crédito parcelado</li>
+          <li><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Baixa o estoque e atualiza o cliente na hora</li>
+        </ul>
+      </div>
+      <div class="step-visual">
+        <div class="appframe" role="img" aria-label="Tela de PDV com produtos, carrinho e total da venda">
+          <div class="pdv pdv-grid">
+            <div class="pdv-cat">
+              <div class="pdv-search"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg> Buscar produto ou bipar código…</div>
+              <div class="pdv-prods">
+                <div class="pdv-prod"><div class="th"></div><div class="nm">Blusa cropped</div><div class="pr">R$ 89</div></div>
+                <div class="pdv-prod"><div class="th"></div><div class="nm">Vestido midi</div><div class="pr">R$ 219</div></div>
+                <div class="pdv-prod"><div class="th"></div><div class="nm">Calça alfaiataria</div><div class="pr">R$ 179</div></div>
+                <div class="pdv-prod"><div class="th"></div><div class="nm">Saia plissada</div><div class="pr">R$ 139</div></div>
+                <div class="pdv-prod"><div class="th"></div><div class="nm">Kimono estampa</div><div class="pr">R$ 159</div></div>
+                <div class="pdv-prod"><div class="th"></div><div class="nm">Body canelado</div><div class="pr">R$ 79</div></div>
+              </div>
+            </div>
+            <div class="pdv-cart">
+              <div class="ct">Venda atual</div>
+              <div class="pdv-item"><span class="nm">Vestido midi <span class="sz">Tam M</span></span><span class="vl">R$ 219</span></div>
+              <div class="pdv-item"><span class="nm">Blusa cropped <span class="sz">Tam P</span></span><span class="vl">R$ 89</span></div>
+              <div class="pdv-tot">
+                <div class="row"><span>Subtotal</span><span>R$ 308,00</span></div>
+                <div class="row"><span>Taxa cartão</span><span>R$ 9,24</span></div>
+                <div class="row big"><span>Total</span><span>R$ 308,00</span></div>
+                <div class="pdv-pgto"><span class="on">Pix</span><span>Débito</span><span>Crédito</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Passo 3: caixa -->
+    <div class="step reveal">
+      <div class="step-txt">
+        <span class="step-num">3</span>
+        <h3>Feche o caixa e veja o resultado</h3>
+        <p>No fim do dia, o caixa concilia sozinho o que entrou por Pix, cartão e dinheiro. No fim do mês, o resultado do negócio aparece pronto.</p>
+        <ul class="step-list">
+          <li><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Fechamento com diferença calculada na hora</li>
+          <li><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>DRE e fluxo de caixa consolidados <b style="color:var(--dourado)">·&nbsp;Growth</b></li>
+        </ul>
+      </div>
+      <div class="step-visual">
+        <div class="appframe" role="img" aria-label="Fechamento de caixa mostrando entradas por forma de pagamento e total conferido">
+          <div class="cxa">
+            <div class="cxa-row"><span class="lb"><span class="tag" style="background:var(--app-marca)"></span>Dinheiro</span><span class="vl">R$ 640,00</span></div>
+            <div class="cxa-row"><span class="lb"><span class="tag" style="background:var(--app-azul)"></span>Pix</span><span class="vl">R$ 1.980,00</span></div>
+            <div class="cxa-row"><span class="lb"><span class="tag" style="background:var(--app-amarelo)"></span>Cartão</span><span class="vl">R$ 2.410,00</span></div>
+            <div class="cxa-row"><span class="lb">Fundo de troco − sangrias</span><span class="vl">R$ 150,00</span></div>
+            <div class="cxa-fim"><span class="lb">Caixa confere</span><span class="vl">✓ R$ 5.180,00</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== DEMONSTRAÇÃO ===================== -->
+<section class="blk demo">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="sec-tag">Por dentro do sistema</span>
+      <h2>O que você vê é <em>o que importa</em></h2>
+      <p>Nada de tela cheia de número que ninguém lê. O resultado da loja em gráfico claro, e a vitrine que o seu cliente enxerga.</p>
+    </div>
+    <div class="demo-grid">
+      <div class="demo-item reveal">
+        <div class="appframe" role="img" aria-label="Painel de resultado do mês com composição da receita em gráfico de barra">
+          <div class="app-topbar" aria-hidden="true"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="app-url">easygestao.com/painel</span></div>
+          <div class="app-main" style="background:var(--app-bg)">
+            <div class="app-h"><h4>Para onde foi o dinheiro</h4><span class="per">Últimos 30 dias</span></div>
+            <div class="app-cards" style="grid-template-columns:1fr 1fr">
+              <div class="app-metric"><div class="k">Entrou</div><div class="v">R$ 41.900</div></div>
+              <div class="app-metric"><div class="k">Sobrou</div><div class="v pos">R$ 8.240</div></div>
+            </div>
+            <div class="app-panel">
+              <div class="pt">Composição do resultado</div>
+              <div class="ps">cada faixa é uma fatia do que entrou</div>
+              <div class="compo" style="height:30px" aria-hidden="true">
+                <span class="cmv" style="width:52%"></span><span class="imp" style="width:7%"></span><span class="tax" style="width:5%"></span><span class="desp" style="width:16%"></span><span class="sobra" style="width:20%"></span>
+              </div>
+              <div class="compo-leg">
+                <span><i style="background:#6b8f7f"></i>Mercadoria</span><span><i style="background:#c9a24a"></i>Imposto</span><span><i style="background:#b98a5e"></i>Taxas</span><span><i style="background:#a56b60"></i>Despesas</span><span><i style="background:#157a63"></i>Sobrou</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="demo-cap">
+          <h4>Resultado sem contador</h4>
+          <p>O DRE do mês traduzido: de cada R$ 100 que entraram, quanto virou lucro. <b style="color:var(--dourado-claro)">Plano Growth.</b></p>
+        </div>
+      </div>
+
+      <div class="demo-item reveal d1">
+        <div class="appframe" role="img" aria-label="Vitrine online da loja com logo, frase e catálogo de produtos">
+          <div class="vit">
+            <div class="vit-hero">
+              <div class="lg">SUA LOJA</div>
+              <div class="sub">moda que veste sua história</div>
+              <div class="cts" aria-hidden="true">
+                <span><svg width="13" height="13" viewBox="0 0 24 24" fill="#f6f2e7"><path d="M12 2a10 10 0 0 0-8.6 15l-1.4 5 5.1-1.3A10 10 0 1 0 12 2z"/></svg></span>
+                <span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#f6f2e7" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><path d="M17 7h.01"/></svg></span>
+                <span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#f6f2e7" stroke-width="2"><path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg></span>
+              </div>
+            </div>
+            <div class="vit-prods">
+              <div class="vit-prod"><div class="th"></div><div class="nm">Vestido midi</div><div class="pr">R$ 219</div></div>
+              <div class="vit-prod"><div class="th"></div><div class="nm">Blusa cropped</div><div class="pr">R$ 89</div></div>
+              <div class="vit-prod"><div class="th"></div><div class="nm">Saia plissada</div><div class="pr">R$ 139</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="demo-cap">
+          <h4>Sua loja online, seu link</h4>
+          <p>Vitrine com sua logo, sua cor e seus produtos em estoque. <b style="color:var(--dourado-claro)">Plano Growth.</b></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== DIFERENCIAIS ===================== -->
+<section class="blk">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="sec-tag">Por que o EasyGestão</span>
+      <h2>Não é sistema genérico <em>adaptado</em> pra moda</h2>
+      <p>Sistema que serve pra tudo geralmente não serve direito pra nada. Este foi desenhado do zero para a loja de roupa, desde o primeiro botão até o jeito de mostrar o resultado.</p>
+    </div>
+    <div class="dif-grid">
+      <div class="dif reveal">
+        <div class="dif-ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7 12 3 4 7v10l8 4 8-4z"/><path d="M4 7l8 4 8-4"/></svg></div>
+        <div><h3>Grade por tamanho de verdade</h3><p>A moda vende a mesma peça em vários tamanhos. Aqui o estoque nasce em grade, não é um campo "quantidade" que ignora que existe P e GG.</p></div>
+      </div>
+      <div class="dif reveal d1">
+        <div class="dif-ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+        <div><h3>Mostra o lucro, não só o faturamento</h3><p>A pergunta que tira o sono não é "quanto vendi", é "quanto sobrou". O sistema desconta mercadoria, imposto e taxa e te entrega o número real.</p></div>
+      </div>
+      <div class="dif reveal">
+        <div class="dif-ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12h8M12 8v8"/><circle cx="12" cy="12" r="10"/></svg></div>
+        <div><h3>Em linguagem de gente</h3><p>Sem "contas a receber", "conciliação de recebíveis" ou termo de contador. A tela fala como você fala com a atendente no balcão.</p></div>
+      </div>
+      <div class="dif reveal d1">
+        <div class="dif-ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg></div>
+        <div><h3>Seus dados seguros e no controle</h3><p>Backup automático todos os dias, acesso protegido e registro de tudo que muda no sistema. A loja é sua, os dados também.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== PLANOS ===================== -->
+<section class="blk dor" id="planos">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="sec-tag">Planos</span>
+      <h2>Dois planos. <em>Sem pegadinha.</em></h2>
+      <p>Comece testando 14 dias grátis, sem cartão. Depois escolhe o que faz sentido pro tamanho da sua loja, e muda quando quiser.</p>
+    </div>
+
+    <div class="toggle-wrap reveal">
+      <span class="lb on" id="lbMensal">Mensal</span>
+      <button class="switch" id="switchCiclo" role="switch" aria-checked="false" aria-label="Alternar entre cobrança mensal e anual"><span class="knob"></span></button>
+      <span class="lb" id="lbAnual">Anual</span>
+      <span class="eco" id="ecoAnual">2 meses grátis</span>
+    </div>
+
+    <div class="planos-grid" id="planosGrid">
+      <!-- Cards preenchidos via JS a partir de /api/assinaturas/planos (com fallback abaixo) -->
+      <div class="plano" data-plano="starter">
+        <div class="plano-nome">Starter</div>
+        <div class="plano-para">Pra loja que está começando a se organizar</div>
+        <div class="plano-preco"><span class="cif">R$</span><span class="val" data-preco>69</span><span class="per" data-cents>,90</span><span class="per">/mês</span></div>
+        <div class="plano-anual" data-anual>ou R$ 699,00 por ano</div>
+        <ul>
+          <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>PDV completo com taxa, imposto e comissão</li>
+          <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Estoque com grade + caixa + clientes</li>
+          <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Lançamento de despesas</li>
+          <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>NFC-e opcional quando precisar</li>
+          <li data-limite><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Até 1.000 produtos · 1 usuário</li>
+        </ul>
+        <a href="/registro.html" class="btn btn-outline btn-bloco" style="width:100%">Testar grátis</a>
+      </div>
+
+      <div class="plano destaque" data-plano="growth">
+        <span class="plano-selo">Mais escolhido</span>
+        <div class="plano-nome">Growth</div>
+        <div class="plano-para">Pra loja que quer crescer com o número na mão</div>
+        <div class="plano-preco"><span class="cif">R$</span><span class="val" data-preco>119</span><span class="per" data-cents>,90</span><span class="per">/mês</span></div>
+        <div class="plano-anual" data-anual>ou R$ 1.199,00 por ano</div>
+        <ul>
+          <li class="mais"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Tudo do Starter, e mais:</li>
+          <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>DRE, fluxo de caixa e relatórios avançados</li>
+          <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Vitrine online com seu link</li>
+          <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Vale-crédito, despesas recorrentes e exportação</li>
+          <li data-limite><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Até 5.000 produtos · 5 usuários</li>
+        </ul>
+        <a href="/registro.html" class="btn btn-primary btn-bloco" style="width:100%">Testar grátis</a>
+      </div>
+    </div>
+    <p class="planos-foot">Todo cadastro novo começa com <b>14 dias no plano Growth completo</b>. Você experimenta tudo antes de escolher.</p>
+  </div>
+</section>
+
+<!-- ===================== FAQ ===================== -->
+<section class="blk faq" id="faq">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="sec-tag">Perguntas frequentes</span>
+      <h2>O que toda lojista pergunta</h2>
+    </div>
+    <div class="faq-list">
+      <details class="faq-item reveal">
+        <summary>Preciso colocar cartão pra testar?<span class="plus"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></summary>
+        <div class="ans">Não. São 14 dias grátis sem cartão nenhum, e você já entra experimentando o plano Growth completo. Só coloca forma de pagamento se decidir continuar.</div>
+      </details>
+      <details class="faq-item reveal">
+        <summary>Preciso instalar alguma coisa no computador?<span class="plus"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></summary>
+        <div class="ans">Nada. O EasyGestão funciona pelo navegador: abre no computador da loja, no notebook ou no celular. É só entrar com seu login.</div>
+      </details>
+      <details class="faq-item reveal">
+        <summary>Serve pra uma loja pequena, com pouca gente?<span class="plus"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></summary>
+        <div class="ans">Foi feito exatamente pra isso: loja de moda com você e uma ou duas atendentes. Simples de alimentar sozinha, sem precisar de equipe de TI nem de contador pra entender.</div>
+      </details>
+      <details class="faq-item reveal">
+        <summary>Meus dados ficam seguros?<span class="plus"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></summary>
+        <div class="ans">Sim. Backup automático todos os dias, acesso protegido por senha e registro de tudo que é alterado no sistema. Os dados da sua loja ficam isolados dos de qualquer outra.</div>
+      </details>
+      <details class="faq-item reveal">
+        <summary>E a nota fiscal (NFC-e)?<span class="plus"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></summary>
+        <div class="ans">A emissão de NFC-e é integrada e opcional. Você ativa quando a sua loja precisar e contrata a emissão à parte. Assim, quem não emite nota não paga por algo que não usa.</div>
+      </details>
+      <details class="faq-item reveal">
+        <summary>Posso cancelar depois?<span class="plus"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></summary>
+        <div class="ans">Quando quiser, sem multa. Se cancelar, você continua com acesso até o fim do período que já pagou. Nada de fidelidade nem letra miúda.</div>
+      </details>
+      <details class="faq-item reveal">
+        <summary>Qual a diferença entre o Starter e o Growth?<span class="plus"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></summary>
+        <div class="ans">O Starter já dá conta do dia a dia: PDV, estoque com grade, caixa, clientes e lançamento de despesas. O Growth acrescenta o que ajuda a crescer: DRE e fluxo de caixa, relatórios avançados, vitrine online, vale-crédito, despesas recorrentes e exportação, além de mais produtos e usuários.</div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== CTA FINAL ===================== -->
+<section class="cta-final">
+  <div class="wrap">
+    <div class="cta-box reveal">
+      <h2>Descubra se sua loja <em>deu lucro</em> esse mês</h2>
+      <p>Comece agora e organize PDV, estoque, caixa e financeiro em um lugar só. Em 14 dias você já sabe o número que importa.</p>
+      <a href="/registro.html" class="btn btn-ouro btn-lg">Testar 14 dias grátis</a>
+      <p class="cta-sub">Sem cartão pra testar · Cancele quando quiser · Feito pra loja de moda</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== FOOTER ===================== -->
+<footer>
+  <div class="wrap">
+    <div class="foot-top">
+      <div class="foot-brand">
+        <div class="foot-logo">Easy<span>Gestão</span></div>
+        <p class="foot-tag">A gestão da sua loja de moda numa tela só. PDV, estoque com grade, caixa e o resultado do mês, em linguagem de gente.</p>
+      </div>
+      <div class="foot-col">
+        <h5>Produto</h5>
+        <a href="#funcionalidades">Funcionalidades</a>
+        <a href="#como-funciona">Como funciona</a>
+        <a href="#planos">Planos e preços</a>
+        <a href="#faq">Perguntas frequentes</a>
+      </div>
+      <div class="foot-col">
+        <h5>Sua conta</h5>
+        <a href="/registro.html">Criar conta grátis</a>
+        <a href="/login.html">Entrar</a>
+      </div>
+    </div>
+    <p class="foot-copy">© 2026 EasyGestão · Gestão fácil pra sua loja.</p>
+  </div>
+</footer>
+
+<script>
+(function(){
+  // ---- Nav: borda ao rolar ----
+  var nav = document.getElementById('nav');
+  var onScroll = function(){ nav.classList.toggle('scrolled', window.scrollY > 12); };
+  window.addEventListener('scroll', onScroll, { passive:true }); onScroll();
+
+  // ---- Reveal on scroll ----
+  // Regra de ouro: o conteúdo NUNCA pode ficar preso invisível. O observer é só
+  // o enfeite; há dois fallbacks garantindo que tudo apareça de qualquer jeito.
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var reveals = [].slice.call(document.querySelectorAll('.reveal'));
+  var revelarTudo = function(){ reveals.forEach(function(el){ el.classList.add('in'); }); };
+
+  if (reduce || !('IntersectionObserver' in window)) {
+    revelarTudo();
+  } else {
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
+    }, { threshold: 0, rootMargin: '0px 0px -8% 0px' });
+    reveals.forEach(function(el){ io.observe(el); });
+
+    // Fallback 1: qualquer .reveal já dentro/acima da viewport aparece já.
+    var revelarVisiveis = function(){
+      var vh = window.innerHeight || document.documentElement.clientHeight;
+      reveals.forEach(function(el){
+        var r = el.getBoundingClientRect();
+        if (r.top < vh * 0.96) el.classList.add('in');
+      });
+    };
+    revelarVisiveis();
+    window.addEventListener('scroll', revelarVisiveis, { passive:true });
+    window.addEventListener('resize', revelarVisiveis, { passive:true });
+
+    // Fallback 2: rede de segurança. Se algo escapou (âncora, print, observer
+    // que não disparou), revela tudo após 2,5s pra nunca deixar buraco branco.
+    setTimeout(revelarTudo, 2500);
+  }
+
+  // ---- Planos: fetch de preços reais + toggle mensal/anual ----
+  var fmtCentavos = function(v){
+    // 69.9 -> {reais:'69', cents:',90'}
+    var reais = Math.floor(v);
+    var cents = Math.round((v - reais) * 100);
+    return { reais: String(reais), cents: ',' + String(cents).padStart(2,'0') };
+  };
+  var fmtBRL = function(v){
+    return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
+  // fallback com os valores da fonte da verdade (lib/planos.js) caso o fetch falhe
+  var planos = {
+    starter: { preco_mensal: 69.90, preco_anual: 699.00, produtos: 1000, usuarios: 1 },
+    growth:  { preco_mensal: 119.90, preco_anual: 1199.00, produtos: 5000, usuarios: 5 }
+  };
+  var ciclo = 'mensal';
+
+  var pintar = function(){
+    document.querySelectorAll('.plano[data-plano]').forEach(function(card){
+      var p = planos[card.getAttribute('data-plano')];
+      if (!p) return;
+      var mensalEquivAnual = p.preco_anual / 12;
+      var precoMostrado = (ciclo === 'anual') ? mensalEquivAnual : p.preco_mensal;
+      var f = fmtCentavos(precoMostrado);
+      var elPreco = card.querySelector('[data-preco]');
+      var elCents = card.querySelector('[data-cents]');
+      if (elPreco) elPreco.textContent = f.reais;
+      if (elCents) elCents.textContent = f.cents;
+      var elAnual = card.querySelector('[data-anual]');
+      if (elAnual) {
+        if (ciclo === 'anual') {
+          elAnual.innerHTML = '<b>R$ ' + fmtBRL(p.preco_anual) + '</b> por ano · cobrado 1x';
+        } else {
+          elAnual.innerHTML = 'ou R$ ' + fmtBRL(p.preco_anual) + ' no plano anual';
+        }
+      }
+      var elLim = card.querySelector('[data-limite]');
+      if (elLim) {
+        var svg = elLim.querySelector('svg').outerHTML;
+        var prod = p.produtos >= 1000 ? (p.produtos/1000).toLocaleString('pt-BR') + '.000' : p.produtos;
+        elLim.innerHTML = svg + 'Até ' + prod + ' produtos · ' + p.usuarios + (p.usuarios>1?' usuários':' usuário');
+      }
+    });
+  };
+
+  // toggle
+  var sw = document.getElementById('switchCiclo');
+  var lbM = document.getElementById('lbMensal');
+  var lbA = document.getElementById('lbAnual');
+  var setCiclo = function(c){
+    ciclo = c;
+    sw.classList.toggle('anual', c === 'anual');
+    sw.setAttribute('aria-checked', c === 'anual' ? 'true' : 'false');
+    lbM.classList.toggle('on', c === 'mensal');
+    lbA.classList.toggle('on', c === 'anual');
+    pintar();
+  };
+  sw.addEventListener('click', function(){ setCiclo(ciclo === 'mensal' ? 'anual' : 'mensal'); });
+  lbM.addEventListener('click', function(){ setCiclo('mensal'); });
+  lbA.addEventListener('click', function(){ setCiclo('anual'); });
+
+  // fetch dos preços reais (não bloqueia; fallback já pintado)
+  fetch('/api/assinaturas/planos')
+    .then(function(r){ return r.ok ? r.json() : Promise.reject(); })
+    .then(function(data){
+      if (!data || !Array.isArray(data.planos)) return;
+      data.planos.forEach(function(pl){
+        if (planos[pl.id]) {
+          planos[pl.id] = {
+            preco_mensal: pl.preco_mensal,
+            preco_anual: pl.preco_anual,
+            produtos: (pl.limites && pl.limites.produtos) || planos[pl.id].produtos,
+            usuarios: (pl.limites && pl.limites.usuarios) || planos[pl.id].usuarios
+          };
+        }
+      });
+      pintar();
+    })
+    .catch(function(){ /* mantém fallback */ });
+
+  pintar();
+})();
+</script>
+
+</body>
+</html>

@@ -385,8 +385,10 @@ app.get('/api/monitoring/alerts', (req, res) => {
 });
 
 // Landing page pública (raiz para visitantes não-autenticados)
+// NOTA: landing-v2.html é a landing oficial (redesign 07/07/2026). A antiga
+// landing.html continua no repo como backup e acessível em /landing.html.
 app.get('/', (req, res, next) => {
-  console.log('[ROUTE] GET / -> landing.html');
+  console.log('[ROUTE] GET / -> landing-v2.html');
   res.set('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
   res.set('Pragma', 'no-cache');
   res.set('Expires', '-1');
@@ -398,9 +400,9 @@ app.get('/', (req, res, next) => {
       if (typeof callback === 'function') callback(err);
     });
   };
-  res.sendFile(path.join(__dirname, 'public', 'landing.html'), (err) => {
+  res.sendFile(path.join(__dirname, 'public', 'landing-v2.html'), (err) => {
     if (err) {
-      console.error('[ROUTE] Erro ao servir landing.html:', err);
+      console.error('[ROUTE] Erro ao servir landing-v2.html:', err);
       next(err);
     }
   });
