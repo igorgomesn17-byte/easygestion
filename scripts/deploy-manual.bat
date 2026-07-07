@@ -4,9 +4,9 @@ REM Este script conecta ao servidor e faz o deploy
 
 setlocal enabledelayedexpansion
 
-set SERVER_IP=54.232.189.113
+set SERVER_IP=54.232.77.5
 set SERVER_USER=ubuntu
-set KEY_PATH=easygestion-key.pem
+set KEY_PATH=%USERPROFILE%\.ssh\easygestion-key.pem
 set APP_DIR=/opt/easygestion
 
 echo.
@@ -23,7 +23,7 @@ REM Verificar se a chave existe
 if not exist "%KEY_PATH%" (
     echo [ERRO] Chave nao encontrada: %KEY_PATH%
     echo.
-    echo A chave precisa estar na pasta raiz do projeto.
+    echo A chave deve estar em %%USERPROFILE%%\.ssh\easygestion-key.pem
     pause
     exit /b 1
 )
@@ -36,10 +36,11 @@ ssh -i "%KEY_PATH%" -o StrictHostKeyChecking=no "%SERVER_USER%@%SERVER_IP%" << E
 
 echo "[*] Atualizando codigo do GitHub..."
 cd %APP_DIR%
-git pull origin main
+git fetch origin
+git reset --hard origin/main
 
 if !errorlevel! neq 0 (
-    echo "[ERRO] Falha ao fazer git pull"
+    echo "[ERRO] Falha ao atualizar o codigo"
     exit /b 1
 )
 

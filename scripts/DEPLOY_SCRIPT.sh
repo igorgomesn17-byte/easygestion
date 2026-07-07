@@ -4,9 +4,9 @@
 # ============================================================
 
 # Configurações
-SERVER_IP="54.232.189.113"
+SERVER_IP="54.232.77.5"
 SERVER_USER="ubuntu"
-KEY_PATH="easygestion-key.pem"
+KEY_PATH="$HOME/.ssh/easygestion-key.pem"
 APP_DIR="/opt/easygestion"
 
 echo "🚀 Iniciando deploy para AWS EC2..."
@@ -19,7 +19,8 @@ ssh -i "$KEY_PATH" "$SERVER_USER@$SERVER_IP" << 'DEPLOY_COMMANDS'
 
 echo "📥 Puxando código atualizado do GitHub..."
 cd /opt/easygestion
-git pull origin main
+git fetch origin
+git reset --hard origin/main
 
 echo "📦 Instalando dependências..."
 npm install --production

@@ -979,7 +979,7 @@ npm start
 - **IP:** `54.232.77.5`
 - **Usuário SSH:** `ubuntu`
 - **Porta:** 22 (padrão)
-- **Chave SSH:** `easygestion-key.pem` (deve estar na raiz do projeto)
+- **Chave SSH:** `easygestion-key.pem` (fica em `~/.ssh/easygestion-key.pem`, fora da pasta do projeto — nunca dentro de uma pasta sincronizada por OneDrive/nuvem)
 - **Diretório da app:** `/opt/easygestion`
 - **URL pública:** `https://www.easygestao.com` (DNS aponta para EC2)
 - **Porta da app:** 3001 (rodando via PM2)
@@ -995,7 +995,7 @@ git push origin main
 
 **Passo 2: Executar Deploy via SSH**
 ```bash
-ssh -i easygestion-key.pem -o StrictHostKeyChecking=no ubuntu@54.232.77.5 << 'DEPLOY'
+ssh -i ~/.ssh/easygestion-key.pem -o StrictHostKeyChecking=no ubuntu@54.232.77.5 << 'DEPLOY'
 cd /opt/easygestion
 git fetch origin
 git reset --hard origin/main
@@ -1013,9 +1013,9 @@ DEPLOY
 
 #### Troubleshooting
 - **Conexão recusada:** IP pode estar errado (verificar `54.232.77.5`)
-- **Erro de permissão SSH:** Validar que `easygestion-key.pem` existe e tem `chmod 600`
+- **Erro de permissão SSH:** Validar que `~/.ssh/easygestion-key.pem` existe e tem `chmod 600`
 - **Erro de git:** Servidor pode estar sem acesso à GitHub (verificar SSH key do servidor)
-- **App não sobe:** Verificar logs: `ssh -i easygestion-key.pem ubuntu@54.232.77.5 "pm2 logs easygestion"`
+- **App não sobe:** Verificar logs: `ssh -i ~/.ssh/easygestion-key.pem ubuntu@54.232.77.5 "pm2 logs easygestion"`
 
 #### PM2 Comandos Úteis (SSH no servidor)
 ```bash

@@ -26,9 +26,9 @@ EASYGESTION/
 │   ├── package-lock.json         ← Lock de dependências
 │   └── node_modules/             ← Dependências instaladas (NÃO COMMITAR)
 │
-├── 🔐 CHAVES (não comitar)
-│   ├── easygestion-key.pem       ← Chave privada
-│   └── easygestion-key-public.pub ← Chave pública
+├── 🔐 CHAVES
+│   └── (a chave SSH NÃO fica aqui — vive em ~/.ssh/easygestion-key.pem,
+│        fora da pasta do projeto, pra nunca ser sincronizada por OneDrive/nuvem)
 │
 ├── 📚 DOCUMENTAÇÃO
 │   ├── .docs/                    ← Documentação organizada (veja abaixo)
