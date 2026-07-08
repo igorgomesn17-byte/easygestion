@@ -31,6 +31,13 @@ backup/
 *.pfx
 credentials.json
 google-credentials.json
+# secrets/tokens soltos que não podem vazar num `git add .`
+*credentials*.txt
+*secret*.txt
+stripe_backup_code.txt
+get-token.js
+*.db
+dados.db
 
 # Generated/temporary
 .deploy-trigger
