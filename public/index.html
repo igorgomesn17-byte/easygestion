@@ -320,8 +320,14 @@
           </li>
         `).join('');
 
-        // Mostrar card se não estiver 100% completo E o usuário não tiver dispensado
-        if (pct < 100 && localStorage.getItem('ds-progresso-oculto') !== '1') {
+        // Mostrar card só se: não está 100%, não foi ocultado neste navegador,
+        // E o onboarding não foi concluído/dispensado no servidor (vale entre dispositivos).
+        let dispensadoNoServidor = false;
+        try {
+          const estado = await api('/onboarding/estado');
+          dispensadoNoServidor = !!(estado.concluido || estado.banner_dispensado);
+        } catch (e) { /* se falhar, cai só no localStorage */ }
+        if (pct < 100 && localStorage.getItem('ds-progresso-oculto') !== '1' && !dispensadoNoServidor) {
           document.getElementById('cardProgresso').style.display = 'block';
         }
       } catch (err) {
@@ -342,7 +348,7 @@
       try {
         const estado = await api('/onboarding/estado');
 
-        if (estado.completado) {
+        if (estado.concluido) {
           // Onboarding completo, não mostrar banner
           document.getElementById('bannerRetomada').classList.remove('show');
           return;
@@ -376,7 +382,7 @@
     // Botão "Depois" — marca como dispensado e esconde
     async function dispensarBanner() {
       try {
-        await api('/onboarding/dispensar', 'POST', {});
+        await api('/onboarding/dispensar', { method: 'POST', body: {} });
         document.getElementById('bannerRetomada').classList.remove('show');
       } catch (err) {
         console.error('Erro ao dispensar banner:', err);

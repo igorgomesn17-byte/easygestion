@@ -92,6 +92,9 @@ router.get('/hoje', (req, res) => {
 // POST /api/caixa/abrir  body: { data?, fundo_troco } (COM TRANSAÇÃO PARA EVITAR RACE CONDITION)
 router.post('/abrir', (req, res) => {
   try {
+    if (!req.tenantId) {
+      return res.status(401).json({ erro: 'Sessão inválida. Faça login novamente.' });
+    }
     const data = req.body.data || hojeLocal();
     const fundo = parseFloat(req.body.fundo_troco) || 0;
 
@@ -104,9 +107,15 @@ router.post('/abrir', (req, res) => {
       // PASSO 1: Garantir linha (INSERT OR IGNORE dentro da transação)
       db.prepare('INSERT OR IGNORE INTO caixa_dia (data, tenant_id) VALUES (?, ?)').run(data, req.tenantId);
 
-      // PASSO 2: Verificar se já está aberto OU fechado
+      // PASSO 2: Verificar se já está aberto OU fechado.
+      // Defesa: se por algum motivo a linha não existir (ex: constraint antiga),
+      // não deixar caixa.fechado explodir com TypeError — tratar explicitamente.
       const caixa = db.prepare('SELECT aberto, fechado FROM caixa_dia WHERE data = ? AND tenant_id = ?')
         .get(data, req.tenantId);
+
+      if (!caixa) {
+        throw new Error('Não foi possível preparar o caixa deste dia. Tente novamente.');
+      }
 
       if (caixa.fechado) {
         throw new Error('Caixa deste dia já foi fechado.');

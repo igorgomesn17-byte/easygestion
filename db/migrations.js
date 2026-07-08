@@ -505,6 +505,83 @@ function executarMigrations(db) {
           throw e;
         }
       }
+    },
+    {
+      nome: '024_fix_caixa_dia_unique_por_tenant',
+      hash: 'v24-caixa-dia-unique-tenant-data',
+      exec: (db) => {
+        // BUG CRÍTICO: caixa_dia tinha `data TEXT UNIQUE NOT NULL` — uma UNIQUE GLOBAL
+        // na coluna data sozinha (legado pré-multitenancy). Efeito: quando QUALQUER
+        // tenant abria caixa numa data, NENHUM outro tenant conseguia abrir no mesmo
+        // dia (o INSERT OR IGNORE em routes/caixa.js era engolido pela UNIQUE(data), o
+        // SELECT seguinte não achava a linha do próprio tenant e retornava undefined,
+        // e caixa.fechado quebrava com TypeError → 500 "Erro ao abrir caixa").
+        // Recria a tabela com a UNIQUE correta (tenant_id, data). Idempotente: só roda
+        // se a UNIQUE global antiga em `data` ainda existir.
+        try {
+          const temUniqueAntigo = db.prepare(`
+            SELECT sql FROM sqlite_master
+            WHERE type='table' AND name='caixa_dia' AND sql LIKE '%data%TEXT UNIQUE%'
+          `).get();
+          if (temUniqueAntigo) {
+            // Uma tentativa anterior de corrigir este bug deixou uma tabela órfã
+            // 'caixa_dia_new' vazia em produção. Se ela existir, o CREATE abaixo
+            // falharia ("already exists") e travaria o boot. Removemos primeiro.
+            db.exec('DROP TABLE IF EXISTS caixa_dia_new;');
+            db.exec(`
+              CREATE TABLE caixa_dia_new (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                data            TEXT NOT NULL,
+                tenant_id       INTEGER NOT NULL DEFAULT 1,
+                total_pix       REAL NOT NULL DEFAULT 0,
+                total_debito    REAL NOT NULL DEFAULT 0,
+                total_credito   REAL NOT NULL DEFAULT 0,
+                total_dinheiro  REAL NOT NULL DEFAULT 0,
+                total_vale      REAL NOT NULL DEFAULT 0,
+                total_credito_vista     REAL NOT NULL DEFAULT 0,
+                total_credito_parcelado REAL NOT NULL DEFAULT 0,
+                total_bruto     REAL NOT NULL DEFAULT 0,
+                total_liquido   REAL NOT NULL DEFAULT 0,
+                lucro_dia       REAL NOT NULL DEFAULT 0,
+                num_vendas      INTEGER NOT NULL DEFAULT 0,
+                conciliado      INTEGER NOT NULL DEFAULT 0,
+                obs             TEXT,
+                fundo_troco     REAL NOT NULL DEFAULT 0,
+                sangrias        REAL NOT NULL DEFAULT 0,
+                suprimentos     REAL NOT NULL DEFAULT 0,
+                dinheiro_contado REAL,
+                diferenca       REAL,
+                saldo_conta_inicial REAL,
+                conta_conferida REAL,
+                aberto_em       TEXT,
+                fechado_em      TEXT,
+                aberto          INTEGER NOT NULL DEFAULT 0,
+                fechado         INTEGER NOT NULL DEFAULT 0,
+                UNIQUE(tenant_id, data)
+              );
+              INSERT INTO caixa_dia_new (
+                id, data, tenant_id, total_pix, total_debito, total_credito, total_dinheiro,
+                total_vale, total_credito_vista, total_credito_parcelado, total_bruto, total_liquido,
+                lucro_dia, num_vendas, conciliado, obs, fundo_troco, sangrias, suprimentos,
+                dinheiro_contado, diferenca, saldo_conta_inicial, conta_conferida, aberto_em, fechado_em, aberto, fechado
+              )
+              SELECT
+                id, data, COALESCE(tenant_id, 1), total_pix, total_debito, total_credito, total_dinheiro,
+                total_vale, total_credito_vista, total_credito_parcelado, total_bruto, total_liquido,
+                lucro_dia, num_vendas, conciliado, obs, fundo_troco, sangrias, suprimentos,
+                dinheiro_contado, diferenca, saldo_conta_inicial, conta_conferida, aberto_em, fechado_em, aberto, fechado
+              FROM caixa_dia;
+              DROP TABLE caixa_dia;
+              ALTER TABLE caixa_dia_new RENAME TO caixa_dia;
+              CREATE INDEX IF NOT EXISTS idx_caixa_dia_tenant ON caixa_dia(tenant_id);
+              CREATE UNIQUE INDEX IF NOT EXISTS idx_caixa_tenant_data_aberto ON caixa_dia(tenant_id, data) WHERE aberto = 1;
+            `);
+          }
+        } catch (e) {
+          console.error('Migration 024 (caixa_dia) falhou:', e.message);
+          throw e;
+        }
+      }
     }
   ];
 

@@ -388,7 +388,7 @@
     async function carregarAssinatura() {
       try {
         const resp = await fetch('/api/assinaturas/minha');
-        const { assinatura, status } = await resp.json();
+        const { assinatura, status, tem_stripe } = await resp.json();
 
         document.getElementById('loading').classList.remove('show');
 
@@ -402,16 +402,23 @@
         document.getElementById('valorPlano').textContent = `R$ ${parseFloat(assinatura.valor_mensal).toFixed(2).replace('.', ',')} / mês`;
         document.getElementById('proximaRenovacao').textContent = new Date(assinatura.data_proxima_renovacao).toLocaleDateString('pt-BR');
         document.getElementById('dataInicio').textContent = new Date(assinatura.data_inicio).toLocaleDateString('pt-BR');
-        document.getElementById('statusTexto').textContent = status.status.toUpperCase();
+        // Trial: a assinatura existe com em_teste=1. O status vem 'ativa' (por data),
+        // mas pra o cliente é PERÍODO DE TESTE — precisa contratar pra continuar.
+        const emTrial = assinatura.em_teste == 1 && !tem_stripe;
+
+        document.getElementById('statusTexto').textContent = emTrial ? 'TESTE GRÁTIS' : status.status.toUpperCase();
 
         const badge = document.getElementById('statusBadge');
-        badge.className = `status-badge ${status.status}`;
-        badge.textContent = status.status.toUpperCase();
+        badge.className = `status-badge ${emTrial ? 'trial' : status.status}`;
+        badge.textContent = emTrial ? 'TESTE GRÁTIS' : status.status.toUpperCase();
 
-        if (status.status === 'ativa') {
+        // No trial (ou ativa sem Stripe): mostra "Contratar Plano". Só quem tem
+        // customer no Stripe vê "Gerenciar Pagamento" (o portal existe).
+        if (status.status === 'ativa' && tem_stripe) {
           document.getElementById('btnPortal').style.display = 'block';
           document.getElementById('btnUpgrade').style.display = 'none';
         } else {
+          document.getElementById('btnPortal').style.display = 'none';
           document.getElementById('btnUpgrade').style.display = 'block';
         }
 
@@ -436,6 +443,11 @@
           alertas.innerHTML = `<div class="alerta alerta-danger">
             <strong>Sua conta foi bloqueada</strong><br>
             ${status.motivo || 'Pagamento não confirmado'}. Clique em "Gerenciar Pagamento" para reativar.
+          </div>`;
+        } else if (emTrial) {
+          alertas.innerHTML = `<div class="alerta alerta-warning">
+            <strong>Você está no período de teste grátis${diasRestantes > 0 ? ` — faltam ${diasRestantes} dia${diasRestantes == 1 ? '' : 's'}` : ''}.</strong><br>
+            Contrate um plano para continuar usando o EasyGestão quando o teste acabar.
           </div>`;
         } else if (diasRestantes <= 7 && diasRestantes > 0) {
           alertas.innerHTML = `<div class="alerta alerta-warning">
@@ -531,13 +543,18 @@
     async function abrirPortal() {
       try {
         const resp = await fetch('/api/assinaturas/portal');
-        const { portal_url } = await resp.json();
+        const dados = await resp.json();
 
-        if (portal_url) {
-          window.location.href = portal_url;
-        } else {
-          alert('Erro ao abrir portal');
+        if (resp.ok && dados.portal_url) {
+          window.location.href = dados.portal_url;
+          return;
         }
+        // 409: cliente sem assinatura paga pelo cartão → manda escolher plano
+        if (resp.status === 409 && dados.redirect) {
+          window.location.href = dados.redirect;
+          return;
+        }
+        alert(dados.erro || 'Erro ao abrir portal');
       } catch (err) {
         console.error('Erro:', err);
         alert('Erro ao abrir portal');
