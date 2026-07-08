@@ -330,7 +330,7 @@
         <div id="alertasAssinatura"></div>
 
         <div class="botoes">
-          <button class="btn btn-primary" id="btnUpgrade" onclick="abrirCheckout()">Contratar Plano</button>
+          <button class="btn btn-primary" id="btnUpgrade" onclick="window.location.href='/planos.html'">Ver planos e contratar</button>
           <button class="btn btn-secondary" id="btnPortal" onclick="abrirPortal()" style="display:none;">Gerenciar Pagamento</button>
         </div>
       </div>
@@ -340,7 +340,7 @@
           <p>Você está em período de teste.</p>
           <p>Escolha um plano abaixo para continuar usando a plataforma após o teste.</p>
           <br>
-          <button class="btn btn-primary" onclick="abrirCheckout()" style="width:200px;">Contratar Plano</button>
+          <button class="btn btn-primary" onclick="window.location.href='/planos.html'" style="width:200px;">Ver planos e contratar</button>
         </div>
       </div>
     </div>
@@ -404,7 +404,9 @@
         document.getElementById('dataInicio').textContent = new Date(assinatura.data_inicio).toLocaleDateString('pt-BR');
         // Trial: a assinatura existe com em_teste=1. O status vem 'ativa' (por data),
         // mas pra o cliente é PERÍODO DE TESTE — precisa contratar pra continuar.
-        const emTrial = assinatura.em_teste == 1 && !tem_stripe;
+        // em_teste MANDA: mesmo com stripe_customer_id (criado num checkout iniciado
+        // e não concluído), quem está em teste ainda não pagou — deve ver "Contratar".
+        const emTrial = assinatura.em_teste == 1;
 
         document.getElementById('statusTexto').textContent = emTrial ? 'TESTE GRÁTIS' : status.status.toUpperCase();
 
@@ -412,9 +414,9 @@
         badge.className = `status-badge ${emTrial ? 'trial' : status.status}`;
         badge.textContent = emTrial ? 'TESTE GRÁTIS' : status.status.toUpperCase();
 
-        // No trial (ou ativa sem Stripe): mostra "Contratar Plano". Só quem tem
-        // customer no Stripe vê "Gerenciar Pagamento" (o portal existe).
-        if (status.status === 'ativa' && tem_stripe) {
+        // No trial: mostra "Contratar Plano" (ainda não há assinatura paga).
+        // Fora do trial e com Stripe: "Gerenciar Pagamento" (o portal existe).
+        if (!emTrial && status.status === 'ativa' && tem_stripe) {
           document.getElementById('btnPortal').style.display = 'block';
           document.getElementById('btnUpgrade').style.display = 'none';
         } else {
