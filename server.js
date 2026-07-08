@@ -461,7 +461,12 @@ app.get('/:slug([a-z0-9-]+)', (req, res, next) => {
 
 // ---------- Tratamento de erro centralizado (NÃO vaza stack/detalhe) ----------
 app.use((err, req, res, next) => {
-  console.error('[ERRO]', err.message);                 // log interno completo
+  // Log interno COMPLETO: método+rota + stack. Sem isso, erros genéricos de SQLite
+  // (ex.: "Provided value cannot be bound to SQLite parameter N") viram agulha no
+  // palheiro — o stack aponta a query/linha exata. A resposta ao cliente continua
+  // sanitizada (só a mensagem pública abaixo).
+  const rota = req ? `${req.method} ${req.originalUrl}` : '?';
+  console.error(`[ERRO] ${rota} -> ${err.message}\n${err.stack || '(sem stack)'}`);
   const publico = err.status && err.status < 500 ? err.message : 'Erro interno do servidor';
   res.status(err.status || 500).json({ erro: publico });  // resposta sanitizada
 });

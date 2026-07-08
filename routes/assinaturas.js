@@ -29,10 +29,17 @@ router.get('/minha', (req, res) => {
     const assinatura = db.prepare('SELECT * FROM assinaturas WHERE tenant_id = ?').get(tenantId);
     const status = obterStatusAssinatura(tenantId);
 
+    // tem_stripe: só quem tem customer no Stripe pode abrir o Customer Portal.
+    // Assinatura pode estar "ativa" (por data) sem nunca ter passado pelo checkout
+    // (trial, cadastro manual/admin, seed local) — nesse caso o portal não existe.
+    const tenant = db.prepare('SELECT stripe_customer_id FROM tenants WHERE id = ?').get(tenantId);
+    const temStripe = !!(tenant && tenant.stripe_customer_id);
+
     if (!assinatura) {
       return res.json({
         assinatura: null,
         status,
+        tem_stripe: temStripe,
         mensagem: 'Cliente em período de teste (sem assinatura)',
       });
     }
@@ -40,6 +47,7 @@ router.get('/minha', (req, res) => {
     res.json({
       assinatura,
       status,
+      tem_stripe: temStripe,
     });
   } catch (err) {
     console.error('[ASSINATURA] Erro ao buscar minha assinatura:', err);
@@ -149,6 +157,14 @@ router.get('/portal', (req, res) => {
         res.json({ portal_url: session.url });
       })
       .catch((err) => {
+        // Sem customer no Stripe é estado esperado (trial/cadastro manual): não
+        // é falha do sistema. Devolve 409 + redirect e NÃO loga como erro.
+        if (err.code === 'SEM_CUSTOMER') {
+          return res.status(409).json({
+            erro: 'Você ainda não tem uma assinatura paga pelo cartão.',
+            redirect: '/planos.html',
+          });
+        }
         console.error('[ASSINATURA] Erro ao criar portal:', err.message);
         res.status(500).json({ erro: 'Erro ao abrir portal' });
       });

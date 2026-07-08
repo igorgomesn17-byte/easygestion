@@ -8,9 +8,25 @@
   <style>
     .pdv-grid { display: grid; grid-template-columns: 1fr 400px; gap: 16px; align-items: start; }
     @media (max-width: 920px) { .pdv-grid { grid-template-columns: 1fr; } }
-    .resultado-busca { max-height: 440px; overflow-y: auto; }
+    .resultado-busca { max-height: 620px; overflow-y: auto; padding: 2px; }
     .item-busca { padding: 10px; border-top: 1px solid #EEE; cursor: pointer; }
     .item-busca:hover { background: var(--creme); }
+
+    /* ---- catálogo de cards (formato vitrine) ---- */
+    .cat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+    .cat-card { background: var(--surface); border: 1px solid var(--linha); border-radius: var(--radius); overflow: hidden; cursor: pointer; transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease; display: flex; flex-direction: column; }
+    .cat-card:hover { border-color: var(--marca); box-shadow: var(--sombra); transform: translateY(-2px); }
+    .cat-card.esgotado { opacity: .55; cursor: not-allowed; }
+    .cat-card.esgotado:hover { border-color: var(--linha); box-shadow: none; transform: none; }
+    .cat-foto { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; background: var(--surface-2); display: block; }
+    .cat-foto-vazia { width: 100%; aspect-ratio: 1 / 1; background: var(--surface-2); display: flex; align-items: center; justify-content: center; color: var(--tinta-3); }
+    .cat-info { padding: 10px 11px; display: flex; flex-direction: column; gap: 3px; flex-grow: 1; }
+    .cat-nome { font-weight: 600; font-size: 0.88rem; color: var(--tinta); line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .cat-preco { font-size: 1.05rem; font-weight: 700; color: var(--marca); font-variant-numeric: tabular-nums; margin-top: auto; }
+    .cat-estoque { font-size: 0.74rem; color: var(--tinta-2); }
+    .cat-estoque.baixo { color: var(--vermelho); font-weight: 600; }
+    .cat-badge { position: absolute; top: 7px; left: 7px; background: rgba(255,255,255,.92); color: var(--tinta-2); font-size: 0.66rem; font-weight: 600; padding: 2px 7px; border-radius: 999px; }
+    .cat-card-wrap { position: relative; }
     .tam-btn { display:inline-block; margin:3px; padding:8px 12px; border:1.5px solid var(--dourado-claro); border-radius:6px; cursor:pointer; background:#fff; font-weight:600; }
     .tam-btn:hover { background: var(--dourado-claro); }
     .tam-btn.zerado { opacity:0.35; pointer-events:none; }
@@ -27,12 +43,9 @@
     <div class="pdv-grid">
       <div>
         <div class="card">
-          <div style="display:flex; gap:8px; align-items:center;">
+          <div style="display:flex; gap:8px; align-items:center; margin-bottom:14px;">
             <input type="search" id="busca" placeholder="Buscar peça por nome ou código (ou leia o código de barras)..." autofocus oninput="buscar()" style="flex:1;">
             <button class="btn btn-escuro" id="btnPecaNova" onclick="abrirPecaNova()" title="Cadastrar peça nova" style="font-size:1.3rem; line-height:1; padding:0 14px;">+</button>
-          </div>
-          <div id="fotoProdSel" style="display:none; margin-bottom:12px; text-align:center;">
-            <img id="fotoProdImg" src="" alt="" style="max-width:100%; max-height:300px; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.1);">
           </div>
           <div class="resultado-busca" id="resultados"></div>
         </div>
@@ -172,6 +185,9 @@
   <div class="modal-fundo" id="modalTam">
     <div class="modal">
       <button class="modal-fechar" onclick="fecharTam()">&times;</button>
+      <div id="fotoProdSel" style="display:none; margin-bottom:14px; text-align:center;">
+        <img id="fotoProdImg" src="" alt="" style="max-width:100%; max-height:240px; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+      </div>
       <h2 id="tamTitulo">Escolha o tamanho</h2>
       <div id="tamOpcoes"></div>
     </div>
@@ -287,32 +303,60 @@
       document.getElementById('repassarTaxa').dataset.userToggled = 'true';
     });
 
-    // ---------- Busca produto ----------
+    // ---------- Catálogo de produtos (cards estilo vitrine, sempre visível) ----------
     let timer;
+    let mapaProdutos = {};   // id -> produto (pra recuperar no clique do card sem serializar JSON no HTML)
+
+    // Renderiza a lista como grade de cards quadrados com foto.
+    function renderCatalogo(lista) {
+      const div = document.getElementById('resultados');
+      mapaProdutos = {};
+      if (!lista || lista.length === 0) {
+        div.className = 'resultado-busca';
+        div.innerHTML = '<div class="vazio" style="padding:24px;">Nada encontrado — use o botão "+" pra cadastrar uma peça nova</div>';
+        return;
+      }
+      div.className = 'resultado-busca cat-grid';
+      div.innerHTML = lista.map(p => {
+        mapaProdutos[p.id] = p;
+        const semEstoque = (p.estoque_total || 0) <= 0;
+        const foto = p.foto
+          ? `<img src="/${p.foto}" alt="${esc(p.nome)}" class="cat-foto" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'cat-foto-vazia',textContent:'sem foto'}))">`
+          : `<div class="cat-foto-vazia">sem foto</div>`;
+        const estClasse = semEstoque ? 'cat-estoque baixo' : (p.estoque_total <= 3 ? 'cat-estoque baixo' : 'cat-estoque');
+        const estTxt = semEstoque ? 'Esgotado' : `${p.estoque_total} em estoque`;
+        return `
+        <div class="cat-card-wrap">
+          <div class="cat-card ${semEstoque ? 'esgotado' : ''}" data-id="${p.id}">
+            ${foto}
+            <span class="cat-badge">${esc(p.codigo || '')}</span>
+            <div class="cat-info">
+              <div class="cat-nome">${esc(p.nome)}</div>
+              <div class="cat-preco">${moeda(p.preco_venda)}</div>
+              <div class="${estClasse}">${estTxt}</div>
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+      // liga o clique (evita embutir JSON gigante no HTML)
+      div.querySelectorAll('.cat-card').forEach(el => {
+        el.addEventListener('click', () => {
+          const p = mapaProdutos[el.getAttribute('data-id')];
+          if (p) escolherProduto(p);
+        });
+      });
+    }
+
+    async function carregarCatalogo(termo) {
+      const q = (termo || '').trim();
+      const lista = await api('/produtos' + (q ? '?busca=' + encodeURIComponent(q) : ''));
+      renderCatalogo(lista);
+    }
+
+    // Busca com debounce; sem termo mostra o catálogo inteiro, com termo filtra.
     function buscar() {
       clearTimeout(timer);
-      timer = setTimeout(async () => {
-        const b = document.getElementById('busca').value.trim();
-        const div = document.getElementById('resultados');
-        if (!b) { div.innerHTML = ''; return; }
-        const lista = await api('/produtos?busca=' + encodeURIComponent(b));
-        if (lista.length === 0) { div.innerHTML = '<div class="vazio">Nada encontrado — use "+ Cadastrar peça nova" abaixo</div>'; return; }
-        div.innerHTML = lista.map(p => {
-          const fotoTag = p.foto
-            ? `<img src="/${p.foto}" style="width:48px;height:48px;border-radius:6px;object-fit:cover;flex-shrink:0;">`
-            : `<div style="width:48px;height:48px;border-radius:6px;background:var(--cinza-claro);display:flex;align-items:center;justify-content:center;flex-shrink:0;"></div>`;
-          return `
-          <div class="item-busca" onclick='escolherProduto(${JSON.stringify(p).replace(/'/g,"&#39;")})' style="display:flex; gap:10px; align-items:center;">
-            ${fotoTag}
-            <div style="flex:1;">
-              <div class="flex-entre">
-                <div><strong>${esc(p.nome)}</strong> <span class="badge badge-dourado">${esc(p.codigo)}</span></div>
-                <strong>${moeda(p.preco_venda)}</strong>
-              </div>
-              <div class="texto-cinza" style="font-size:0.82rem;">Estoque: ${p.estoque_total} • ${p.grade.map(g=>g.tamanho+':'+g.quantidade).join('  ')}</div>
-            </div>
-          </div>`; }).join('');
-      }, 200);
+      timer = setTimeout(() => carregarCatalogo(document.getElementById('busca').value), 200);
     }
 
     // ---------- A17: Leitor de código de barras (pistola USB) ----------
@@ -344,7 +388,7 @@
     }
     function limparBusca() {
       document.getElementById('busca').value = '';
-      document.getElementById('resultados').innerHTML = '';
+      carregarCatalogo('');   // volta a mostrar o catálogo completo (não deixa a tela vazia)
       document.getElementById('busca').focus();
     }
     // Enter no campo de busca = tentativa de leitura/seleção rápida
@@ -410,9 +454,11 @@
           tamanho, preco: produtoTmp.preco_venda, custo: produtoTmp.custo, qtd: 1, estoque });
       }
       fecharTam();
-      document.getElementById('busca').value = '';
-      document.getElementById('resultados').innerHTML = '';
-      document.getElementById('busca').focus();
+      // catálogo permanece visível pra vender várias peças em sequência.
+      // Se havia um termo de busca digitado, limpa e volta ao catálogo completo.
+      const campo = document.getElementById('busca');
+      if (campo.value.trim()) { campo.value = ''; carregarCatalogo(''); }
+      campo.focus();
       renderCarrinho();
     }
 
@@ -1066,6 +1112,7 @@
 
     carregarVendedores();
     mascaraAniversario(document.getElementById('cliAniv'));
+    carregarCatalogo('');   // catálogo já aparece ao abrir o PDV (busca só filtra)
   </script>
 </body>
 </html>

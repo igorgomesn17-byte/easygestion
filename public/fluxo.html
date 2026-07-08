@@ -3,65 +3,116 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Fluxo & DRE • DS Store</title>
+  <title>DRE • Resultado do mês • DS Store</title>
   <link rel="stylesheet" href="css/ds.css">
   <style>
-    .dre-linha { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #EEE; }
-    .dre-linha.sub { padding-left:16px; color:var(--cinza); font-size:0.9rem; }
-    .dre-linha.destaque { font-weight:700; font-size:1.05rem; border-top:2px solid var(--dourado-claro); border-bottom:none; }
-    .dre-linha.resultado { font-weight:700; font-size:1.25rem; border-top:2px solid var(--taupe); margin-top:4px; }
-    .barra-cat { height:14px; background:var(--dourado); border-radius:8px; }
+    /* ---- cabeçalho de mês ---- */
+    .res-topo { display:flex; justify-content:space-between; align-items:flex-end; gap:12px; flex-wrap:wrap; margin-bottom:20px; }
 
-    /* --- Gráfico de composição do resultado (barra empilhada horizontal) --- */
-    .comp-barra { display:flex; width:100%; height:34px; border-radius:8px; overflow:hidden; background:var(--surface-alt); margin:6px 0 18px; }
+    /* ---- cards de resultado (topo) ---- */
+    .res-cards { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:18px; }
+    @media (max-width:760px){ .res-cards { grid-template-columns:1fr; } }
+    .res-card { background:var(--surface); border:1px solid var(--linha); border-radius:var(--radius); padding:18px 20px; box-shadow:var(--sombra-sm); }
+    .res-card .rot { font-size:0.74rem; color:var(--tinta-2); text-transform:uppercase; letter-spacing:0.5px; font-weight:600; margin-bottom:8px; }
+    .res-card .num { font-size:1.85rem; font-weight:700; letter-spacing:-0.03em; line-height:1; color:var(--tinta); font-variant-numeric:tabular-nums; }
+    .res-card .sub { font-size:0.8rem; color:var(--tinta-3); margin-top:7px; }
+    .res-card.lucro { background:var(--marca); border-color:var(--marca); }
+    .res-card.lucro .rot { color:rgba(255,255,255,0.8); }
+    .res-card.lucro .num, .res-card.lucro .sub { color:#fff; }
+    .res-card.lucro.neg { background:var(--vermelho); border-color:var(--vermelho); }
+    .num.pos { color:var(--verde); } .num.neg { color:var(--vermelho); }
+
+    /* ---- gráfico de composição "cada R$100" (o herói da tela) ---- */
+    .comp-card { border-radius:var(--radius); }
+    .comp-titulo { margin:0; font-size:1.05rem; }
+    .comp-sub { color:var(--tinta-2); font-size:0.86rem; margin:4px 0 16px; }
+    .comp-barra { display:flex; width:100%; height:40px; border-radius:9px; overflow:hidden; background:var(--surface-2); margin-bottom:18px; }
     .comp-seg { height:100%; position:relative; transition:opacity .15s; }
-    .comp-seg + .comp-seg { box-shadow:inset 2px 0 0 var(--surface); } /* gap de 2px entre fills */
-    .comp-seg:hover { opacity:.82; }
-    .comp-legenda { display:flex; flex-wrap:wrap; gap:8px 16px; }
-    .comp-item { display:flex; align-items:center; gap:7px; font-size:0.86rem; }
-    .comp-bolinha { width:11px; height:11px; border-radius:3px; flex-shrink:0; }
+    .comp-seg + .comp-seg { box-shadow:inset 2px 0 0 var(--surface); }
+    .comp-seg:hover { opacity:.85; }
+    .comp-legenda { display:flex; flex-wrap:wrap; gap:10px 20px; }
+    .comp-item { display:flex; align-items:center; gap:8px; font-size:0.88rem; }
+    .comp-bolinha { width:12px; height:12px; border-radius:4px; flex-shrink:0; }
+    .comp-item .cnome { font-weight:500; }
     .comp-item .cval { color:var(--tinta-2); }
-    .comp-legenda-sobra { margin-top:10px; padding-top:10px; border-top:1px solid var(--linha); }
-    /* barra de categoria com rótulo de % */
-    .cat-linha { margin-bottom:12px; }
-    .cat-topo { display:flex; justify-content:space-between; font-size:0.9rem; margin-bottom:3px; }
+    .comp-legenda-sobra { margin-top:12px; padding-top:12px; border-top:1px solid var(--linha); width:100%; font-weight:600; }
+
+    /* ---- DRE detalhado ---- */
+    .dre-linha { display:flex; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--linha); }
+    .dre-linha.sub { padding-left:16px; color:var(--tinta-2); font-size:0.9rem; }
+    .dre-linha.destaque { font-weight:700; font-size:1.02rem; border-top:2px solid var(--dourado-claro); border-bottom:none; color:var(--tinta); }
+    .dre-linha.resultado { font-weight:700; font-size:1.2rem; border-top:2px solid var(--marca); border-bottom:none; margin-top:4px; color:var(--tinta); }
+
+    /* ---- despesas por categoria ---- */
+    .cat-linha { margin-bottom:13px; }
+    .cat-topo { display:flex; justify-content:space-between; font-size:0.9rem; margin-bottom:4px; }
     .cat-pct { color:var(--tinta-3); font-size:0.8rem; margin-left:6px; }
+    .barra-cat { height:14px; background:var(--dourado); border-radius:8px; min-width:3px; }
+
+    .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+    @media (max-width:860px){ .grid-2 { grid-template-columns:1fr; } }
+
+    /* alerta de resultado */
+    .alerta { border-radius:var(--radius); padding:14px 16px; margin-top:16px; border-left:4px solid; font-size:0.92rem; }
+    .alerta.vermelho { background:var(--vermelho-bg); border-color:var(--vermelho); }
+    .alerta.vermelho strong { color:var(--vermelho); }
+    .alerta.amarelo { background:var(--amarelo-bg); border-color:var(--dourado); }
+    .alerta.amarelo strong { color:var(--dourado-escuro); }
+    .alerta.verde { background:var(--verde-bg); border-color:var(--verde); }
+    .alerta.verde strong { color:var(--verde); }
   </style>
 </head>
 <body>
   <div class="conteudo">
-    <div class="flex-entre">
-      <div><h1>Fluxo de Caixa & DRE</h1><p class="subtitulo">Quanto entrou, quanto saiu, e o resultado real do mês</p></div>
+    <div class="res-topo">
+      <div><h1>Resultado do mês</h1><p class="subtitulo" style="margin-bottom:0;">Quanto entrou, pra onde foi, e o que realmente sobrou</p></div>
       <div style="display:flex; gap:8px; align-items:center;">
         <button class="btn btn-fino btn-escuro nao-imprime" onclick="exportar()">CSV</button>
         <input type="month" id="mes" onchange="carregar()" style="max-width:170px;">
       </div>
     </div>
 
-    
-    <div class="cards-grid">
+    <!-- 3 cards-chave (como o mockup): Faturamento · Custos+taxas · Lucro/Sobrou -->
+    <div class="res-cards">
+      <div class="res-card">
+        <div class="rot">Faturamento</div>
+        <div class="num" id="cFaturamento">R$ 0</div>
+        <div class="sub" id="cFatSub">— vendas no mês</div>
+      </div>
+      <div class="res-card">
+        <div class="rot">Custos + taxas + despesas</div>
+        <div class="num" id="cCustos">R$ 0</div>
+        <div class="sub">o que saiu antes de você se pagar</div>
+      </div>
+      <div class="res-card lucro" id="cLucroCard">
+        <div class="rot">Resultado da loja</div>
+        <div class="num" id="cLucro">R$ 0</div>
+        <div class="sub" id="cLucroSub">margem 0%</div>
+      </div>
+    </div>
+
+    <!-- barra de composição "cada R$100" -->
+    <div class="card comp-card" id="cardComposicao" style="display:none;">
+      <h2 class="comp-titulo">De cada R$ 100 que entraram, pra onde foi?</h2>
+      <p class="comp-sub">A régua mostra como sua receita se divide entre custos, despesas e o que sobrou.</p>
+      <div class="comp-barra" id="compBarra"></div>
+      <div class="comp-legenda" id="compLegenda"></div>
+    </div>
+
+    <!-- fluxo do mês (entrou/saiu/saldo/a pagar) — mantém ids do JS -->
+    <div class="cards-grid" style="margin-bottom:18px;">
       <div class="card card-metrica"><div class="valor dinheiro texto-verde" id="fEntradas">R$ 0</div><div class="rotulo">Entrou (vendas)</div></div>
       <div class="card card-metrica"><div class="valor dinheiro texto-vermelho" id="fSaidas">R$ 0</div><div class="rotulo">Saiu (despesas)</div></div>
       <div class="card card-metrica destaque"><div class="valor dinheiro" id="fSaldo">R$ 0</div><div class="rotulo">Saldo do mês</div></div>
       <div class="card card-metrica"><div class="valor dinheiro texto-vermelho" id="fApagar">R$ 0</div><div class="rotulo">Ainda a pagar</div></div>
     </div>
 
-    <div class="card" id="cardComposicao" style="display:none;">
-      <h2 style="margin-top:0;">Cada R$ 100 que entraram, foram pra onde?</h2>
-      <p class="texto-cinza" style="margin-top:-6px; font-size:0.86rem;">A régua abaixo mostra como sua receita se divide entre custos, despesas e o que sobrou.</p>
-      <div class="comp-barra" id="compBarra"></div>
-      <div class="comp-legenda" id="compLegenda"></div>
-    </div>
-
-    <div class="cards-grid" style="grid-template-columns:1fr 1fr;">
-
+    <div class="grid-2">
       <div class="card">
-        <h2 style="margin-top:0;">DRE — Resultado do mês</h2>
+        <h2 style="margin-top:0;">DRE detalhado</h2>
         <div id="dre"><div class="texto-cinza">Carregando...</div></div>
-        <button class="btn btn-bloco mt" onclick="window.print()">Imprimir / Salvar PDF</button>
+        <button class="btn btn-bloco mt nao-imprime" onclick="window.print()">Imprimir / Salvar PDF</button>
       </div>
-
-      
       <div class="card">
         <h2 style="margin-top:0;">Para onde foi o dinheiro</h2>
         <div id="porCategoria"><div class="texto-cinza">Sem despesas neste mês.</div></div>
@@ -77,23 +128,42 @@
 
     async function carregar() {
       const mes = document.getElementById('mes').value;
-      const fluxo = await api('/financeiro/fluxo?mes='+mes);
-      const dre = await api('/financeiro/dre?mes='+mes);
+      let fluxo, dre;
+      try {
+        fluxo = await api('/financeiro/fluxo?mes='+mes);
+        dre = await api('/financeiro/dre?mes='+mes);
+      } catch (err) {
+        // gate de plano (403 upgrade) já é tratado por api()/tratarBloqueioDePlano;
+        // aqui só evitamos quebrar a renderização com erro genérico.
+        if (!err || !err.upgrade) toast('Não foi possível carregar o resultado.', 'erro');
+        return;
+      }
       dreAtual = dre; fluxoAtual = fluxo;
 
-      // cards
+      // ---- 3 cards-chave (topo) ----
+      const custosTotais = (dre.impostos||0) + (dre.cmv||0) + (dre.taxas_cartao||0)
+        + (dre.comissoes||0) + (dre.embalagem||0) + (dre.despesas_fixas||0) + (dre.despesas_variaveis||0);
+      document.getElementById('cFaturamento').textContent = moeda(dre.receita_bruta);
+      document.getElementById('cFatSub').textContent = (dre.num_vendas||0) + ' venda' + (dre.num_vendas===1?'':'s') + ' no mês';
+      document.getElementById('cCustos').textContent = moeda(custosTotais);
+      const lucroCard = document.getElementById('cLucroCard');
+      const opNeg = dre.resultado_operacional < 0;
+      lucroCard.classList.toggle('neg', opNeg);
+      document.getElementById('cLucro').textContent = moeda(dre.resultado_operacional);
+      document.getElementById('cLucroSub').textContent = 'margem ' + (dre.margem_operacional ?? 0) + '%';
+
+      // ---- fluxo (entrou/saiu/saldo/a pagar) ----
       document.getElementById('fEntradas').textContent = moeda(fluxo.entradas.liquido);
       document.getElementById('fSaidas').textContent = moeda(fluxo.saidas.total);
-      const saldoEl = document.getElementById('fSaldo');
-      saldoEl.textContent = moeda(fluxo.saldo);
+      document.getElementById('fSaldo').textContent = moeda(fluxo.saldo);
       document.getElementById('fApagar').textContent = moeda(fluxo.saidas.apagar);
 
-      // DRE
+      // ---- DRE detalhado ----
       const corOp = dre.resultado_operacional >= 0 ? 'texto-verde' : 'texto-vermelho';
       const corFinal = dre.resultado_final >= 0 ? 'texto-verde' : 'texto-vermelho';
       document.getElementById('dre').innerHTML = `
         <div class="dre-linha"><span>Receita bruta (vendas)</span><strong class="dinheiro">${moeda(dre.receita_bruta)}</strong></div>
-        <div class="dre-linha sub"><span>(−) Impostos (Simples)</span><span class="dinheiro">−${moeda(dre.impostos)}</span></div>
+        <div class="dre-linha sub"><span>(−) Impostos</span><span class="dinheiro">−${moeda(dre.impostos)}</span></div>
         <div class="dre-linha destaque"><span>= Receita líquida</span><span class="dinheiro">${moeda(dre.receita_liquida)}</span></div>
         <div class="dre-linha sub"><span>(−) Custo das mercadorias (CMV)</span><span class="dinheiro">−${moeda(dre.cmv)}</span></div>
         <div class="dre-linha destaque"><span>= Lucro bruto</span><span class="dinheiro">${moeda(dre.lucro_bruto)}</span></div>
@@ -103,25 +173,27 @@
         <div class="dre-linha sub"><span>(−) Despesas fixas (loja)</span><span class="dinheiro">−${moeda(dre.despesas_fixas)}</span></div>
         <div class="dre-linha sub"><span>(−) Despesas variáveis (loja)</span><span class="dinheiro">−${moeda(dre.despesas_variaveis)}</span></div>
         <div class="dre-linha resultado"><span>= RESULTADO DA LOJA</span><span class="dinheiro ${corOp}">${moeda(dre.resultado_operacional)}</span></div>
-        <div class="texto-cinza centro" style="font-size:0.82rem; padding:4px 0;">Margem operacional: <strong class="${corOp}">${dre.margem_operacional}%</strong> • o quanto a operação rende sozinha</div>
+        <div class="texto-cinza centro" style="font-size:0.82rem; padding:6px 0;">Margem operacional: <strong class="${corOp}">${dre.margem_operacional}%</strong> • o quanto a operação rende sozinha</div>
         <div class="dre-linha sub" style="margin-top:8px;"><span>(−) Retiradas do dono / pró-labore</span><span class="dinheiro">−${moeda(dre.pro_labore)}</span></div>
         <div class="dre-linha resultado"><span>= SOBROU NO FIM</span><span class="dinheiro ${corFinal}">${moeda(dre.resultado_final)}</span></div>
-        <div class="texto-cinza centro mt" style="font-size:0.85rem;">${dre.num_vendas} vendas no mês • o que sobra depois de você se pagar</div>
-        ${dre.resultado_operacional < 0 ? '<div class="card mt" style="background:#FBE6E3;border-left:4px solid var(--vermelho);"><strong class="texto-vermelho">A loja operou no vermelho.</strong> As despesas da operação superaram o que sobrou das vendas — antes mesmo das suas retiradas. Veja onde cortar ou quanto precisa vender a mais.</div>'
-          : dre.resultado_final < 0 ? '<div class="card mt" style="background:#FFF3CD;border-left:4px solid var(--dourado);"><strong style="color:#7a5d00;">A loja deu lucro, mas as retiradas consumiram tudo.</strong> A operação é saudável; ajuste o tamanho das retiradas pessoais pra sobrar caixa.</div>'
-          : '<div class="card mt" style="background:#E3F4EA;border-left:4px solid var(--verde);"><strong class="texto-verde">Mês no azul</strong> A loja deu lucro e ainda sobrou caixa depois das suas retiradas.</div>'}`;
+        <div class="texto-cinza centro mt" style="font-size:0.85rem;">o que sobra depois de você se pagar</div>
+        ${dre.resultado_operacional < 0
+          ? '<div class="alerta vermelho"><strong>A loja operou no vermelho.</strong> As despesas da operação superaram o que sobrou das vendas — antes mesmo das suas retiradas. Veja onde cortar ou quanto precisa vender a mais.</div>'
+          : dre.resultado_final < 0
+          ? '<div class="alerta amarelo"><strong>A loja deu lucro, mas as retiradas consumiram tudo.</strong> A operação é saudável; ajuste o tamanho das retiradas pessoais pra sobrar caixa.</div>'
+          : '<div class="alerta verde"><strong>Mês no azul.</strong> A loja deu lucro e ainda sobrou caixa depois das suas retiradas.</div>'}`;
 
-      // gráfico de composição do resultado
+      // ---- gráfico de composição ----
       montarComposicao(dre);
 
-      // por categoria (barras com % da despesa total)
-      const cats = fluxo.por_categoria;
+      // ---- despesas por categoria ----
+      const cats = fluxo.por_categoria || [];
       const totalCat = cats.reduce((s,c)=>s+c.valor, 0) || 1;
       const maxV = cats.length ? Math.max(...cats.map(c=>c.valor)) : 1;
       document.getElementById('porCategoria').innerHTML = cats.length===0
         ? '<div class="texto-cinza">Sem despesas neste mês.</div>'
         : cats.map(c=>`<div class="cat-linha">
-            <div class="cat-topo"><span>${c.categoria}<span class="cat-pct">${Math.round(c.valor/totalCat*100)}%</span></span><strong class="dinheiro">${moeda(c.valor)}</strong></div>
+            <div class="cat-topo"><span>${esc(c.categoria)}<span class="cat-pct">${Math.round(c.valor/totalCat*100)}%</span></span><strong class="dinheiro">${moeda(c.valor)}</strong></div>
             <div class="barra-cat" style="width:${Math.max(c.valor/maxV*100,3)}%;"></div>
           </div>`).join('');
     }
@@ -134,20 +206,18 @@
       if (receita <= 0) { card.style.display = 'none'; return; }
       card.style.display = 'block';
 
-      // Fatias na ordem que o dinheiro "sai" da receita. Sobra = resultado operacional (se positivo).
       const sobra = Math.max(dre.resultado_operacional || 0, 0);
       const fatias = [
-        { nome: 'Impostos',        valor: dre.impostos || 0,           cor: '#c0392b' },
         { nome: 'Custo das peças', valor: dre.cmv || 0,                cor: '#a6791a' },
+        { nome: 'Impostos',        valor: dre.impostos || 0,           cor: '#c0392b' },
         { nome: 'Taxas + comissão',valor: (dre.taxas_cartao||0)+(dre.comissoes||0)+(dre.embalagem||0), cor: '#8e5aa8' },
         { nome: 'Despesas da loja',valor: (dre.despesas_fixas||0)+(dre.despesas_variaveis||0), cor: '#2f6bd8' },
         { nome: 'Sobrou',          valor: sobra,                       cor: '#1a8a5a' },
       ].filter(f => f.valor > 0);
 
-      // largura de cada segmento como % da receita bruta
       const barra = fatias.map(f => {
         const pct = f.valor / receita * 100;
-        const rotulo = pct >= 9 ? `<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.74rem;font-weight:600;text-shadow:0 1px 2px rgba(0,0,0,.25);">${Math.round(pct)}%</span>` : '';
+        const rotulo = pct >= 9 ? `<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.76rem;font-weight:600;text-shadow:0 1px 2px rgba(0,0,0,.25);">${Math.round(pct)}%</span>` : '';
         return `<div class="comp-seg" style="width:${pct}%;background:${f.cor};" title="${f.nome}: ${moeda(f.valor)} (${pct.toFixed(1)}%)">${rotulo}</div>`;
       }).join('');
       document.getElementById('compBarra').innerHTML = barra;
@@ -155,9 +225,9 @@
       const legenda = fatias.map(f => {
         const pct = Math.round(f.valor / receita * 100);
         const ehSobra = f.nome === 'Sobrou';
-        return `<div class="comp-item ${ehSobra?'comp-legenda-sobra':''}" style="${ehSobra?'width:100%;':''}">
+        return `<div class="comp-item ${ehSobra?'comp-legenda-sobra':''}">
           <span class="comp-bolinha" style="background:${f.cor};"></span>
-          <span>${f.nome}</span>
+          <span class="cnome">${f.nome}</span>
           <span class="cval">${moeda(f.valor)} · ${pct}%</span>
         </div>`;
       }).join('');
@@ -165,9 +235,8 @@
     }
 
     function exportar() {
-      if (dreAtual) { toast('Carregando...','erro'); return; }
+      if (!dreAtual) { toast('Ainda carregando os dados…','erro'); return; }
       const mes = document.getElementById('mes').value;
-      // DRE em formato linha-valor + despesas por categoria
       const linhas = [
         ['DRE — ' + mes, ''],
         ['Receita bruta', dreAtual.receita_bruta],

@@ -351,6 +351,10 @@ function obterImposto(tenantId, estado = 'default', categoria = 'default') {
 // Handler público: só as chaves seguras (montado em /api/loja-publica, SEM login)
 function lojaPublica(req, res) {
   const obj = {};
+  // Rota pública: visitante deslogado não tem req.tenantId. Sem tenant não há loja
+  // a resolver — devolve vazio. (Passar undefined ao 2º ? do SQLite estourava
+  // "Provided value cannot be bound to SQLite parameter 2" a cada acesso anônimo.)
+  if (!req.tenantId) return res.json(obj);
   const stmt = db.prepare('SELECT valor FROM config WHERE chave = ? AND tenant_id = ?');
   for (const chave of CHAVES_PUBLICAS) {
     const row = stmt.get(chave, req.tenantId);
