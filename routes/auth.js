@@ -136,8 +136,9 @@ router.post('/login', (req, res) => {
 
       if (tenantData && tenantData.onboarding_estado) {
         const estado = JSON.parse(tenantData.onboarding_estado);
-        // Se onboarding não foi concluído ainda, redirecionar para o passo apropriado
-        if (!estado.concluido) {
+        // Redireciona pro onboarding só se NÃO concluiu E NÃO pulou. Quem clicou
+        // "Pular por agora" (pulado=true) vai direto pra dashboard e não é mais arrastado.
+        if (!estado.concluido && !estado.pulado) {
           if (estado.etapa === 'identidade') {
             destino = 'onboarding.html';
             console.log(`[LOGIN OK - ONBOARDING IDENTIDADE] ${u.email} (${u.papel}) • ${req.ip}`);
@@ -278,6 +279,21 @@ router.post('/registro', async (req, res) => {
     );
     for (const [chave, valor] of Object.entries(defaultsFinanceiros)) {
       insertConfigStmt.run(chave, valor, r.tenantId);
+    }
+
+    // Pré-preencher a config com os dados que o cliente JÁ informou no cadastro,
+    // pra ele não redigitar em Configurações. INSERT OR IGNORE não sobrescreve se
+    // já existir. loja_email/loja_cnpj são internos (NÃO estão em CHAVES_PUBLICAS
+    // de routes/vitrine.js, então não vazam na vitrine pública).
+    const dadosCadastro = {
+      loja_nome: nomeLoja,
+      loja_telefone: telefoneLimpo,
+      loja_responsavel: nomeResponsavel,
+      loja_email: email.trim(),
+      loja_cnpj: cpfCnpjLimpo,
+    };
+    for (const [chave, valor] of Object.entries(dadosCadastro)) {
+      if (valor) insertConfigStmt.run(chave, valor, r.tenantId);
     }
 
     // (4) Gerar token de verificação de email

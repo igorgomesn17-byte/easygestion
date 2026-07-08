@@ -217,7 +217,7 @@
         await fetch('/api/onboarding/estado', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ pulado: true }),
+          body: JSON.stringify({ pulado: true, banner_dispensado: true }),
           credentials: 'same-origin'
         });
         window.location.href = 'index.html';
@@ -243,11 +243,14 @@
           return;
         }
 
-        // 1. Salvar identidade em config
+        // 1. Salvar identidade em config + LIGAR a vitrine (vitrine_ativa=1).
+        // Sem isso, o GET /api/vitrine/:slug barra no gate e a loja não aparece
+        // até o cliente re-salvar a seção Vitrine no config. (O gate de PLANO —
+        // vitrine só no Growth — continua valendo à parte; isto é só o "publicar".)
         const configResp = await fetch('/api/config', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ loja_nome: nome, marca_cor: cor }),
+          body: JSON.stringify({ loja_nome: nome, marca_cor: cor, vitrine_ativa: '1' }),
           credentials: 'same-origin'
         });
         if (!configResp.ok) throw new Error('Erro ao salvar identidade');
