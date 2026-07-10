@@ -74,7 +74,7 @@ router.post('/', (req, res) => {
   }
 
   // Prosseguir com a lógica original
-  const { itens, forma_pagamento, parcelas = 1, desconto = 0, cliente_id = null, vendedor_id = null, observacao = null, origem = 'loja', pagamentos = null, comprovante = null, troco = 0, troco_forma = null, repassar_taxa = true, estado = 'default', categoria = 'default' } = req.body;
+  const { itens, forma_pagamento, parcelas = 1, desconto = 0, cliente_id = null, vendedor_id = null, observacao = null, origem = 'loja', pagamentos = null, comprovante = null, troco = 0, troco_forma = null, repassar_taxa = true, estado = 'default', categoria = 'default', vale_codigo = null } = req.body;
   if (!Array.isArray(itens) || itens.length === 0) return res.status(400).json({ erro: 'Venda sem itens' });
   // pagamento: aceita split (array `pagamentos`) ou forma unica (compatibilidade).
   const temSplit = Array.isArray(pagamentos) && pagamentos.length > 0;
@@ -190,6 +190,38 @@ router.post('/', (req, res) => {
 
   const hoje = hojeLocal();
 
+  // ----- VALE-CREDITO -----
+  // A baixa do vale mora AQUI, dentro da transacao da venda. Antes ela era feita pelo
+  // navegador (POST /vales/:codigo/usar) DEPOIS da venda gravada: se o valor calculado
+  // no front fosse 0 — o que acontecia sempre que se pagava com vale, porque ele lia o
+  // campo 'desconto' — a baixa nunca ocorria e o vale continuava reutilizavel.
+  const valorEmVale = +partes.filter(p => p.forma === 'vale').reduce((s, p) => s + p.valor, 0).toFixed(2);
+  // o codigo vem no topo (forma unica) ou dentro da linha do split (pagamentos[].vale_codigo)
+  const codigoVale = vale_codigo || (Array.isArray(pagamentos)
+    ? (pagamentos.find(p => p && p.forma === 'vale' && p.vale_codigo) || {}).vale_codigo
+    : null);
+  let valeParaDebitar = null;
+  if (valorEmVale > 0) {
+    if (!codigoVale) return res.status(400).json({ erro: 'Pagamento em vale exige o codigo do vale' });
+    const codigo = String(codigoVale).toUpperCase().trim();
+    const vale = db.prepare(`SELECT id, codigo, saldo, valor, validade FROM vales
+                             WHERE codigo = ? AND tenant_id = ? AND ativo = 1`).get(codigo, req.tenantId);
+    if (!vale) return res.status(404).json({ erro: 'Vale nao encontrado, ja utilizado ou cancelado' });
+    if (vale.validade && hoje > vale.validade) {
+      return res.status(422).json({ erro: 'Vale expirado', validade: vale.validade });
+    }
+    if (vale.saldo < valorEmVale) {
+      return res.status(422).json({ erro: 'Saldo insuficiente no vale', saldo_disponivel: vale.saldo, valor_solicitado: valorEmVale });
+    }
+    valeParaDebitar = vale;
+  } else if (codigoVale) {
+    return res.status(400).json({ erro: 'Vale informado mas nenhum pagamento em vale' });
+  }
+  // um vale por venda: com 2+ linhas de vale no split so a 1a seria debitada
+  if (partes.filter(p => p.forma === 'vale').length > 1) {
+    return res.status(400).json({ erro: 'Use uma unica linha de vale por venda' });
+  }
+
   // salva o comprovante (se veio) ANTES da transacao — escrita em disco fora do BEGIN/COMMIT
   const comprovantePath = comprovante ? salvarComprovanteBase64(comprovante) : null;
 
@@ -224,6 +256,19 @@ router.post('/', (req, res) => {
       insItem.run(vendaId, req.tenantId, l.variacao_id, l.produto_id, `${l.nome} (${l.tamanho})`, l.qtd, precoComDesconto, l.custo_unit);
       baixa.run(l.qtd, l.variacao_id);
       mov.run(l.variacao_id, -l.qtd, `venda #${vendaId}`);
+    }
+
+    // 2b. debita o vale (mesma transacao da venda: ou os dois acontecem, ou nenhum).
+    // O `AND saldo >= ?` faz a checagem no proprio UPDATE, fechando a janela de corrida
+    // entre duas vendas simultaneas com o mesmo vale.
+    if (valeParaDebitar) {
+      const upd = db.prepare(`UPDATE vales
+        SET saldo = saldo - ?, utilizado = utilizado + ?,
+            ativo = CASE WHEN saldo - ? <= 0 THEN 0 ELSE 1 END,
+            venda_utilizacao_id = ?, data_utilizacao = datetime('now','localtime')
+        WHERE id = ? AND tenant_id = ? AND ativo = 1 AND saldo >= ?`)
+        .run(valorEmVale, valorEmVale, valorEmVale, vendaId, valeParaDebitar.id, req.tenantId, valorEmVale);
+      if (upd.changes !== 1) throw new Error('Vale indisponivel ou saldo insuficiente');
     }
 
     // 3. atualiza cliente (se informado)

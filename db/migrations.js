@@ -582,6 +582,21 @@ function executarMigrations(db) {
           throw e;
         }
       }
+    },
+    {
+      nome: '025_add_data_utilizacao_to_vales',
+      hash: 'v25-vale-data-utilizacao',
+      exec: (db) => {
+        // A tabela vales guardava venda_utilizacao_id mas nenhuma data: o historico
+        // nao tinha como mostrar QUANDO o vale foi usado. Preenchida na baixa
+        // (routes/vendas.js), junto com venda_utilizacao_id.
+        const colunaExiste = db.prepare(`
+          PRAGMA table_info(vales)
+        `).all().some(col => col.name === 'data_utilizacao');
+        if (!colunaExiste) {
+          db.exec(`ALTER TABLE vales ADD COLUMN data_utilizacao TEXT;`);
+        }
+      }
     }
   ];
 

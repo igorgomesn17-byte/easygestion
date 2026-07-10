@@ -22,6 +22,12 @@ router.get('/:codigo', (req, res) => {
       return res.status(404).json({ erro: 'Vale não encontrado ou já cancelado' });
     }
 
+    // saldo zerado = ja gasto. Havia vales com saldo 0 e ativo=1 no banco, e o filtro
+    // acima os devolvia como validos pro PDV.
+    if (vale.saldo <= 0) {
+      return res.status(422).json({ erro: 'Vale já utilizado', saldo: 0 });
+    }
+
     // Verificar validade
     if (vale.validade) {
       const hoje = new Date().toISOString().split('T')[0];
@@ -45,57 +51,16 @@ router.get('/:codigo', (req, res) => {
   }
 });
 
-// POST /api/vales/:codigo/usar -> usar vale em uma venda
-// body: { valor_a_usar, venda_id }
+// POST /api/vales/:codigo/usar -> DESATIVADA
+// A baixa do vale agora acontece dentro da transacao do POST /api/vendas (routes/vendas.js),
+// junto com a gravacao da venda. Esta rota debitava FORA da transacao, chamada pelo navegador
+// depois da venda ja gravada: se falhasse, a venda existia e o vale continuava com saldo.
+// Manter as duas ativas permitiria debito em dobro. Responde 410 em vez de sumir, pra que
+// qualquer chamador antigo receba um erro explicito em vez de um 404 confuso.
 router.post('/:codigo/usar', exigirFeature('vale_credito'), (req, res) => {
-  const codigo = req.params.codigo.toUpperCase();
-  const { valor_a_usar = 0, venda_id = null } = req.body;
-
-  if (!valor_a_usar || valor_a_usar <= 0) {
-    return res.status(400).json({ erro: 'Valor inválido para usar do vale' });
-  }
-
-  const vale = db.prepare(`
-    SELECT id, saldo, valor
-    FROM vales
-    WHERE codigo = ? AND tenant_id = ? AND saldo > 0
-  `).get(codigo, req.tenantId);
-
-  if (!vale) {
-    return res.status(404).json({ erro: 'Vale não encontrado' });
-  }
-
-  if (vale.saldo < valor_a_usar) {
-    return res.status(422).json({
-      erro: 'Saldo insuficiente no vale',
-      saldo_disponivel: vale.saldo,
-      valor_solicitado: valor_a_usar
-    });
-  }
-
-  try {
-    // Atualizar saldo do vale
-    const novoSaldo = +(vale.saldo - valor_a_usar).toFixed(2);
-    const novoUtilizado = +(vale.valor - novoSaldo).toFixed(2);
-    const estaInativo = novoSaldo <= 0 ? 0 : 1; // Marcar como inativo se saldo zerou
-
-    db.prepare(`
-      UPDATE vales
-      SET saldo = ?, utilizado = ?, ativo = ?, venda_utilizacao_id = ?
-      WHERE id = ? AND tenant_id = ?
-    `).run(novoSaldo, novoUtilizado, estaInativo, venda_id, vale.id, req.tenantId);
-
-    res.json({
-      sucesso: true,
-      codigo,
-      valor_utilizado: valor_a_usar,
-      novo_saldo: novoSaldo,
-      ativo: estaInativo,
-      venda_id
-    });
-  } catch (e) {
-    res.status(500).json({ erro: e.message });
-  }
+  res.status(410).json({
+    erro: 'Rota descontinuada: o vale e debitado automaticamente ao registrar a venda (POST /api/vendas com vale_codigo).'
+  });
 });
 
 // GET /api/vales -> lista vales (filtros: status, busca, paginação)
@@ -103,7 +68,8 @@ router.get('/', (req, res) => {
   const { ativo, cliente_id, status, busca, limit, offset } = req.query;
   let sql = `
     SELECT vl.id, vl.codigo, vl.valor, vl.saldo, vl.utilizado, vl.data_geracao,
-           vl.validade, vl.cliente_id, vl.ativo, vl.troca_id, vl.venda_utilizacao_id, vl.notas,
+           vl.validade, vl.cliente_id, vl.ativo, vl.troca_id, vl.venda_utilizacao_id,
+           vl.data_utilizacao, vl.notas,
            c.nome AS cliente_nome
     FROM vales vl
     LEFT JOIN clientes c ON c.id = vl.cliente_id AND c.tenant_id = vl.tenant_id
@@ -121,14 +87,16 @@ router.get('/', (req, res) => {
   }
 
   // Novo filtro por status derivado
+  // status derivado do SALDO (o fato), nao da flag `ativo`: havia vales gastos
+  // (saldo 0) com ativo=1, que sumiam do filtro "utilizado" e apareciam como ativos.
   const hoje = new Date().toISOString().split('T')[0];
   if (status === 'ativo') {
-    sql += ' AND vl.ativo = 1 AND (vl.validade IS NULL OR vl.validade >= ?)';
+    sql += ' AND vl.ativo = 1 AND vl.saldo > 0 AND (vl.validade IS NULL OR vl.validade >= ?)';
     params.push(hoje);
   } else if (status === 'utilizado') {
-    sql += ' AND vl.ativo = 0 AND vl.utilizado > 0';
+    sql += ' AND vl.utilizado > 0';
   } else if (status === 'expirado') {
-    sql += ' AND vl.ativo = 1 AND vl.validade IS NOT NULL AND vl.validade < ?';
+    sql += ' AND vl.ativo = 1 AND vl.saldo > 0 AND vl.validade IS NOT NULL AND vl.validade < ?';
     params.push(hoje);
   }
 

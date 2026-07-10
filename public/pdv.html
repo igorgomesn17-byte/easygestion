@@ -100,7 +100,7 @@
             <label>Código do vale</label>
             <div style="display:flex; gap:6px;">
               <input type="text" id="codigoVale" placeholder="Ex: VALE-ABC123" style="flex:1;" oninput="buscarVale()">
-              <button class="btn" onclick="aplicarVale()" style="white-space:nowrap;">Verificar</button>
+              <button class="btn" onclick="buscarVale()" style="white-space:nowrap;">Verificar</button>
             </div>
             <div id="infoVale" style="margin-top:8px;"></div>
           </div>
@@ -986,34 +986,9 @@
         }
       }
       try {
+        // O vale (se houver) ja foi debitado pelo backend, dentro da mesma transacao
+        // da venda. Nao chamar /vales/usar aqui: debitaria duas vezes.
         const r = await api('/vendas', { method:'POST', body: venda });
-
-        // Registrar uso do vale se aplicado
-        if (valeAtual) {
-          let valorUtilizado = 0;
-          // Se tem split, busca quanto foi usado do vale no split
-          if (splitAtivo) {
-            const linhaVale = linhasSplit.find(l => l.forma === 'vale');
-            if (linhaVale) valorUtilizado = linhaVale.valor || 0;
-          } else {
-            // Sem split: usa o desconto como aplicação do vale
-            valorUtilizado = parseFloat(document.getElementById('desconto').value) || 0;
-          }
-          if (valorUtilizado > 0) {
-            try {
-              const resVale = await api('/vales/' + valeAtual.codigo + '/usar', {
-                method: 'POST',
-                body: { valor_a_usar: valorUtilizado, venda_id: r.id }
-              });
-              if (resVale && resVale.sucesso) {
-                toast(`Vale ${valeAtual.codigo} registrado com sucesso`, 'sucesso');
-              }
-            } catch(e) {
-              toast('Vale não registrado: ' + (e.message || 'erro desconhecido'), 'aviso');
-              console.error('Erro ao registrar uso do vale:', e);
-            }
-          }
-        }
 
         // Se pediu COM nota, emite a NFC-e antes de imprimir. A venda já existe,
         // então mesmo se a nota falhar não perdemos a venda — só avisamos.
@@ -1093,18 +1068,11 @@
       }
     }
 
-    function aplicarVale() {
-      if (!valeAtual) {
-        toast('Vale não validado', 'erro');
-        return;
-      }
-      const total = parseFloat(document.getElementById('total').textContent.replace('R$ ', '').replace(',', '.')) || 0;
-      const aplicar = Math.min(valeAtual.saldo_disponivel, total);
-      document.getElementById('desconto').value = aplicar.toFixed(2);
-      document.getElementById('tipoDesc').value = 'reais';
-      atualizarTotais();
-      toast(`Vale de ${moeda(aplicar)} aplicado`, 'sucesso');
-    }
+    // NOTA: existia aqui um aplicarVale() que jogava o saldo do vale no campo 'desconto'.
+    // O vale e' FORMA DE PAGAMENTO, nao desconto — lancar como desconto distorcia o valor
+    // da venda. O botao "Verificar" chamava essa funcao (o rotulo dizia conferir, e ela
+    // aplicava), e o finalizar() lia o desconto pra saber quanto debitar: quem nao clicava
+    // no botao fechava a venda com o vale intacto. Agora quem debita e' o backend.
 
     document.getElementById('modalTam').addEventListener('click', e=>{ if(e.target.id==='modalTam') fecharTam(); });
     document.getElementById('modalCli').addEventListener('click', e=>{ if(e.target.id==='modalCli') e.currentTarget.classList.remove('aberto'); });

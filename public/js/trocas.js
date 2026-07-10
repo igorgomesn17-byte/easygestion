@@ -549,7 +549,7 @@ function renderVales() {
   }
   div.innerHTML = arr.map(v => {
     const statusBadge = statusVale(v);
-    const usedInfo = v.venda_utilizacao_id ? `Venda #${v.venda_utilizacao_id}` : '—';
+    const usedInfo = usoDoVale(v);
     return `<tr>
       <td style="font-family:monospace; font-weight:600;">${esc(v.codigo)}</td>
       <td>${v.cliente_nome ? esc(v.cliente_nome) : '<em>—</em>'}</td>
@@ -558,17 +558,33 @@ function renderVales() {
       <td>${v.validade ? v.validade.slice(0, 10).split('-').reverse().join('/') : '—'}</td>
       <td style="font-size:0.85rem; color:#666;">${usedInfo}</td>
       <td><span class="status-badge ${statusBadge.classe}">${statusBadge.texto}</span></td>
-      <td style="text-align:center;"><button class="btn btn-fino" onclick="window.location.href='cupom-vale.html?codigo=${esc(v.codigo)}';"></button></td>
+      <td style="text-align:center;"><button class="btn btn-fino" onclick="window.location.href='cupom-vale.html?codigo=${esc(v.codigo)}';">Ver cupom</button></td>
     </tr>`;
   }).join('');
 }
 
+// Status derivado do SALDO/UTILIZADO (os fatos). Antes dependia de venda_utilizacao_id,
+// que so era preenchido quando a baixa (feita pelo navegador) rodava — um vale gasto sem
+// esse id aparecia como "Ativo" e podia ser usado de novo.
 function statusVale(v) {
-  if (!v.ativo) return { texto: 'Inativo', classe: 'status-cancelada' };
-  if (v.venda_utilizacao_id) return { texto: 'Utilizado', classe: 'status-cancelada' };
+  if (v.utilizado > 0 && v.saldo <= 0) return { texto: 'Utilizado', classe: 'status-cancelada' };
+  if (!v.ativo) return { texto: 'Cancelado', classe: 'status-cancelada' };
   const hoje = new Date().toISOString().split('T')[0];
   if (v.validade && v.validade < hoje) return { texto: 'Expirado', classe: 'status-cancelada' };
+  if (v.utilizado > 0) return { texto: 'Usado em parte', classe: 'status-ativa' };
   return { texto: 'Ativo', classe: 'status-ativa' };
+}
+
+// "Venda #12 em 09/07/2026" — data vem de vales.data_utilizacao (migration 025)
+function usoDoVale(v) {
+  const partes = [];
+  if (v.venda_utilizacao_id) partes.push(`Venda #${v.venda_utilizacao_id}`);
+  if (v.data_utilizacao) {
+    const d = String(v.data_utilizacao).slice(0, 10).split('-').reverse().join('/');
+    partes.push(partes.length ? `em ${d}` : d);
+  }
+  if (!partes.length) return v.utilizado > 0 ? 'Usado (venda não registrada)' : '—';
+  return partes.join(' ');
 }
 
 function exportarVales() {
@@ -584,7 +600,7 @@ function exportarVales() {
       'Valor (R$)': v.valor.toFixed(2),
       'Saldo (R$)': v.saldo.toFixed(2),
       'Validade': v.validade ? v.validade.slice(0, 10).split('-').reverse().join('/') : '',
-      'Usado em': v.venda_utilizacao_id ? 'Venda #' + v.venda_utilizacao_id : '—',
+      'Usado em': usoDoVale(v),
       'Status': sb.texto
     };
   });
