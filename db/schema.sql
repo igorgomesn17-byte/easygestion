@@ -43,7 +43,10 @@ CREATE TABLE IF NOT EXISTS produto_fotos (
   FOREIGN KEY (produto_id) REFERENCES produtos(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_produto_fotos ON produto_fotos(produto_id);
-CREATE INDEX IF NOT EXISTS idx_produto_fotos_tenant ON produto_fotos(tenant_id, produto_id);
+-- ATENCAO: o indice sobre tenant_id vive na migration 026, nao aqui. Este arquivo roda
+-- em TODO boot, ANTES das migrations (db/database.js): num banco que ja existe, o
+-- CREATE TABLE IF NOT EXISTS nao recria a tabela, entao a coluna tenant_id ainda nao
+-- existe neste ponto e um CREATE INDEX sobre ela derruba o servidor no boot.
 
 -- ------------------------------------------------------------
 -- VARIACOES: a grade (um registro por tamanho de cada produto)
