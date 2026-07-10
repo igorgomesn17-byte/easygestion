@@ -53,10 +53,13 @@ const MAX_FOTOS = 5; // 1 capa + até 4 extras
 
 // Salva as fotos EXTRAS de um produto (galeria). Substitui as existentes.
 // fotosExtras: array de base64 (novas) ou caminhos (mantidas). Máx MAX_FOTOS-1 extras.
-function salvarFotosExtras(produtoId, codigo, fotosExtras) {
+// tenantId e' OBRIGATORIO: sem ele, a query cai em qualquer loja. Lança em vez de
+// aceitar undefined — um default silencioso e' o que produz vazamento entre tenants.
+function salvarFotosExtras(produtoId, codigo, fotosExtras, tenantId) {
+  if (!tenantId) throw new Error('salvarFotosExtras: tenantId obrigatorio');
   if (!Array.isArray(fotosExtras)) return null;
-  db.prepare('DELETE FROM produto_fotos WHERE produto_id = ?').run(produtoId);
-  const ins = db.prepare('INSERT INTO produto_fotos (produto_id, caminho, ordem) VALUES (?, ?, ?)');
+  db.prepare('DELETE FROM produto_fotos WHERE produto_id = ? AND tenant_id = ?').run(produtoId, tenantId);
+  const ins = db.prepare('INSERT INTO produto_fotos (produto_id, caminho, ordem, tenant_id) VALUES (?, ?, ?, ?)');
   let ordem = 0;
   for (const f of fotosExtras.slice(0, MAX_FOTOS - 1)) {
     let caminho = null;
@@ -67,14 +70,16 @@ function salvarFotosExtras(produtoId, codigo, fotosExtras) {
     } else if (typeof f === 'string' && f.startsWith('img/produtos/')) {
       caminho = f; // mantida
     }
-    if (caminho) ins.run(produtoId, caminho, ordem++);
+    if (caminho) ins.run(produtoId, caminho, ordem++, tenantId);
   }
   return { ok: true, erro: null };
 }
 
 // Retorna as fotos extras de um produto (array de caminhos)
-function fotosExtrasDe(produtoId) {
-  return db.prepare('SELECT caminho FROM produto_fotos WHERE produto_id = ? ORDER BY ordem, id').all(produtoId).map(r => r.caminho);
+function fotosExtrasDe(produtoId, tenantId) {
+  if (!tenantId) throw new Error('fotosExtrasDe: tenantId obrigatorio');
+  return db.prepare('SELECT caminho FROM produto_fotos WHERE produto_id = ? AND tenant_id = ? ORDER BY ordem, id')
+    .all(produtoId, tenantId).map(r => r.caminho);
 }
 
 // Valida que o produto pertence ao tenant logado
@@ -183,10 +188,12 @@ router.get('/vitrine', (req, res) => {
       gradePorProduto.get(v.produto_id).push({ tamanho: v.tamanho, quantidade: v.quantidade });
     }
 
-    // Buscar fotos extras
+    // Buscar fotos extras. Os produtoIds ja vieram de uma listagem filtrada por tenant,
+    // mas a query filtra de novo: a tabela nao deve depender de quem a chama.
+    // (este handler e' o GET /vitrine, que usa req.tenantId — nao ha `tenantId` local)
     const todasFotos = db.prepare(
-      `SELECT produto_id, caminho FROM produto_fotos WHERE produto_id IN (${placeholders}) ORDER BY produto_id, ordem, id`
-    ).all(...produtoIds);
+      `SELECT produto_id, caminho FROM produto_fotos WHERE produto_id IN (${placeholders}) AND tenant_id = ? ORDER BY produto_id, ordem, id`
+    ).all(...produtoIds, req.tenantId);
     for (const f of todasFotos) {
       if (!fotosPorProduto.has(f.produto_id)) fotosPorProduto.set(f.produto_id, []);
       fotosPorProduto.get(f.produto_id).push(f.caminho);
@@ -223,7 +230,7 @@ router.get('/:id', (req, res) => {
   if (!p) return res.status(404).json({ erro: 'Produto nao encontrado' });
   p.grade = db.prepare('SELECT id, tamanho, quantidade FROM variacoes WHERE produto_id = ? ORDER BY id').all(p.id);
   p.estoque_total = p.grade.reduce((s, v) => s + v.quantidade, 0);
-  p.fotos = fotosExtrasDe(p.id); // fotos extras da galeria (a capa fica em p.foto)
+  p.fotos = fotosExtrasDe(p.id, tenantId); // fotos extras da galeria (a capa fica em p.foto)
   if (req.session && req.session.papel === 'admin') p.margem = analisarPreco(p.custo, p.preco_venda);
   else { delete p.custo; } // não-admin não vê custo/margem
   res.json(p);
@@ -309,7 +316,7 @@ router.post('/', exigirDentroDoLimite('produtos', contarProdutos), limiteUploadP
     }
     // galeria (fotos extras)
     if (Array.isArray(fotos)) {
-      const resultFotos = salvarFotosExtras(produtoId, codigo, fotos);
+      const resultFotos = salvarFotosExtras(produtoId, codigo, fotos, tenantId);
       if (!resultFotos.ok) throw new Error(resultFotos.erro);
     }
     return produtoId;
@@ -350,7 +357,7 @@ router.put('/:id', limiteUploadPorTenant, limiteUploadFrequencia, (req, res, nex
       parseFloat(custo) || 0, parseFloat(preco_venda) || 0, fotoPath, colecao || null, req.params.id, tenantId);
     // só mexe na galeria se 'fotos' foi enviado (undefined = não alterar)
     if (Array.isArray(fotos)) {
-      const resultFotos = salvarFotosExtras(p.id, p.codigo, fotos);
+      const resultFotos = salvarFotosExtras(p.id, p.codigo, fotos, tenantId);
       if (!resultFotos.ok) throw new Error(resultFotos.erro);
     }
     // atualizar grade de tamanhos/quantidades se enviada

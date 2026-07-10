@@ -112,10 +112,10 @@ router.get('/:slug/produtos', (req, res) => {
         ORDER BY CAST(tamanho AS TEXT)
       `).all(p.id, tenant.id);
 
-      // Galeria de fotos
+      // Galeria de fotos. Rota PUBLICA (sem login): o filtro de tenant e' obrigatorio.
       const galeria = db.prepare(`
-        SELECT caminho FROM produto_fotos WHERE produto_id = ? ORDER BY id
-      `).all(p.id);
+        SELECT caminho FROM produto_fotos WHERE produto_id = ? AND tenant_id = ? ORDER BY id
+      `).all(p.id, tenant.id);
 
       return {
         id: p.id,

@@ -597,6 +597,35 @@ function executarMigrations(db) {
           db.exec(`ALTER TABLE vales ADD COLUMN data_utilizacao TEXT;`);
         }
       }
+    },
+    {
+      nome: '026_add_tenant_id_to_produto_fotos',
+      hash: 'v26-produto-fotos-tenant',
+      exec: (db) => {
+        // produto_fotos nao guardava a qual loja a foto pertence: as queries filtravam
+        // so por produto_id. Nao havia vazamento (toda leitura passa antes pelo produto,
+        // que e' filtrado por tenant), mas a tabela dependia de uma protecao que mora em
+        // outro arquivo. Uma query nova que buscasse foto direto vazaria entre lojas.
+        //
+        // Sem DEFAULT: um default de tenant e' exatamente o que produz bug silencioso
+        // (ver getConfig(chave, fallback, tenantId = 1)). A coluna nasce NULL e o
+        // backfill preenche a partir do produto dono.
+        const colunaExiste = db.prepare(`
+          PRAGMA table_info(produto_fotos)
+        `).all().some(col => col.name === 'tenant_id');
+        if (!colunaExiste) {
+          db.exec(`ALTER TABLE produto_fotos ADD COLUMN tenant_id INTEGER;`);
+        }
+        // backfill idempotente: so mexe em quem esta NULL
+        db.exec(`
+          UPDATE produto_fotos
+          SET tenant_id = (SELECT p.tenant_id FROM produtos p WHERE p.id = produto_fotos.produto_id)
+          WHERE tenant_id IS NULL;
+        `);
+        // orfas (produto ja apagado) nao tem dono possivel: nao ha o que preservar
+        db.exec(`DELETE FROM produto_fotos WHERE tenant_id IS NULL;`);
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_produto_fotos_tenant ON produto_fotos(tenant_id, produto_id);`);
+      }
     }
   ];
 

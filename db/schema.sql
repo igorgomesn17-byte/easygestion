@@ -36,9 +36,14 @@ CREATE TABLE IF NOT EXISTS produto_fotos (
   produto_id  INTEGER NOT NULL,
   caminho     TEXT NOT NULL,
   ordem       INTEGER NOT NULL DEFAULT 0,
+  -- de qual loja e' a foto. SEM default: um default de tenant e' o que produz
+  -- vazamento silencioso entre lojas (migration 026). Bancos antigos ganham a
+  -- coluna nullable via ALTER TABLE, mas o backfill garante que nao ha nulos.
+  tenant_id   INTEGER NOT NULL,
   FOREIGN KEY (produto_id) REFERENCES produtos(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_produto_fotos ON produto_fotos(produto_id);
+CREATE INDEX IF NOT EXISTS idx_produto_fotos_tenant ON produto_fotos(tenant_id, produto_id);
 
 -- ------------------------------------------------------------
 -- VARIACOES: a grade (um registro por tamanho de cada produto)
