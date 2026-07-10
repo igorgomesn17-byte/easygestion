@@ -8,7 +8,7 @@ const path = require('path');
 const { db } = require('../db/database');
 const { sugerirPreco, analisarPreco } = require('../lib/calculos');
 const { limiteUploadPorTenant, limiteUploadFrequencia } = require('../middleware/rate-limit-custoso');
-const { exigirDentroDoLimite } = require('../middleware/seguranca');
+const { exigirDentroDoLimite, exigirFeature } = require('../middleware/seguranca');
 
 // Conta produtos ativos do tenant (para o limite por plano).
 const contarProdutos = (tenantId) =>
@@ -21,8 +21,9 @@ router.use((req, res, next) => {
   const papel = req.session && req.session.papel;
   if (papel === 'admin') return next();
   const ehLeitura = req.method === 'GET';
-  const ehPrecoComCusto = req.method === 'POST' && (req.path === '/sugerir-preco' || req.path === '/analisar-preco');
-  if (ehLeitura || ehPrecoComCusto) return next();
+  // sugerir/analisar preço lidam com CUSTO e markup: só admin. O guard antigo
+  // fazia o contrário do que o comentário acima diz — liberava pra não-admin.
+  if (ehLeitura) return next();
   return res.status(403).json({ erro: 'Sem permissão para esta área' });
 });
 
@@ -385,14 +386,14 @@ router.delete('/:id', (req, res) => {
 });
 
 // POST /api/produtos/sugerir-preco  body: { custo }
-router.post('/sugerir-preco', (req, res) => {
+router.post('/sugerir-preco', exigirFeature('precificacao'), (req, res) => {
   const custo = parseFloat(req.body.custo) || 0;
   const preco = sugerirPreco(custo, req.tenantId);
   res.json({ preco, analise: analisarPreco(custo, preco, { tenantId: req.tenantId }) });
 });
 
 // POST /api/produtos/analisar-preco  body: { custo, preco_venda }
-router.post('/analisar-preco', (req, res) => {
+router.post('/analisar-preco', exigirFeature('precificacao'), (req, res) => {
   const custo = parseFloat(req.body.custo) || 0;
   const preco = parseFloat(req.body.preco_venda) || 0;
   res.json(analisarPreco(custo, preco, { tenantId: req.tenantId }));

@@ -16,16 +16,21 @@ const PAPEIS = ['admin', 'relacionamento', 'vendedor'];
 
 // GET /api/usuarios -> lista (NUNCA retorna senha_hash)
 router.get('/', (req, res) => {
-  const rows = db.prepare('SELECT id, nome, papel, ativo, criado_em FROM usuarios WHERE tenant_id = ? ORDER BY nome').all(req.tenantId);
+  const rows = db.prepare('SELECT id, nome, email, papel, ativo, criado_em FROM usuarios WHERE tenant_id = ? ORDER BY nome').all(req.tenantId);
   res.json(rows);
 });
 
-// POST /api/usuarios { nome, senha, papel }
+// POST /api/usuarios { nome, email, senha, papel }
+// O EMAIL e' obrigatorio: o login (routes/auth.js) autentica por email e exige
+// email_verificado=1. Sem isso, o usuario criado aqui nunca conseguia entrar.
+// Como quem cria e' o admin da loja (nao e' autocadastro), ja nasce verificado.
 router.post('/', exigirDentroDoLimite('usuarios', contarUsuarios), (req, res) => {
   const nome = String(req.body.nome || '').trim();
+  const email = String(req.body.email || '').trim().toLowerCase();
   const senha = String(req.body.senha || '');
   const papel = PAPEIS.includes(req.body.papel) ? req.body.papel : 'relacionamento';
   if (nome.length < 2) return res.status(400).json({ erro: 'Informe um nome de usuário válido' });
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ erro: 'Informe um email válido (é com ele que a pessoa entra no sistema)' });
 
   const validacaoSenha = validarSenha(senha);
   if (!validacaoSenha.valida) {
@@ -34,10 +39,14 @@ router.post('/', exigirDentroDoLimite('usuarios', contarUsuarios), (req, res) =>
 
   const existe = db.prepare('SELECT id FROM usuarios WHERE LOWER(nome) = LOWER(?) AND tenant_id = ?').get(nome, req.tenantId);
   if (existe) return res.status(409).json({ erro: 'Já existe um usuário com esse nome' });
+  // email e' UNIQUE(tenant_id, email) no schema, mas o login busca por email SEM
+  // filtrar tenant — dois tenants com o mesmo email brigariam. Checa global.
+  const emailUsado = db.prepare('SELECT id FROM usuarios WHERE LOWER(email) = LOWER(?)').get(email);
+  if (emailUsado) return res.status(409).json({ erro: 'Esse email já está em uso' });
 
-  const info = db.prepare('INSERT INTO usuarios (nome, senha_hash, papel, tenant_id) VALUES (?, ?, ?, ?)')
-    .run(nome, hashSenha(senha), papel, req.tenantId);
-  res.status(201).json({ ok: true, id: info.lastInsertRowid, nome, papel });
+  const info = db.prepare('INSERT INTO usuarios (nome, email, senha_hash, papel, tenant_id, email_verificado) VALUES (?, ?, ?, ?, ?, 1)')
+    .run(nome, email, hashSenha(senha), papel, req.tenantId);
+  res.status(201).json({ ok: true, id: info.lastInsertRowid, nome, email, papel });
 });
 
 // PATCH /api/usuarios/:id/ativo { ativo: 0|1 }

@@ -5,12 +5,18 @@ const express = require('express');
 const router = express.Router();
 const { db, getConfig } = require('../db/database');
 const { hojeLocal } = require('../lib/datas');
+const { resumoDoMes } = require('../lib/dre');
 
 router.get('/', (req, res) => {
   const hoje = hojeLocal();
   const mesPrefixo = hoje.slice(0, 7);
 
-  // Faturamento de hoje (sem lucro - lucro nao vai no painel principal)
+  // "Esse mês entrou X · saiu Y · sobrou Z" — a primeira coisa que o lojista ve,
+  // nos DOIS planos, sem clicar. Usa o MESMO calculo do /dre (lib/dre.js), senao
+  // o painel e o relatorio divergem. Relatorio que exige clique nao e' usado.
+  const resumo = resumoDoMes(req.tenantId, mesPrefixo);
+
+  // Faturamento de hoje
   const caixaHoje = db.prepare('SELECT total_bruto, num_vendas FROM caixa_dia WHERE data = ? AND tenant_id = ?').get(hoje, req.tenantId)
                     || { total_bruto: 0, num_vendas: 0 };
 
@@ -22,7 +28,8 @@ router.get('/', (req, res) => {
 
   // Metas: informa-se só a MENSAL; a DIÁRIA é calculada automaticamente
   // dividindo pela quantidade de dias de funcionamento (seg-sáb) do mês atual.
-  const metaMensal = parseFloat(getConfig('meta_mensal', '0')) || 0;
+  // getConfig tem tenantId=1 como default: sem o 3o argumento, toda loja lia a meta da loja 1.
+  const metaMensal = parseFloat(getConfig('meta_mensal', '0', req.tenantId)) || 0;
   const diasUteisMes = contarDiasSegASab(mesPrefixo); // dias seg-sáb no mês
   const metaDiaria = (metaMensal > 0 && diasUteisMes > 0) ? +(metaMensal / diasUteisMes).toFixed(2) : 0;
   const meta = {
@@ -48,17 +55,19 @@ router.get('/', (req, res) => {
   `).all(mesPrefixo + '%', req.tenantId);
 
   // Estoque baixo / ruptura (mesmo criterio da tela Estoque)
-  const minAlerta = parseInt(getConfig('estoque_minimo_alerta', '1'), 10);
+  const minAlerta = parseInt(getConfig('estoque_minimo_alerta', '1', req.tenantId), 10);
+  // Sem o filtro de tenant, o painel de uma loja listava produtos (codigo e nome)
+  // das OUTRAS lojas.
   const estoqueBaixo = db.prepare(`
     SELECT p.codigo, p.nome, v.tamanho, v.quantidade
     FROM produtos p JOIN variacoes v ON v.produto_id = p.id
-    WHERE p.ativo = 1 AND v.quantidade <= ?
+    WHERE p.ativo = 1 AND v.quantidade <= ? AND p.tenant_id = ?
     ORDER BY v.quantidade ASC, p.nome LIMIT 12
-  `).all(minAlerta);
+  `).all(minAlerta, req.tenantId);
   const estoqueBaixoTotal = db.prepare(`
     SELECT COUNT(*) AS n FROM produtos p JOIN variacoes v ON v.produto_id = p.id
-    WHERE p.ativo = 1 AND v.quantidade <= ?
-  `).get(minAlerta).n;
+    WHERE p.ativo = 1 AND v.quantidade <= ? AND p.tenant_id = ?
+  `).get(minAlerta, req.tenantId).n;
 
   // ----- Marketing (A3) -----
   // Vendas por canal no mês (origem da venda)
@@ -84,7 +93,7 @@ router.get('/', (req, res) => {
 
   const marketing = { vendasPorCanal, clientesPorOrigem, leadsVitrine, leadsConvertidos, baseTotal, novosNoMes };
 
-  res.json({ hoje: caixaHoje, mes, meta, aniversariantes, topProdutos, ddmm,
+  res.json({ resumo, hoje: caixaHoje, mes, meta, aniversariantes, topProdutos, ddmm,
              estoqueBaixo, estoqueBaixoTotal, marketing });
 });
 

@@ -88,15 +88,20 @@ async function api(caminho, opcoes = {}) {
   return dados;
 }
 
-// Mostra o motivo do bloqueio e oferece upgrade. Evita spam de toast (debounce).
+// Bloqueio de plano vira OFERTA, não erro. Se a tela carregou js/upgrade.js, o 403
+// {upgrade:true} renderiza o conteúdo com dados de exemplo desfocados e um card por
+// cima. Sem o script (telas que não incluem), cai no comportamento antigo.
 let _ultimoUpgradeToast = 0;
 function tratarBloqueioDePlano(dados) {
+  if (typeof mostrarCardDeUpgrade === 'function') {
+    mostrarCardDeUpgrade(dados);
+    return;
+  }
   const agora = Date.now();
   if (agora - _ultimoUpgradeToast < 1500) return;
   _ultimoUpgradeToast = agora;
   const msg = (dados && dados.erro) || 'Este recurso não está no seu plano.';
   toast(msg + ' Toque para ver planos.', 'erro');
-  // leva pra tela de planos após um instante (tempo de ler o toast)
   setTimeout(() => { location.href = 'planos.html'; }, 1800);
 }
 
@@ -161,7 +166,11 @@ const NAV = [
   ]},
   { grupo: 'Pessoas', itens: [
     { id:'clientes',   href:'clientes.html',   ico:'clientes', txt:'Clientes' },
-    { id:'vendedores', href:'vendedores.html', ico:'equipe',   txt:'Equipe' },
+    // "Usuários" (login + papel, tabela usuarios) e "Comissões" (nome do vendedor
+    // pra comissão, tabela vendedores) são coisas diferentes. Antes só existia a
+    // segunda, chamada "Equipe", e não havia por onde criar login nenhum.
+    { id:'usuarios',   href:'usuarios.html',   ico:'equipe',   txt:'Usuários' },
+    { id:'vendedores', href:'vendedores.html', ico:'equipe',   txt:'Comissões' },
   ]},
   { grupo: null, itens: [
     { id:'assinatura', href:'assinatura.html', ico:'config', txt:'Minha Assinatura' },
@@ -175,7 +184,8 @@ const TITULOS = {
   financeiro:'Despesas e contas', 'fluxo-caixa':'Fluxo de caixa', fluxo:'DRE',
   nfce:'Notas fiscais (NFC-e)', produtos:'Produtos',
   estoque:'Estoque', clientes:'Clientes',
-  vendedores:'Equipe', assinatura:'Minha Assinatura', planos:'Escolha seu Plano', config:'Configurações',
+  usuarios:'Usuários', vendedores:'Comissões',
+  assinatura:'Minha Assinatura', planos:'Escolha seu Plano', config:'Configurações',
 };
 
 // ---------- Identidade da loja (personalização self-service) ----------

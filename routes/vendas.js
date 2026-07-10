@@ -92,7 +92,9 @@ router.post('/', (req, res) => {
     const vend = db.prepare('SELECT comissao_pct FROM vendedores WHERE id = ? AND tenant_id = ?').get(vendedor_id, req.tenantId);
     if (vend) comissaoPct = vend.comissao_pct;
   }
-  const embalagemUnit = parseFloat(getConfig('embalagem_unit', '1')) || 0;
+  // 3o arg obrigatorio: getConfig cai no tenant 1 por default, e o custo de
+  // embalagem entra no lucro da venda (e no "sobrou" do painel).
+  const embalagemUnit = parseFloat(getConfig('embalagem_unit', '1', req.tenantId)) || 0;
 
   // Busca dados de cada item (preco, custo, estoque) e valida disponibilidade
   const getVar = db.prepare(`

@@ -6,6 +6,7 @@ const express = require('express');
 const router = express.Router();
 const { db, getConfig } = require('../db/database');
 const { hojeLocal } = require('../lib/datas');
+const { calcularDRE } = require('../lib/dre');
 const { exigirPapel, exigirFeature } = require('../middleware/seguranca');
 const {
   limiteCálculoCustoso,
@@ -64,98 +65,9 @@ router.get('/fluxo', exigirPapel('admin'), exigirFeature('relatorios_avancados')
 router.get('/dre', exigirPapel('admin'), exigirFeature('relatorios_avancados'), limiteCálculoCustoso, middlewareRelatorioComCache, (req, res) => {
   const mes = req.query.mes || hojeLocal().slice(0, 7);
 
-  // Busca regime fiscal configurado
-  const regimeFiscal = getConfig('regime_fiscal', 'simples');
-
-  // dados das vendas do mes
-  const v = db.prepare(`
-    SELECT COALESCE(SUM(total),0) AS receita_bruta,
-           COALESCE(SUM(taxa_aplicada*total/100),0) AS taxas_cartao,
-           COALESCE(SUM(comissao_valor),0) AS comissoes,
-           COALESCE(SUM(custo_total),0) AS cmv,
-           COALESCE(SUM(embalagem_total),0) AS embalagem,
-           COUNT(*) AS num_vendas
-    FROM vendas WHERE substr(data_hora,1,7) = ? AND tenant_id = ?
-  `).get(mes, req.tenantId);
-
-  // trocas do mes (impacto CMVR)
-  const t = db.prepare(`
-    SELECT COALESCE(SUM(cmvr_bruto),0) AS cmvr_trocas
-    FROM trocas WHERE substr(data_hora,1,7) = ? AND tenant_id = ?
-  `).get(mes, req.tenantId);
-
-  // Despesas da EMPRESA (operacionais) — só centro='empresa'. Separadas em fixas/variáveis.
-  const despFixas = db.prepare(`
-    SELECT COALESCE(SUM(valor),0) AS v FROM despesas
-    WHERE substr(data_competencia,1,7)=? AND recorrente=0 AND tipo='fixa' AND centro='empresa' AND tenant_id = ?
-  `).get(mes, req.tenantId).v;
-  const despVar = db.prepare(`
-    SELECT COALESCE(SUM(valor),0) AS v FROM despesas
-    WHERE substr(data_competencia,1,7)=? AND recorrente=0 AND tipo='variavel' AND centro='empresa' AND tenant_id = ?
-  `).get(mes, req.tenantId).v;
-  // Pró-labore / retiradas do dono (centro='pessoal') — abatem DEPOIS do operacional
-  const proLabore = db.prepare(`
-    SELECT COALESCE(SUM(valor),0) AS v FROM despesas
-    WHERE substr(data_competencia,1,7)=? AND recorrente=0 AND centro='pessoal' AND tenant_id = ?
-  `).get(mes, req.tenantId).v;
-
-  const receitaBruta = +v.receita_bruta.toFixed(2);
-
-  // Calcula imposto conforme regime fiscal
-  let impostos = 0;
-  if (regimeFiscal === 'mei') {
-    // MEI: paga boleto fixo mensal (incluído em despesas como categoria 'mei')
-    const meiBoleto = db.prepare(`
-      SELECT COALESCE(SUM(valor),0) AS v FROM despesas
-      WHERE substr(data_competencia,1,7)=? AND recorrente=0 AND categoria='mei' AND tenant_id = ?
-    `).get(mes, req.tenantId).v;
-    impostos = +meiBoleto.toFixed(2);
-  } else if (regimeFiscal === 'simples') {
-    // Simples Nacional: alíquota configurada pelo cliente sobre faturamento
-    const impostoTaxa = parseFloat(getConfig('imposto_simples', '0')) || 0;
-    impostos = impostoTaxa > 0 ? +(receitaBruta * impostoTaxa / 100).toFixed(2) : 0;
-  }
-
-  const receitaLiquida = +(receitaBruta - impostos).toFixed(2);
-  const cmv = +(v.cmv + t.cmvr_trocas).toFixed(2); // CMV + impacto de trocas
-  const lucroBruto = +(receitaLiquida - cmv).toFixed(2);
-  const taxasCartao = +v.taxas_cartao.toFixed(2);
-  const comissoes = +v.comissoes.toFixed(2);
-  const embalagem = +v.embalagem.toFixed(2);
-  const despesasFixas = +despFixas.toFixed(2);
-  const despesasVar = +despVar.toFixed(2);
-  const proLaboreTotal = +proLabore.toFixed(2);
-  // RESULTADO OPERACIONAL = lucro bruto - taxas - comissoes (vendedor) - embalagem - despesas da empresa
-  // Inclui COMISSÃO porque é despesa operacional (paga o vendedor por vender)
-  const resultadoOperacional = +(lucroBruto - taxasCartao - comissoes - embalagem - despesasFixas - despesasVar).toFixed(2);
-  // RESULTADO FINAL = resultado operacional - pró-labore (retiradas do dono, não são operacionais)
-  const resultadoFinal = +(resultadoOperacional - proLaboreTotal).toFixed(2);
-  const margemOperacional = receitaBruta > 0 ? +((resultadoOperacional / receitaBruta) * 100).toFixed(1) : 0;
-  const margemFinal = receitaBruta > 0 ? +((resultadoFinal / receitaBruta) * 100).toFixed(1) : 0;
-
-  const resultado = {
-    mes, num_vendas: v.num_vendas,
-    receita_bruta: receitaBruta,
-    impostos,
-    receita_liquida: receitaLiquida,
-    cmv,
-    lucro_bruto: lucroBruto,
-    taxas_cartao: taxasCartao,
-    comissoes,
-    embalagem,
-    despesas_fixas: despesasFixas,
-    despesas_variaveis: despesasVar,
-    // resultado operacional (lucro da loja operando = antes de retiradas do dono)
-    resultado_operacional: resultadoOperacional,
-    margem_operacional: margemOperacional,
-    // retiradas do dono (pró-labore) e resultado final (lucro de verdade)
-    pro_labore: proLaboreTotal,
-    resultado_final: resultadoFinal,
-    margem_final: margemFinal,
-    // compat: 'resultado' continua = operacional (telas antigas não quebram)
-    resultado: resultadoOperacional,
-    margem_liquida: margemOperacional
-  };
+  // O calculo mora em lib/dre.js — o painel (routes/dashboard.js) usa a MESMA
+  // funcao pro "entrou/saiu/sobrou". Duplicar aqui faria os dois divergirem.
+  const resultado = calcularDRE(req.tenantId, mes);
 
   // Cachear o resultado (TTL 5 min)
   const cacheKey = `dre:${mes}`;
@@ -364,12 +276,14 @@ router.get('/fluxo-caixa', exigirPapel('admin'), exigirFeature('relatorios_avanc
     console.log('ano:', ano, 'mesNum:', mesNum);
 
     // Lê prazos configurados (usa valores do config, não hardcoded)
-    const prazoDeb = parseInt(getConfig('prazo_debito_dias', '1')) || 1;
-    const tipoDebito = getConfig('prazo_debito_tipo', 'uteis');
-    const prazoCredVista = parseInt(getConfig('prazo_credito_vista_dias', '1')) || 1;
-    const tipoCredVista = getConfig('prazo_credito_vista_tipo', 'uteis');
-    const prazoCredParc = parseInt(getConfig('prazo_credito_parc_dias', '1')) || 1;
-    const tipoCredParc = getConfig('prazo_credito_parc_tipo', 'uteis');
+    // getConfig tem tenantId=1 como default: sem o 3o argumento, toda loja
+    // leria os prazos de recebimento da loja 1.
+    const prazoDeb = parseInt(getConfig('prazo_debito_dias', '1', req.tenantId)) || 1;
+    const tipoDebito = getConfig('prazo_debito_tipo', 'uteis', req.tenantId);
+    const prazoCredVista = parseInt(getConfig('prazo_credito_vista_dias', '1', req.tenantId)) || 1;
+    const tipoCredVista = getConfig('prazo_credito_vista_tipo', 'uteis', req.tenantId);
+    const prazoCredParc = parseInt(getConfig('prazo_credito_parc_dias', '1', req.tenantId)) || 1;
+    const tipoCredParc = getConfig('prazo_credito_parc_tipo', 'uteis', req.tenantId);
 
     // Helper: soma dias úteis (seg-sex, ignorando finais de semana)
     function adicionarDiasUteis(dataStr, dias) {

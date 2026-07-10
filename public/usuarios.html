@@ -1,0 +1,189 @@
+<DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Usuários</title>
+  <link rel="stylesheet" href="css/ds.css">
+  <style>
+    .papel-cartao { border:1px solid var(--borda,#e2e5e9); border-radius:8px; padding:12px 14px; margin-bottom:8px; }
+    .papel-cartao strong { display:block; margin-bottom:2px; }
+    .papel-cartao span { font-size:0.86rem; color:var(--texto-fraco,#667); }
+    .badge-papel { font-size:0.75rem; padding:3px 8px; border-radius:999px; background:var(--marca-clara,#e7f3ef); color:var(--marca-escura,#0e5647); font-weight:600; }
+    .badge-inativo { background:#eee; color:#777; }
+    .linha-user { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+    .user-email { font-size:0.85rem; color:var(--texto-fraco,#667); }
+    .equipe-nota { border-left:4px solid var(--marca); padding:10px 14px; margin-bottom:18px; background:var(--marca-clara,#e7f3ef); border-radius:6px; font-size:0.9rem; }
+  </style>
+</head>
+<body>
+  <div class="conteudo">
+    <div class="flex-entre">
+      <div><h1>Usuários</h1><p class="subtitulo">Quem entra no sistema e o que cada um enxerga</p></div>
+      <button class="btn" onclick="abrirNovo()">+ Novo usuário</button>
+    </div>
+
+    <!-- Usuarios sao ilimitados nos dois planos. Nada de contador "X de Y". -->
+    <div class="equipe-nota">Toda a sua equipe está inclusa. Sem cobrar por usuário.</div>
+
+    <div id="lista"><div class="vazio">Carregando…</div></div>
+
+    <div class="card mt">
+      <h2 style="margin-top:0; font-size:1.05rem;">O que cada papel enxerga</h2>
+      <div class="papel-cartao">
+        <strong>Administrador</strong>
+        <span>Vê tudo: custo, lucro, despesas e relatórios.</span>
+      </div>
+      <div class="papel-cartao">
+        <strong>Vendedor</strong>
+        <span>Registra venda e opera o caixa. Não vê custo nem lucro.</span>
+      </div>
+      <div class="papel-cartao">
+        <strong>Relacionamento</strong>
+        <span>Cadastra e atende cliente.</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-fundo" id="modal">
+    <div class="modal">
+      <button class="modal-fechar" onclick="fechar()">&times;</button>
+      <h2>Novo usuário</h2>
+      <div class="campo"><label>Nome *</label><input type="text" id="nome" placeholder="Maria"></div>
+      <div class="campo">
+        <label>Email *</label>
+        <input type="email" id="email" placeholder="maria@sualoja.com">
+        <small class="texto-cinza">É com este email que ela entra no sistema.</small>
+      </div>
+      <div class="campo"><label>Senha *</label><input type="password" id="senha" placeholder="Mínimo 8 caracteres"></div>
+      <div class="campo">
+        <label>O que ela pode fazer *</label>
+        <select id="papel">
+          <option value="vendedor">Vendedor — vende e opera o caixa (não vê custo nem lucro)</option>
+          <option value="relacionamento">Relacionamento — cadastra e atende cliente</option>
+          <option value="admin">Administrador — vê tudo, inclusive lucro e despesas</option>
+        </select>
+      </div>
+      <button class="btn btn-bloco" id="btnSalvar" onclick="salvar()">Criar usuário</button>
+    </div>
+  </div>
+
+  <div class="modal-fundo" id="modalSenha">
+    <div class="modal">
+      <button class="modal-fechar" onclick="fecharSenha()">&times;</button>
+      <h2>Trocar senha</h2>
+      <p class="texto-cinza" id="senhaDe"></p>
+      <div class="campo"><label>Nova senha *</label><input type="password" id="novaSenha" placeholder="Mínimo 8 caracteres"></div>
+      <button class="btn btn-bloco" onclick="salvarSenha()">Salvar nova senha</button>
+    </div>
+  </div>
+
+  <script src="js/comum.js"></script>
+  <script src="js/upgrade.js"></script>
+  <script>
+    montarLayout('usuarios');
+
+    const ROTULO_PAPEL = { admin:'Administrador', vendedor:'Vendedor', relacionamento:'Relacionamento' };
+    let usuarios = [];
+
+    async function carregar() {
+      try {
+        usuarios = await api('/usuarios');
+        render();
+      } catch (e) {
+        document.getElementById('lista').innerHTML = `<div class="vazio">${esc(e.message)}</div>`;
+      }
+    }
+
+    function render() {
+      const div = document.getElementById('lista');
+      if (!usuarios.length) {
+        div.innerHTML = '<div class="vazio">Nenhum usuário ainda. Crie um para sua vendedora entrar no PDV.</div>';
+        return;
+      }
+      div.innerHTML = usuarios.map(u => `
+        <div class="card">
+          <div class="linha-user">
+            <div>
+              <strong>${esc(u.nome)}</strong>
+              <span class="badge-papel ${u.ativo ? '' : 'badge-inativo'}">${ROTULO_PAPEL[u.papel] || esc(u.papel)}</span>
+              ${u.ativo ? '' : '<span class="badge-papel badge-inativo">Desativado</span>'}
+              <div class="user-email">${u.email ? esc(u.email) : '<em>sem email — não consegue entrar</em>'}</div>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <button class="btn btn-fino" onclick="abrirSenha(${u.id})">Trocar senha</button>
+              <button class="btn btn-fino" onclick="alternarAtivo(${u.id}, ${u.ativo ? 0 : 1})">${u.ativo ? 'Desativar' : 'Reativar'}</button>
+              <button class="btn btn-fino btn-vermelho" onclick="excluir(${u.id}, '${esc(u.nome)}')">Excluir</button>
+            </div>
+          </div>
+        </div>`).join('');
+    }
+
+    function abrirNovo() {
+      ['nome','email','senha'].forEach(i => document.getElementById(i).value = '');
+      document.getElementById('papel').value = 'vendedor';
+      document.getElementById('modal').classList.add('aberto');
+    }
+    function fechar() { document.getElementById('modal').classList.remove('aberto'); }
+
+    async function salvar() {
+      const nome = document.getElementById('nome').value.trim();
+      const email = document.getElementById('email').value.trim();
+      const senha = document.getElementById('senha').value;
+      const papel = document.getElementById('papel').value;
+      if (!nome) { toast('Informe o nome', 'erro'); return; }
+      if (!email) { toast('Informe o email — é com ele que a pessoa entra', 'erro'); return; }
+      if (!senha) { toast('Informe a senha', 'erro'); return; }
+      const btn = document.getElementById('btnSalvar');
+      btn.disabled = true;
+      try {
+        await api('/usuarios', { method:'POST', body:{ nome, email, senha, papel } });
+        toast('Usuário criado', 'sucesso');
+        fechar();
+        carregar();
+      } catch (e) {
+        if (!e.upgrade) toast(e.message, 'erro');
+      } finally { btn.disabled = false; }
+    }
+
+    let idSenha = null;
+    function abrirSenha(id) {
+      idSenha = id;
+      const u = usuarios.find(x => x.id === id);
+      document.getElementById('senhaDe').textContent = u ? `Nova senha para ${u.nome}` : '';
+      document.getElementById('novaSenha').value = '';
+      document.getElementById('modalSenha').classList.add('aberto');
+    }
+    function fecharSenha() { document.getElementById('modalSenha').classList.remove('aberto'); }
+
+    async function salvarSenha() {
+      const senha = document.getElementById('novaSenha').value;
+      if (!senha) { toast('Informe a nova senha', 'erro'); return; }
+      try {
+        await api(`/usuarios/${idSenha}/senha`, { method:'PATCH', body:{ senha } });
+        toast('Senha trocada', 'sucesso');
+        fecharSenha();
+      } catch (e) { toast(e.message, 'erro'); }
+    }
+
+    async function alternarAtivo(id, ativo) {
+      try {
+        await api(`/usuarios/${id}/ativo`, { method:'PATCH', body:{ ativo } });
+        toast(ativo ? 'Usuário reativado' : 'Usuário desativado', 'sucesso');
+        carregar();
+      } catch (e) { toast(e.message, 'erro'); }
+    }
+
+    async function excluir(id, nome) {
+      if (!confirm(`Excluir o usuário ${nome}? Ele perde o acesso ao sistema. As vendas dele continuam no histórico.`)) return;
+      try {
+        await api(`/usuarios/${id}`, { method:'DELETE' });
+        toast('Usuário excluído', 'sucesso');
+        carregar();
+      } catch (e) { toast(e.message, 'erro'); }
+    }
+
+    carregar();
+  </script>
+</body>
+</html>

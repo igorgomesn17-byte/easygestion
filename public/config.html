@@ -442,6 +442,7 @@
   </div>
 
   <script src="js/comum.js"></script>
+  <script src="js/upgrade.js"></script>
   <script src="js/config.js"></script>
   <script>
     // Navegação entre seções
@@ -863,17 +864,38 @@
       document.getElementById('nfce_ambiente').addEventListener('change', checarNfce);
     }
 
-    // Vitrine pública é feature do Growth+. No Starter, escondemos a aba e a
-    // seção de config (o back também bloqueia por slug em routes/vitrine.js).
-    async function aplicarGateVitrine() {
+    // Seções que dependem de feature do plano. Escondemos a aba e a seção no Starter;
+    // o backend também barra (exigirFeature em routes/config.js e routes/vitrine.js).
+    // Esconder aqui evita que o lojista clique e o card de upgrade substitua a tela
+    // inteira de configurações.
+    const SECOES_POR_FEATURE = {
+      vitrine:    'vitrine_publica',
+      marca:      'personalizacao',
+      precos:     'precificacao',
+      maquininha: 'maquininha',
+    };
+
+    async function aplicarGateDeSecoes() {
       try {
         const me = await fetch('/api/me', { credentials: 'include' }).then(r => r.ok ? r.json() : null);
-        const temVitrine = !!me?.features?.vitrine_publica;
-        if (!temVitrine) {
-          const subnav = document.getElementById('subnavVitrine');
-          const secao = document.getElementById('secaoVitrine');
-          if (subnav) subnav.style.display = 'none';
-          if (secao) secao.style.display = 'none';
+        const features = (me && me.features) || {};
+        let escondeuAtiva = false;
+
+        for (const [secao, feature] of Object.entries(SECOES_POR_FEATURE)) {
+          if (features[feature]) continue;
+          document.querySelectorAll(`.config-subnav-item[data-secao="${secao}"]`).forEach(el => { el.style.display = 'none'; });
+          const el = document.querySelector(`.config-secao[data-secao="${secao}"]`);
+          if (el) {
+            if (el.classList.contains('ativo')) escondeuAtiva = true;
+            el.classList.remove('ativo');
+            el.style.display = 'none';
+          }
+        }
+        // "Marca" é a seção que abre por padrão. Se ela foi escondida, abre a primeira liberada.
+        if (escondeuAtiva) {
+          const primeira = Array.from(document.querySelectorAll('.config-secao'))
+            .find(s => !SECOES_POR_FEATURE[s.dataset.secao] || features[SECOES_POR_FEATURE[s.dataset.secao]]);
+          if (primeira) trocarSecaoConfig(primeira.dataset.secao);
         }
       } catch (e) { /* em erro, não esconde — degradação segura no front (back ainda barra) */ }
     }
@@ -883,7 +905,7 @@
     carregar();
     checarCertificado();
     verificarTokensFocus();
-    aplicarGateVitrine();
+    aplicarGateDeSecoes();
   </script>
 </body>
 </html>

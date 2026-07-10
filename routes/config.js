@@ -7,8 +7,9 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { db, invalidarCacheConfig } = require('../db/database');
-const { apenasAdmin } = require('../middleware/seguranca');
+const { apenasAdmin, exigirFeature } = require('../middleware/seguranca');
 const { slugDisponivel } = require('../lib/helpers');
+const { planoDoTenant, temFeature } = require('../lib/planos');
 
 // Pasta da LOGO da loja (mesma raiz dos uploads; disco persistente na nuvem).
 const DIR_MARCA = process.env.UPLOADS_DIR
@@ -53,6 +54,47 @@ router.get('/', (req, res) => {
   res.json(obj);
 });
 
+// ---- Gate de plano POR CHAVE ----
+// POST /api/config grava um objeto {chave: valor} livre (nome da loja, cor, taxas,
+// markup...). Não dá pra pôr exigirFeature na rota inteira sem travar o cadastro
+// básico da loja, então o gate olha QUAIS chaves o payload toca.
+//
+// Nota: o Starter continua APLICANDO taxa de maquininha e imposto no cálculo da
+// venda — lib/calculos.js tem defaults de mercado (débito 1,37%, crédito 3,15%,
+// Simples 7,30%). O que o Growth compra é ajustar esses percentuais, não passar a
+// existir. Um PDV que não calcula taxa mente sobre o lucro.
+// A UI (config.html) salva por SEÇÃO, num POST com todas as chaves da seção. Por isso
+// o mapa acompanha as seções: "Marca" -> personalizacao, "Maquininha" -> maquininha,
+// "Preços e Metas" -> precificacao. embalagem_unit/frete_unit/comissao_padrao moram na
+// seção de preços e vão junto pro Growth; entram no lucro da venda, mas têm default
+// (embalagem R$1, comissão 0), então o Starter calcula certo sem poder ajustar.
+function featureDaChave(chave) {
+  if (chave === 'marca_cor' || chave === 'loja_logo') return 'personalizacao';
+  if (chave.startsWith('taxa_') || chave.startsWith('prazo_') || chave === 'parcelas_loja_absorve') return 'maquininha';
+  if (chave.startsWith('markup') || chave.startsWith('meta_') || chave.startsWith('imposto')
+      || chave === 'regime_fiscal' || chave === 'embalagem_unit' || chave === 'frete_unit' || chave === 'comissao_padrao') return 'precificacao';
+  return null;
+}
+
+// Devolve 403 {upgrade:true} no mesmo formato de exigirFeature (middleware/seguranca.js),
+// pra que o front caia no card de upgrade em vez de mostrar erro.
+function bloquearChavesForaDoPlano(req, res, chaves) {
+  const plano = planoDoTenant(req.tenantId);
+  for (const chave of chaves) {
+    const feature = featureDaChave(chave);
+    if (feature && !temFeature(plano, feature)) {
+      res.status(403).json({
+        erro: 'Este recurso não está disponível no seu plano.',
+        upgrade: true,
+        feature,
+        plano_atual: plano,
+      });
+      return true;
+    }
+  }
+  return false;
+}
+
 // Chaves PÚBLICAS expostas à vitrine/login (NUNCA expor custo/markup/taxas/financeiro)
 const CHAVES_PUBLICAS = [
   'loja_nome', 'loja_endereco', 'loja_instagram', 'loja_telefone',
@@ -66,6 +108,7 @@ router.post('/', apenasAdmin, (req, res) => {
     return res.status(400).json({ erro: 'Tenant ID não encontrado' });
   }
   const updates = req.body; // { chave: valor, ... }
+  if (bloquearChavesForaDoPlano(req, res, Object.keys(updates))) return;
   const stmt = db.prepare('INSERT INTO config (chave, valor, tenant_id) VALUES (?, ?, ?) ON CONFLICT(chave, tenant_id) DO UPDATE SET valor=excluded.valor');
   const tx = db.transaction(() => {
     for (const [chave, valor] of Object.entries(updates)) stmt.run(chave, String(valor), req.tenantId);
@@ -77,7 +120,7 @@ router.post('/', apenasAdmin, (req, res) => {
 
 // Upload da LOGO da loja (só admin). Recebe { logo: dataURL base64 }, salva o arquivo
 // e grava o caminho em config.loja_logo. Devolve o caminho pra o front atualizar na hora.
-router.post('/logo', apenasAdmin, (req, res) => {
+router.post('/logo', apenasAdmin, exigirFeature('personalizacao'), (req, res) => {
   const result = salvarLogoBase64(req.body && req.body.logo);
   if (!result.ok) return res.status(400).json({ erro: result.erro });
   db.prepare('INSERT INTO config (chave, valor, tenant_id) VALUES (?, ?, ?) ON CONFLICT(chave, tenant_id) DO UPDATE SET valor=excluded.valor')
@@ -87,7 +130,7 @@ router.post('/logo', apenasAdmin, (req, res) => {
 });
 
 // Remove a logo (volta a mostrar o nome em texto).
-router.delete('/logo', apenasAdmin, (req, res) => {
+router.delete('/logo', apenasAdmin, exigirFeature('personalizacao'), (req, res) => {
   db.prepare("UPDATE config SET valor='' WHERE chave='loja_logo' AND tenant_id = ?").run(req.tenantId);
   invalidarCacheConfig(req.tenantId);
   res.json({ ok: true });

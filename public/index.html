@@ -11,6 +11,46 @@
     .metas-aneis { display:grid; grid-template-columns:repeat(2,1fr); gap:16px; margin-bottom:20px; }
     @media (max-width:560px){ .metas-aneis{ grid-template-columns:1fr 1fr; gap:10px; } }
 
+    /* ENTROU / SAIU / SOBROU — a primeira coisa que o lojista lê. Sem clique. */
+    .resumo-mes {
+      border: 1px solid var(--borda, #e2e5e9);
+      border-left: 4px solid var(--marca);
+      border-radius: 8px;
+      padding: 18px 20px;
+      margin-bottom: 20px;
+      background: var(--superficie, #fff);
+    }
+    .resumo-mes-linha {
+      display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px;
+      font-size: 1.35rem; line-height: 1.5;
+    }
+    .resumo-mes-rotulo { font-weight: 700; margin-right: 2px; }
+    .resumo-mes-item { display: inline-flex; align-items: baseline; gap: 7px; }
+    .resumo-mes-verbo { color: var(--texto-fraco, #667); font-size: 0.95rem; }
+    .resumo-mes-linha strong { font-variant-numeric: tabular-nums; font-weight: 700; }
+    .resumo-mes-sep { color: var(--borda, #ccc); }
+    #resumoSobrou.positivo { color: var(--verde); }
+    #resumoSobrou.negativo { color: var(--vermelho); }
+    .resumo-mes-link {
+      display: inline-block; margin-top: 8px;
+      font-size: 0.88rem; color: var(--marca); text-decoration: none;
+    }
+    .resumo-mes-link:hover { text-decoration: underline; }
+    @media (max-width:560px){
+      .resumo-mes-linha { font-size: 1.12rem; gap: 8px; }
+      .resumo-mes-sep { display: none; }
+      .resumo-mes-item { width: 100%; justify-content: space-between; }
+    }
+
+    /* "Ocultar valores": a classe era alternada em comum.js mas nenhum CSS a
+       implementava — o botão trocava de rótulo e não escondia nada. Agora que o
+       lucro do mês está no topo da tela, isso passa a importar (o lojista atende
+       cliente com o painel aberto). */
+    body.valores-ocultos .dinheiro {
+      filter: blur(7px);
+      user-select: none;
+    }
+
 
     /* Novos estilos para card de progresso e banner */
     .card-progresso {
@@ -141,6 +181,29 @@
       </div>
     </div>
 
+    <!-- ENTROU / SAIU / SOBROU — o numero mais importante do sistema, sem clique,
+         nos dois planos. No Growth vira link pro DRE completo. -->
+    <div class="resumo-mes" id="resumoMes" hidden>
+      <div class="resumo-mes-linha">
+        <span class="resumo-mes-rotulo">Esse mês</span>
+        <span class="resumo-mes-item">
+          <span class="resumo-mes-verbo">entrou</span>
+          <strong class="dinheiro" id="resumoEntrou">R$ 0,00</strong>
+        </span>
+        <span class="resumo-mes-sep" aria-hidden="true">·</span>
+        <span class="resumo-mes-item">
+          <span class="resumo-mes-verbo">saiu</span>
+          <strong class="dinheiro" id="resumoSaiu">R$ 0,00</strong>
+        </span>
+        <span class="resumo-mes-sep" aria-hidden="true">·</span>
+        <span class="resumo-mes-item">
+          <span class="resumo-mes-verbo">sobrou</span>
+          <strong class="dinheiro" id="resumoSobrou">R$ 0,00</strong>
+        </span>
+      </div>
+      <a class="resumo-mes-link" id="resumoLink" href="fluxo.html" hidden>Ver o DRE completo</a>
+    </div>
+
     <!-- Banner de retomada de onboarding -->
     <div class="banner-retomada" id="bannerRetomada">
       <div class="banner-retomada-titulo">Vamos continuar sua configuração?</div>
@@ -247,8 +310,31 @@
       }
     }
 
+    // "Esse mês entrou X · saiu Y · sobrou Z". Aparece nos DOIS planos: este número
+    // é a razão de existir do produto, não um recurso pago. No Growth vira link pro DRE.
+    async function montarResumoDoMes(resumo) {
+      if (!resumo) return;
+      document.getElementById('resumoEntrou').textContent = moeda(resumo.entrou);
+      document.getElementById('resumoSaiu').textContent = moeda(resumo.saiu);
+      const elSobrou = document.getElementById('resumoSobrou');
+      elSobrou.textContent = moeda(resumo.sobrou);
+      // prejuízo em vermelho, sem eufemismo
+      elSobrou.classList.toggle('negativo', resumo.sobrou < 0);
+      elSobrou.classList.toggle('positivo', resumo.sobrou > 0);
+      document.getElementById('resumoMes').hidden = false;
+
+      // link pro DRE só pra quem tem a feature (o gate real é o do backend)
+      try {
+        const me = await api('/me');
+        if (me && me.features && me.features.relatorios_avancados) {
+          document.getElementById('resumoLink').hidden = false;
+        }
+      } catch (e) { /* sem /me, mostra só os números */ }
+    }
+
     async function carregar() {
       const d = await api('/dashboard');
+      await montarResumoDoMes(d.resumo);
       document.getElementById('hojeVendido').textContent = moeda(d.hoje.total_bruto);
       document.getElementById('hojeVendas').textContent = d.hoje.num_vendas;
       document.getElementById('mesVendido').textContent = moeda(d.mes.bruto);
