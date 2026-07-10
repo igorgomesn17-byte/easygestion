@@ -424,6 +424,17 @@
                 detalhe = 'Registrou mas nunca entrou';
                 icone = '';
                 break;
+              case 'trial_travado': {
+                // Travou na digitação do estoque. É aqui que o contato 1:1 acontece:
+                // o WhatsApp vai clicável pra abrir a conversa direto.
+                tipoLabel = 'Trial travado';
+                const tel = (alerta.telefone || '').replace(/\D/g, '');
+                const link = tel ? `<a href="https://wa.me/55${tel}" target="_blank" rel="noopener">${alerta.telefone}</a>` : 'sem telefone';
+                const quem = alerta.nome_responsavel || alerta.nome_loja || '';
+                detalhe = `Sem nenhum produto cadastrado · ${quem} · ${link}${alerta.cidade ? ' · ' + alerta.cidade : ''}`;
+                icone = '';
+                break;
+              }
               default:
                 tipoLabel = alerta.tipo;
                 detalhe = alerta.mensagem || '—';

@@ -3,355 +3,232 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Escolha seu Plano • EasyGestão</title>
-  <link rel="icon" type="image/png" href="favicon.png">
+  <title>Escolha seu plano</title>
   <link rel="stylesheet" href="css/ds.css">
   <style>
-    .planos-header {
-      text-align: center;
-      margin-bottom: 24px;
-    }
-    .planos-header h1 {
-      font-size: 24px;
-      font-weight: 800;
-      color: var(--tinta);
-      margin: 0 0 8px;
-    }
-    .planos-header p {
-      color: var(--tinta-2);
-      margin: 0;
-      font-size: 14px;
+    .planos-topo { text-align:center; max-width:640px; margin:0 auto 24px; }
+    .planos-topo h1 { margin-bottom:6px; }
+    .planos-topo p { color:var(--texto-fraco,#667); margin:0; }
+
+    /* O argumento de preço mais forte que temos: todo concorrente cobra por assento. */
+    .destaque-equipe {
+      max-width:760px; margin:0 auto 26px; text-align:center;
+      border:1px solid var(--marca); border-radius:10px; padding:14px 18px;
+      background:var(--marca-clara,#e7f3ef); color:var(--marca-escura,#0e5647);
+      font-weight:700; font-size:1.02rem;
     }
 
-    /* Toggle mensal/anual — reusa a estética de chip do DS */
-    .ciclo-tabs {
-      display: flex;
-      gap: 8px;
-      margin: 0 auto 28px;
-      justify-content: center;
+    .ciclo { display:flex; justify-content:center; gap:8px; margin-bottom:26px; flex-wrap:wrap; }
+    .ciclo button {
+      border:1px solid var(--borda,#e2e5e9); background:var(--superficie,#fff);
+      padding:9px 18px; border-radius:999px; cursor:pointer; font-weight:600; font-size:.92rem;
     }
-    .ciclo-tab {
-      padding: 9px 22px;
-      background: var(--surface-alt);
-      border: 1px solid var(--linha);
-      color: var(--tinta);
-      font-weight: 600;
-      cursor: pointer;
-      border-radius: var(--radius-sm);
-      font-size: 13px;
-      transition: all .2s;
-    }
-    .ciclo-tab.ativo {
-      background: var(--marca);
-      color: #fff;
-      border-color: var(--marca);
-    }
+    .ciclo button.ativo { background:var(--marca); color:#fff; border-color:var(--marca); }
+    .ciclo-economia { font-size:.8rem; font-weight:700; }
+    .ciclo button:not(.ativo) .ciclo-economia { color:var(--verde,#1a8a5a); }
 
-    .planos-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 18px;
-      max-width: 760px;
-      margin: 0 auto;
-      align-items: stretch;
+    .grade-planos { display:grid; grid-template-columns:repeat(auto-fit,minmax(310px,1fr)); gap:20px; max-width:860px; margin:0 auto; }
+    .plano {
+      border:1px solid var(--borda,#e2e5e9); border-radius:12px; padding:26px 24px;
+      background:var(--superficie,#fff); display:flex; flex-direction:column;
     }
-
-    .plano-card {
-      background: var(--surface);
-      border: 1px solid var(--linha);
-      border-radius: var(--radius);
-      padding: 26px 22px;
-      box-shadow: var(--sombra-sm);
-      display: flex;
-      flex-direction: column;
-      position: relative;
-    }
-    .plano-card.destaque {
-      border: 2px solid var(--marca);
-      box-shadow: var(--sombra);
-    }
+    .plano.recomendado { border:2px solid var(--marca); position:relative; }
     .plano-selo {
-      position: absolute;
-      top: -12px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: var(--marca);
-      color: #fff;
-      font-size: 11px;
-      font-weight: 700;
-      padding: 4px 12px;
-      border-radius: 999px;
-      letter-spacing: .3px;
+      position:absolute; top:-11px; left:50%; transform:translateX(-50%);
+      background:var(--marca); color:#fff; font-size:.72rem; font-weight:700;
+      padding:3px 12px; border-radius:999px;
     }
+    .plano-nome { font-size:1.28rem; font-weight:700; margin-bottom:4px; }
+    .plano-promessa { color:var(--texto-fraco,#667); font-size:.93rem; line-height:1.45; min-height:2.9em; margin-bottom:16px; }
+    .plano-preco { font-size:2.1rem; font-weight:700; font-variant-numeric:tabular-nums; }
+    .plano-preco small { font-size:.95rem; font-weight:400; color:var(--texto-fraco,#667); }
+    .plano-preco-nota { font-size:.83rem; color:var(--texto-fraco,#667); min-height:1.2em; margin-bottom:18px; }
+    .plano-cta {
+      width:100%; padding:14px; border:0; border-radius:8px; cursor:pointer;
+      font-size:1rem; font-weight:700; background:var(--marca); color:#fff; margin-bottom:20px;
+    }
+    .plano-cta:hover { background:var(--marca-escura,#0e5647); }
+    .plano-cta.secundario { background:var(--superficie,#fff); color:var(--marca); border:1.5px solid var(--marca); }
+    .plano-cta:disabled { opacity:.65; cursor:default; }
+    .plano-lista { list-style:none; padding:0; margin:0; flex:1; }
+    .plano-lista li { padding:7px 0 7px 24px; position:relative; font-size:.93rem; line-height:1.45; }
+    .plano-lista li::before { content:'✓'; position:absolute; left:0; color:var(--marca); font-weight:700; }
+    .plano-lista .cabeca { padding-left:0; font-weight:700; color:var(--texto-fraco,#667); font-size:.85rem; margin-top:12px; }
+    .plano-lista .cabeca::before { content:''; }
 
-    .plano-nome {
-      font-size: 15px;
-      color: var(--marca);
-      font-weight: 800;
-      margin-bottom: 4px;
-      text-transform: uppercase;
-      letter-spacing: .5px;
-    }
-    .plano-publico {
-      font-size: 12px;
-      color: var(--tinta-3);
-      margin-bottom: 14px;
-      min-height: 16px;
-    }
-
-    .plano-preco {
-      font-size: 2.4rem;
-      font-weight: 800;
-      color: var(--tinta);
-      line-height: 1;
-    }
-    .plano-preco .cent { font-size: 1.2rem; }
-    .plano-preco .por {
-      font-size: 13px;
-      font-weight: 500;
-      color: var(--tinta-2);
-    }
-    .plano-anual-nota {
-      font-size: 11px;
-      color: var(--tinta-3);
-      margin-top: 4px;
-      min-height: 15px;
-    }
-    .plano-badge-eco {
-      display: inline-block;
-      background: var(--marca-clara);
-      color: var(--marca-escura);
-      padding: 3px 9px;
-      border-radius: 4px;
-      font-size: 11px;
-      font-weight: 700;
-      margin-top: 8px;
-    }
-
-    .plano-features {
-      list-style: none;
-      margin: 18px 0 22px;
-      padding: 0;
-      font-size: 13px;
-      flex: 1;
-    }
-    .plano-features li {
-      margin: 8px 0;
-      display: flex;
-      align-items: flex-start;
-      color: var(--tinta);
-      line-height: 1.4;
-    }
-    .plano-features li:before {
-      content: "\2713";
-      color: var(--marca);
-      font-weight: bold;
-      margin-right: 8px;
-      flex-shrink: 0;
-    }
-
-    .btn-contratar {
-      width: 100%;
-      padding: 13px;
-      background: var(--marca);
-      color: #fff;
-      border: none;
-      border-radius: var(--radius-sm);
-      font-size: 14px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: all .2s;
-    }
-    .btn-contratar.secundario {
-      background: transparent;
-      color: var(--marca);
-      border: 1.5px solid var(--marca);
-    }
-    .btn-contratar:hover:not(:disabled) { background: var(--marca-escura); color: #fff; }
-    .btn-contratar:disabled { opacity: .6; cursor: wait; }
-
-    .planos-loading, .planos-erro {
-      text-align: center;
-      color: var(--tinta-2);
-      padding: 40px 0;
-      font-size: 14px;
-    }
+    .rodape-planos { max-width:760px; margin:34px auto 0; text-align:center; }
+    .rodape-planos p { color:var(--texto-fraco,#889); font-size:.82rem; line-height:1.6; margin:5px 0; }
+    .erro-planos { max-width:600px; margin:20px auto; text-align:center; color:var(--vermelho,#c0392b); }
   </style>
 </head>
-<body style="background: var(--bg); color: var(--tinta);">
+<body>
   <div class="conteudo">
-    <div class="planos-header">
-      <h1>Escolha seu Plano</h1>
-      <p>Comece seu período de teste grátis de 14 dias</p>
+    <div class="planos-topo">
+      <h1>Escolha seu plano</h1>
+      <p>14 dias grátis. Sem cartão. Cancela quando quiser.</p>
     </div>
 
-    <div class="ciclo-tabs">
-      <button class="ciclo-tab ativo" data-ciclo="mensal" onclick="selecionarCiclo('mensal')">Mensal</button>
-      <button class="ciclo-tab" data-ciclo="anual" onclick="selecionarCiclo('anual')">Anual</button>
+    <div class="destaque-equipe">Toda a sua equipe inclusa. Sem cobrar por usuário.</div>
+
+    <div class="ciclo">
+      <button id="btnMensal" class="ativo" onclick="trocarCiclo('mensal')">Mensal</button>
+      <button id="btnAnual" onclick="trocarCiclo('anual')">Anual <span class="ciclo-economia">2 meses grátis</span></button>
     </div>
 
-    <div id="planosGrid" class="planos-grid">
-      <div class="planos-loading">Carregando planos…</div>
+    <div class="grade-planos" id="grade"></div>
+    <div class="erro-planos" id="erro" hidden></div>
+
+    <div class="rodape-planos">
+      <p>Pagamento seguro via Stripe. Você cancela a qualquer momento pelo próprio sistema.</p>
+      <p id="notaLimites"></p>
     </div>
   </div>
 
   <script src="js/comum.js"></script>
   <script>
-    let cicloSelecionado = 'mensal';
-    let PLANOS = [];
-
-    const fmt = (n) => Number(n).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-    // Textos de features por plano (espelham a régua Starter↔Growth).
-    // A fonte da verdade dos PREÇOS/LIMITES é a API; estes bullets são a vitrine.
-    const FEATURES_UI = {
-      starter: [
-        'PDV completo (taxa, imposto, comissão)',
-        'Estoque com grade (tamanho × cor)',
-        'Caixa diário e fechamento',
-        'Clientes + histórico de compras',
-        'Lançamento de despesas',
-        'Emissão de NFC-e',
-        '1 usuário · até 1.000 produtos',
-      ],
-      growth: [
-        'Tudo do Starter, mais:',
-        'DRE e fluxo de caixa',
-        'Relatórios avançados (curva ABC, por canal, por vendedor)',
-        'Vitrine / loja online',
-        'Vale-crédito em trocas',
-        'Despesas recorrentes automáticas',
-        'Exportação de relatórios',
-        '5 usuários · até 5.000 produtos',
-      ],
+    // As frases de benefício são as MESMAS de js/upgrade.js, de propósito: o lojista
+    // reencontra aqui a promessa exata que bateu quando esbarrou no gate lá dentro.
+    // REGRA: toda linha do Growth corresponde a um exigirFeature() real no backend,
+    // já entregue e com tela. Sem promessa futura, sem asterisco. Feature anotada ao lado.
+    const RECURSOS = {
+      starter: {
+        promessa: 'Sua loja organizada. Você sabe o que entrou, o que saiu e o que tem na arara.',
+        itens: [
+          'PDV rápido com grade de tamanho',
+          'Código de barras',
+          'Estoque e coleções',
+          'Alerta de estoque baixo',
+          'Caixa diário com conferência',
+          'Clientes e histórico de compras',
+          'Trocas e devoluções',
+          'Despesas do mês',
+          'Toda a equipe inclusa, sem limite de usuários',
+          'Backup automático',
+        ],
+      },
+      growth: {
+        promessa: 'Pare de adivinhar. Descubra se deu lucro — e onde ele está travado.',
+        cabeca: 'Tudo do Starter, mais:',
+        itens: [
+          'DRE mensal: o lucro de verdade',                        // relatorios_avancados
+          'Fluxo de caixa',                                        // relatorios_avancados
+          'Curva ABC: quais peças estão prendendo seu dinheiro na arara',  // relatorios_avancados
+          'Margem por coleção, canal e vendedora',                 // relatorios_avancados
+          'Precificação e markup',                                 // precificacao
+          'Metas de venda',                                        // precificacao
+          'Taxas de maquininha',                                   // maquininha
+          'Vale-crédito',                                          // vale_credito
+          'Despesas recorrentes',                                  // recorrentes
+          'Vitrine online',                                        // vitrine_publica
+          'Personalização (logo e cor)',                           // personalizacao
+          'Exportar para o contador',                              // export
+        ],
+      },
     };
 
-    function selecionarCiclo(ciclo) {
-      cicloSelecionado = ciclo;
-      document.querySelectorAll('.ciclo-tab').forEach(t => {
-        t.classList.toggle('ativo', t.dataset.ciclo === ciclo);
-      });
-      renderPlanos();
+    let cicloSelecionado = 'mensal';
+    let planos = [];
+
+    const brl = v => 'R$ ' + Number(v).toFixed(2).replace('.', ',');
+
+    async function carregarPlanos() {
+      try {
+        const dados = await fetch('/api/assinaturas/planos', { credentials: 'same-origin' }).then(r => r.json());
+        planos = (dados && dados.planos) || [];
+        if (!planos.length) throw new Error('sem planos');
+        render();
+        montarNotaLimites();
+      } catch (e) {
+        const el = document.getElementById('erro');
+        el.hidden = false;
+        el.textContent = 'Não foi possível carregar os planos agora. Recarregue a página.';
+      }
     }
 
-    function renderPlanos() {
-      const grid = document.getElementById('planosGrid');
-      if (!PLANOS.length) {
-        grid.innerHTML = '<div class="planos-erro">Não foi possível carregar os planos. Recarregue a página.</div>';
-        return;
-      }
+    function trocarCiclo(ciclo) {
+      cicloSelecionado = ciclo;
+      document.getElementById('btnMensal').classList.toggle('ativo', ciclo === 'mensal');
+      document.getElementById('btnAnual').classList.toggle('ativo', ciclo === 'anual');
+      render();
+    }
 
-      grid.innerHTML = PLANOS.map((p, i) => {
-        const destaque = p.id === 'growth';
-        const precoMensal = p.preco_mensal;
-        const precoAnual = p.preco_anual;
-        // No ciclo anual mostramos o "por mês equivalente" (anual/12), padrão de SaaS.
-        const valorMostrado = cicloSelecionado === 'anual' ? (precoAnual / 12) : precoMensal;
-
-        const notaAnual = cicloSelecionado === 'anual'
-          ? `<div class="plano-anual-nota">R$ ${fmt(precoAnual)} por ano</div>`
-          : '<div class="plano-anual-nota"></div>';
-
-        // % de economia do anual vs 12x o mensal.
-        const economia = Math.round((1 - (precoAnual / (precoMensal * 12))) * 100);
-        const badgeEco = (cicloSelecionado === 'anual' && economia > 0)
-          ? `<div class="plano-badge-eco">Economize ${economia}%</div>` : '';
-
-        const bullets = (FEATURES_UI[p.id] || []).map(f => `<li>${f}</li>`).join('');
-
+    function render() {
+      document.getElementById('grade').innerHTML = planos.map(p => {
+        const cfg = RECURSOS[p.id];
+        if (!cfg) return '';   // plano sem vitrine definida aqui não aparece
+        const recomendado = p.id === 'growth';
+        const anual = cicloSelecionado === 'anual';
+        const preco = anual ? p.preco_anual : p.preco_mensal;
+        const nota = anual ? `${brl(preco / 12)} por mês, cobrado uma vez por ano` : 'cobrado todo mês';
         return `
-          <div class="plano-card ${destaque ? 'destaque' : ''}">
-            ${destaque ? '<div class="plano-selo">Mais escolhido</div>' : ''}
-            <div class="plano-nome">${p.nome}</div>
-            <div class="plano-publico">${p.id === 'starter' ? 'Para começar' : 'Para crescer'}</div>
-            <div class="plano-preco">R$ ${fmt(valorMostrado)}<span class="por"> /mês</span></div>
-            ${notaAnual}
-            ${badgeEco}
-            <ul class="plano-features">${bullets}</ul>
-            <button class="btn-contratar ${destaque ? '' : 'secundario'}"
-                    onclick="irParaCheckout('${p.id}', this)">Contratar ${p.nome}</button>
+          <div class="plano ${recomendado ? 'recomendado' : ''}">
+            ${recomendado ? '<span class="plano-selo">MAIS ESCOLHIDO</span>' : ''}
+            <div class="plano-nome">${esc(p.nome)}</div>
+            <div class="plano-promessa">${esc(cfg.promessa)}</div>
+            <div class="plano-preco">${brl(preco)}<small>${anual ? '/ano' : '/mês'}</small></div>
+            <div class="plano-preco-nota">${nota}</div>
+            <button class="plano-cta ${recomendado ? '' : 'secundario'}" onclick="contratar('${p.id}', this)">
+              Começar com o ${esc(p.nome)}
+            </button>
+            <ul class="plano-lista">
+              ${cfg.cabeca ? `<li class="cabeca">${esc(cfg.cabeca)}</li>` : ''}
+              ${cfg.itens.map(i => `<li>${esc(i)}</li>`).join('')}
+            </ul>
           </div>`;
       }).join('');
     }
 
-    async function carregarPlanos() {
-      try {
-        const resp = await fetch('/api/assinaturas/planos', { credentials: 'include' });
-        if (!resp.ok) throw new Error('HTTP ' + resp.status);
-        const dados = await resp.json();
-        PLANOS = dados.planos || [];
-        renderPlanos();
-      } catch (err) {
-        console.error('Erro ao carregar planos:', err);
-        PLANOS = [];
-        renderPlanos();
-      }
+    // Limite de produtos existe no código, mas nunca é argumento de venda: rodapé, letra miúda.
+    // Atenção: Infinity vira null no JSON.stringify — null aqui significa "sem limite".
+    function montarNotaLimites() {
+      const partes = planos
+        .filter(p => RECURSOS[p.id] && p.limites && p.limites.produtos != null && isFinite(p.limites.produtos))
+        .map(p => `${p.nome}: até ${Number(p.limites.produtos).toLocaleString('pt-BR')} produtos cadastrados`);
+      if (partes.length) document.getElementById('notaLimites').textContent = partes.join(' · ') + '.';
     }
 
-    async function irParaCheckout(plano, btn) {
-      const textoOriginal = btn.textContent;
-      btn.disabled = true;
-      btn.textContent = 'Verificando…';
-
+    async function contratar(plano, botao) {
+      const textoOriginal = botao.textContent;
+      botao.disabled = true;
+      botao.textContent = 'Abrindo checkout…';
       try {
-        // Verificar autenticação
-        const meResp = await fetch('/api/me', { credentials: 'include' });
-        if (!meResp.ok) {
-          window.location.href = '/login.html?redirect=/planos.html';
-          return;
-        }
-        const meData = await meResp.json();
-        if (!meData.logado) {
-          alert('Sessão expirada. Por favor, faça login novamente.');
-          window.location.href = '/login.html?redirect=/planos.html';
-          return;
-        }
+        const me = await fetch('/api/me', { credentials: 'same-origin' });
+        if (!me.ok) { window.location.href = '/login.html?redirect=/planos.html'; return; }
 
         const resp = await fetch('/api/assinaturas/checkout', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ plano: plano, ciclo: cicloSelecionado })
+          credentials: 'same-origin',
+          body: JSON.stringify({ plano, ciclo: cicloSelecionado }),
         });
-
-        if (!resp.ok) {
-          let mensagem = 'Erro ao abrir checkout';
-          try {
-            const dados = await resp.json();
-            if (dados?.erro) mensagem += ': ' + dados.erro;
-          } catch (e) {
-            mensagem += ' (servidor indisponível)';
-          }
-          alert(mensagem);
-          btn.disabled = false;
-          btn.textContent = textoOriginal;
+        const dados = await resp.json().catch(() => ({}));
+        if (resp.ok && dados.checkout_url) {
+          window.location.href = dados.checkout_url;   // Stripe Checkout não roda em iframe
           return;
         }
-
-        const dados = await resp.json();
-        if (dados.checkout_url) {
-          window.location.href = dados.checkout_url; // Stripe Checkout não roda em iframe
-        } else {
-          alert('Erro ao abrir checkout: sem URL de checkout');
-          btn.disabled = false;
-          btn.textContent = textoOriginal;
-        }
-      } catch (err) {
-        console.error('Erro ao processar checkout:', err);
-        alert('Erro ao processar: ' + err.message);
-        btn.disabled = false;
-        btn.textContent = textoOriginal;
+        throw new Error(dados.erro || 'Não foi possível abrir o checkout');
+      } catch (e) {
+        toast(e.message || 'Não foi possível abrir o checkout', 'erro');
+        botao.disabled = false;
+        botao.textContent = textoOriginal;
       }
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-      montarLayout();
+      montarLayout('planos');
       carregarPlanos();
 
-      const params = new URLSearchParams(window.location.search);
+      const params = new URLSearchParams(location.search);
       if (params.get('checkout') === 'cancelado') {
-        alert('Checkout cancelado. Tente novamente quando estiver pronto.');
-        window.history.replaceState({}, document.title, '/planos.html');
+        toast('Checkout cancelado. Tente novamente quando estiver pronto.', 'erro');
+        history.replaceState({}, document.title, '/planos.html');
+      }
+      // veio do card de upgrade (js/upgrade.js): destaca o Growth
+      if (params.get('plano') === 'growth') {
+        setTimeout(() => {
+          const alvo = document.querySelector('.plano.recomendado');
+          if (alvo) alvo.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 300);
       }
     });
   </script>

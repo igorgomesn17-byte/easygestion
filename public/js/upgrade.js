@@ -32,7 +32,7 @@ const BENEFICIO_POR_RECURSO = {
 const BENEFICIO_POR_TELA = {
   'fluxo.html':       'Descubra se sua loja deu lucro de verdade esse mês',
   'fluxo-caixa.html': 'Saiba se o dinheiro que entra cobre as contas que vencem',
-  'curva-abc.html':   'Veja quais peças estão prendendo seu dinheiro na arara',
+  'relatorios.html':  'Veja quais peças estão prendendo seu dinheiro na arara',
 };
 
 function beneficioDe(dados) {

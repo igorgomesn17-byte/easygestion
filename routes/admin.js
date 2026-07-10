@@ -454,6 +454,10 @@ router.get('/alertas', exigirAdminBackoffice, (req, res) => {
         a.tenant_id,
         t.nome_loja,
         t.email,
+        t.nome_responsavel,
+        t.telefone,
+        t.cidade,
+        t.data_cadastro,
         a.tipo,
         a.dias_sem_atividade,
         a.valor_em_risco,
@@ -466,10 +470,11 @@ router.get('/alertas', exigirAdminBackoffice, (req, res) => {
       WHERE a.resolvido_em IS NULL
       ORDER BY
         CASE a.tipo
-          WHEN 'atraso_pagamento' THEN 1
-          WHEN 'inativo' THEN 2
-          WHEN 'nunca_usou' THEN 3
-          ELSE 4
+          WHEN 'trial_travado' THEN 1
+          WHEN 'atraso_pagamento' THEN 2
+          WHEN 'inativo' THEN 3
+          WHEN 'nunca_usou' THEN 4
+          ELSE 5
         END,
         a.criado_em DESC
     `).all();

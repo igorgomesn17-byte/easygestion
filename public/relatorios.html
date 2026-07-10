@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Relatórios</title>
+  <link rel="stylesheet" href="css/ds.css">
+  <style>
+    .abas { display:flex; gap:6px; margin-bottom:16px; flex-wrap:wrap; }
+    .rel-explica { color:var(--texto-fraco,#667); font-size:0.9rem; margin:0 0 14px; }
+    .classe-a, .classe-b, .classe-c { font-weight:700; padding:2px 8px; border-radius:999px; font-size:0.75rem; }
+    .classe-a { background:#e6f4ec; color:#1a8a5a; }
+    .classe-b { background:#fff4e0; color:#8a6a1a; }
+    .classe-c { background:#fbeceb; color:#c0392b; }
+    .barra-fundo { background:var(--borda,#eee); border-radius:4px; height:8px; overflow:hidden; min-width:70px; }
+    .barra-fill { background:var(--marca,#157a63); height:100%; }
+    td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  </style>
+</head>
+<body>
+  <div class="conteudo">
+    <div class="flex-entre">
+      <div>
+        <h1>Relatórios</h1>
+        <p class="subtitulo">Onde o lucro está preso e de onde ele vem</p>
+      </div>
+      <div style="display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap;">
+        <div class="campo" style="margin:0; max-width:160px;">
+          <label for="de">De</label>
+          <input type="date" id="de" onchange="carregar()">
+        </div>
+        <div class="campo" style="margin:0; max-width:160px;">
+          <label for="ate">Até</label>
+          <input type="date" id="ate" onchange="carregar()">
+        </div>
+        <button class="btn" onclick="carregar()">Filtrar</button>
+      </div>
+    </div>
+
+    <div class="abas">
+      <div class="aba ativa" data-aba="abc" onclick="trocarAba('abc')">Peças</div>
+      <div class="aba" data-aba="colecao" onclick="trocarAba('colecao')">Coleções</div>
+      <div class="aba" data-aba="canal" onclick="trocarAba('canal')">Canais</div>
+      <div class="aba" data-aba="vendedor" onclick="trocarAba('vendedor')">Vendedoras</div>
+    </div>
+
+    <div id="abaAbc">
+      <p class="rel-explica">Quais peças estão prendendo seu dinheiro na arara. As <strong>A</strong> puxam a maior parte do faturamento; as <strong>C</strong> ocupam espaço e giram pouco.</p>
+      <div class="card"><div id="listaAbc"><div class="vazio">Carregando…</div></div></div>
+    </div>
+
+    <div id="abaColecao" style="display:none;">
+      <p class="rel-explica">Qual coleção dá lucro e qual só dá trabalho.</p>
+      <div class="card"><div id="listaColecao"><div class="vazio">Carregando…</div></div></div>
+    </div>
+
+    <div id="abaCanal" style="display:none;">
+      <p class="rel-explica">De onde vem o dinheiro: loja, Instagram, WhatsApp, vitrine.</p>
+      <div class="card"><div id="listaCanal"><div class="vazio">Carregando…</div></div></div>
+    </div>
+
+    <div id="abaVendedor" style="display:none;">
+      <p class="rel-explica">Quem vende mais e quem vende melhor. Nem sempre é a mesma pessoa.</p>
+      <div class="card"><div id="listaVendedor"><div class="vazio">Carregando…</div></div></div>
+    </div>
+  </div>
+
+  <script src="js/comum.js"></script>
+  <script src="js/upgrade.js"></script>
+  <script>
+    montarLayout('relatorios');
+
+    // primeiro dia do mês até hoje
+    (function periodoPadrao() {
+      const h = new Date();
+      const ini = new Date(h.getFullYear(), h.getMonth(), 1);
+      const iso = d => d.toISOString().slice(0, 10);
+      document.getElementById('de').value = iso(ini);
+      document.getElementById('ate').value = iso(h);
+    })();
+
+    function trocarAba(aba) {
+      document.querySelectorAll('.aba').forEach(a => a.classList.toggle('ativa', a.dataset.aba === aba));
+      const mapa = { abc:'abaAbc', colecao:'abaColecao', canal:'abaCanal', vendedor:'abaVendedor' };
+      Object.entries(mapa).forEach(([k, id]) => {
+        document.getElementById(id).style.display = (k === aba) ? '' : 'none';
+      });
+    }
+
+    function periodo() {
+      const de = document.getElementById('de').value;
+      const ate = document.getElementById('ate').value;
+      const q = [];
+      if (de) q.push('de=' + de);
+      if (ate) q.push('ate=' + ate);
+      return q.length ? '?' + q.join('&') : '';
+    }
+
+    const vazio = txt => `<div class="vazio">${txt}</div>`;
+
+    async function carregar() {
+      // Um 403 {upgrade:true} em qualquer uma delas cai no card (js/upgrade.js) e
+      // substitui a tela — por isso não vale a pena seguir carregando as outras.
+      try {
+        await Promise.all([carregarAbc(), carregarColecao(), carregarCanal(), carregarVendedor()]);
+      } catch (e) {
+        if (e.upgrade) return;   // card já renderizado
+      }
+    }
+
+    async function carregarAbc() {
+      const d = await api('/financeiro/curva-abc' + periodo());
+      const el = document.getElementById('listaAbc');
+      if (!d.itens || !d.itens.length) { el.innerHTML = vazio('Nenhuma venda no período.'); return; }
+      const maior = d.itens[0].faturamento || 1;
+      el.innerHTML = `
+        <table>
+          <thead><tr><th>Peça</th><th></th><th class="num">Vendidas</th><th class="num">Faturamento</th><th class="num">Lucro</th><th>Classe</th></tr></thead>
+          <tbody>${d.itens.map(i => `
+            <tr>
+              <td><strong>${esc(i.nome || i.codigo)}</strong><div class="texto-cinza" style="font-size:.78rem;">${esc(i.codigo)}</div></td>
+              <td style="width:90px;"><div class="barra-fundo"><div class="barra-fill" style="width:${Math.round((i.faturamento / maior) * 100)}%;"></div></div></td>
+              <td class="num">${i.qtd}</td>
+              <td class="num dinheiro">${moeda(i.faturamento)}</td>
+              <td class="num dinheiro">${moeda(i.lucro)}</td>
+              <td><span class="classe-${(i.classe || 'c').toLowerCase()}">${esc(i.classe)}</span></td>
+            </tr>`).join('')}</tbody>
+        </table>`;
+    }
+
+    async function carregarColecao() {
+      const rows = await api('/financeiro/por-colecao' + periodo());
+      const el = document.getElementById('listaColecao');
+      if (!rows.length) { el.innerHTML = vazio('Nenhuma venda no período.'); return; }
+      el.innerHTML = `
+        <table>
+          <thead><tr><th>Coleção</th><th class="num">Peças</th><th class="num">Faturamento</th><th class="num">Lucro bruto</th><th class="num">Margem</th></tr></thead>
+          <tbody>${rows.map(r => {
+            const m = r.faturamento > 0 ? (r.lucro_bruto / r.faturamento) * 100 : 0;
+            return `<tr>
+              <td><strong>${esc(r.colecao)}</strong></td>
+              <td class="num">${r.pecas}</td>
+              <td class="num dinheiro">${moeda(r.faturamento)}</td>
+              <td class="num dinheiro">${moeda(r.lucro_bruto)}</td>
+              <td class="num ${m < 0 ? 'texto-vermelho' : ''}">${m.toFixed(1)}%</td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table>`;
+    }
+
+    async function carregarCanal() {
+      const rows = await api('/financeiro/por-canal' + periodo());
+      const el = document.getElementById('listaCanal');
+      if (!rows.length) { el.innerHTML = vazio('Nenhuma venda no período.'); return; }
+      el.innerHTML = `
+        <table>
+          <thead><tr><th>Canal</th><th class="num">Vendas</th><th class="num">Faturamento</th><th class="num">Lucro</th></tr></thead>
+          <tbody>${rows.map(r => `
+            <tr>
+              <td><strong>${esc(rotuloOrigem ? rotuloOrigem(r.canal) : r.canal)}</strong></td>
+              <td class="num">${r.n}</td>
+              <td class="num dinheiro">${moeda(r.faturamento)}</td>
+              <td class="num dinheiro">${moeda(r.lucro)}</td>
+            </tr>`).join('')}</tbody>
+        </table>`;
+    }
+
+    async function carregarVendedor() {
+      // esta rota devolve { vendedores: [...], total: {...} }, não um array
+      const d = await api('/financeiro/por-vendedor' + periodo());
+      const rows = (d && d.vendedores) || [];
+      const total = (d && d.total) || null;
+      const el = document.getElementById('listaVendedor');
+      if (!rows.length) { el.innerHTML = vazio('Nenhuma venda no período.'); return; }
+      el.innerHTML = `
+        <table>
+          <thead><tr><th>Vendedora</th><th class="num">Vendas</th><th class="num">Faturamento</th><th class="num">Ticket médio</th><th class="num">Lucro</th><th class="num">Comissão</th></tr></thead>
+          <tbody>${rows.map(r => `
+            <tr>
+              <td><strong>${esc(r.vendedor)}</strong></td>
+              <td class="num">${r.n}</td>
+              <td class="num dinheiro">${moeda(r.faturamento)}</td>
+              <td class="num dinheiro">${moeda(r.ticket_medio)}</td>
+              <td class="num dinheiro">${moeda(r.lucro)}</td>
+              <td class="num dinheiro">${moeda(r.comissao)}</td>
+            </tr>`).join('')}</tbody>
+          ${total ? `<tfoot><tr>
+              <td><strong>Total</strong></td>
+              <td class="num"><strong>${total.n}</strong></td>
+              <td class="num dinheiro"><strong>${moeda(total.faturamento)}</strong></td>
+              <td class="num">—</td>
+              <td class="num dinheiro"><strong>${moeda(total.lucro)}</strong></td>
+              <td class="num dinheiro"><strong>${moeda(total.comissao)}</strong></td>
+            </tr></tfoot>` : ''}
+        </table>`;
+    }
+
+    carregar();
+  </script>
+</body>
+</html>

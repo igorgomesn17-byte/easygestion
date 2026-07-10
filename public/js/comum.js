@@ -158,6 +158,7 @@ const NAV = [
     { id:'financeiro', href:'financeiro.html', ico:'despesas', txt:'Despesas' },
     { id:'fluxo-caixa',href:'fluxo-caixa.html', ico:'fluxo',    txt:'Fluxo de Caixa' },
     { id:'fluxo',      href:'fluxo.html',      ico:'fluxo',    txt:'DRE' },
+    { id:'relatorios', href:'relatorios.html', ico:'vendas',   txt:'Relatórios' },
     { id:'nfce',       href:'nfce-relatorio.html', ico:'vendas', txt:'Notas fiscais' },
   ]},
   { grupo: 'Catálogo', itens: [
@@ -182,6 +183,7 @@ const TITULOS = {
   dashboard:'Painel', pdv:'Vender', caixa:'Caixa do dia',
   historico:'Histórico de vendas', trocas:'Trocas e devoluções',
   financeiro:'Despesas e contas', 'fluxo-caixa':'Fluxo de caixa', fluxo:'DRE',
+  relatorios:'Relatórios',
   nfce:'Notas fiscais (NFC-e)', produtos:'Produtos',
   estoque:'Estoque', clientes:'Clientes',
   usuarios:'Usuários', vendedores:'Comissões',
