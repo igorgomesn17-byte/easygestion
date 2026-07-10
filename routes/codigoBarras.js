@@ -4,7 +4,6 @@
 const express = require('express');
 const router = express.Router();
 const bwipjs = require('bwip-js');
-const { db } = require('../db/database');
 
 // GET /api/codigo-barras/:codigo.png  -> imagem do codigo de barras
 router.get('/:codigo.png', async (req, res) => {
@@ -31,11 +30,10 @@ router.get('/:codigo.png', async (req, res) => {
   }
 });
 
-// GET /api/codigo-barras/etiquetas/:produtoId  -> dados para folha de etiquetas
-router.get('/etiquetas/:produtoId', (req, res) => {
-  const p = db.prepare('SELECT codigo, codigo_barras, nome, preco_venda FROM produtos WHERE id = ?').get(req.params.produtoId);
-  if (!p) return res.status(404).json({ erro: 'Produto nao encontrado' });
-  res.json(p);
-});
+// NOTA: existia aqui um GET /etiquetas/:produtoId que lia produtos sem filtrar por
+// tenant. Como /api/codigo-barras e' publica (a <img> do codigo nao manda sessao),
+// qualquer um sem login lia nome/codigo/preco de qualquer loja iterando o id. Ninguem
+// consumia a rota -- etiquetas.html usa /api/produtos/:id, que ja isola por tenant.
+// Removida em vez de remendada.
 
 module.exports = router;

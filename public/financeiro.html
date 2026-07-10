@@ -254,7 +254,7 @@
           <td class="direita" style="white-space:nowrap;">
             ${(d.pago && d.recorrente)?`<button class="btn btn-fino btn-verde" onclick="abrirPagar(${d.id})">pagar</button>`:''}
             <button class="btn btn-fino btn-escuro" onclick='editar(${JSON.stringify(d).replace(/'/g,"&#39;")})'></button>
-            <button class="btn btn-fino btn-vermelho" onclick="remover(${d.id})"></button>
+            <button class="btn btn-fino btn-vermelho" onclick="remover(${d.id})">Remover</button>
           </td>
         </tr>`).join('')
       }</tbody></table>`;

@@ -48,7 +48,7 @@
   <script src="js/comum.js"></script>
   <script>
     const produtoId = new URLSearchParams(location.search).get('id');
-    if (produtoId) { alert('Produto não especificado'); location.href = 'produtos.html'; }
+    if (!produtoId) { alert('Produto não especificado'); location.href = 'produtos.html'; }
 
     async function carregar() {
       try {

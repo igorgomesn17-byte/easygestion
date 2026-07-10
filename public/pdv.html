@@ -834,7 +834,7 @@
           <select onchange="setSplitForma(${i}, this.value)" style="flex:1;">${opts}</select>
           ${parc}
           ${inputValor}
-          <button class="btn btn-fino" style="padding:2px 8px;" onclick="removerLinhaSplit(${i})"></button>
+          <button class="btn btn-fino" style="padding:2px 8px;" onclick="removerLinhaSplit(${i})" title="Remover">&times;</button>
         </div>`;
       }).join('');
       renderSplitResumo();
