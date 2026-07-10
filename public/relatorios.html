@@ -12,56 +12,105 @@
     .classe-a { background:#e6f4ec; color:#1a8a5a; }
     .classe-b { background:#fff4e0; color:#8a6a1a; }
     .classe-c { background:#fbeceb; color:#c0392b; }
-    .barra-fundo { background:var(--borda,#eee); border-radius:4px; height:8px; overflow:hidden; min-width:70px; }
-    .barra-fill { background:var(--marca,#157a63); height:100%; }
-    td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+    td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+    tfoot td { font-weight:700; border-top:2px solid var(--borda,#ddd); }
+    .neg { color:var(--vermelho,#c0392b); }
+    .tabela-rolagem { overflow-x:auto; }
+
+    /* Cabeçalho que só existe no papel: nome da loja, relatório, período. */
+    .folha-cabecalho { display:none; }
+
+    @media print {
+      /* Some tudo que não é o relatório. O `!important` é obrigatório: sem ele estes
+         seletores perdem para o ds.css e o menu sai impresso junto (é o que acontece
+         hoje no cupom e na etiqueta, onde o `!` foi perdido). */
+      aside.sidebar, header.topbar, .abas, .nao-imprime { display:none !important; }
+      body { background:#fff !important; }
+      /* o layout empurra o conteúdo pra direita por causa da sidebar */
+      .conteudo, body > .conteudo { padding:0 !important; margin:0 !important; max-width:none !important; }
+      .card { border:0 !important; box-shadow:none !important; padding:0 !important; background:none !important; }
+      .tabela-rolagem { overflow:visible !important; }
+
+      .folha-cabecalho { display:block !important; margin-bottom:14px; }
+      .folha-loja { font-size:1.35rem; font-weight:700; }
+      .folha-titulo { font-size:1.05rem; margin-top:2px; }
+      .folha-periodo, .folha-emissao { font-size:.82rem; color:#555; }
+
+      /* Só a aba visível vai pro papel. */
+      .aba-conteudo[hidden] { display:none !important; }
+
+      table { width:100%; border-collapse:collapse; font-size:.78rem; }
+      thead { display:table-header-group; }  /* repete o cabeçalho a cada página */
+      tr { page-break-inside:avoid; }
+      th, td { border-bottom:1px solid #ddd; padding:4px 6px; }
+      tfoot td { border-top:2px solid #000; }
+      .classe-a, .classe-b, .classe-c { background:none !important; color:#000 !important; padding:0; }
+      /* vermelho some em impressora P&B; o valor negativo já vem com "-", o negrito reforça */
+      .neg { color:#000 !important; font-weight:700; }
+      @page { size:A4 landscape; margin:12mm; }
+    }
   </style>
 </head>
 <body>
   <div class="conteudo">
-    <div class="flex-entre">
+    <div class="flex-entre nao-imprime">
       <div>
         <h1>Relatórios</h1>
         <p class="subtitulo">Onde o lucro está preso e de onde ele vem</p>
       </div>
       <div style="display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap;">
-        <div class="campo" style="margin:0; max-width:160px;">
+        <div class="campo" style="margin:0; max-width:155px;">
           <label for="de">De</label>
           <input type="date" id="de" onchange="carregar()">
         </div>
-        <div class="campo" style="margin:0; max-width:160px;">
+        <div class="campo" style="margin:0; max-width:155px;">
           <label for="ate">Até</label>
           <input type="date" id="ate" onchange="carregar()">
         </div>
         <button class="btn" onclick="carregar()">Filtrar</button>
+        <button class="btn btn-escuro" onclick="window.print()">Imprimir / Salvar PDF</button>
       </div>
     </div>
 
-    <div class="abas">
-      <div class="aba ativa" data-aba="abc" onclick="trocarAba('abc')">Peças</div>
+    <!-- Só aparece no papel -->
+    <div class="folha-cabecalho">
+      <div class="folha-loja" id="folhaLoja">—</div>
+      <div class="folha-titulo" id="folhaTitulo">—</div>
+      <div class="folha-periodo" id="folhaPeriodo"></div>
+      <div class="folha-emissao" id="folhaEmissao"></div>
+    </div>
+
+    <div class="abas nao-imprime">
+      <div class="aba ativa" data-aba="estoque" onclick="trocarAba('estoque')">Estoque</div>
+      <div class="aba" data-aba="abc" onclick="trocarAba('abc')">Peças vendidas</div>
       <div class="aba" data-aba="colecao" onclick="trocarAba('colecao')">Coleções</div>
       <div class="aba" data-aba="canal" onclick="trocarAba('canal')">Canais</div>
       <div class="aba" data-aba="vendedor" onclick="trocarAba('vendedor')">Vendedoras</div>
     </div>
 
-    <div id="abaAbc">
-      <p class="rel-explica">Quais peças estão prendendo seu dinheiro na arara. As <strong>A</strong> puxam a maior parte do faturamento; as <strong>C</strong> ocupam espaço e giram pouco.</p>
-      <div class="card"><div id="listaAbc"><div class="vazio">Carregando…</div></div></div>
+    <div class="aba-conteudo" id="abaEstoque">
+      <p class="rel-explica nao-imprime">Quanto dinheiro está parado na arara — e quanto ele vira se você vender tudo pelo preço de tabela.</p>
+      <div class="card"><div class="tabela-rolagem" id="listaEstoque"><div class="vazio">Carregando…</div></div></div>
     </div>
 
-    <div id="abaColecao" style="display:none;">
-      <p class="rel-explica">Qual coleção dá lucro e qual só dá trabalho.</p>
-      <div class="card"><div id="listaColecao"><div class="vazio">Carregando…</div></div></div>
+    <div class="aba-conteudo" id="abaAbc" hidden>
+      <p class="rel-explica nao-imprime">Quais peças estão prendendo seu dinheiro na arara. As <strong>A</strong> puxam a maior parte do faturamento; as <strong>C</strong> ocupam espaço e giram pouco.</p>
+      <div class="card"><div class="tabela-rolagem" id="listaAbc"><div class="vazio">Carregando…</div></div></div>
     </div>
 
-    <div id="abaCanal" style="display:none;">
-      <p class="rel-explica">De onde vem o dinheiro: loja, Instagram, WhatsApp, vitrine.</p>
-      <div class="card"><div id="listaCanal"><div class="vazio">Carregando…</div></div></div>
+    <div class="aba-conteudo" id="abaColecao" hidden>
+      <p class="rel-explica nao-imprime">Qual coleção dá lucro e qual só dá trabalho. Aqui o lucro é <strong>bruto</strong>: preço menos custo da peça, antes de imposto, taxa de maquininha e comissão.</p>
+      <div class="card"><div class="tabela-rolagem" id="listaColecao"><div class="vazio">Carregando…</div></div></div>
     </div>
 
-    <div id="abaVendedor" style="display:none;">
-      <p class="rel-explica">Quem vende mais e quem vende melhor. Nem sempre é a mesma pessoa.</p>
-      <div class="card"><div id="listaVendedor"><div class="vazio">Carregando…</div></div></div>
+    <div class="aba-conteudo" id="abaCanal" hidden>
+      <p class="rel-explica nao-imprime">De onde vem o dinheiro: loja, Instagram, WhatsApp, vitrine. O lucro aqui é <strong>líquido</strong>: já descontou imposto, taxa de maquininha, comissão e embalagem.</p>
+      <div class="card"><div class="tabela-rolagem" id="listaCanal"><div class="vazio">Carregando…</div></div></div>
+    </div>
+
+    <div class="aba-conteudo" id="abaVendedor" hidden>
+      <p class="rel-explica nao-imprime">Quem vende mais e quem vende melhor. Nem sempre é a mesma pessoa. O lucro aqui é <strong>líquido</strong>, já sem imposto, taxa e comissão.</p>
+      <div class="card"><div class="tabela-rolagem" id="listaVendedor"><div class="vazio">Carregando…</div></div></div>
     </div>
   </div>
 
@@ -70,21 +119,49 @@
   <script>
     montarLayout('relatorios');
 
-    // primeiro dia do mês até hoje
+    const TITULO_ABA = {
+      estoque:  'Relatório de estoque',
+      abc:      'Peças vendidas (curva ABC)',
+      colecao:  'Resultado por coleção',
+      canal:    'Resultado por canal',
+      vendedor: 'Resultado por vendedora',
+    };
+    // O estoque é uma FOTO de agora — o período não se aplica a ele.
+    const ABA_SEM_PERIODO = { estoque: true };
+
+    let abaAtual = 'estoque';
+    let lojaNome = 'EasyGestão';
+
     (function periodoPadrao() {
       const h = new Date();
       const ini = new Date(h.getFullYear(), h.getMonth(), 1);
-      const iso = d => d.toISOString().slice(0, 10);
+      const iso = d => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
       document.getElementById('de').value = iso(ini);
       document.getElementById('ate').value = iso(h);
     })();
 
+    api('/config').then(c => { lojaNome = (c && c.loja_nome) || 'EasyGestão'; atualizarCabecalho(); }).catch(() => {});
+
+    const ptBR = iso => iso ? iso.split('-').reverse().join('/') : '';
+
+    // O cabeçalho só aparece no PDF, mas é montado sempre (o print não roda JS depois).
+    function atualizarCabecalho() {
+      document.getElementById('folhaLoja').textContent = lojaNome;
+      document.getElementById('folhaTitulo').textContent = TITULO_ABA[abaAtual] || 'Relatório';
+      const de = document.getElementById('de').value, ate = document.getElementById('ate').value;
+      document.getElementById('folhaPeriodo').textContent =
+        ABA_SEM_PERIODO[abaAtual] ? 'Posição do estoque nesta data' : `Período: ${ptBR(de)} a ${ptBR(ate)}`;
+      const agora = new Date();
+      document.getElementById('folhaEmissao').textContent =
+        'Emitido em ' + agora.toLocaleDateString('pt-BR') + ' às ' + agora.toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
+    }
+
     function trocarAba(aba) {
+      abaAtual = aba;
       document.querySelectorAll('.aba').forEach(a => a.classList.toggle('ativa', a.dataset.aba === aba));
-      const mapa = { abc:'abaAbc', colecao:'abaColecao', canal:'abaCanal', vendedor:'abaVendedor' };
-      Object.entries(mapa).forEach(([k, id]) => {
-        document.getElementById(id).style.display = (k === aba) ? '' : 'none';
-      });
+      const mapa = { estoque:'abaEstoque', abc:'abaAbc', colecao:'abaColecao', canal:'abaCanal', vendedor:'abaVendedor' };
+      Object.entries(mapa).forEach(([k, id]) => { document.getElementById(id).hidden = (k !== aba); });
+      atualizarCabecalho();
     }
 
     function periodo() {
@@ -97,34 +174,88 @@
     }
 
     const vazio = txt => `<div class="vazio">${txt}</div>`;
+    const pct = v => (v == null ? '—' : Number(v).toFixed(1).replace('.', ',') + '%');
+    const cls = v => (v < 0 ? 'num neg' : 'num');
 
     async function carregar() {
-      // Um 403 {upgrade:true} em qualquer uma delas cai no card (js/upgrade.js) e
-      // substitui a tela — por isso não vale a pena seguir carregando as outras.
+      atualizarCabecalho();
       try {
-        await Promise.all([carregarAbc(), carregarColecao(), carregarCanal(), carregarVendedor()]);
+        // Um 403 {upgrade:true} em qualquer uma cai no card (js/upgrade.js) e substitui a tela.
+        await Promise.all([carregarEstoque(), carregarAbc(), carregarColecao(), carregarCanal(), carregarVendedor()]);
       } catch (e) {
         if (e.upgrade) return;   // card já renderizado
       }
+    }
+
+    // ---- Estoque: quanto tem parado e quanto vira lucro ----
+    async function carregarEstoque() {
+      const d = await api('/estoque/relatorio');
+      const el = document.getElementById('listaEstoque');
+      if (!d.itens.length) { el.innerHTML = vazio('Nenhuma peça cadastrada.'); return; }
+      const t = d.total;
+      el.innerHTML = `
+        <table>
+          <thead><tr>
+            <th>Peça</th><th>Coleção</th>
+            <th class="num">Qtd</th>
+            <th class="num">Custo un.</th><th class="num">Venda un.</th>
+            <th class="num">Custo total</th><th class="num">Venda total</th>
+            <th class="num">Lucro</th><th class="num">Margem</th>
+          </tr></thead>
+          <tbody>${d.itens.map(i => `
+            <tr>
+              <td><strong>${esc(i.nome)}</strong><div class="texto-cinza" style="font-size:.78rem;">${esc(i.codigo)}${i.cor ? ' · ' + esc(i.cor) : ''}</div></td>
+              <td>${i.colecao ? esc(i.colecao) : '—'}</td>
+              <td class="num">${i.qtd}</td>
+              <td class="num dinheiro">${moeda(i.custo_unit)}</td>
+              <td class="num dinheiro">${moeda(i.preco_venda)}</td>
+              <td class="num dinheiro">${moeda(i.custo_total)}</td>
+              <td class="num dinheiro">${moeda(i.venda_total)}</td>
+              <td class="${cls(i.lucro_total)} dinheiro">${moeda(i.lucro_total)}</td>
+              <td class="${cls(i.margem)}">${pct(i.margem)}</td>
+            </tr>`).join('')}</tbody>
+          <tfoot><tr>
+            <td>Total</td><td>${t.produtos} produtos</td>
+            <td class="num">${t.pecas}</td>
+            <td class="num">—</td><td class="num">—</td>
+            <td class="num dinheiro">${moeda(t.custo)}</td>
+            <td class="num dinheiro">${moeda(t.venda)}</td>
+            <td class="${cls(t.lucro)} dinheiro">${moeda(t.lucro)}</td>
+            <td class="${cls(t.margem)}">${pct(t.margem)}</td>
+          </tr></tfoot>
+        </table>`;
     }
 
     async function carregarAbc() {
       const d = await api('/financeiro/curva-abc' + periodo());
       const el = document.getElementById('listaAbc');
       if (!d.itens || !d.itens.length) { el.innerHTML = vazio('Nenhuma venda no período.'); return; }
-      const maior = d.itens[0].faturamento || 1;
       el.innerHTML = `
         <table>
-          <thead><tr><th>Peça</th><th></th><th class="num">Vendidas</th><th class="num">Faturamento</th><th class="num">Lucro</th><th>Classe</th></tr></thead>
+          <thead><tr>
+            <th>Peça</th><th class="num">Vendidas</th>
+            <th class="num">Custo</th><th class="num">Faturamento</th>
+            <th class="num">Lucro</th><th class="num">Margem</th><th>Classe</th>
+          </tr></thead>
           <tbody>${d.itens.map(i => `
             <tr>
-              <td><strong>${esc(i.nome || i.codigo)}</strong><div class="texto-cinza" style="font-size:.78rem;">${esc(i.codigo)}</div></td>
-              <td style="width:90px;"><div class="barra-fundo"><div class="barra-fill" style="width:${Math.round((i.faturamento / maior) * 100)}%;"></div></div></td>
+              <td><strong>${esc(i.nome || i.codigo)}</strong><div class="texto-cinza" style="font-size:.78rem;">${esc(i.codigo || '')}</div></td>
               <td class="num">${i.qtd}</td>
+              <td class="num dinheiro">${moeda(i.custo)}</td>
               <td class="num dinheiro">${moeda(i.faturamento)}</td>
-              <td class="num dinheiro">${moeda(i.lucro)}</td>
+              <td class="${cls(i.lucro)} dinheiro">${moeda(i.lucro)}</td>
+              <td class="${cls(i.margem)}">${pct(i.margem)}</td>
               <td><span class="classe-${(i.classe || 'c').toLowerCase()}">${esc(i.classe)}</span></td>
             </tr>`).join('')}</tbody>
+          <tfoot><tr>
+            <td>Total</td>
+            <td class="num">${d.total_pecas}</td>
+            <td class="num dinheiro">${moeda(d.total_custo)}</td>
+            <td class="num dinheiro">${moeda(d.total_faturamento)}</td>
+            <td class="${cls(d.total_lucro)} dinheiro">${moeda(d.total_lucro)}</td>
+            <td class="num">${pct(d.total_faturamento > 0 ? (d.total_lucro / d.total_faturamento) * 100 : 0)}</td>
+            <td></td>
+          </tr></tfoot>
         </table>`;
     }
 
@@ -132,19 +263,36 @@
       const rows = await api('/financeiro/por-colecao' + periodo());
       const el = document.getElementById('listaColecao');
       if (!rows.length) { el.innerHTML = vazio('Nenhuma venda no período.'); return; }
+      // o backend devolve faturamento e lucro_bruto; o custo é a diferença
+      const t = rows.reduce((a, r) => ({
+        pecas: a.pecas + r.pecas, fat: a.fat + r.faturamento, lucro: a.lucro + r.lucro_bruto,
+      }), { pecas:0, fat:0, lucro:0 });
       el.innerHTML = `
         <table>
-          <thead><tr><th>Coleção</th><th class="num">Peças</th><th class="num">Faturamento</th><th class="num">Lucro bruto</th><th class="num">Margem</th></tr></thead>
+          <thead><tr>
+            <th>Coleção</th><th class="num">Peças</th>
+            <th class="num">Custo</th><th class="num">Faturamento</th>
+            <th class="num">Lucro bruto</th><th class="num">Margem</th>
+          </tr></thead>
           <tbody>${rows.map(r => {
+            const custo = +(r.faturamento - r.lucro_bruto).toFixed(2);
             const m = r.faturamento > 0 ? (r.lucro_bruto / r.faturamento) * 100 : 0;
             return `<tr>
               <td><strong>${esc(r.colecao)}</strong></td>
               <td class="num">${r.pecas}</td>
+              <td class="num dinheiro">${moeda(custo)}</td>
               <td class="num dinheiro">${moeda(r.faturamento)}</td>
-              <td class="num dinheiro">${moeda(r.lucro_bruto)}</td>
-              <td class="num ${m < 0 ? 'texto-vermelho' : ''}">${m.toFixed(1)}%</td>
+              <td class="${cls(r.lucro_bruto)} dinheiro">${moeda(r.lucro_bruto)}</td>
+              <td class="${cls(m)}">${pct(m)}</td>
             </tr>`;
           }).join('')}</tbody>
+          <tfoot><tr>
+            <td>Total</td><td class="num">${t.pecas}</td>
+            <td class="num dinheiro">${moeda(t.fat - t.lucro)}</td>
+            <td class="num dinheiro">${moeda(t.fat)}</td>
+            <td class="${cls(t.lucro)} dinheiro">${moeda(t.lucro)}</td>
+            <td class="num">${pct(t.fat > 0 ? (t.lucro / t.fat) * 100 : 0)}</td>
+          </tr></tfoot>
         </table>`;
     }
 
@@ -152,16 +300,37 @@
       const rows = await api('/financeiro/por-canal' + periodo());
       const el = document.getElementById('listaCanal');
       if (!rows.length) { el.innerHTML = vazio('Nenhuma venda no período.'); return; }
+      const t = rows.reduce((a, r) => ({ n:a.n + r.n, fat:a.fat + r.faturamento, lucro:a.lucro + r.lucro }), { n:0, fat:0, lucro:0 });
+      // ATENÇÃO: vendas.lucro é LÍQUIDO (já tirou imposto, taxa de maquininha, comissão
+      // e embalagem). Então `faturamento - lucro` NÃO é o custo da peça — é custo + taxas.
+      // Rotular de "Custo" seria um número errado. Em por-colecao o lucro é bruto e aí
+      // a subtração dá o custo de verdade.
       el.innerHTML = `
         <table>
-          <thead><tr><th>Canal</th><th class="num">Vendas</th><th class="num">Faturamento</th><th class="num">Lucro</th></tr></thead>
-          <tbody>${rows.map(r => `
-            <tr>
-              <td><strong>${esc(rotuloOrigem ? rotuloOrigem(r.canal) : r.canal)}</strong></td>
+          <thead><tr>
+            <th>Canal</th><th class="num">Vendas</th>
+            <th class="num">Custos e taxas</th><th class="num">Faturamento</th>
+            <th class="num">Lucro líquido</th><th class="num">Margem</th>
+          </tr></thead>
+          <tbody>${rows.map(r => {
+            const custo = +(r.faturamento - r.lucro).toFixed(2);
+            const m = r.faturamento > 0 ? (r.lucro / r.faturamento) * 100 : 0;
+            return `<tr>
+              <td><strong>${esc(rotuloOrigem(r.canal))}</strong></td>
               <td class="num">${r.n}</td>
+              <td class="num dinheiro">${moeda(custo)}</td>
               <td class="num dinheiro">${moeda(r.faturamento)}</td>
-              <td class="num dinheiro">${moeda(r.lucro)}</td>
-            </tr>`).join('')}</tbody>
+              <td class="${cls(r.lucro)} dinheiro">${moeda(r.lucro)}</td>
+              <td class="${cls(m)}">${pct(m)}</td>
+            </tr>`;
+          }).join('')}</tbody>
+          <tfoot><tr>
+            <td>Total</td><td class="num">${t.n}</td>
+            <td class="num dinheiro">${moeda(t.fat - t.lucro)}</td>
+            <td class="num dinheiro">${moeda(t.fat)}</td>
+            <td class="${cls(t.lucro)} dinheiro">${moeda(t.lucro)}</td>
+            <td class="num">${pct(t.fat > 0 ? (t.lucro / t.fat) * 100 : 0)}</td>
+          </tr></tfoot>
         </table>`;
     }
 
@@ -169,29 +338,36 @@
       // esta rota devolve { vendedores: [...], total: {...} }, não um array
       const d = await api('/financeiro/por-vendedor' + periodo());
       const rows = (d && d.vendedores) || [];
-      const total = (d && d.total) || null;
+      const t = (d && d.total) || null;
       const el = document.getElementById('listaVendedor');
       if (!rows.length) { el.innerHTML = vazio('Nenhuma venda no período.'); return; }
       el.innerHTML = `
         <table>
-          <thead><tr><th>Vendedora</th><th class="num">Vendas</th><th class="num">Faturamento</th><th class="num">Ticket médio</th><th class="num">Lucro</th><th class="num">Comissão</th></tr></thead>
-          <tbody>${rows.map(r => `
-            <tr>
+          <thead><tr>
+            <th>Vendedora</th><th class="num">Vendas</th>
+            <th class="num">Faturamento</th><th class="num">Ticket médio</th>
+            <th class="num">Lucro líquido</th><th class="num">Margem</th><th class="num">Comissão</th>
+          </tr></thead>
+          <tbody>${rows.map(r => {
+            const m = r.faturamento > 0 ? (r.lucro / r.faturamento) * 100 : 0;
+            return `<tr>
               <td><strong>${esc(r.vendedor)}</strong></td>
               <td class="num">${r.n}</td>
               <td class="num dinheiro">${moeda(r.faturamento)}</td>
               <td class="num dinheiro">${moeda(r.ticket_medio)}</td>
-              <td class="num dinheiro">${moeda(r.lucro)}</td>
+              <td class="${cls(r.lucro)} dinheiro">${moeda(r.lucro)}</td>
+              <td class="${cls(m)}">${pct(m)}</td>
               <td class="num dinheiro">${moeda(r.comissao)}</td>
-            </tr>`).join('')}</tbody>
-          ${total ? `<tfoot><tr>
-              <td><strong>Total</strong></td>
-              <td class="num"><strong>${total.n}</strong></td>
-              <td class="num dinheiro"><strong>${moeda(total.faturamento)}</strong></td>
-              <td class="num">—</td>
-              <td class="num dinheiro"><strong>${moeda(total.lucro)}</strong></td>
-              <td class="num dinheiro"><strong>${moeda(total.comissao)}</strong></td>
-            </tr></tfoot>` : ''}
+            </tr>`;
+          }).join('')}</tbody>
+          ${t ? `<tfoot><tr>
+            <td>Total</td><td class="num">${t.n}</td>
+            <td class="num dinheiro">${moeda(t.faturamento)}</td>
+            <td class="num">—</td>
+            <td class="${cls(t.lucro)} dinheiro">${moeda(t.lucro)}</td>
+            <td class="num">${pct(t.faturamento > 0 ? (t.lucro / t.faturamento) * 100 : 0)}</td>
+            <td class="num dinheiro">${moeda(t.comissao)}</td>
+          </tr></tfoot>` : ''}
         </table>`;
     }
 

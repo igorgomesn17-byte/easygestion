@@ -5,6 +5,7 @@ const express = require('express');
 const router = express.Router();
 const { db } = require('../db/database');
 const { validarQuantidade } = require('../lib/validadores');
+const { exigirFeature } = require('../middleware/seguranca');
 
 // GET /api/estoque/resumo -> totais de estoque (cards)
 router.get('/resumo', (req, res) => {
@@ -17,6 +18,59 @@ router.get('/resumo', (req, res) => {
   `).get(req.tenantId);
   const produtos = db.prepare('SELECT COUNT(*) AS n FROM produtos WHERE ativo = 1 AND tenant_id = ?').get(req.tenantId).n;
   res.json({ ...e, produtos });
+});
+
+// GET /api/estoque/relatorio?colecao=&categoria= -> quanto tem parado e quanto vira lucro
+// Uma linha por PRODUTO (soma a grade), nao por tamanho: o GET / devolve uma linha por
+// tamanho e corta em 500, o que serve pra tela operacional mas nao pra um relatorio.
+// "potencial" porque e' o que a peca rende SE vender pelo preco de tabela.
+router.get('/relatorio', exigirFeature('relatorios_avancados'), (req, res) => {
+  const { categoria, colecao } = req.query;
+  let sql = `
+    SELECT p.id AS produto_id, p.codigo, p.nome, p.categoria, p.colecao, p.cor,
+           p.custo, p.preco_venda,
+           COALESCE(SUM(v.quantidade),0) AS qtd
+    FROM produtos p
+    LEFT JOIN variacoes v ON v.produto_id = p.id
+    WHERE p.ativo = 1 AND p.tenant_id = ?
+  `;
+  const params = [req.tenantId];
+  if (categoria) { sql += ' AND p.categoria = ?'; params.push(categoria); }
+  if (colecao)   { sql += ' AND p.colecao = ?';   params.push(colecao); }
+  sql += ' GROUP BY p.id ORDER BY p.nome';
+
+  const itens = db.prepare(sql).all(...params).map(r => {
+    const custoTotal = +(r.qtd * (r.custo || 0)).toFixed(2);
+    const vendaTotal = +(r.qtd * (r.preco_venda || 0)).toFixed(2);
+    const lucroTotal = +(vendaTotal - custoTotal).toFixed(2);
+    return {
+      produto_id: r.produto_id, codigo: r.codigo, nome: r.nome,
+      categoria: r.categoria, colecao: r.colecao, cor: r.cor,
+      qtd: r.qtd,
+      custo_unit: +(r.custo || 0).toFixed(2),
+      preco_venda: +(r.preco_venda || 0).toFixed(2),
+      custo_total: custoTotal,
+      venda_total: vendaTotal,
+      lucro_total: lucroTotal,
+      margem: vendaTotal > 0 ? +((lucroTotal / vendaTotal) * 100).toFixed(1) : 0,
+    };
+  });
+
+  const soma = (campo) => +itens.reduce((s, i) => s + i[campo], 0).toFixed(2);
+  const custoTotal = soma('custo_total');
+  const vendaTotal = soma('venda_total');
+  const lucroTotal = soma('lucro_total');
+  res.json({
+    itens,
+    total: {
+      produtos: itens.length,
+      pecas: itens.reduce((s, i) => s + i.qtd, 0),
+      custo: custoTotal,
+      venda: vendaTotal,
+      lucro: lucroTotal,
+      margem: vendaTotal > 0 ? +((lucroTotal / vendaTotal) * 100).toFixed(1) : 0,
+    },
+  });
 });
 
 // GET /api/estoque -> visao geral por produto/tamanho com filtros

@@ -7,8 +7,10 @@
   <link rel="stylesheet" href="css/ds.css">
   <style>
     @media print {
-      .nav, .btn, .no-print, .ds-sidebar, .ds-topbar { display: none important; }
-      .conteudo { margin: 0 important; padding: 0 important; }
+      /* as classes reais do layout são .sidebar/.topbar (montarLayout, comum.js);
+         .ds-sidebar/.ds-topbar não existem e o menu saía impresso */
+      .nav, .btn, .no-print, aside.sidebar, header.topbar, .nao-imprime { display: none !important; }
+      .conteudo { margin: 0 !important; padding: 0 !important; }
       body { background: #fff; }
     }
   </style>

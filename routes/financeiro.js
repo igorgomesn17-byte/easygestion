@@ -103,10 +103,15 @@ router.get('/curva-abc', exigirFeature('relatorios_avancados'), limiteCálculoCu
     let classe = 'C';
     if (pctAcum <= 80) classe = 'A';
     else if (pctAcum <= 95) classe = 'B';
+    const lucro = +(r.faturamento - r.custo).toFixed(2);
     return {
       produto_id: r.produto_id, nome: r.nome, codigo: r.codigo, categoria: r.categoria,
-      qtd: r.qtd, faturamento: +r.faturamento.toFixed(2),
-      lucro: +(r.faturamento - r.custo).toFixed(2),
+      qtd: r.qtd,
+      // o custo ja era calculado aqui e descartado: sem ele o relatorio nao fecha
+      custo: +r.custo.toFixed(2),
+      faturamento: +r.faturamento.toFixed(2),
+      lucro,
+      margem: r.faturamento > 0 ? +((lucro / r.faturamento) * 100).toFixed(1) : 0,
       pct_item: +pctItem.toFixed(1), pct_acumulado: +pctAcum.toFixed(1), classe
     };
   });
@@ -115,7 +120,15 @@ router.get('/curva-abc', exigirFeature('relatorios_avancados'), limiteCálculoCu
   for (const it of itens) { resumo[it.classe].n++; resumo[it.classe].fat += it.faturamento; }
   for (const k of ['A','B','C']) resumo[k].fat = +resumo[k].fat.toFixed(2);
 
-  const resultado = { total_faturamento: +totalFat.toFixed(2), itens, resumo };
+  const totalCusto = +itens.reduce((s, i) => s + i.custo, 0).toFixed(2);
+  const totalLucro = +itens.reduce((s, i) => s + i.lucro, 0).toFixed(2);
+  const resultado = {
+    total_faturamento: +totalFat.toFixed(2),
+    total_custo: totalCusto,
+    total_lucro: totalLucro,
+    total_pecas: itens.reduce((s, i) => s + i.qtd, 0),
+    itens, resumo,
+  };
 
   // Cachear resultado (usar de/ate já declarados acima)
   const dePadrao = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
