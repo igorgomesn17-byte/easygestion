@@ -220,7 +220,7 @@
         <div class="campo"><label>Aniversário (DD/MM)</label><input type="text" id="cliAniv" placeholder="15/03" maxlength="5"></div>
       </div>
       <div class="campo">
-        <label>Como conheceu a DS?</label>
+        <label>Como conheceu a loja?</label>
         <select id="cliOrigem"><option value="">— selecione —</option></select>
       </div>
       <button class="btn btn-bloco" onclick="salvarCliente()">Salvar cliente</button>
@@ -889,13 +889,13 @@
       document.getElementById('cliSelecionado').style.display = 'none';
     }
     function abrirNovoCliente(){ document.getElementById('modalCli').classList.add('aberto'); }
-    // popula o select "Como conheceu a DS?" a partir do config (origens_cliente)
+    // popula o select "Como conheceu a loja?" a partir do config (origens)
     async function carregarOrigensCliente(){
       try {
         const cfg = await api('/config');
         let ops = [];
-        try { ops = JSON.parse(cfg.origens_cliente || '[]'); } catch(e) {}
-        if (ops.length) ops = ['Passou na loja','Instagram','Indicação','Google','WhatsApp','Influencer','Cliente Camacan','Outro'];
+        try { ops = JSON.parse(cfg.origens || '[]'); } catch(e) {}
+        if (!ops.length) ops = ['Passando na loja','Instagram','Anúncio','WhatsApp','Indicação','Google','Influencer','Outro'];
         const sel = document.getElementById('cliOrigem');
         sel.innerHTML = '<option value="">— selecione —</option>' + ops.map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('');
       } catch(e) {}
@@ -903,7 +903,7 @@
     carregarOrigensCliente();
     async function salvarCliente() {
       const nome = document.getElementById('cliNome').value.trim();
-      if (nome){ toast('Informe o nome','erro'); return; }
+      if (!nome){ toast('Informe o nome','erro'); return; }
       const r = await api('/clientes', { method:'POST', body:{
         nome, telefone:document.getElementById('cliTel').value, cidade:document.getElementById('cliCidade').value,
         aniversario:document.getElementById('cliAniv').value.trim(),

@@ -183,7 +183,7 @@
       document.getElementById('fSup').textContent = moeda(c.suprimentos);
       document.getElementById('fSang').textContent = moeda(c.sangrias);
       document.getElementById('fEsperado').textContent = moeda(c.dinheiro_esperado);
-      document.getElementById('dinContado').value = c.dinheiro_contado = null ? c.dinheiro_contado : '';
+      document.getElementById('dinContado').value = c.dinheiro_contado != null ? c.dinheiro_contado : '';
       previewDif();
       const av = document.getElementById('avisoFechado');
       if (c.fechado) {
@@ -215,7 +215,7 @@
     }
 
     function previewDif() {
-      if (caixaAtual) return;
+      if (!caixaAtual) return;
       const contado = parseFloat(document.getElementById('dinContado').value);
       const el = document.getElementById('difPreview');
       if (isNaN(contado)) { el.textContent = '—'; el.className = ''; return; }
@@ -226,8 +226,8 @@
     async function lancarSaida() {
       const valor = parseFloat(document.getElementById('saidaValor').value);
       const descricao = document.getElementById('saidaDesc').value.trim();
-      if (valor || valor<=0) { toast('Informe o valor','erro'); return; }
-      if (descricao) { toast('Descreva a saída','erro'); return; }
+      if (!valor || valor<=0) { toast('Informe o valor','erro'); return; }
+      if (!descricao) { toast('Descreva a saída','erro'); return; }
       try {
         await api('/caixa/saida', { method:'POST', body:{
           data: document.getElementById('data').value, valor, descricao,
@@ -239,7 +239,7 @@
       } catch(e){ toast(e.message,'erro'); }
     }
     async function apagarMov(id) {
-      if (confirm('Apagar este movimento? Se ele veio de uma despesa, a despesa também será apagada.')) return;
+      if (!confirm('Apagar este movimento? Se ele veio de uma despesa, a despesa também será apagada.')) return;
       try { await api('/caixa/movimento/'+id, { method:'DELETE' }); toast('Movimento apagado','sucesso'); carregar(); }
       catch(e){ toast(e.message,'erro'); }
     }
@@ -254,7 +254,7 @@
     }
     async function mov(tipo) {
       const valor = parseFloat(document.getElementById('movValor').value);
-      if (valor || valor<=0) { toast('Informe o valor','erro'); return; }
+      if (!valor || valor<=0) { toast('Informe o valor','erro'); return; }
       try { await api('/caixa/'+tipo, { method:'POST', body:{ data:document.getElementById('data').value,
           valor, forma:document.getElementById('movForma').value, motivo:document.getElementById('movMotivo').value }});
         document.getElementById('movValor').value=''; document.getElementById('movMotivo').value='';
@@ -264,7 +264,7 @@
     async function fechar() {
       const contado = document.getElementById('dinContado').value;
       if (contado === '') { toast('Informe o dinheiro contado','erro'); return; }
-      if (confirm('Fechar o caixa deste dia?')) return;
+      if (!confirm('Fechar o caixa deste dia?')) return;
 
       // Mostrar spinner e desabilitar botão
       const areaBotoes = document.getElementById('areasBotoesFechar');
@@ -284,7 +284,7 @@
       }
     }
     async function reabrir() {
-      if (confirm('Reabrir o caixa?')) return;
+      if (!confirm('Reabrir o caixa?')) return;
       await api('/caixa/reabrir', { method:'POST', body:{ data:document.getElementById('data').value }});
       toast('Caixa reaberto','sucesso'); carregar();
     }
@@ -293,16 +293,16 @@
         data: document.getElementById('data').value,
         conciliado: document.getElementById('conciliado').checked,
         obs: document.getElementById('obs').value }});
-      if (silencioso) toast('Conciliação salva', 'sucesso');
+      if (!silencioso) toast('Conciliação salva', 'sucesso');
     }
-    document.getElementById('conciliado').addEventListener('change', ()=>conciliar(true));
+    document.getElementById('conciliado').addEventListener('change', ()=>conciliar(false));
 
     function imprimirFechamento() {
       window.open('fechamento-caixa.html?data=' + document.getElementById('data').value, '_blank');
     }
 
     async function cancelar(id) {
-      if (confirm('Cancelar esta venda? O estoque será devolvido.')) return;
+      if (!confirm('Cancelar esta venda? O estoque será devolvido.')) return;
       try { await api('/vendas/'+id, { method:'DELETE' }); toast('Venda cancelada','sucesso'); carregar(); }
       catch(e){ toast(e.message,'erro'); }
     }

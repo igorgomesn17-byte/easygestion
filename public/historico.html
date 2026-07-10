@@ -22,10 +22,20 @@
     </div>
 
     <div class="card">
-      <div class="linha" style="gap:8px; flex-wrap:wrap;">
-        <input type="date" id="filtroDE" onchange="carregar()">
-        <input type="date" id="filtroATE" onchange="carregar()">
-        <input type="search" id="busca" placeholder="Buscar por cliente..." oninput="render()">
+      <div class="linha" style="gap:8px; flex-wrap:wrap; align-items:flex-end;">
+        <div class="campo" style="margin:0; max-width:170px;">
+          <label for="filtroDE">De</label>
+          <input type="date" id="filtroDE" onchange="carregar()">
+        </div>
+        <div class="campo" style="margin:0; max-width:170px;">
+          <label for="filtroATE">Até</label>
+          <input type="date" id="filtroATE" onchange="carregar()">
+        </div>
+        <button class="btn" onclick="carregar()">Filtrar</button>
+        <div class="campo" style="margin:0; flex:1; min-width:180px;">
+          <label for="busca">Buscar</label>
+          <input type="search" id="busca" placeholder="Buscar por cliente..." oninput="render()">
+        </div>
         <button class="btn" onclick="exportar()">Exportar CSV</button>
       </div>
     </div>

@@ -358,7 +358,7 @@
       }
     }
     async function remover(id) {
-      if (confirm('Remover esta despesa?')) return;
+      if (!confirm('Remover esta despesa?')) return;
       await api('/despesas/'+id, { method:'DELETE' });
       toast('Removida','sucesso'); carregar();
     }

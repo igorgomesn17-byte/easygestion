@@ -32,22 +32,14 @@ router.use((req, res, next) => {
 // }
 router.post('/', (req, res) => {
   try {
-    // ✅ VALIDAÇÃO COM ZOD: garantir tipos corretos
-    // Itens: validar que qtd e preco são números
+    // Itens: o cliente manda so variacao_id + qtd. O preco vem do banco
+    // (preco_unit = v.preco_venda, mais abaixo), nunca do payload.
     if (Array.isArray(req.body.itens)) {
       for (const item of req.body.itens) {
         if (typeof item.qtd !== 'number' || item.qtd <= 0) {
           throw new Error(`Item com qtd inválida: ${item.qtd}`);
         }
-        if (typeof item.preco !== 'number' || item.preco <= 0) {
-          throw new Error(`Item com preco inválido: ${item.preco}`);
-        }
       }
-    }
-
-    // Forma de pagamento: deve ser enum válido
-    if (req.body.forma_pagamento && !['pix', 'débito', 'crédito', 'dinheiro'].includes(req.body.forma_pagamento)) {
-      throw new Error(`Forma de pagamento inválida: ${req.body.forma_pagamento}`);
     }
 
     // Taxa: deve ser número entre 0-10

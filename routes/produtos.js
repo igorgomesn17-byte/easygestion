@@ -267,7 +267,7 @@ router.post('/rapido', exigirDentroDoLimite('produtos', contarProdutos), (req, r
 
 // POST /api/produtos  -> cadastra produto + grade
 // body: { nome, categoria, descricao, cor, custo, preco_venda, foto, fotos:[base64...], grade: [{tamanho, quantidade}] }
-router.post('/', exigirDentroDoLimite('produtos', contarProdutos), limiteUploadPorTenant, limiteUploadFrequencia, (req, res) => {
+router.post('/', exigirDentroDoLimite('produtos', contarProdutos), limiteUploadPorTenant, limiteUploadFrequencia, (req, res, next) => {
   const tenantId = req.tenantId;
   const { nome, categoria, descricao, cor, custo, preco_venda, foto, fotos, grade, colecao } = req.body;
 
@@ -318,12 +318,14 @@ router.post('/', exigirDentroDoLimite('produtos', contarProdutos), limiteUploadP
     const id = tx();
     res.status(201).json({ id, codigo, codigo_barras });
   } catch (e) {
-    res.status(500).json({ erro: e.message });
+    // sobe pro handler central (server.js), que loga rota + stack. Responder 500
+    // aqui engolia a causa e o erro chegava ao lojista como "Erro interno".
+    next(e);
   }
 });
 
 // PUT /api/produtos/:id -> edita dados (nao mexe na grade aqui; estoque e via /api/estoque)
-router.put('/:id', limiteUploadPorTenant, limiteUploadFrequencia, (req, res) => {
+router.put('/:id', limiteUploadPorTenant, limiteUploadFrequencia, (req, res, next) => {
   const tenantId = req.tenantId;
   const { nome, categoria, descricao, cor, custo, preco_venda, foto, fotos, grade, colecao } = req.body;
   const p = db.prepare('SELECT id, codigo, foto FROM produtos WHERE id = ? AND tenant_id = ?').get(req.params.id, tenantId);
@@ -332,7 +334,9 @@ router.put('/:id', limiteUploadPorTenant, limiteUploadFrequencia, (req, res) => 
   // foto: se vier base64 nova, salva; se vier caminho existente, mantem; se vazio, mantem o atual
   let fotoPath = p.foto;
   if (foto && foto.startsWith('data:image')) {
-    try { fotoPath = salvarFotoBase64(foto, p.codigo); } catch (e) { /* mantem atual */ }
+    const resultFoto = salvarFotoBase64(foto, p.codigo);
+    if (!resultFoto.ok) return res.status(400).json({ erro: resultFoto.erro });
+    fotoPath = resultFoto.caminho;
   } else if (foto === '') {
     fotoPath = null; // remocao explicita
   }
@@ -344,7 +348,10 @@ router.put('/:id', limiteUploadPorTenant, limiteUploadFrequencia, (req, res) => 
     `).run(nome, categoria || null, descricao || null, cor || null,
       parseFloat(custo) || 0, parseFloat(preco_venda) || 0, fotoPath, colecao || null, req.params.id, tenantId);
     // só mexe na galeria se 'fotos' foi enviado (undefined = não alterar)
-    if (Array.isArray(fotos)) salvarFotosExtras(p.id, p.codigo, fotos);
+    if (Array.isArray(fotos)) {
+      const resultFotos = salvarFotosExtras(p.id, p.codigo, fotos);
+      if (!resultFotos.ok) throw new Error(resultFotos.erro);
+    }
     // atualizar grade de tamanhos/quantidades se enviada
     if (Array.isArray(grade)) {
       const updateVar = db.prepare('UPDATE variacoes SET quantidade = ? WHERE produto_id = ? AND tamanho = ?');
@@ -362,8 +369,12 @@ router.put('/:id', limiteUploadPorTenant, limiteUploadFrequencia, (req, res) => 
       }
     }
   });
-  tx();
-  res.json({ ok: true });
+  try {
+    tx();
+    res.json({ ok: true });
+  } catch (e) {
+    next(e); // handler central loga rota + stack
+  }
 });
 
 // DELETE /api/produtos/:id -> inativa (nao apaga, preserva historico de vendas)

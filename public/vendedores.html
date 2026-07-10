@@ -88,7 +88,7 @@
     }
     async function remover() {
       const id = document.getElementById('vid').value;
-      if (confirm('Remover este vendedor? As vendas dele continuam no histórico.')) return;
+      if (!confirm('Remover este vendedor? As vendas dele continuam no histórico.')) return;
       await api('/vendedores/'+id, { method:'DELETE' });
       toast('Vendedor removido','sucesso'); fechar(); carregar();
     }
