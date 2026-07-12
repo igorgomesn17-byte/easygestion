@@ -1,0 +1,228 @@
+<DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cobrança • EasyGestão</title>
+  <link rel="stylesheet" href="css/ds.css">
+  <style>
+    /* Quem está devendo há mais tempo salta aos olhos. A cor é reforço, não a
+       única pista: o texto sempre diz os dias de atraso por extenso. */
+    .parc { border-left: 4px solid #E0E8E5; }
+    .parc.atrasada { border-left-color: #C0392B; }
+    .parc.hoje     { border-left-color: #B7791F; }
+    .parc.paga     { border-left-color: #157A63; opacity: 0.62; }
+    .parc-acoes { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+    .filtros { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .filtro-btn { padding: 7px 14px; border: 1px solid var(--linha); border-radius: 20px;
+                  background: #fff; cursor: pointer; font-weight: 600; font-size: 0.88rem; }
+    .filtro-btn.on { background: var(--marca, #157A63); color: #fff; border-color: transparent; }
+  </style>
+</head>
+<body>
+  <div class="conteudo">
+    <div class="flex-entre">
+      <div>
+        <h1>Cobrança</h1>
+        <p class="subtitulo">Quem te deve, quanto e há quantos dias</p>
+      </div>
+    </div>
+
+    <div class="cards-grid" id="resumo"></div>
+
+    <div class="card">
+      <div class="filtros">
+        <button class="filtro-btn on" data-f="atrasada" onclick="setFiltro(this)">Em atraso</button>
+        <button class="filtro-btn" data-f="" onclick="setFiltro(this)">Todas em aberto</button>
+        <button class="filtro-btn" data-f="paga" onclick="setFiltro(this)">Já pagas</button>
+      </div>
+    </div>
+
+    <div id="lista"><div class="vazio">Carregando...</div></div>
+  </div>
+
+  <!-- Receber parcela. O valor vem preenchido com o saldo, mas EDITÁVEL:
+       pagamento parcial é o caso normal, não a exceção. -->
+  <div class="modal-fundo" id="modalPagar">
+    <div class="modal">
+      <button class="modal-fechar" onclick="fecharPagar()">&times;</button>
+      <h2>Receber parcela</h2>
+      <div id="pagarInfo" class="mt"></div>
+      <div class="campo mt">
+        <label>Valor recebido (R$)</label>
+        <input type="number" id="pagarValor" step="0.01" min="0.01">
+        <small class="texto-cinza">Pode receber só uma parte — a parcela fica em aberto com o resto.</small>
+      </div>
+      <div class="campo">
+        <label>Como pagou?</label>
+        <select id="pagarForma">
+          <option value="dinheiro">Dinheiro</option>
+          <option value="pix">Pix</option>
+          <option value="pix_chave">Pix (chave)</option>
+          <option value="debito">Débito</option>
+          <option value="credito_vista">Crédito à vista</option>
+        </select>
+      </div>
+      <button class="btn btn-bloco" id="btnPagar" onclick="confirmarPagamento()">Confirmar recebimento</button>
+    </div>
+  </div>
+
+  <script src="js/comum.js"></script>
+  <script>
+    montarLayout('cobranca');
+
+    let filtro = 'atrasada';
+    let parcelas = [];
+    let parcelaAtual = null;
+    let loja = {};
+
+    (async () => {
+      try { loja = await api('/config'); } catch (e) { loja = {}; }
+      carregar();
+    })();
+
+    function setFiltro(el) {
+      document.querySelectorAll('.filtro-btn').forEach(b => b.classList.remove('on'));
+      el.classList.add('on');
+      filtro = el.dataset.f;
+      carregar();
+    }
+
+    async function carregar() {
+      const div = document.getElementById('lista');
+      try {
+        parcelas = await api('/crediario/parcelas' + (filtro ? '?status=' + filtro : ''));
+      } catch (e) {
+        div.innerHTML = '<div class="vazio">Não deu pra carregar as parcelas.</div>';
+        return;
+      }
+      montarResumo();
+
+      if (parcelas.length === 0) {
+        div.innerHTML = filtro === 'atrasada'
+          ? '<div class="vazio">Ninguém em atraso. Bom sinal.</div>'
+          : '<div class="vazio">Nada por aqui.</div>';
+        return;
+      }
+
+      div.innerHTML = parcelas.map(p => {
+        const atrasada = p.status_efetivo === 'atrasada';
+        const paga = p.status_efetivo === 'paga';
+        const classe = paga ? 'paga' : (atrasada ? 'atrasada' : '');
+        const venc = p.vencimento.split('-').reverse().join('/');
+
+        let situacao;
+        if (paga) situacao = '<span class="texto-verde">Paga</span>';
+        else if (atrasada) situacao = `<span class="texto-vermelho"><strong>${p.dias_atraso} ${p.dias_atraso === 1 ? 'dia' : 'dias'} de atraso</strong></span>`;
+        else situacao = `<span class="texto-cinza">vence ${venc}</span>`;
+
+        const parcial = p.valor_pago > 0 && !paga
+          ? `<div class="texto-cinza" style="font-size:0.84rem;">já pagou ${moeda(p.valor_pago)} · falta ${moeda(p.saldo)}</div>` : '';
+
+        return `
+        <div class="card parc ${classe}">
+          <div class="flex-entre">
+            <div>
+              <strong style="font-size:1.05rem;">${esc(p.cliente_nome)}</strong>
+              <div class="texto-cinza" style="font-size:0.85rem;">
+                Parcela ${p.numero} de ${p.num_parcelas} · ${situacao}
+              </div>
+              ${parcial}
+            </div>
+            <div class="direita">
+              <div class="dinheiro" style="font-weight:700;">${moeda(paga ? p.valor : p.saldo)}</div>
+              <div class="texto-cinza" style="font-size:0.8rem;">de ${moeda(p.valor)}</div>
+            </div>
+          </div>
+          ${paga ? '' : `
+          <div class="parc-acoes">
+            <button class="btn btn-fino" onclick="abrirPagar(${p.id})">Receber</button>
+            ${p.cliente_telefone ? `<button class="btn btn-fino btn-verde" onclick="lembrar(${p.id})">Lembrar no WhatsApp</button>` : ''}
+            <a class="btn btn-fino btn-fantasma" href="carne.html?id=${p.crediario_id}">Ver carnê</a>
+          </div>`}
+        </div>`;
+      }).join('');
+    }
+
+    function montarResumo() {
+      const emAberto = parcelas.filter(p => p.status_efetivo !== 'paga');
+      const atrasadas = emAberto.filter(p => p.status_efetivo === 'atrasada');
+      const total = +emAberto.reduce((s, p) => s + p.saldo, 0).toFixed(2);
+      const totalAtraso = +atrasadas.reduce((s, p) => s + p.saldo, 0).toFixed(2);
+      const clientes = new Set(emAberto.map(p => p.cliente_id)).size;
+
+      document.getElementById('resumo').innerHTML = `
+        <div class="card-metrica">
+          <div class="rotulo">Te devem</div>
+          <div class="valor dinheiro">${moeda(total)}</div>
+          <div class="texto-cinza" style="font-size:0.82rem;">${clientes} ${clientes === 1 ? 'cliente' : 'clientes'}</div>
+        </div>
+        <div class="card-metrica">
+          <div class="rotulo">Em atraso</div>
+          <div class="valor dinheiro ${totalAtraso > 0 ? 'texto-vermelho' : ''}">${moeda(totalAtraso)}</div>
+          <div class="texto-cinza" style="font-size:0.82rem;">${atrasadas.length} ${atrasadas.length === 1 ? 'parcela' : 'parcelas'}</div>
+        </div>`;
+    }
+
+    // Lembrete no WhatsApp: educado e curto. É vizinha, não devedora — o tom aqui
+    // é o que faz a lojista usar o botão em vez de deixar pra lá.
+    function lembrar(parcelaId) {
+      const p = parcelas.find(x => x.id === parcelaId);
+      if (!p || !p.cliente_telefone) return;
+      const primeiroNome = String(p.cliente_nome || '').trim().split(/\s+/)[0];
+      const venc = p.vencimento.split('-').reverse().join('/');
+      const atrasada = p.status_efetivo === 'atrasada';
+      const nomeLoja = loja.loja_nome || 'nossa loja';
+
+      const txt = atrasada
+        ? `Oi ${primeiroNome}, tudo bem? Aqui é da ${nomeLoja}. Passando só pra lembrar da parcela de ${moeda(p.saldo)} que venceu dia ${venc}. Qualquer coisa é só chamar por aqui!`
+        : `Oi ${primeiroNome}, tudo bem? Aqui é da ${nomeLoja}. Sua parcela de ${moeda(p.saldo)} vence dia ${venc}. Qualquer coisa é só chamar!`;
+
+      abrirWhatsappComTexto(p.cliente_telefone, txt);
+    }
+
+    function abrirPagar(parcelaId) {
+      parcelaAtual = parcelas.find(x => x.id === parcelaId);
+      if (!parcelaAtual) return;
+      const p = parcelaAtual;
+      document.getElementById('pagarInfo').innerHTML = `
+        <strong>${esc(p.cliente_nome)}</strong> · parcela ${p.numero} de ${p.num_parcelas}
+        <div class="texto-cinza" style="font-size:0.88rem;">
+          Valor da parcela: ${moeda(p.valor)}${p.valor_pago > 0 ? ` · já pagou ${moeda(p.valor_pago)}` : ''}
+        </div>`;
+      document.getElementById('pagarValor').value = p.saldo.toFixed(2);
+      document.getElementById('pagarForma').value = 'dinheiro';
+      document.getElementById('modalPagar').classList.add('aberto');
+    }
+    function fecharPagar() {
+      document.getElementById('modalPagar').classList.remove('aberto');
+      parcelaAtual = null;
+    }
+    document.getElementById('modalPagar').addEventListener('click', e => {
+      if (e.target.id === 'modalPagar') fecharPagar();
+    });
+
+    async function confirmarPagamento() {
+      if (!parcelaAtual) return;
+      const valor = parseFloat(document.getElementById('pagarValor').value) || 0;
+      const forma = document.getElementById('pagarForma').value;
+      if (valor <= 0) { toast('Informe o valor recebido', 'erro'); return; }
+
+      const btn = document.getElementById('btnPagar');
+      btn.disabled = true;
+      try {
+        const r = await api('/crediario/parcelas/' + parcelaAtual.id + '/pagar', {
+          method: 'POST', body: { valor, forma }
+        });
+        toast(r.carne_quitado ? 'Recebido — e esse carnê está quitado!' : 'Recebimento registrado', 'sucesso');
+        fecharPagar();
+        carregar();
+      } catch (e) {
+        toast(e.message, 'erro');
+      } finally {
+        btn.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>

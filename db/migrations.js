@@ -702,6 +702,33 @@ function executarMigrations(db) {
         db.exec(`CREATE INDEX IF NOT EXISTS idx_receb_data         ON crediario_recebimentos(tenant_id, data);`);
         db.exec(`CREATE INDEX IF NOT EXISTS idx_receb_parcela      ON crediario_recebimentos(parcela_id);`);
       }
+    },
+    {
+      nome: '028_clientes_email_cpf_em_banco_novo',
+      hash: 'v28-clientes-email-cpf',
+      exec: (db) => {
+        // BUG DE BANCO NOVO: routes/clientes.js INSERE em email/email_verificado/cpf_cnpj,
+        // mas essas colunas so existiam nos arquivos db/migrations/*.sql — o mecanismo
+        // LEGADO, que ninguem executa mais. schema.sql tambem nao as cria. Resultado:
+        // num banco criado do zero, POST /api/clientes SEMPRE dava 500
+        // ("table clientes has no column named email"). Em producao passa despercebido
+        // porque o banco e' antigo e pegou esses ALTERs quando o mecanismo .sql rodava.
+        //
+        // Idempotente: em producao as colunas ja existem e isto nao faz nada.
+        const colunas = db.prepare('PRAGMA table_info(clientes)').all().map(c => c.name);
+        if (!colunas.includes('email')) {
+          db.exec(`ALTER TABLE clientes ADD COLUMN email TEXT;`);
+        }
+        if (!colunas.includes('email_verificado')) {
+          db.exec(`ALTER TABLE clientes ADD COLUMN email_verificado INTEGER DEFAULT 0;`);
+        }
+        if (!colunas.includes('cpf_cnpj')) {
+          db.exec(`ALTER TABLE clientes ADD COLUMN cpf_cnpj TEXT;`);
+        }
+        db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_clientes_email_unique ON clientes(tenant_id, email) WHERE email IS NOT NULL;`);
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_clientes_email    ON clientes(email);`);
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_clientes_cpf_cnpj ON clientes(tenant_id, cpf_cnpj);`);
+      }
     }
   ];
 

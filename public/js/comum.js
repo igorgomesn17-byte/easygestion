@@ -143,6 +143,7 @@ const ICO = {
   config:  '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
   sair:    '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>',
   menu:    '<line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>',
+  cobranca:'<path d="M4 3h16v18l-3-2-2 2-3-2-3 2-2-2-3 2z"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="13" y2="13"/>',
 };
 function svg(n) { return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">${ICO[n]||''}</svg>`; }
 
@@ -153,6 +154,9 @@ const NAV = [
     { id:'caixa',  href:'caixa.html',  ico:'caixa',  txt:'Caixa do dia' },
     { id:'historico', href:'historico.html', ico:'vendas', txt:'Histórico' },
     { id:'trocas',    href:'trocas.html',    ico:'vendas', txt:'Trocas/Devoluções' },
+    // Cobrança fica em Vendas, não em Financeiro: é rotina de balcão (a cliente
+    // chega pra pagar o carnê), não relatório de contador. É onde ela vai procurar.
+    { id:'cobranca',  href:'cobranca.html',  ico:'cobranca', txt:'Cobrança' },
   ]},
   { grupo: 'Financeiro', itens: [
     { id:'financeiro', href:'financeiro.html', ico:'despesas', txt:'Despesas' },
@@ -181,7 +185,7 @@ const NAV = [
 
 const TITULOS = {
   dashboard:'Painel', pdv:'Vender', caixa:'Caixa do dia',
-  historico:'Histórico de vendas', trocas:'Trocas e devoluções',
+  historico:'Histórico de vendas', trocas:'Trocas e devoluções', cobranca:'Cobrança',
   financeiro:'Despesas e contas', 'fluxo-caixa':'Fluxo de caixa', fluxo:'DRE',
   relatorios:'Relatórios',
   nfce:'Notas fiscais (NFC-e)', produtos:'Produtos',
@@ -419,7 +423,7 @@ function atualizarRelogio() {
 // Rotulo amigavel de forma de pagamento
 function rotuloPagamento(forma) {
   const map = { pix: 'Pix', pix_chave: 'Pix (chave)', debito: 'Débito', credito_vista: 'Crédito à vista',
-                credito_parcelado: 'Crédito parcelado',
+                credito_parcelado: 'Crédito parcelado', vale: 'Vale-crédito', crediario: 'Crediário',
                 dinheiro: 'Dinheiro', misto: 'Pagamento dividido' };
   return map[forma] || forma;
 }

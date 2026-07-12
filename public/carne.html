@@ -1,0 +1,158 @@
+<DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Carnê • EasyGestão</title>
+  <link rel="stylesheet" href="css/ds.css">
+  <style>
+    /* Página NUA de propósito (sem montarLayout): o que sai na impressora é o
+       carnê, não o sistema. Mesmo padrão de cupom.html e etiquetas.html. */
+    body { background: #F0F2F1; }
+    .controles { background: #F9FBFA; padding: 16px 20px; border-bottom: 1px solid #E0E8E5;
+                 display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .folha { max-width: 200mm; margin: 20px auto; background: #fff; padding: 12mm;
+             box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+
+    .carne-topo { display: flex; justify-content: space-between; align-items: flex-start;
+                  border-bottom: 2px solid #222; padding-bottom: 10px; margin-bottom: 14px; }
+    .carne-loja { font-size: 1.25rem; font-weight: 700; }
+    .carne-logo { max-height: 52px; max-width: 150px; }
+    .carne-cli  { font-size: 0.95rem; line-height: 1.5; }
+    .carne-resumo { display: flex; gap: 22px; flex-wrap: wrap; font-size: 0.88rem;
+                    background: #F7F7F5; padding: 10px 12px; border-radius: 6px; margin-bottom: 16px; }
+    .carne-resumo b { display: block; font-size: 1.02rem; }
+
+    /* Um canhoto por parcela. page-break-inside: avoid impede que a impressora
+       corte uma parcela no meio — o canhoto é destacado e entregue. */
+    .canhoto { display: grid; grid-template-columns: 74px 1fr 130px;
+               border: 1px dashed #999; border-radius: 4px; padding: 9px 12px;
+               margin-bottom: 8px; align-items: center; page-break-inside: avoid;
+               font-family: 'Courier New', monospace; }
+    .canhoto .num  { font-size: 1.4rem; font-weight: 700; }
+    .canhoto .num small { display: block; font-size: 0.62rem; font-weight: 400; letter-spacing: 1px; }
+    .canhoto .meio { font-size: 0.86rem; line-height: 1.55; }
+    .canhoto .vl   { text-align: right; font-size: 1.15rem; font-weight: 700; }
+    .canhoto .assin { border-top: 1px solid #666; margin-top: 16px; padding-top: 3px;
+                      font-size: 0.62rem; text-align: center; color: #666; }
+    .canhoto.paga { background: #F2F8F5; border-style: solid; border-color: #157A63; }
+    .canhoto.paga .vl { color: #157A63; }
+    .selo-pago { display: inline-block; font-size: 0.7rem; font-weight: 700; color: #157A63;
+                 border: 2px solid #157A63; border-radius: 3px; padding: 1px 6px; }
+
+    .carne-pe { margin-top: 14px; padding-top: 10px; border-top: 1px solid #DDD;
+                font-size: 0.78rem; color: #666; line-height: 1.6; }
+
+    @media print {
+      @page { size: 210mm 297mm; margin: 10mm; }   /* A4 */
+      .controles, .nao-imprime { display: none !important; }
+      body { background: #fff; }
+      .folha { max-width: none; margin: 0; padding: 0; box-shadow: none; }
+      .canhoto { break-inside: avoid; page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="controles nao-imprime">
+    <button class="btn" onclick="window.print()">Imprimir carnê</button>
+    <button class="btn btn-verde" id="btnWhats" style="display:none;" onclick="enviarWhats()">Mandar no WhatsApp</button>
+    <a class="btn btn-fantasma" href="cobranca.html">← Cobrança</a>
+    <a class="btn btn-fantasma" href="pdv.html">Nova venda</a>
+  </div>
+
+  <div class="folha" id="folha">
+    <div class="vazio">Carregando o carnê...</div>
+  </div>
+
+  <script src="js/comum.js"></script>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const carneId = params.get('id');
+    let carne = null, loja = {};
+
+    const dataBR = (d) => d ? String(d).slice(0, 10).split('-').reverse().join('/') : '—';
+
+    (async () => {
+      if (!carneId) { document.getElementById('folha').innerHTML = '<div class="vazio">Carnê não informado.</div>'; return; }
+      try {
+        [loja, carne] = await Promise.all([
+          api('/config').catch(() => ({})),
+          api('/crediario/' + carneId)
+        ]);
+      } catch (e) {
+        document.getElementById('folha').innerHTML = '<div class="vazio">Não deu pra carregar esse carnê.</div>';
+        return;
+      }
+      montar();
+      if (carne.cliente_telefone) document.getElementById('btnWhats').style.display = 'inline-flex';
+    })();
+
+    function montar() {
+      const c = carne;
+      const cabecalho = loja.loja_logo
+        ? `<img src="${esc(loja.loja_logo)}?t=${Date.now()}" class="carne-logo" alt="${esc(loja.loja_nome || '')}">`
+        : `<div class="carne-loja">${esc(loja.loja_nome || 'Minha loja')}</div>`;
+
+      const canhotos = c.parcelas.map(p => {
+        const paga = p.status === 'paga';
+        const parcial = p.valor_pago > 0 && !paga;
+        return `
+        <div class="canhoto ${paga ? 'paga' : ''}">
+          <div class="num">${String(p.numero).padStart(2, '0')}<small>DE ${String(c.num_parcelas).padStart(2, '0')}</small></div>
+          <div class="meio">
+            <div><strong>Vence em ${dataBR(p.vencimento)}</strong></div>
+            <div>${esc(c.cliente_nome)}</div>
+            ${paga ? `<div><span class="selo-pago">PAGA EM ${dataBR(p.data_pagamento)}</span></div>`
+                   : (parcial ? `<div>já pagou ${moeda(p.valor_pago)} · falta ${moeda(p.saldo)}</div>`
+                              : `<div class="assin">assinatura ao receber</div>`)}
+          </div>
+          <div class="vl">${moeda(p.valor)}</div>
+        </div>`;
+      }).join('');
+
+      document.getElementById('folha').innerHTML = `
+        <div class="carne-topo">
+          <div>
+            ${cabecalho}
+            ${loja.loja_telefone ? `<div class="texto-cinza" style="font-size:0.8rem; margin-top:4px;">${esc(loja.loja_telefone)}</div>` : ''}
+          </div>
+          <div class="carne-cli">
+            <strong>${esc(c.cliente_nome)}</strong><br>
+            ${c.cliente_telefone ? esc(c.cliente_telefone) + '<br>' : ''}
+            ${c.cliente_cidade ? esc(c.cliente_cidade) + '<br>' : ''}
+            <span class="texto-cinza">Compra de ${dataBR(c.venda_data)}</span>
+          </div>
+        </div>
+
+        <div class="carne-resumo">
+          <div>Total da compra<b>${moeda(c.venda_total || (c.valor_total + c.entrada))}</b></div>
+          ${c.entrada > 0 ? `<div>Entrada paga<b>${moeda(c.entrada)}</b></div>` : ''}
+          <div>Financiado<b>${moeda(c.valor_total)}</b></div>
+          <div>Parcelas<b>${c.num_parcelas}x</b></div>
+          <div>Falta pagar<b>${moeda(c.saldo_devedor)}</b></div>
+        </div>
+
+        ${canhotos}
+
+        <div class="carne-pe">
+          Guarde este carnê. A cada pagamento, o canhoto da parcela é assinado.<br>
+          ${loja.loja_nome ? esc(loja.loja_nome) : ''}${loja.loja_endereco ? ' · ' + esc(loja.loja_endereco) : ''}
+        </div>`;
+    }
+
+    function enviarWhats() {
+      const c = carne;
+      const primeiroNome = String(c.cliente_nome || '').trim().split(/\s+/)[0];
+      const linhas = c.parcelas
+        .filter(p => p.status !== 'paga')
+        .map(p => `• Parcela ${p.numero}/${c.num_parcelas} — ${moeda(p.valor)} — vence ${dataBR(p.vencimento)}`)
+        .join('\n');
+
+      let txt = `Oi ${primeiroNome}! Aqui é da ${loja.loja_nome || 'loja'}.\n\n`;
+      txt += `Seu carnê ficou assim:\n${linhas}\n\n`;
+      txt += `Total a pagar: ${moeda(c.saldo_devedor)}\n\nQualquer dúvida é só chamar por aqui!`;
+      abrirWhatsappComTexto(c.cliente_telefone, txt);
+    }
+  </script>
+</body>
+</html>

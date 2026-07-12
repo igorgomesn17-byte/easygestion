@@ -94,6 +94,7 @@
             <div class="pgto-btn" data-forma="credito_vista" onclick="selPgto(this)">Créd. à vista</div>
             <div class="pgto-btn" data-forma="credito_parcelado" onclick="selPgto(this)">Créd. parcelado</div>
             <div class="pgto-btn" data-forma="vale" onclick="selPgtoVale(this)">Vale-crédito</div>
+            <div class="pgto-btn" data-forma="crediario" onclick="selPgtoCrediario(this)">Crediário<br><small>o carnê da loja</small></div>
           </div>
 
           <div id="areaVale" style="display:none; margin-top:12px;">
@@ -103,6 +104,39 @@
               <button class="btn" onclick="buscarVale()" style="white-space:nowrap;">Verificar</button>
             </div>
             <div id="infoVale" style="margin-top:8px;"></div>
+          </div>
+
+          <!-- CREDIÁRIO: a loja financia. Exige cliente (trava no backend também). -->
+          <div id="areaCrediario" style="display:none; margin-top:12px; padding:12px; background:#F5F5F5; border-radius:8px;">
+            <div class="linha">
+              <div class="campo">
+                <label>Em quantas vezes?</label>
+                <select id="credParcelas" onchange="simularCarne()">
+                  <option value="1">1x</option><option value="2">2x</option><option value="3" selected>3x</option>
+                  <option value="4">4x</option><option value="5">5x</option><option value="6">6x</option>
+                  <option value="8">8x</option><option value="10">10x</option><option value="12">12x</option>
+                </select>
+              </div>
+              <div class="campo">
+                <label>1ª parcela vence em</label>
+                <input type="date" id="credPrimeira" onchange="simularCarne()">
+              </div>
+            </div>
+            <div class="campo">
+              <label>Entrada agora (R$) — opcional</label>
+              <input type="number" id="credEntrada" step="0.01" min="0" placeholder="0,00" oninput="simularCarne()">
+              <div id="credEntradaForma" style="display:none; margin-top:6px;">
+                <label style="font-size:0.85rem;">Como pagou a entrada?</label>
+                <select id="credFormaEntrada" style="margin-top:4px;">
+                  <option value="dinheiro">Dinheiro</option>
+                  <option value="pix">Pix</option>
+                  <option value="pix_chave">Pix (chave)</option>
+                  <option value="debito">Débito</option>
+                  <option value="credito_vista">Crédito à vista</option>
+                </select>
+              </div>
+            </div>
+            <div id="credSimulacao" style="margin-top:8px; font-size:0.92rem;"></div>
           </div>
 
           <div class="campo mt" id="areaParcelas" style="display:none;">
@@ -164,6 +198,8 @@
               <span class="badge badge-dourado" id="cliNomeSel"></span>
               <button class="btn btn-fino" style="padding:2px 8px;" onclick="limparCli()">trocar</button>
             </div>
+            <!-- Situação de crédito: o que essa cliente já deve. Sinal, não bloqueio. -->
+            <div id="situacaoCredito" class="mt" style="display:none;"></div>
             <input type="hidden" id="clienteId">
           </div>
 
@@ -574,6 +610,7 @@
 
       previewPgto(total, acrescimo);
       if (splitAtivo) renderSplitResumo();
+      if (formaSel === 'crediario') simularCarne();  // o carrinho mudou: refaz as parcelas
       if (formaSel === 'dinheiro' && splitAtivo) calcTroco(); // recalcula troco se o total mudou
     }
 
@@ -591,6 +628,7 @@
       formaSel = el.dataset.forma;
       document.getElementById('areaParcelas').style.display = formaSel === 'credito_parcelado' ? 'block' : 'none';
       document.getElementById('areaVale').style.display = 'none';
+      document.getElementById('areaCrediario').style.display = 'none';
       atualizarAreaComprovante();
       atualizarAreaTroco();
       atualizarTotais();
@@ -603,10 +641,107 @@
       formaSel = 'vale';
       document.getElementById('areaParcelas').style.display = 'none';
       document.getElementById('areaVale').style.display = 'block';
+      document.getElementById('areaCrediario').style.display = 'none';
       document.getElementById('previewPgto').innerHTML = '';
       atualizarAreaComprovante();
       atualizarAreaTroco();
       atualizarTotais();
+    }
+
+    // ---------- CREDIÁRIO (o carnê) ----------
+    // A loja financia. O dinheiro NÃO entra no caixa hoje (só a entrada, se houver):
+    // entra quando cada parcela é paga. Exige cliente — e o backend recusa igual,
+    // porque o front pode ser contornado.
+    function selPgtoCrediario(el) {
+      if (splitAtivo) fecharSplit();
+      document.querySelectorAll('.pgto-btn').forEach(b => b.classList.remove('sel'));
+      el.classList.add('sel');
+      formaSel = 'crediario';
+      document.getElementById('areaParcelas').style.display = 'none';
+      document.getElementById('areaVale').style.display = 'none';
+      document.getElementById('areaCrediario').style.display = 'block';
+      document.getElementById('previewPgto').innerHTML = '';
+      // 1ª parcela: 30 dias por padrão (o costume do carnê)
+      const dt = document.getElementById('credPrimeira');
+      if (!dt.value) {
+        const d = new Date(); d.setDate(d.getDate() + 30);
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        dt.value = `${d.getFullYear()}-${mm}-${dd}`;   // local, nunca toISOString
+      }
+      atualizarAreaComprovante();
+      atualizarAreaTroco();
+      atualizarTotais();
+      simularCarne();
+    }
+
+    // Espelha no front a mesma conta do backend (lib/crediario.js): o resto dos
+    // centavos vai na PRIMEIRA parcela, pra soma fechar com a venda.
+    function parcelasSimuladas(valor, n) {
+      const centavos = Math.round(valor * 100);
+      const base = Math.floor(centavos / n);
+      const sobra = centavos - base * n;
+      return Array.from({ length: n }, (_, i) => +((base + (i === 0 ? sobra : 0)) / 100).toFixed(2));
+    }
+
+    function simularCarne() {
+      const div = document.getElementById('credSimulacao');
+      if (formaSel !== 'crediario') { div.innerHTML = ''; return; }
+      const total = totalVenda();
+      const entrada = +(parseFloat(document.getElementById('credEntrada').value) || 0).toFixed(2);
+      const n = parseInt(document.getElementById('credParcelas').value, 10) || 1;
+      const primeira = document.getElementById('credPrimeira').value;
+
+      // a forma da entrada só faz sentido se houver entrada
+      document.getElementById('credEntradaForma').style.display = entrada > 0 ? 'block' : 'none';
+
+      if (total <= 0) { div.innerHTML = '<span class="texto-cinza">Adicione produtos ao carrinho.</span>'; return; }
+      if (entrada >= total) {
+        div.innerHTML = '<span class="texto-vermelho">A entrada não pode ser o total todo. Use outra forma de pagamento.</span>';
+        return;
+      }
+      const financiado = +(total - entrada).toFixed(2);
+      const vals = parcelasSimuladas(financiado, n);
+      const iguais = vals.every(v => v === vals[0]);
+      const dataBR = primeira ? primeira.split('-').reverse().join('/') : '—';
+      const txtParcelas = iguais
+        ? `${n}x de ${moeda(vals[0])}`
+        : `1ª de ${moeda(vals[0])} e mais ${n - 1}x de ${moeda(vals[1])}`;
+      div.innerHTML = `
+        <div><strong>${txtParcelas}</strong> <span class="texto-cinza">— 1ª vence em ${dataBR}</span></div>
+        ${entrada > 0 ? `<div class="texto-cinza">Entrada de ${moeda(entrada)} agora · a loja financia ${moeda(financiado)}</div>`
+                      : `<div class="texto-cinza">Sem entrada · a loja financia ${moeda(financiado)}</div>`}`;
+    }
+
+    // ---------- Alerta de situação de crédito ----------
+    // É SINAL, NÃO BLOQUEIO: mostra e deixa a dona decidir. Nada de SPC — sai só do
+    // histórico desta loja. O que falta pra ela não é bureau, é memória.
+    async function mostrarSituacaoCredito(clienteId) {
+      const div = document.getElementById('situacaoCredito');
+      if (!div) return;
+      if (!clienteId) { div.style.display = 'none'; div.innerHTML = ''; return; }
+      try {
+        const s = await api('/clientes/' + clienteId + '/situacao-credito');
+        // nada em aberto e sem histórico de carnê: não polui a tela
+        if (s.deve === 0 && s.carnes_quitados === 0) { div.style.display = 'none'; return; }
+
+        const cor = { risco: '#C0392B', atencao: '#B7791F', ok: '#157A63' }[s.recomendacao] || '#157A63';
+        const partes = [];
+        if (s.deve > 0) partes.push(`<strong>já deve ${moeda(s.deve)}</strong>`);
+        if (s.parcelas_atrasadas > 0) {
+          partes.push(`${s.parcelas_atrasadas} ${s.parcelas_atrasadas > 1 ? 'parcelas em atraso' : 'parcela em atraso'}`);
+        }
+        if (s.dias_desde_ultima_compra !== null && s.dias_desde_ultima_compra > 0) {
+          partes.push(`última compra há ${s.dias_desde_ultima_compra} dias`);
+        }
+        div.style.display = 'block';
+        div.style.borderLeft = `4px solid ${cor}`;
+        div.innerHTML = `
+          <div style="padding:10px 12px; background:#FAFAFA; border-radius:0 8px 8px 0;">
+            <div style="font-size:0.93rem;">${partes.join(' · ') || 'Sem pendências'}</div>
+            <div class="texto-cinza" style="font-size:0.83rem; margin-top:2px;">${esc(s.razao)}</div>
+          </div>`;
+      } catch (e) { div.style.display = 'none'; }
     }
 
     function previewPgto(total, acrescimo) {
@@ -868,7 +1003,10 @@
       timerCli = setTimeout(async () => {
         const b = document.getElementById('buscaCli').value.trim();
         const div = document.getElementById('listaCli');
-        if (b) { div.style.display='none'; return; }
+        // era `if (b)` — a lista só aparecia com o campo VAZIO, ou seja, nunca.
+        // (o `!` some em ~40 telas desde o commit de emojis; aqui trava o crediário,
+        // que exige escolher a cliente)
+        if (!b) { div.style.display='none'; return; }
         const lista = await api('/clientes?busca=' + encodeURIComponent(b));
         if (lista.length === 0) { div.innerHTML='<div class="texto-cinza" style="padding:9px;">Nenhum cliente. Use + Novo.</div>'; div.style.display='block'; return; }
         div.innerHTML = lista.slice(0,20).map(c=>`<div data-id="${c.id}" data-nome="${esc(c.nome)}" onclick="selCliEl(this)">
@@ -883,10 +1021,12 @@
       document.getElementById('cliSelecionado').style.display = 'block';
       document.getElementById('buscaCli').value = '';
       document.getElementById('listaCli').style.display = 'none';
+      mostrarSituacaoCredito(id);   // o que essa cliente já deve, antes de fiar de novo
     }
     function limparCli() {
       document.getElementById('clienteId').value = '';
       document.getElementById('cliSelecionado').style.display = 'none';
+      mostrarSituacaoCredito(null);
     }
     function abrirNovoCliente(){ document.getElementById('modalCli').classList.add('aberto'); }
     // popula o select "Como conheceu a loja?" a partir do config (origens)
@@ -921,6 +1061,12 @@
     // comNfce=true  -> registra a venda E emite a NFC-e na SEFAZ
     // comNfce=false -> só registra a venda (sem nota)
     // Em ambos imprime o cupom INTERNO (cupom.html).
+    function restaurarBotoesFinalizar() {
+      document.getElementById('spinnerFinalizando').style.display = 'none';
+      document.getElementById('areasBotoesFinalizar').style.display = 'block';
+      document.querySelectorAll('#areasBotoesFinalizar button').forEach(b => b.disabled = false);
+    }
+
     async function finalizar(comNfce) {
       if (carrinho.length === 0) { toast('Carrinho vazio','erro'); return; }
 
@@ -963,6 +1109,38 @@
           if (!valeAtual) { toast('Insira e verifique o código do vale','erro'); return; }
           venda.forma_pagamento = 'vale';
           venda.vale_codigo = valeAtual.codigo;
+        } else if (formaSel === 'crediario') {
+          // Fiar exige saber PRA QUEM. O backend recusa igual (400) — isto aqui é só
+          // pra atendente não descobrir depois de montar o carrinho inteiro.
+          if (!venda.cliente_id) {
+            restaurarBotoesFinalizar();
+            toast('Crediário exige cliente. Selecione ou cadastre a cliente.','erro'); return;
+          }
+          const total = totalVenda();
+          const entrada = +(parseFloat(document.getElementById('credEntrada').value) || 0).toFixed(2);
+          const n = parseInt(document.getElementById('credParcelas').value, 10) || 1;
+          const primeira = document.getElementById('credPrimeira').value;
+          if (!primeira) {
+            restaurarBotoesFinalizar();
+            toast('Escolha quando vence a 1ª parcela','erro'); return;
+          }
+          if (entrada >= total) {
+            restaurarBotoesFinalizar();
+            toast('A entrada não pode ser o total todo. Use outra forma de pagamento.','erro'); return;
+          }
+          const financiado = +(total - entrada).toFixed(2);
+          // A entrada e o carnê viram DUAS partes de pagamento (o split já existente).
+          // Sem código especial no backend: a entrada é uma parte normal, na forma que
+          // a cliente pagou, e o carnê é a outra.
+          venda.pagamentos = [];
+          if (entrada > 0) {
+            venda.pagamentos.push({
+              forma: document.getElementById('credFormaEntrada').value || 'dinheiro',
+              parcelas: 1, valor: entrada, vale_codigo: null
+            });
+          }
+          venda.pagamentos.push({ forma: 'crediario', parcelas: 1, valor: financiado, vale_codigo: null });
+          venda.crediario = { num_parcelas: n, data_primeira: primeira };
         } else {
           venda.forma_pagamento = formaSel;
           venda.parcelas = formaSel === 'credito_parcelado' ? parseInt(document.getElementById('parcelas').value) : 1;
@@ -1001,16 +1179,17 @@
           }
         }
         limparCarrinho();
+        // Venda no carnê: vai direto pro carnê imprimível — é o papel que a cliente
+        // leva embora, e o artefato que faz o lojista confiar no sistema.
+        if (r.crediario_id) {
+          window.location.href = 'carne.html?id=' + r.crediario_id;
+          return;
+        }
         // imprime o cupom INTERNO da venda (imprimir + WhatsApp)
         window.location.href = 'cupom.html?venda=' + r.id;
       } catch (e) {
         toast(e.message, 'erro');
-        // Restaurar botões em caso de erro
-        const areaBotoes = document.getElementById('areasBotoesFinalizar');
-        const spinner = document.getElementById('spinnerFinalizando');
-        spinner.style.display = 'none';
-        areaBotoes.style.display = 'block';
-        document.querySelectorAll('#areasBotoesFinalizar button').forEach(b => b.disabled = false);
+        restaurarBotoesFinalizar();
       }
     }
 
@@ -1025,6 +1204,10 @@
       document.getElementById('tipoDesc').value = 'reais';
       document.querySelectorAll('.pgto-btn').forEach(b => b.classList.remove('sel'));
       document.getElementById('areaParcelas').style.display = 'none';
+      document.getElementById('areaCrediario').style.display = 'none';
+      document.getElementById('credEntrada').value = '';
+      document.getElementById('credSimulacao').innerHTML = '';
+      document.getElementById('situacaoCredito').style.display = 'none';
       document.getElementById('repassarTaxa').checked = true; // volta ao padrão (repassar)
       document.getElementById('areaRepassar').style.display = 'none';
       document.getElementById('previewPgto').innerHTML = '';

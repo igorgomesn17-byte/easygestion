@@ -77,6 +77,12 @@ CREATE TABLE IF NOT EXISTS clientes (
   ultima_compra TEXT,
   arquivado     INTEGER NOT NULL DEFAULT 0,    -- 1 = cliente arquivado
   nao_perturbe  INTEGER NOT NULL DEFAULT 0,    -- 1 = não ligar/enviar mensagens
+  -- email/cpf_cnpj: routes/clientes.js SEMPRE inseriu nestas colunas, mas elas só
+  -- existiam nos db/migrations/*.sql (mecanismo LEGADO, que não roda mais). Num banco
+  -- criado do zero, POST /api/clientes dava 500. Ver migration 028.
+  email         TEXT,
+  email_verificado INTEGER DEFAULT 0,
+  cpf_cnpj      TEXT,
   criado_em     TEXT NOT NULL DEFAULT (datetime('now','localtime'))
 );
 
