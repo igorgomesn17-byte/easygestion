@@ -744,6 +744,62 @@ CREATE TABLE IF NOT EXISTS delecoes_agendadas (
 );
 
 -- ============================================================
+-- CREDIARIO — o carnê (a loja financia; risco de calote é do lojista)
+-- Espelha a migration 027. NÃO é parcelamento de cartão: aqui a cliente
+-- leva a peça hoje e paga em N parcelas direto pra loja.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS crediarios (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  tenant_id    INTEGER NOT NULL,
+  venda_id     INTEGER NOT NULL,
+  cliente_id   INTEGER NOT NULL,          -- crediário sem cliente identificado não existe
+  valor_total  REAL NOT NULL DEFAULT 0,   -- o que foi financiado (total − entrada)
+  entrada      REAL NOT NULL DEFAULT 0,   -- pago na hora (pode ser 0)
+  num_parcelas INTEGER NOT NULL DEFAULT 1,
+  status       TEXT NOT NULL DEFAULT 'aberto',  -- aberto | quitado | cancelado
+  criado_em    TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+  FOREIGN KEY (venda_id)   REFERENCES vendas(id)   ON DELETE RESTRICT,
+  FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE RESTRICT
+);
+
+-- status guarda só o que foi DECIDIDO. 'atrasada' é DERIVADO na leitura
+-- (vencimento < hoje AND status <> 'paga') — sem job noturno.
+CREATE TABLE IF NOT EXISTS crediario_parcelas (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  tenant_id      INTEGER NOT NULL,
+  crediario_id   INTEGER NOT NULL,
+  numero         INTEGER NOT NULL,
+  valor          REAL NOT NULL DEFAULT 0,
+  vencimento     TEXT NOT NULL,                  -- YYYY-MM-DD
+  valor_pago     REAL NOT NULL DEFAULT 0,        -- cache: SUM(crediario_recebimentos.valor)
+  data_pagamento TEXT,
+  status         TEXT NOT NULL DEFAULT 'aberta', -- aberta | parcial | paga
+  UNIQUE (crediario_id, numero),
+  FOREIGN KEY (crediario_id) REFERENCES crediarios(id) ON DELETE CASCADE
+);
+
+-- Um pagamento parcial (R$30 hoje em dinheiro, R$20 semana que vem no pix) são
+-- dois dias de caixa diferentes: valor_pago sozinho não guardaria isso.
+CREATE TABLE IF NOT EXISTS crediario_recebimentos (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  tenant_id  INTEGER NOT NULL,
+  parcela_id INTEGER NOT NULL,
+  data       TEXT NOT NULL,                     -- YYYY-MM-DD: a data do CAIXA
+  valor      REAL NOT NULL DEFAULT 0,
+  forma      TEXT NOT NULL DEFAULT 'dinheiro',  -- dinheiro | pix | pix_chave | debito | credito_vista
+  criado_em  TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+  FOREIGN KEY (parcela_id) REFERENCES crediario_parcelas(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_crediarios_tenant  ON crediarios(tenant_id, status);
+CREATE INDEX IF NOT EXISTS idx_crediarios_cliente ON crediarios(tenant_id, cliente_id);
+CREATE INDEX IF NOT EXISTS idx_crediarios_venda   ON crediarios(venda_id);
+CREATE INDEX IF NOT EXISTS idx_parcelas_venc      ON crediario_parcelas(tenant_id, vencimento, status);
+CREATE INDEX IF NOT EXISTS idx_parcelas_crediario ON crediario_parcelas(crediario_id);
+CREATE INDEX IF NOT EXISTS idx_receb_data         ON crediario_recebimentos(tenant_id, data);
+CREATE INDEX IF NOT EXISTS idx_receb_parcela      ON crediario_recebimentos(parcela_id);
+
+-- ============================================================
 -- SESSIONS — Express-session store (persist em SQLite)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS sessions (

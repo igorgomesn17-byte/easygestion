@@ -626,6 +626,82 @@ function executarMigrations(db) {
         db.exec(`DELETE FROM produto_fotos WHERE tenant_id IS NULL;`);
         db.exec(`CREATE INDEX IF NOT EXISTS idx_produto_fotos_tenant ON produto_fotos(tenant_id, produto_id);`);
       }
+    },
+    {
+      nome: '027_create_crediario',
+      hash: 'v27-crediario-carne',
+      exec: (db) => {
+        // CREDIARIO (o carne): a loja financia, a cliente leva a peca hoje e paga
+        // em N parcelas direto pra loja. NAO e' parcelamento de cartao — aqui o
+        // risco de calote e' do lojista. Hoje isso vive num caderno de papel.
+        //
+        // Tres tabelas, nao duas. O obvio seria guardar so valor_pago na parcela,
+        // mas pagamento PARCIAL e' o caso normal ("pago um pouco agora e o resto
+        // depois") — e valor_pago = 50 nao diz ao caixa QUAL DIA entrou quanto, em
+        // QUAL FORMA. Se a cliente paga R$30 hoje em dinheiro e R$20 semana que vem
+        // no pix, sao dois dias de caixa diferentes. Dai crediario_recebimentos.
+        // parcelas.valor_pago fica como cache derivado (a soma dos recebimentos).
+        db.exec(`
+          CREATE TABLE IF NOT EXISTS crediarios (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            tenant_id    INTEGER NOT NULL,
+            venda_id     INTEGER NOT NULL,
+            cliente_id   INTEGER NOT NULL,          -- crediario sem cliente nao existe
+            valor_total  REAL NOT NULL DEFAULT 0,   -- o que foi financiado (total - entrada)
+            entrada      REAL NOT NULL DEFAULT 0,   -- pago na hora (pode ser 0)
+            num_parcelas INTEGER NOT NULL DEFAULT 1,
+            status       TEXT NOT NULL DEFAULT 'aberto',  -- aberto | quitado | cancelado
+            criado_em    TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+            FOREIGN KEY (venda_id)   REFERENCES vendas(id)   ON DELETE RESTRICT,
+            FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE RESTRICT
+          );
+        `);
+
+        // status guarda so o que foi DECIDIDO (aberta/parcial/paga). 'atrasada' e'
+        // DERIVADO na leitura (vencimento < hoje AND status <> 'paga'): uma parcela
+        // vira atrasada sozinha a meia-noite. Job noturno seria uma engrenagem a
+        // mais pra falhar — e ficaria errada o dia seguinte inteiro se falhasse.
+        db.exec(`
+          CREATE TABLE IF NOT EXISTS crediario_parcelas (
+            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            tenant_id      INTEGER NOT NULL,
+            crediario_id   INTEGER NOT NULL,
+            numero         INTEGER NOT NULL,
+            valor          REAL NOT NULL DEFAULT 0,
+            vencimento     TEXT NOT NULL,                  -- YYYY-MM-DD
+            valor_pago     REAL NOT NULL DEFAULT 0,        -- cache: SUM(crediario_recebimentos.valor)
+            data_pagamento TEXT,                           -- do recebimento que quitou
+            status         TEXT NOT NULL DEFAULT 'aberta', -- aberta | parcial | paga
+            UNIQUE (crediario_id, numero),
+            FOREIGN KEY (crediario_id) REFERENCES crediarios(id) ON DELETE CASCADE
+          );
+        `);
+
+        db.exec(`
+          CREATE TABLE IF NOT EXISTS crediario_recebimentos (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            tenant_id  INTEGER NOT NULL,
+            parcela_id INTEGER NOT NULL,
+            data       TEXT NOT NULL,                     -- YYYY-MM-DD: a data do CAIXA
+            valor      REAL NOT NULL DEFAULT 0,
+            forma      TEXT NOT NULL DEFAULT 'dinheiro',  -- dinheiro | pix | pix_chave | debito | credito_vista
+            criado_em  TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+            FOREIGN KEY (parcela_id) REFERENCES crediario_parcelas(id) ON DELETE CASCADE
+          );
+        `);
+
+        // Sem DEFAULT em tenant_id nas tres: um default de tenant e' exatamente o
+        // que produz vazamento silencioso entre lojas (a licao da migration 026).
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_crediarios_tenant  ON crediarios(tenant_id, status);`);
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_crediarios_cliente ON crediarios(tenant_id, cliente_id);`);
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_crediarios_venda   ON crediarios(venda_id);`);
+        // o indice que a tela de Cobranca usa: ela varre por data de vencimento
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_parcelas_venc      ON crediario_parcelas(tenant_id, vencimento, status);`);
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_parcelas_crediario ON crediario_parcelas(crediario_id);`);
+        // o indice que atualizarCaixaDia usa: ela varre os recebimentos DO DIA
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_receb_data         ON crediario_recebimentos(tenant_id, data);`);
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_receb_parcela      ON crediario_recebimentos(parcela_id);`);
+      }
     }
   ];
 
