@@ -44,3 +44,8 @@ dados.db
 cookies.txt
 dist/
 build/
+
+# bancos temporários criados pelos testes a cada run
+tests/.tmp-*/
+# cópias de banco de produção baixadas pra investigar bug
+backups-producao/

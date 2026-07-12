@@ -76,9 +76,9 @@ Acesse: **http://localhost:3000**
 | Documento | Para quem? | O que contém? |
 |---|---|---|
 | **[CLAUDE.md](./CLAUDE.md)** | Devs | Tudo: arquitetura, APIs, BD, fluxos, deploy |
-| **[INDEX.md](./INDEX.md)** | Todos | Índice de documentação organizado |
-| **[.docs/setup/](./docs/setup/)** | Devs | Guias de instalação e setup |
-| **[.docs/operacional/](./docs/operacional/)** | DevOps | Deploy e operação em produção |
+| **[STRUCTURE.md](./STRUCTURE.md)** | Devs | Mapa de pastas e arquivos |
+| **[.docs/setup/](./.docs/setup/)** | Devs | Guias de instalação e setup |
+| **[.docs/operacional/](./.docs/operacional/)** | DevOps | Deploy e operação em produção |
 
 👉 **Comece por:** [CLAUDE.md](./CLAUDE.md) (documentação completa)
 
