@@ -339,6 +339,11 @@ app.use('/api/vendedores',    pdvOuAdmin, require('./routes/vendedores')); // PD
 app.use('/api/caixa',         pdvOuAdmin, require('./routes/caixa'));      // vendedor opera o caixa
 app.use('/api/trocas',        apenasAdmin, require('./routes/trocas'));     // trocas e devoluções
 app.use('/api/vales',         pdvOuAdmin, require('./routes/vales'));       // vales usados no PDV
+// Crediario (o carne): a vendedora vende no carne e recebe parcela no balcao — e' ela
+// que esta la quando a cliente chega pra pagar. Cancelar carne e' so do admin (trava
+// dentro do router). SEM exigirFeature: crediario esta nos DOIS planos, de proposito —
+// e' a dor que faz a lojista largar o caderno, cobrar por ela seria cobrar pela porta.
+app.use('/api/crediario',     pdvOuAdmin, require('./routes/crediario'));
 app.use('/api/despesas',      apenasAdmin, require('./routes/despesas'));
 app.use('/api/financeiro',    apenasAdmin, require('./routes/financeiro'));
 app.use('/api/nfce',          apenasAdmin, require('./routes/nfce'));      // NFC-e fiscal

@@ -110,6 +110,61 @@ router.get('/:id', (req, res) => {
   res.json(c);
 });
 
+// GET /api/clientes/:id/situacao-credito -> o alerta que aparece no PDV
+//
+// É SINAL, NÃO BLOQUEIO. O lojista pode vender assim mesmo, e vai — o backend nunca
+// impede a venda por causa disto. Nada de SPC/Serasa: o alerta sai 100% do histórico
+// DESTA loja. O que o lojista de bairro não tem não é bureau, é MEMÓRIA: ele decide
+// crédito por relacionamento, mas não lembra das outras trinta clientes.
+router.get('/:id/situacao-credito', (req, res) => {
+  try {
+    const { avaliarCredito } = require('../lib/crediario');
+    const { hojeLocal } = require('../lib/datas');
+    const hoje = hojeLocal();
+    const id = parseInt(req.params.id, 10);
+
+    const cli = db.prepare('SELECT id, total_gasto, ultima_compra FROM clientes WHERE id = ? AND tenant_id = ?')
+      .get(id, req.tenantId);
+    if (!cli) return res.status(404).json({ erro: 'Cliente nao encontrado' });
+
+    // saldo devedor e atraso: 'atrasada' é derivado do relógio, não de um campo
+    const d = db.prepare(`
+      SELECT
+        ROUND(COALESCE(SUM(p.valor - p.valor_pago), 0), 2) AS deve,
+        COALESCE(SUM(CASE WHEN p.status <> 'paga' AND p.vencimento < ? THEN 1 ELSE 0 END), 0) AS parcelas_atrasadas,
+        COALESCE(MAX(CASE WHEN p.status <> 'paga' AND p.vencimento < ?
+                          THEN CAST(julianday(?) - julianday(p.vencimento) AS INTEGER) ELSE 0 END), 0) AS dias_atraso_max
+      FROM crediario_parcelas p
+      JOIN crediarios cr ON cr.id = p.crediario_id AND cr.tenant_id = p.tenant_id
+      WHERE p.tenant_id = ? AND cr.cliente_id = ? AND cr.status = 'aberto'
+    `).get(hoje, hoje, hoje, req.tenantId, id);
+
+    const carnes = db.prepare(`
+      SELECT
+        COALESCE(SUM(CASE WHEN status = 'quitado' THEN 1 ELSE 0 END), 0) AS quitados,
+        COALESCE(SUM(CASE WHEN status = 'aberto'  THEN 1 ELSE 0 END), 0) AS abertos
+      FROM crediarios WHERE tenant_id = ? AND cliente_id = ?
+    `).get(req.tenantId, id);
+
+    const diasDesdeUltima = cli.ultima_compra
+      ? db.prepare('SELECT CAST(julianday(?) - julianday(?) AS INTEGER) AS n').get(hoje, cli.ultima_compra).n
+      : null;
+
+    const dados = {
+      deve: d.deve,
+      parcelas_atrasadas: d.parcelas_atrasadas,
+      dias_atraso_max: d.dias_atraso_max,
+      carnes_quitados: carnes.quitados,
+      carnes_abertos: carnes.abertos,
+      dias_desde_ultima_compra: diasDesdeUltima,
+      total_gasto: cli.total_gasto || 0,
+    };
+    res.json({ ...dados, ...avaliarCredito(dados) });
+  } catch (e) {
+    res.status(500).json({ erro: 'Erro ao consultar a situacao de credito' });
+  }
+});
+
 // POST /api/clientes
 // Anti-duplicado: se já existe cliente com o MESMO telefone (comparando só dígitos),
 // não cria de novo — devolve o existente com a flag `ja_existia` pro PDV já selecioná-lo.

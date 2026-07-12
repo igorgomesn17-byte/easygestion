@@ -6,6 +6,7 @@ const router = express.Router();
 const { db, getConfig } = require('../db/database');
 const { resultadoVenda, acrescimoParcelamento, taxaPorForma } = require('../lib/calculos');
 const { hojeLocal } = require('../lib/datas');
+const { gerarParcelas } = require('../lib/crediario');
 const { salvarComprovanteBase64 } = require('../lib/comprovantes');
 const { validarDesconto, validarQuantidade, validarParcelas, validarAcrescimo } = require('../lib/validadores');
 const { obterImposto } = require('./config');
@@ -74,7 +75,7 @@ router.post('/', (req, res) => {
   }
 
   // Prosseguir com a lógica original
-  const { itens, forma_pagamento, parcelas = 1, desconto = 0, cliente_id = null, vendedor_id = null, observacao = null, origem = 'loja', pagamentos = null, comprovante = null, troco = 0, troco_forma = null, repassar_taxa = true, estado = 'default', categoria = 'default', vale_codigo = null } = req.body;
+  const { itens, forma_pagamento, parcelas = 1, desconto = 0, cliente_id = null, vendedor_id = null, observacao = null, origem = 'loja', pagamentos = null, comprovante = null, troco = 0, troco_forma = null, repassar_taxa = true, estado = 'default', categoria = 'default', vale_codigo = null, crediario = null } = req.body;
   if (!Array.isArray(itens) || itens.length === 0) return res.status(400).json({ erro: 'Venda sem itens' });
   // pagamento: aceita split (array `pagamentos`) ou forma unica (compatibilidade).
   const temSplit = Array.isArray(pagamentos) && pagamentos.length > 0;
@@ -156,7 +157,7 @@ router.post('/', (req, res) => {
       return { forma: p.forma, parcelas: parc, valor, taxaPct, valorTaxa, liquido: +(valor - valorTaxa).toFixed(2) };
     });
     // validacoes do split: formas validas e soma == total
-    const formasValidas = ['pix', 'pix_chave', 'dinheiro', 'debito', 'credito_vista', 'credito_parcelado', 'vale'];
+    const formasValidas = ['pix', 'pix_chave', 'dinheiro', 'debito', 'credito_vista', 'credito_parcelado', 'vale', 'crediario'];
     for (const p of partes) {
       if (!formasValidas.includes(p.forma)) return res.status(400).json({ erro: `Forma de pagamento invalida: ${p.forma}` });
       if (p.valor <= 0) return res.status(400).json({ erro: 'Cada pagamento precisa ter valor maior que zero' });
@@ -224,8 +225,40 @@ router.post('/', (req, res) => {
     return res.status(400).json({ erro: 'Use uma unica linha de vale por venda' });
   }
 
+  // ----- CREDIARIO (o carne) -----
+  // Valida AQUI fora e cria o carne DENTRO da transacao — mesma licao do vale: o que
+  // depende do navegador pra acontecer depois, um dia nao acontece. Ou a venda e o
+  // carne existem juntos, ou nenhum dos dois.
+  const valorEmCrediario = +partes.filter(p => p.forma === 'crediario').reduce((s, p) => s + p.valor, 0).toFixed(2);
+  let parcelasDoCarne = null;
+  if (valorEmCrediario > 0) {
+    if (partes.filter(p => p.forma === 'crediario').length > 1) {
+      return res.status(400).json({ erro: 'Use uma unica linha de crediario por venda' });
+    }
+    // A regra de negocio mais importante do modulo: fiar exige saber PRA QUEM.
+    // Trava no backend, nao so no front — o front pode ser contornado.
+    if (!cliente_id) {
+      return res.status(400).json({ erro: 'Crediario exige um cliente cadastrado. Selecione a cliente antes de fechar a venda.' });
+    }
+    const cli = db.prepare('SELECT id FROM clientes WHERE id = ? AND tenant_id = ?').get(cliente_id, req.tenantId);
+    if (!cli) return res.status(404).json({ erro: 'Cliente nao encontrado' });
+
+    const cfgCarne = crediario || {};
+    const dataPrimeira = cfgCarne.data_primeira || cfgCarne.primeira_parcela;
+    try {
+      parcelasDoCarne = gerarParcelas(valorEmCrediario, cfgCarne.num_parcelas, dataPrimeira);
+    } catch (e) {
+      return res.status(400).json({ erro: e.message });
+    }
+  } else if (crediario && crediario.num_parcelas) {
+    return res.status(400).json({ erro: 'Crediario informado mas nenhum pagamento em crediario' });
+  }
+
   // salva o comprovante (se veio) ANTES da transacao — escrita em disco fora do BEGIN/COMMIT
   const comprovantePath = comprovante ? salvarComprovanteBase64(comprovante) : null;
+
+  // preenchido dentro da tx; o front usa pra abrir o carne imprimivel
+  let crediarioIdCriado = null;
 
   const tx = db.transaction(() => {
     // 1. grava venda
@@ -273,6 +306,27 @@ router.post('/', (req, res) => {
       if (upd.changes !== 1) throw new Error('Vale indisponivel ou saldo insuficiente');
     }
 
+    // 2c. cria o carne do crediario (mesma transacao da venda: ou os dois, ou nenhum).
+    // A entrada e' tudo que NAO foi crediario — a cliente pode ter dado 100 em dinheiro
+    // e financiado 300; as duas coisas ja estao em venda_pagamentos como partes normais.
+    if (parcelasDoCarne) {
+      const entradaPaga = +(total - valorEmCrediario).toFixed(2);
+      const carne = db.prepare(`
+        INSERT INTO crediarios (tenant_id, venda_id, cliente_id, valor_total, entrada, num_parcelas, status)
+        VALUES (?, ?, ?, ?, ?, ?, 'aberto')
+      `).run(req.tenantId, vendaId, cliente_id, valorEmCrediario, entradaPaga, parcelasDoCarne.length);
+      const carneId = carne.lastInsertRowid;
+
+      const insParcela = db.prepare(`
+        INSERT INTO crediario_parcelas (tenant_id, crediario_id, numero, valor, vencimento, status)
+        VALUES (?, ?, ?, ?, ?, 'aberta')
+      `);
+      for (const p of parcelasDoCarne) {
+        insParcela.run(req.tenantId, carneId, p.numero, p.valor, p.vencimento);
+      }
+      crediarioIdCriado = carneId;
+    }
+
     // 3. atualiza cliente (se informado)
     if (cliente_id) {
       db.prepare(`UPDATE clientes SET total_gasto = total_gasto + ?, num_compras = num_compras + 1, ultima_compra = ?
@@ -306,7 +360,7 @@ router.post('/', (req, res) => {
     const vendaId = tx();
     const mes = hoje.substring(0, 7); // YYYY-MM para invalidar DRE daquele mês
     cacheRelatorioPorTenant.invalidarTudo(req.tenantId);
-    res.status(201).json({ id: vendaId, total, ...r });
+    res.status(201).json({ id: vendaId, total, crediario_id: crediarioIdCriado, ...r });
   } catch (e) {
     res.status(500).json({ erro: e.message });
   }
@@ -314,18 +368,24 @@ router.post('/', (req, res) => {
 
 // Mapeia uma forma de pagamento para o bucket do caixa do dia.
 // pix_chave conta como Pix; vale em sua própria categoria; resto em crédito.
+//
+// 'crediario' PRECISA vir antes do else: no crediário o dinheiro NÃO entrou (a
+// loja fiou). Sem esta linha ele cairia no balde do crédito e o lojista veria
+// dinheiro de maquininha que ninguém vai receber. acc.crediario existe só pra
+// não contaminar os outros baldes — não é gravado em nenhuma coluna de caixa_dia.
 function acumularForma(acc, forma, valor) {
   if (forma === 'pix' || forma === 'pix_chave') acc.pix += valor;
   else if (forma === 'debito') acc.debito += valor;
   else if (forma === 'dinheiro') acc.dinheiro += valor;
   else if (forma === 'vale') acc.vale += valor;
+  else if (forma === 'crediario') acc.crediario += valor; // fiado: não entra em caixa nenhum
   else acc.credito += valor; // credito_vista, credito_parcelado, link_pagamento (combinado por enquanto)
 }
 
 // Recalcula o caixa do dia a partir das vendas (idempotente)
 function atualizarCaixaDia(data, tenantId = 1) {
   const vendas = db.prepare("SELECT * FROM vendas WHERE date(data_hora) = ? AND tenant_id = ?").all(data, tenantId);
-  const acc = { pix: 0, debito: 0, credito: 0, dinheiro: 0, vale: 0, bruto: 0, liquido: 0, lucro: 0, n: 0 };
+  const acc = { pix: 0, debito: 0, credito: 0, dinheiro: 0, vale: 0, crediario: 0, bruto: 0, liquido: 0, lucro: 0, n: 0 };
   // soma por forma a partir das partes de pagamento (cobre vendas 'misto' corretamente)
   const partesDe = db.prepare('SELECT forma, valor FROM venda_pagamentos WHERE venda_id = ? AND tenant_id = ?');
   for (const v of vendas) {
@@ -338,6 +398,23 @@ function atualizarCaixaDia(data, tenantId = 1) {
       acumularForma(acc, v.forma_pagamento, v.total);
     }
   }
+
+  // CREDIARIO: a parcela paga hoje entra no caixa HOJE (na venda ela nao entrou).
+  //
+  // Esta funcao e' DESTRUTIVA: reescreve caixa_dia do zero a cada venda. Entao nao
+  // adianta somar o recebimento na coluna por fora — a proxima venda do dia apagaria.
+  // Em vez de brigar com o recalculo, ensinamos ele: os recebimentos entram AQUI,
+  // dentro do mesmo passe, e o comportamento destrutivo vira aliado (recalcula tudo
+  // sempre, e sempre acerta).
+  //
+  // De proposito FORA de bruto/liquido/lucro: esses tres alimentam o DRE, e a receita
+  // ja foi reconhecida na DATA DA VENDA (competencia). Somar de novo aqui seria
+  // contar a mesma receita duas vezes. So os baldes por forma (o que o caixa e o
+  // fluxo de caixa leem) recebem o valor.
+  const recebimentos = db.prepare(
+    'SELECT forma, valor FROM crediario_recebimentos WHERE data = ? AND tenant_id = ?'
+  ).all(data, tenantId);
+  for (const rc of recebimentos) acumularForma(acc, rc.forma, rc.valor);
   // Tenta UPDATE; se não atualizar nada, INSERT
   const update = db.prepare(`
     UPDATE caixa_dia SET
