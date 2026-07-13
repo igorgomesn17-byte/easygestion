@@ -1,0 +1,252 @@
+<DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clube de selos • EasyGestão</title>
+  <link rel="stylesheet" href="css/ds.css">
+  <style>
+    .regra { background:var(--marca-clara); border-radius:var(--radius-sm); padding:14px 16px;
+             font-size:0.95rem; line-height:1.6; color:var(--marca-escura); margin-bottom:18px; }
+    .regra strong { font-weight:800; }
+    .kpis { display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:12px; margin-bottom:18px; }
+    .kpi   { background:var(--surface-2); border-radius:var(--radius-sm); padding:12px 14px; }
+    .kpi-n { font-size:1.35rem; font-weight:800; color:var(--tinta); }
+    .kpi-l { font-size:0.78rem; color:var(--tinta-2); margin-top:2px; }
+    .grade { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:14px; }
+    .tpl { border-bottom:1px solid var(--linha); padding:14px 0; }
+    .tpl:last-child { border-bottom:0; }
+    .tpl-topo { display:flex; justify-content:space-between; align-items:center; gap:10px; cursor:pointer; flex-wrap:wrap; }
+    .tpl-nome { font-weight:700; }
+    .tpl-quando { font-size:0.8rem; color:var(--tinta-2); }
+    .tpl-corpo { display:none; padding-top:12px; }
+    .tpl.aberto .tpl-corpo { display:block; }
+    .tpl textarea { width:100%; min-height:120px; font-family:inherit; font-size:0.86rem; line-height:1.5; resize:vertical; }
+    .tag { font-size:0.68rem; padding:2px 7px; border-radius:999px; font-weight:700; }
+    .tag-custom { background:var(--dourado-claro); color:var(--dourado-escuro); }
+    .tag-off    { background:var(--vermelho-bg); color:var(--vermelho); }
+    .vars { font-size:0.78rem; color:var(--tinta-2); margin:8px 0; line-height:1.8; }
+    .vars code { background:var(--surface-2); padding:2px 6px; border-radius:4px; cursor:pointer;
+                 font-family:ui-monospace, monospace; }
+    .vars code:hover { background:var(--marca-clara); color:var(--marca-escura); }
+  </style>
+</head>
+<body>
+  <div class="conteudo">
+    <h1>Clube de selos</h1>
+    <p class="subtitulo">O cartão de carimbo da sua loja, digital. A cliente gasta, acumula selo, completa o cartão e ganha um vale — que o sistema emite sozinho, na hora da venda.</p>
+
+    <!-- Config do clube -->
+    <div class="card">
+      <div class="flex-entre" style="margin-bottom:14px;">
+        <h2 style="margin:0;">Como funciona o seu clube</h2>
+        <label class="switch">
+          <input type="checkbox" id="ativo" class="switch-input" onchange="salvarConfig()">
+          <span class="switch-trilho"></span>
+          <span id="ativoTxt" style="margin-left:8px; font-weight:600;">Ligado</span>
+        </label>
+      </div>
+
+      <div id="regra" class="regra"></div>
+
+      <div class="grade">
+        <div>
+          <label>Nome do clube</label>
+          <input id="nome" placeholder="Clube de Fidelidade">
+        </div>
+        <div>
+          <label>A cada quanto gasto, 1 selo?</label>
+          <input id="valor_selo" type="number" min="1" step="1">
+        </div>
+        <div>
+          <label>Quantos selos completam o cartão?</label>
+          <input id="total_selos" type="number" min="1" step="1">
+        </div>
+        <div>
+          <label>Quanto vale o prêmio?</label>
+          <input id="valor_premio" type="number" min="1" step="1">
+        </div>
+        <div>
+          <label>O vale expira em quantos dias?</label>
+          <input id="validade_dias" type="number" min="1" step="1">
+        </div>
+        <div>
+          <label>Compra mínima pra usar o vale</label>
+          <input id="min_compra" type="number" min="0" step="1">
+        </div>
+      </div>
+      <button class="btn" style="margin-top:14px;" onclick="salvarConfig()">Salvar</button>
+    </div>
+
+    <!-- Custo do programa: a lojista precisa ver o que o clube já deu de desconto -->
+    <div class="card">
+      <h2 style="margin:0 0 12px;">O que o clube já custou</h2>
+      <div class="kpis" id="kpis"></div>
+      <p style="font-size:0.82rem; color:var(--tinta-2); margin:0;">
+        O prêmio é um desconto que você dá pra cliente voltar. "Em aberto" é o que ela ainda pode usar.
+      </p>
+    </div>
+
+    <!-- Templates -->
+    <div class="card">
+      <h2 style="margin:0 0 4px;">As mensagens que você manda</h2>
+      <p class="subtitulo" style="margin-bottom:14px;">
+        Cada uma dispara sozinha no momento certo e aparece em <strong>Contatos do dia</strong>, pronta pra enviar.
+        Elas já vêm escritas — mexa só se quiser deixar com a sua cara.
+      </p>
+      <div id="templates"></div>
+    </div>
+  </div>
+
+  <script src="js/comum.js"></script>
+  <script>
+    let CFG = {}, TEMPLATES = [], VARIAVEIS = [];
+
+    async function carregar() {
+      CFG = await api('/relacionamento/clube');
+      document.getElementById('ativo').checked = CFG.ativo;
+      document.getElementById('ativoTxt').textContent = CFG.ativo ? 'Ligado' : 'Desligado';
+      ['nome','valor_selo','total_selos','valor_premio','validade_dias','min_compra']
+        .forEach(k => document.getElementById(k).value = CFG[k]);
+
+      pintarRegra();
+
+      document.getElementById('kpis').innerHTML = `
+        <div class="kpi"><div class="kpi-n">${CFG.premios_emitidos}</div><div class="kpi-l">prêmios já entregues</div></div>
+        <div class="kpi"><div class="kpi-n">R$ ${CFG.valor_total_premios.toLocaleString('pt-BR',{minimumFractionDigits:2})}</div><div class="kpi-l">em prêmios, no total</div></div>
+        <div class="kpi"><div class="kpi-n">R$ ${CFG.valor_em_aberto.toLocaleString('pt-BR',{minimumFractionDigits:2})}</div><div class="kpi-l">ainda por usar</div></div>
+      `;
+
+      const t = await api('/relacionamento/templates');
+      TEMPLATES = t.itens; VARIAVEIS = t.variaveis;
+      renderTemplates();
+    }
+
+    // A frase em português é o que a lojista realmente lê — os campos acima são o
+    // ajuste fino. Ela precisa entender o programa numa linha.
+    function pintarRegra() {
+      const g = (id) => Number(document.getElementById(id).value) || 0;
+      const selo = g('valor_selo'), total = g('total_selos'), premio = g('valor_premio');
+      const min = g('min_compra'), dias = g('validade_dias');
+      const gastoTotal = selo * total;
+      const retorno = gastoTotal > 0 ? ((premio / gastoTotal) * 100).toFixed(1).replace('.', ',') : '0';
+      document.getElementById('regra').innerHTML =
+        `A cada <strong>R$ ${selo}</strong> em compras a cliente ganha 1 selo. Com <strong>${total} selos</strong>
+         (ou seja, <strong>R$ ${gastoTotal}</strong> gastos) ela ganha um vale de <strong>R$ ${premio}</strong>,
+         válido por ${dias} dias, pra usar numa compra de R$ ${min} ou mais.
+         <br>Na prática, você devolve <strong>${retorno}%</strong> pra quem compra sempre.`;
+    }
+    ['valor_selo','total_selos','valor_premio','min_compra','validade_dias']
+      .forEach(id => document.addEventListener('DOMContentLoaded', () =>
+        document.getElementById(id).addEventListener('input', pintarRegra)));
+
+    async function salvarConfig() {
+      const body = {
+        ativo: document.getElementById('ativo').checked,
+        nome: document.getElementById('nome').value.trim(),
+        valor_selo: document.getElementById('valor_selo').value,
+        total_selos: document.getElementById('total_selos').value,
+        valor_premio: document.getElementById('valor_premio').value,
+        validade_dias: document.getElementById('validade_dias').value,
+        min_compra: document.getElementById('min_compra').value,
+      };
+      try {
+        await api('/relacionamento/clube', { method: 'POST', body });
+        document.getElementById('ativoTxt').textContent = body.ativo ? 'Ligado' : 'Desligado';
+        toast('Clube salvo');
+      } catch (e) { toast(e.message || 'Erro ao salvar', 'erro'); }
+    }
+
+    function renderTemplates() {
+      document.getElementById('templates').innerHTML = TEMPLATES.map(t => `
+        <div class="tpl" id="tpl-${t.tipo}">
+          <div class="tpl-topo" onclick="abrirTpl('${t.tipo}')">
+            <div>
+              <span class="tpl-nome">${esc(t.label)}</span>
+              ${t.personalizado ? '<span class="tag tag-custom">sua versão</span>' : ''}
+              ${!t.ativo ? '<span class="tag tag-off">desligada</span>' : ''}
+              <div class="tpl-quando">${esc(t.quando)}</div>
+            </div>
+            <span style="color:var(--tinta-3);">editar ▾</span>
+          </div>
+
+          <div class="tpl-corpo">
+            <textarea id="txt-${t.tipo}">${esc(t.texto)}</textarea>
+            <div class="vars">
+              Clique pra inserir: ${VARIAVEIS.map(v =>
+                `<code onclick="inserir('${t.tipo}', '${v}')">${v}</code>`).join(' ')}
+            </div>
+
+            ${t.tem_cupom ? `
+              <div class="grade" style="margin:10px 0;">
+                <div><label>Código do cupom</label><input id="cup-${t.tipo}" value="${esc(t.cupom || '')}"></div>
+                <div><label>Desconto (%)</label><input id="pct-${t.tipo}" type="number" value="${t.cupom_pct ?? ''}"></div>
+                <div><label>Vale por quantos dias</label><input id="dia-${t.tipo}" type="number" value="${t.cupom_dias ?? ''}"></div>
+              </div>
+              <p style="font-size:0.78rem; color:var(--tinta-2); margin:0 0 10px;">
+                O cupom é um combinado seu com a cliente — o sistema escreve na mensagem,
+                mas o desconto você aplica na mão, na hora da venda.
+              </p>` : ''}
+
+            <label style="display:flex; align-items:center; gap:8px; margin:10px 0; font-weight:500;">
+              <input type="checkbox" id="on-${t.tipo}" ${t.ativo ? 'checked' : ''} style="width:auto;">
+              Enviar esta mensagem
+            </label>
+
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <button class="btn" onclick="salvarTpl('${t.tipo}')">Salvar</button>
+              ${t.personalizado
+                ? `<button class="btn btn-sec" onclick="resetarTpl('${t.tipo}')">Voltar ao texto padrão</button>`
+                : ''}
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function abrirTpl(tipo) { document.getElementById('tpl-' + tipo).classList.toggle('aberto'); }
+
+    function inserir(tipo, v) {
+      const ta = document.getElementById('txt-' + tipo);
+      const i = ta.selectionStart;
+      ta.value = ta.value.slice(0, i) + v + ta.value.slice(ta.selectionEnd);
+      ta.focus();
+      ta.selectionStart = ta.selectionEnd = i + v.length;
+    }
+
+    async function salvarTpl(tipo) {
+      const el = (p) => document.getElementById(p + '-' + tipo);
+      const body = {
+        texto: document.getElementById('txt-' + tipo).value,
+        ativo: document.getElementById('on-' + tipo).checked,
+      };
+      if (el('cup')) {
+        body.cupom = el('cup').value.trim();
+        body.cupom_pct = el('pct').value;
+        body.cupom_dias = el('dia').value;
+      }
+      try {
+        await api('/relacionamento/templates/' + tipo, { method: 'PUT', body });
+        toast('Mensagem salva');
+        await carregar();
+      } catch (e) { toast(e.message || 'Erro ao salvar', 'erro'); }
+    }
+
+    async function resetarTpl(tipo) {
+      if (!confirm('Voltar esta mensagem ao texto padrão? Sua versão será perdida.')) return;
+      try {
+        await api('/relacionamento/templates/' + tipo, { method: 'DELETE' });
+        toast('Voltou ao padrão');
+        await carregar();
+      } catch (e) { toast(e.message || 'Erro', 'erro'); }
+    }
+
+    function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      montarLayout('clube');
+      carregar().catch(e => toast(e.message || 'Erro ao carregar', 'erro'));
+    });
+  </script>
+</body>
+</html>

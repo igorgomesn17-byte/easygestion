@@ -20,6 +20,10 @@ const BENEFICIO_POR_FEATURE = {
   precificacao:         'Pare de multiplicar por 2 no chute',
   personalizacao:       'Deixe o sistema com a cara e a cor da sua loja',
   maquininha:           'Saiba quanto a maquininha come de cada venda',
+  // Hoje só existe no plano interno (não vendável), então o menu ESCONDE em vez de
+  // mostrar bloqueado — o CTA deste card leva ao checkout do Growth, que não entrega
+  // a feature. A frase fica pronta pro dia em que o Growth ganhar relacionamento.
+  relacionamento:       'Saiba quem chamar hoje — e faça a cliente voltar',
 };
 
 // Quando o gate é por LIMITE (produtos), não por feature.

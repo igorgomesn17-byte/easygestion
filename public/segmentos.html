@@ -1,0 +1,123 @@
+<DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Segmentos • EasyGestão</title>
+  <link rel="stylesheet" href="css/ds.css">
+  <style>
+    /* Os 8 grupos de cliente (RFM). Clicar num card abre a lista de quem está lá,
+       com a mensagem de campanha pronta. */
+    .segs { display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:14px; }
+    .seg { border-left:4px solid var(--linha); cursor:pointer; transition:transform .12s, box-shadow .12s; }
+    .seg:hover { transform:translateY(-2px); box-shadow:0 4px 14px rgba(0,0,0,.07); }
+    .seg-n    { font-size:1.7rem; font-weight:800; color:var(--tinta); line-height:1; }
+    .seg-nome { font-weight:700; margin:6px 0 4px; }
+    .seg-desc { font-size:0.8rem; color:var(--tinta-2); line-height:1.4; }
+    .seg-val  { font-size:0.8rem; color:var(--tinta-2); margin-top:8px; }
+    .seg.vazio { opacity:.5; cursor:default; }
+    .seg.vazio:hover { transform:none; box-shadow:none; }
+    .cli { display:flex; align-items:center; gap:12px; padding:11px 0; border-bottom:1px solid var(--linha); flex-wrap:wrap; }
+    .cli:last-child { border-bottom:0; }
+    .cli-nome { font-weight:600; flex:1; min-width:140px; }
+    .cli-dado { font-size:0.82rem; color:var(--tinta-2); white-space:nowrap; }
+    .btn-zap { background:#25D366; border-color:#25D366; color:#fff; }
+    .rfm { font-family:ui-monospace, monospace; font-size:0.75rem; background:var(--surface-2);
+           padding:2px 6px; border-radius:4px; color:var(--tinta-2); }
+    .nao-perturbe { font-size:0.72rem; color:var(--vermelho); font-weight:600; }
+  </style>
+</head>
+<body>
+  <div class="conteudo">
+    <div class="flex-entre">
+      <div>
+        <h1>Segmentos de clientes</h1>
+        <p class="subtitulo">Suas clientes agrupadas por comportamento de compra: quem é VIP, quem está sumindo, quem já foi embora.</p>
+      </div>
+      <button class="btn btn-sec" id="btnVoltar" style="display:none;" onclick="verTodos()">← Todos os grupos</button>
+    </div>
+
+    <div id="cards" class="segs"></div>
+    <div id="detalhe"></div>
+  </div>
+
+  <script src="js/comum.js"></script>
+  <script>
+    let RESUMO = [];
+
+    async function carregar() {
+      const d = await api('/relacionamento/segmentos');
+      RESUMO = d.resumo || [];
+      const box = document.getElementById('cards');
+
+      if (!d.total_clientes) {
+        box.innerHTML = `<div class="card" style="grid-column:1/-1; text-align:center; padding:48px;">
+          <strong>Ainda não há clientes com compra registrada.</strong>
+          <p style="margin-top:6px; color:var(--tinta-2);">Assim que você vender pra uma cliente cadastrada, ela aparece aqui.</p>
+        </div>`;
+        return;
+      }
+
+      box.innerHTML = RESUMO.map(s => `
+        <div class="card seg ${s.n ? '' : 'vazio'}" style="border-left-color:${s.cor}"
+             ${s.n ? `onclick="abrir('${s.segmento}')"` : ''}>
+          <div class="seg-n">${s.n}</div>
+          <div class="seg-nome">${esc(s.nome)}</div>
+          <div class="seg-desc">${esc(s.desc)}</div>
+          ${s.valor ? `<div class="seg-val">R$ ${s.valor.toLocaleString('pt-BR', {minimumFractionDigits:2})} em compras</div>` : ''}
+        </div>
+      `).join('');
+    }
+
+    async function abrir(seg) {
+      const d = await api('/relacionamento/segmentos/' + seg);
+      document.getElementById('cards').style.display = 'none';
+      document.getElementById('btnVoltar').style.display = '';
+
+      const linhas = d.clientes.map(c => `
+        <div class="cli">
+          <span class="cli-nome">${esc(c.nome)}</span>
+          <span class="rfm" title="Recência ${c.R} • Frequência ${c.F} • Valor ${c.M}">${c.rfm}</span>
+          <span class="cli-dado">${c.num_compras} compra(s)</span>
+          <span class="cli-dado">R$ ${c.total_gasto.toLocaleString('pt-BR', {minimumFractionDigits:2})}</span>
+          <span class="cli-dado">${c.dias_sem_comprar >= 999 ? 'nunca comprou' : c.dias_sem_comprar + ' dias sem comprar'}</span>
+          ${c.nao_perturbe
+            ? '<span class="nao-perturbe">não perturbe</span>'
+            : (c.wa_url ? `<a class="btn btn-zap btn-peq" href="${c.wa_url}" target="_blank">WhatsApp</a>` : '<span class="cli-dado">sem telefone</span>')}
+        </div>
+      `).join('');
+
+      document.getElementById('detalhe').innerHTML = `
+        <div class="card" style="border-left:4px solid ${d.cor};">
+          <h2 style="margin:0 0 4px;">${esc(d.nome)} — ${d.n} cliente(s)</h2>
+          <p class="subtitulo" style="margin:0 0 14px;">${esc(d.desc)}</p>
+          <details>
+            <summary style="cursor:pointer; font-weight:600; margin-bottom:8px;">Ver a mensagem sugerida pra este grupo</summary>
+            <div style="white-space:pre-wrap; background:var(--surface-2); padding:12px; border-radius:var(--radius-sm);
+                        font-size:0.86rem; line-height:1.5; margin-top:8px;">${esc((d.clientes[0]||{}).mensagem || '')}</div>
+            <p style="font-size:0.8rem; color:var(--tinta-2); margin-top:8px;">
+              O nome de cada cliente entra automaticamente. O botão do WhatsApp já abre com o texto pronto.
+            </p>
+          </details>
+        </div>
+        <div class="card">${linhas || '<p>Nenhuma cliente neste grupo.</p>'}</div>
+      `;
+    }
+
+    function verTodos() {
+      document.getElementById('cards').style.display = '';
+      document.getElementById('btnVoltar').style.display = 'none';
+      document.getElementById('detalhe').innerHTML = '';
+    }
+
+    function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      montarLayout('segmentos');
+      carregar().catch(e => {
+        document.getElementById('cards').innerHTML = `<div class="card">Não consegui carregar. ${e.message || ''}</div>`;
+      });
+    });
+  </script>
+</body>
+</html>

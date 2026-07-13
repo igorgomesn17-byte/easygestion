@@ -183,6 +183,13 @@ const NAV = [
     { id:'produtos', href:'produtos.html', ico:'produtos', txt:'Produtos' },
     { id:'estoque',  href:'estoque.html',  ico:'estoque',  txt:'Estoque' },
   ]},
+  // Relacionamento é feature de plano (hoje só no interno). Os itens carregam
+  // `feature`, e montarLayout esconde do menu quem não tem — ver o filtro lá.
+  { grupo: 'Relacionamento', itens: [
+    { id:'relacionamento', href:'relacionamento.html', ico:'clientes', txt:'Contatos do dia', feature:'relacionamento' },
+    { id:'segmentos',      href:'segmentos.html',      ico:'vendas',   txt:'Segmentos',       feature:'relacionamento' },
+    { id:'clube',          href:'clube.html',          ico:'config',   txt:'Clube de selos',  feature:'relacionamento' },
+  ]},
   { grupo: 'Pessoas', itens: [
     { id:'clientes',   href:'clientes.html',   ico:'clientes', txt:'Clientes' },
     // "Usuários" (login + papel, tabela usuarios) e "Comissões" (nome do vendedor
@@ -204,6 +211,7 @@ const TITULOS = {
   relatorios:'Relatórios',
   nfce:'Notas fiscais (NFC-e)', produtos:'Produtos',
   estoque:'Estoque', clientes:'Clientes',
+  relacionamento:'Contatos do dia', segmentos:'Segmentos de clientes', clube:'Clube de selos',
   usuarios:'Usuários', vendedores:'Comissões',
   assinatura:'Minha Assinatura', planos:'Escolha seu Plano', config:'Configurações',
 };
@@ -289,12 +297,41 @@ function montarLayout(paginaAtiva) {
       document.querySelectorAll('.sidebar-nav .nav-link[data-pagina]').forEach(a => {
         if (!permitidas.includes(a.dataset.pagina)) a.style.display = 'none';
       });
-      // some também com os títulos de grupo que ficaram sem nenhum item visível
-      document.querySelectorAll('.nav-grupo-titulo').forEach(t => {
-        let n = t.nextElementSibling, temVisivel = false;
-        while (n && n.classList.contains('nav-link')) { if (n.style.display !== 'none') temVisivel = true; n = n.nextElementSibling; }
-        if (!temVisivel) t.style.display = 'none';
-      });
+    }
+
+    // esconde os itens de feature que o plano não tem (/api/me já devolve me.features).
+    // Aqui a escolha é ESCONDER, não mostrar bloqueado: o Relacionamento hoje só existe
+    // no plano interno, que não está à venda — um card de "faça upgrade" mandaria a
+    // lojista pro checkout do Growth, que não entrega a feature. Quando/se o Growth
+    // ganhar relacionamento, aí sim vale mostrar e bloquear com oferta.
+    const feats = me.features || {};
+    document.querySelectorAll('.sidebar-nav .nav-link[data-feature]').forEach(a => {
+      if (!feats[a.dataset.feature]) a.style.display = 'none';
+    });
+
+    // some com os títulos de grupo que ficaram sem nenhum item visível.
+    // Roda DEPOIS dos dois filtros (papel e feature) — senão um grupo esvaziado
+    // pelo segundo filtro continuaria com o título órfão na tela.
+    document.querySelectorAll('.nav-grupo-titulo').forEach(t => {
+      const box = t.nextElementSibling;
+      const links = box ? box.querySelectorAll('.nav-link') : [];
+      const temVisivel = [...links].some(l => l.style.display !== 'none');
+      if (!temVisivel) {
+        t.style.display = 'none';
+        if (box) box.style.display = 'none';
+      }
+    });
+
+    // Badge de contatos pendentes. A régua só funciona se a lojista LEMBRAR de abrir
+    // a tela — o número no menu é o que transforma "eu devia dar uma olhada" em
+    // "tem 5 pessoas esperando".
+    if (feats.relacionamento) {
+      fetch('/api/relacionamento/acoes/contagem', { credentials: 'same-origin' })
+        .then(r => r.ok ? r.json() : null)
+        .then(d => {
+          const b = document.querySelector('.nav-badge[data-badge="relacionamento"]');
+          if (b && d && d.pendentes > 0) { b.textContent = d.pendentes; b.style.display = ''; }
+        }).catch(() => {});
     }
   }).catch(() => {});
 
@@ -308,8 +345,8 @@ function montarLayout(paginaAtiva) {
 
   const navHTML = NAV.map(g => {
     const links = g.itens.map(i =>
-      `<a class="nav-link ${i.id===paginaAtiva?'ativo':''}" data-pagina="${i.id}" href="${i.href}" ${i.target?`target="${i.target}"`:''} title="${i.txt}">
-         ${svg(i.ico)}<span class="txt">${i.txt}</span></a>`).join('');
+      `<a class="nav-link ${i.id===paginaAtiva?'ativo':''}" data-pagina="${i.id}" ${i.feature?`data-feature="${i.feature}"`:''} href="${i.href}" ${i.target?`target="${i.target}"`:''} title="${i.txt}">
+         ${svg(i.ico)}<span class="txt">${i.txt}</span><span class="nav-badge" data-badge="${i.id}" style="display:none;"></span></a>`).join('');
     if (!g.grupo) return links;
     // Com grupo: fazer colapsável
     const grupoClosed = localStorage.getItem(`nav-grupo-${g.grupo}`) === '1';

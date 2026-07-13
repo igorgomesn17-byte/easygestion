@@ -1,0 +1,175 @@
+<DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contatos do dia • EasyGestão</title>
+  <link rel="stylesheet" href="css/ds.css">
+  <style>
+    /* Cada contato é um card com a mensagem PRONTA e editável. A lojista lê,
+       ajusta se quiser, e manda. Sem tela intermediária, sem copiar e colar. */
+    .acao { border-left: 3px solid var(--linha-forte); }
+    .acao.p1 { border-left-color: var(--vermelho); }   /* hoje, não deixa passar */
+    .acao.p2 { border-left-color: var(--dourado); }
+    .acao.p3 { border-left-color: var(--marca); }
+    .acao-topo { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
+    .acao-quem { font-weight:700; font-size:1.02rem; color:var(--tinta); }
+    .acao-por  { color:var(--tinta-2); font-size:0.85rem; margin-top:2px; }
+    .acao-msg  { width:100%; min-height:104px; margin:12px 0 10px; resize:vertical;
+                 font-family:inherit; font-size:0.88rem; line-height:1.5; }
+    .acao-btns { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .btn-zap { background:#25D366; border-color:#25D366; color:#fff; }
+    .btn-zap:hover { background:#1eb356; border-color:#1eb356; }
+    .selo-seg { font-size:0.7rem; padding:2px 8px; border-radius:999px; font-weight:700; color:#fff; white-space:nowrap; }
+    .filtros { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+    .pill { padding:6px 12px; border:1px solid var(--linha); border-radius:999px; background:var(--surface);
+            cursor:pointer; font-size:0.84rem; font-weight:600; color:var(--tinta-2); }
+    .pill.on { background:var(--marca); border-color:var(--marca); color:#fff; }
+    .vazio { text-align:center; padding:56px 20px; color:var(--tinta-2); }
+    .vazio-emoji { font-size:2.4rem; display:block; margin-bottom:10px; }
+  </style>
+</head>
+<body>
+  <div class="conteudo">
+    <div class="flex-entre">
+      <div>
+        <h1>Contatos do dia</h1>
+        <p class="subtitulo">Quem falar com hoje — a mensagem já vem pronta. Você lê, ajusta se quiser, e manda.</p>
+      </div>
+      <button class="btn btn-sec" onclick="gerar()">Atualizar lista</button>
+    </div>
+
+    <div id="filtros" class="filtros"></div>
+    <div id="lista"></div>
+  </div>
+
+  <script src="js/comum.js"></script>
+  <script>
+    let ACOES = [], FILTRO = 'todas';
+
+    async function carregar() {
+      try {
+        const d = await api('/relacionamento/acoes');
+        ACOES = d.acoes || [];
+        render();
+      } catch (e) {
+        document.getElementById('lista').innerHTML =
+          `<div class="card vazio">Não consegui carregar os contatos. ${e.message || ''}</div>`;
+      }
+    }
+
+    // Força a geração do dia (o agendador roda 06:00; isto é pra quando a lojista
+    // quer ver AGORA, ou pra recuperar um dia em que o servidor esteve fora).
+    async function gerar() {
+      try {
+        await api('/relacionamento/gerar', { method: 'POST' });
+        await carregar();
+        toast('Lista atualizada');
+      } catch (e) { toast(e.message || 'Não deu pra atualizar', 'erro'); }
+    }
+
+    function render() {
+      const tipos = {};
+      ACOES.forEach(a => { tipos[a.label] = (tipos[a.label] || 0) + 1; });
+
+      document.getElementById('filtros').innerHTML =
+        [`<span class="pill ${FILTRO==='todas'?'on':''}" onclick="filtrar('todas')">Todas (${ACOES.length})</span>`]
+        .concat(Object.entries(tipos).map(([l, n]) =>
+          `<span class="pill ${FILTRO===l?'on':''}" onclick="filtrar(${JSON.stringify(l).replace(/"/g,'&quot;')})">${l} (${n})</span>`
+        )).join('');
+
+      const lista = FILTRO === 'todas' ? ACOES : ACOES.filter(a => a.label === FILTRO);
+      const box = document.getElementById('lista');
+
+      if (!lista.length) {
+        box.innerHTML = `<div class="card vazio">
+          <span class="vazio-emoji">☕</span>
+          <strong>Nenhum contato pendente.</strong>
+          <p style="margin-top:6px;">Quando alguém comprar, fizer aniversário ou sumir por um tempo, ela aparece aqui.</p>
+        </div>`;
+        return;
+      }
+
+      box.innerHTML = lista.map((a, i) => `
+        <div class="card acao p${Math.min(a.prioridade, 3)}" id="acao-${a.id}">
+          <div class="acao-topo">
+            <div>
+              <div class="acao-quem">${esc(a.nome)}</div>
+              <div class="acao-por">${esc(a.label)} • ${esc(a.detalhe || '')}</div>
+            </div>
+            ${a.segmento_nome ? `<span class="selo-seg" style="background:${a.segmento_cor}">${esc(a.segmento_nome)}</span>` : ''}
+          </div>
+
+          <textarea class="acao-msg" id="msg-${a.id}">${esc(a.mensagem)}</textarea>
+
+          <div class="acao-btns">
+            <button class="btn btn-zap" onclick="enviar(${a.id})">Enviar no WhatsApp</button>
+            <button class="btn btn-sec" onclick="copiar(${a.id})">Copiar</button>
+            <select class="sel-adiar" onchange="adiar(${a.id}, this.value); this.value='';"
+                    style="padding:8px 10px; border-radius:var(--radius-sm); border:1px solid var(--linha);">
+              <option value="">Adiar…</option>
+              <option value="1">amanhã</option>
+              <option value="3">3 dias</option>
+              <option value="7">1 semana</option>
+            </select>
+            <button class="btn btn-sec" onclick="ignorar(${a.id})" style="margin-left:auto;">Não contatar</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function filtrar(l) { FILTRO = l; render(); }
+    function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
+
+    // O texto pode ter sido editado no textarea: manda (e grava no histórico) o que
+    // está na tela, não o que veio do banco.
+    function textoDe(id) { return document.getElementById('msg-' + id).value; }
+
+    async function enviar(id) {
+      const a = ACOES.find(x => x.id === id);
+      const msg = textoDe(id);
+      const tel = (a.telefone || '').replace(/\D/g, '');
+      const full = tel.length <= 11 ? '55' + tel : tel;
+
+      // Abre o WhatsApp E marca como enviada no mesmo clique. Se marcássemos só na
+      // volta pra aba, quem fecha o WhatsApp no celular nunca daria baixa — e o card
+      // ficaria pendente pra sempre.
+      window.open(`https://wa.me/${full}?text=${encodeURIComponent(msg)}`, '_blank');
+      try {
+        await api(`/relacionamento/acoes/${id}/enviada`, { method: 'POST', body: { mensagem: msg } });
+        ACOES = ACOES.filter(x => x.id !== id);
+        render();
+      } catch (e) { toast(e.message || 'Erro ao marcar como enviada', 'erro'); }
+    }
+
+    async function copiar(id) {
+      try { await navigator.clipboard.writeText(textoDe(id)); toast('Mensagem copiada'); }
+      catch { toast('Não consegui copiar', 'erro'); }
+    }
+
+    async function adiar(id, dias) {
+      if (!dias) return;
+      try {
+        await api(`/relacionamento/acoes/${id}/adiar`, { method: 'POST', body: { dias: Number(dias) } });
+        ACOES = ACOES.filter(x => x.id !== id);
+        render();
+        toast('Adiado');
+      } catch (e) { toast(e.message || 'Erro ao adiar', 'erro'); }
+    }
+
+    async function ignorar(id) {
+      if (!confirm('Tirar este contato da lista?')) return;
+      try {
+        await api(`/relacionamento/acoes/${id}/ignorar`, { method: 'POST' });
+        ACOES = ACOES.filter(x => x.id !== id);
+        render();
+      } catch (e) { toast(e.message || 'Erro', 'erro'); }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      montarLayout('relacionamento');
+      carregar();
+    });
+  </script>
+</body>
+</html>

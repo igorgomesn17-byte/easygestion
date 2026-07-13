@@ -1231,6 +1231,23 @@
           }
         }
         limparCarrinho();
+
+        // A cliente fechou o cartão de selos: o vale JÁ existe no sistema (nasceu na
+        // transação da venda). O alerta é pro CAIXA — um prêmio que a cliente não fica
+        // sabendo na hora não faz ela voltar, que é a única razão do clube existir.
+        if (r.vale_clube) {
+          const v = r.vale_clube;
+          alert(
+            `🎉 PARABÉNS À CLIENTE!\n\n` +
+            `${v.cliente_nome} completou o ${v.clube} e ganhou um vale de ` +
+            `${v.valor.toLocaleString('pt-BR', { style:'currency', currency:'BRL' })}!\n\n` +
+            `Código: ${v.codigo}\n` +
+            `Válido até ${v.validade.split('-').reverse().join('/')}\n` +
+            `Use em compras a partir de ${v.min_compra.toLocaleString('pt-BR', { style:'currency', currency:'BRL' })}\n\n` +
+            `AVISE A CLIENTE AGORA. O vale já está no sistema.`
+          );
+        }
+
         // Venda no carnê: vai direto pro carnê imprimível — é o papel que a cliente
         // leva embora, e o artefato que faz o lojista confiar no sistema.
         if (r.crediario_id) {
