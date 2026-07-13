@@ -6,6 +6,7 @@
 const express = require('express');
 const router = express.Router();
 const { db, getConfig } = require('../db/database');
+const { rotuloSku } = require('../lib/sku');
 
 // Helper: calcula dias úteis entre duas datas (seg-sáb)
 function diasUteisEntre(dataDe, dataAte) {
@@ -197,7 +198,7 @@ router.post('/', (req, res) => {
 
   // resolve dados das pecas levadas (incluir custo para CMVR)
   const getVar = db.prepare(`
-    SELECT v.id AS variacao_id, v.quantidade, v.tamanho, v.produto_id, p.nome, p.preco_venda, COALESCE(p.custo, 0) AS custo
+    SELECT v.id AS variacao_id, v.quantidade, v.cor, v.tamanho, v.produto_id, p.nome, p.preco_venda, COALESCE(p.custo, 0) AS custo
     FROM variacoes v JOIN produtos p ON p.id = v.produto_id WHERE v.id = ?`);
 
   const levadosResolv = [];
@@ -206,9 +207,11 @@ router.post('/', (req, res) => {
     if (!v) return res.status(400).json({ erro: `Peça levada inválida (id ${it.variacao_id})` });
     const qtd = parseInt(it.qtd, 10) || 1;
     if (v.quantidade < qtd) {
-      return res.status(400).json({ erro: `Estoque insuficiente: ${v.nome} tam ${v.tamanho} (tem ${v.quantidade})` });
+      return res.status(400).json({ erro: `Estoque insuficiente: ${rotuloSku(v.nome, v.cor, v.tamanho)} (tem ${v.quantidade})` });
     }
-    levadosResolv.push({ ...v, qtd, valor_unit: v.preco_venda, descricao: `${v.nome} (${v.tamanho})` });
+    // a descricao vai pro comprovante da troca: precisa dizer a cor, senao a cliente
+    // trocou o preto e o papel diz so "Vestido Amanda (M)"
+    levadosResolv.push({ ...v, qtd, valor_unit: v.preco_venda, descricao: rotuloSku(v.nome, v.cor, v.tamanho) });
   }
 
   const valorDevolvido = devolvidos.reduce((s, d) => s + (parseFloat(d.valor_unit)||0) * (parseInt(d.qtd,10)||1), 0);
@@ -217,8 +220,11 @@ router.post('/', (req, res) => {
 
   // Calcula custos (para CMVR na DRE)
   let custoDevolv = 0;
+  // tambem traz nome/cor/tamanho: a descricao do item devolvido chegava pronta do
+  // navegador (d.descricao). Se o front nao mandar a cor, o comprovante da troca nao
+  // diz qual peca voltou — e a descricao e' o unico registro legivel dela.
   const getVar2 = db.prepare(`
-    SELECT COALESCE(p.custo, 0) AS custo
+    SELECT COALESCE(p.custo, 0) AS custo, p.nome, v.cor, v.tamanho
     FROM variacoes v JOIN produtos p ON p.id = v.produto_id WHERE v.id = ?`);
   for (const d of devolvidos) {
     if (d.variacao_id) {
@@ -261,11 +267,14 @@ router.post('/', (req, res) => {
     for (const d of devolvidos) {
       const qtd = parseInt(d.qtd,10) || 1;
       let custoDev = 0;
+      let descricao = d.descricao || null;
       if (d.variacao_id) {
         const p = getVar2.get(d.variacao_id);
         custoDev = p?.custo || 0;
+        // a descricao do banco vence a do navegador: e' a unica que sabe a cor com certeza
+        if (p) descricao = rotuloSku(p.nome, p.cor, p.tamanho);
       }
-      insItem.run(trocaId, req.tenantId, 'devolvido', d.variacao_id || null, d.produto_id || null, d.descricao || null, qtd, parseFloat(d.valor_unit)||0, +custoDev.toFixed(2));
+      insItem.run(trocaId, req.tenantId, 'devolvido', d.variacao_id || null, d.produto_id || null, descricao, qtd, parseFloat(d.valor_unit)||0, +custoDev.toFixed(2));
       if (d.variacao_id) {
         sobe.run(qtd, d.variacao_id);
         mov.run(d.variacao_id, 'entrada', qtd, `troca #${trocaId} (devolução)`);

@@ -5,6 +5,7 @@
 const express = require('express');
 const { exigirLogin, injetarTenant } = require('../middleware/seguranca');
 const { db } = require('../db/database');
+const { normalizarCor, gerarCodigoBarras } = require('../lib/sku');
 const router = express.Router();
 
 // --- POST /demo-data → carrega 5 produtos + 2 clientes + vendas fake ---
@@ -73,15 +74,31 @@ router.post('/demo-data', exigirLogin, injetarTenant, (req, res) => {
       },
     ];
 
+    // Os produtos demo nasciam SEM grade nenhuma (nenhuma variacao): apareciam no
+    // cadastro mas nao no PDV nem na vitrine, porque as duas telas so mostram peca
+    // com estoque. Agora cada demo ja vem com a matriz cor x tamanho preenchida —
+    // e' a primeira coisa que o cliente novo ve, e ela precisa mostrar como o
+    // sistema pensa (um modelo, varias cores).
+    const TAMANHOS_DEMO = ['P', 'M', 'G'];
     const produtosInseridos = [];
+    const insVar = db.prepare(`
+      INSERT INTO variacoes (produto_id, cor, tamanho, quantidade, codigo_barras, tenant_id)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
     produtosDemo.forEach(p => {
+      // produtos.cor esta deprecada (a cor virou atributo do SKU): nao e' mais escrita.
       const result = db.prepare(`
         INSERT INTO produtos
-        (tenant_id, codigo, nome, categoria, descricao, cor, custo, preco_venda, ativo, criado_em)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, datetime('now', 'localtime'))
-      `).run(tenantId, p.codigo, p.nome, p.categoria, p.descricao, p.cor, p.custo, p.preco_venda);
+        (tenant_id, codigo, nome, categoria, descricao, custo, preco_venda, ativo, criado_em)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 1, datetime('now', 'localtime'))
+      `).run(tenantId, p.codigo, p.nome, p.categoria, p.descricao, p.custo, p.preco_venda);
 
-      produtosInseridos.push(result.lastInsertRowid);
+      const produtoId = result.lastInsertRowid;
+      const cor = normalizarCor(p.cor);
+      for (const tamanho of TAMANHOS_DEMO) {
+        insVar.run(produtoId, cor, tamanho, 3, gerarCodigoBarras(), tenantId);
+      }
+      produtosInseridos.push(produtoId);
     });
 
     // ===== CLIENTES DEMO =====

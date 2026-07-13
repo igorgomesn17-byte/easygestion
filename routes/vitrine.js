@@ -94,22 +94,24 @@ router.get('/:slug/produtos', (req, res) => {
 
     // Buscar produtos ativos com estoque (mesmo padrão do GET /api/produtos/vitrine,
     // mas FILTRADO por tenant_id do slug + sem expor código/SKU)
+    // p.cor esta DEPRECADA (a cor mora na variacao) — nao selecionada.
     const produtos = db.prepare(`
       SELECT
-        p.id, p.nome, p.categoria, p.cor, p.preco_venda, p.foto, p.colecao
+        p.id, p.nome, p.categoria, p.preco_venda, p.foto, p.colecao
       FROM produtos p
       WHERE p.ativo = 1 AND p.tenant_id = ?
       ORDER BY p.nome ASC
     `).all(tenant.id);
 
-    // Para cada produto, buscar tamanhos + galeria
+    // Para cada produto, buscar a grade (cor x tamanho) + galeria
     const produtosCompletos = produtos.map(p => {
-      // Tamanhos com quantidade > 0
-      const tamanhos = db.prepare(`
-        SELECT tamanho, quantidade
+      // A grade so com o que tem em estoque: a cliente nao pode escolher o que nao existe.
+      // codigo_barras NAO sai daqui — e' rota publica, e o SKU e' informacao interna.
+      const grade = db.prepare(`
+        SELECT cor, tamanho, quantidade
         FROM variacoes
         WHERE produto_id = ? AND tenant_id = ? AND quantidade > 0
-        ORDER BY CAST(tamanho AS TEXT)
+        ORDER BY cor, CAST(tamanho AS TEXT)
       `).all(p.id, tenant.id);
 
       // Galeria de fotos. Rota PUBLICA (sem login): o filtro de tenant e' obrigatorio.
@@ -117,22 +119,28 @@ router.get('/:slug/produtos', (req, res) => {
         SELECT caminho FROM produto_fotos WHERE produto_id = ? AND tenant_id = ? ORDER BY id
       `).all(p.id, tenant.id);
 
+      const cores = [...new Set(grade.map(g => g.cor))];
+
       return {
         id: p.id,
         titulo: p.nome,
         nome: p.nome,
         categoria: p.categoria,
-        cor: p.cor,
+        // uma peca pode existir em varias cores: a vitrine mostra todas e a cliente
+        // escolhe. `cor` (singular) segue preenchida quando so ha uma, pro layout antigo.
+        cores,
+        cor: cores.length === 1 ? cores[0] : null,
         preco_venda: p.preco_venda,
         foto: p.foto,
         colecao: p.colecao,
-        tamanhos: tamanhos.map(t => ({ tamanho: t.tamanho, quantidade: t.quantidade })),
+        grade: grade.map(g => ({ cor: g.cor, tamanho: g.tamanho, quantidade: g.quantidade })),
+        tamanhos: [...new Set(grade.map(g => g.tamanho))].map(t => ({ tamanho: t })),
         galeria: galeria.map(g => g.caminho)
       };
     });
 
-    // Filtrar apenas produtos com pelo menos um tamanho em estoque
-    const produtosComEstoque = produtosCompletos.filter(p => p.tamanhos.length > 0);
+    // Filtrar apenas produtos com pelo menos uma peça em estoque
+    const produtosComEstoque = produtosCompletos.filter(p => p.grade.length > 0);
 
     // Categorias e coleções
     const categorias = [...new Set(produtosComEstoque.filter(p => p.categoria).map(p => p.categoria))];

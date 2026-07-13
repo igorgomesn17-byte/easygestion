@@ -6,6 +6,7 @@ const router = express.Router();
 const { db } = require('../db/database');
 const { validarQuantidade } = require('../lib/validadores');
 const { exigirFeature } = require('../middleware/seguranca');
+const { normalizarCor, normalizarTamanho, resolverCodigoBarras } = require('../lib/sku');
 
 // GET /api/estoque/resumo -> totais de estoque (cards)
 router.get('/resumo', (req, res) => {
@@ -26,10 +27,13 @@ router.get('/resumo', (req, res) => {
 // "potencial" porque e' o que a peca rende SE vender pelo preco de tabela.
 router.get('/relatorio', exigirFeature('relatorios_avancados'), (req, res) => {
   const { categoria, colecao } = req.query;
+  // A cor agora vem da VARIACAO. Um produto pode ter varias — entao a linha do
+  // relatorio (que e' por produto) lista as cores que ele tem em estoque.
   let sql = `
-    SELECT p.id AS produto_id, p.codigo, p.nome, p.categoria, p.colecao, p.cor,
+    SELECT p.id AS produto_id, p.codigo, p.nome, p.categoria, p.colecao,
            p.custo, p.preco_venda,
-           COALESCE(SUM(v.quantidade),0) AS qtd
+           COALESCE(SUM(v.quantidade),0) AS qtd,
+           GROUP_CONCAT(DISTINCT CASE WHEN v.quantidade > 0 THEN v.cor END) AS cores
     FROM produtos p
     LEFT JOIN variacoes v ON v.produto_id = p.id
     WHERE p.ativo = 1 AND p.tenant_id = ?
@@ -45,7 +49,8 @@ router.get('/relatorio', exigirFeature('relatorios_avancados'), (req, res) => {
     const lucroTotal = +(vendaTotal - custoTotal).toFixed(2);
     return {
       produto_id: r.produto_id, codigo: r.codigo, nome: r.nome,
-      categoria: r.categoria, colecao: r.colecao, cor: r.cor,
+      categoria: r.categoria, colecao: r.colecao,
+      cor: r.cores || '',   // "Preto,Vermelho" — mantem o nome do campo pro front antigo
       qtd: r.qtd,
       custo_unit: +(r.custo || 0).toFixed(2),
       preco_venda: +(r.preco_venda || 0).toFixed(2),
@@ -76,10 +81,12 @@ router.get('/relatorio', exigirFeature('relatorios_avancados'), (req, res) => {
 // GET /api/estoque -> visao geral por produto/tamanho com filtros
 router.get('/', (req, res) => {
   const { categoria, colecao, busca } = req.query;
+  // Uma linha por SKU (cor x tamanho). v.cor substitui p.cor: um produto pode ter
+  // varias cores, e a tela agrupa por produto e depois por cor.
   let sql = `
-    SELECT p.id AS produto_id, p.codigo, p.nome, p.categoria, p.colecao, p.cor,
+    SELECT p.id AS produto_id, p.codigo, p.nome, p.categoria, p.colecao,
            p.custo, p.preco_venda,
-           v.id AS variacao_id, v.tamanho, v.quantidade
+           v.id AS variacao_id, v.cor, v.tamanho, v.quantidade, v.codigo_barras
     FROM produtos p
     JOIN variacoes v ON v.produto_id = p.id
     WHERE p.ativo = 1 AND p.tenant_id = ?
@@ -96,11 +103,12 @@ router.get('/', (req, res) => {
   }
   if (busca) {
     const term = '%' + busca.trim().toLowerCase() + '%';
-    sql += ' AND (LOWER(p.nome) LIKE ? OR LOWER(p.codigo) LIKE ?)';
-    params.push(term, term);
+    // busca tambem pelo codigo de barras do SKU: bipar a etiqueta aqui acha a peca
+    sql += ' AND (LOWER(p.nome) LIKE ? OR LOWER(p.codigo) LIKE ? OR v.codigo_barras = ?)';
+    params.push(term, term, busca.trim());
   }
 
-  sql += ' ORDER BY p.nome, v.id LIMIT 500';
+  sql += ' ORDER BY p.nome, v.cor, v.id LIMIT 500';
   const rows = db.prepare(sql).all(...params);
   res.json(rows);
 });
@@ -109,10 +117,10 @@ router.get('/', (req, res) => {
 router.get('/baixo', (req, res) => {
   const min = parseInt(db.prepare("SELECT valor FROM config WHERE chave='estoque_minimo_alerta' AND tenant_id = ?").get(req.tenantId)?.valor || '1', 10);
   const rows = db.prepare(`
-    SELECT p.codigo, p.nome, v.tamanho, v.quantidade
+    SELECT p.codigo, p.nome, v.cor, v.tamanho, v.quantidade
     FROM produtos p JOIN variacoes v ON v.produto_id = p.id
     WHERE p.ativo = 1 AND p.tenant_id = ? AND v.quantidade <= ?
-    ORDER BY v.quantidade ASC, p.nome
+    ORDER BY v.quantidade ASC, p.nome, v.cor
   `).all(req.tenantId, min);
   res.json(rows);
 });
@@ -168,33 +176,48 @@ router.post('/entrada', (req, res) => {
   res.json({ ok: true });
 });
 
-// POST /api/estoque/adicionar-tamanho body: { produto_id, tamanho, quantidade }
-router.post('/adicionar-tamanho', (req, res) => {
-  const { produto_id, tamanho, quantidade } = req.body;
-  if (!produto_id || !tamanho) return res.status(400).json({ erro: 'Dados incompletos' });
-  const qtd = parseInt(quantidade, 10) || 0;
+// POST /api/estoque/adicionar-tamanho body: { produto_id, cor, tamanho, quantidade, codigo_barras? }
+// Adiciona um SKU (cor + tamanho) a um produto ja cadastrado.
+// A rota mantem o nome antigo pra nao quebrar quem ja chama; o que ela cria agora
+// e' um par (cor, tamanho), nao so um tamanho.
+router.post('/adicionar-tamanho', (req, res, next) => {
+  const { produto_id, quantidade } = req.body;
+  const tamanho = normalizarTamanho(req.body.tamanho);
+  const cor = normalizarCor(req.body.cor);   // sem cor -> 'Unica'
+  if (!produto_id || !tamanho) return res.status(400).json({ erro: 'Informe o produto e o tamanho' });
+  const qtd = Math.max(0, parseInt(quantidade, 10) || 0);
 
   const produtoValido = db.prepare('SELECT id FROM produtos WHERE id = ? AND tenant_id = ?')
     .get(produto_id, req.tenantId);
   if (!produtoValido) return res.status(403).json({ erro: 'Produto não encontrado ou acesso negado' });
 
+  const jaExiste = db.prepare('SELECT id FROM variacoes WHERE produto_id = ? AND cor = ? AND tamanho = ?')
+    .get(produto_id, cor, tamanho);
+  if (jaExiste) return res.status(400).json({ erro: `A peça "${cor} / ${tamanho}" já existe nesse produto` });
+
   try {
-    const info = db.prepare('INSERT INTO variacoes (produto_id, tamanho, quantidade, tenant_id) VALUES (?, ?, ?, ?)')
-      .run(produto_id, String(tamanho).toUpperCase(), qtd, req.tenantId);
-    if (qtd > 0) {
-      db.prepare("INSERT INTO movimentos_estoque (variacao_id, tipo, qtd, motivo) VALUES (?, 'entrada', ?, 'novo tamanho')")
-        .run(info.lastInsertRowid, qtd);
-    }
-    res.status(201).json({ id: info.lastInsertRowid });
+    const codigoBarras = resolverCodigoBarras(req.body.codigo_barras, req.tenantId);
+    const tx = db.transaction(() => {
+      const info = db.prepare('INSERT INTO variacoes (produto_id, cor, tamanho, quantidade, codigo_barras, tenant_id) VALUES (?, ?, ?, ?, ?, ?)')
+        .run(produto_id, cor, tamanho, qtd, codigoBarras, req.tenantId);
+      if (qtd > 0) {
+        db.prepare("INSERT INTO movimentos_estoque (variacao_id, tipo, qtd, motivo) VALUES (?, 'entrada', ?, 'nova peça na grade')")
+          .run(info.lastInsertRowid, qtd);
+      }
+      return info.lastInsertRowid;
+    });
+    const id = tx();
+    res.status(201).json({ id, cor, tamanho, quantidade: qtd, codigo_barras: codigoBarras });
   } catch (e) {
-    res.status(400).json({ erro: 'Esse tamanho ja existe nesse produto' });
+    if (e.status === 400) return res.status(400).json({ erro: e.message });
+    next(e);
   }
 });
 
-// POST /api/estoque/lote  body: [{ codigo ou nome, tamanho, quantidade, motivo? }]
+// POST /api/estoque/lote  body: [{ codigo ou nome, cor?, tamanho, quantidade, motivo? }]
 // Entrada de estoque em lote (importação CSV).
-// Aceita busca por CÓDIGO ou por NOME do produto.
-// Retorna { ok: true, processados: N, erros: [{ codigo, tamanho, motivo }] }
+// Aceita busca por CÓDIGO ou por NOME do produto, e agora por COR.
+// Retorna { ok: true, processados: N, erros: [{ codigo, cor, tamanho, motivo }] }
 router.post('/lote', (req, res) => {
   const itens = Array.isArray(req.body) ? req.body : [];
   if (!itens.length) return res.status(400).json({ erro: 'Nenhum item para processar' });
@@ -202,9 +225,20 @@ router.post('/lote', (req, res) => {
   const processados = [];
   const erros = [];
 
-  // Query que busca por CÓDIGO OU NOME
+  // Query que busca o SKU por (CÓDIGO OU NOME) + cor + tamanho
   const getVarId = db.prepare(`
-    SELECT v.id, p.codigo, p.nome FROM variacoes v
+    SELECT v.id, v.cor, p.codigo, p.nome FROM variacoes v
+    JOIN produtos p ON p.id = v.produto_id
+    WHERE (p.codigo = ? OR LOWER(p.nome) = LOWER(?))
+      AND v.cor = ? AND v.tamanho = ?
+      AND p.ativo = 1
+      AND p.tenant_id = ?
+  `);
+  // Fallback: a planilha nao trouxe coluna de cor e o produto so tem UMA cor.
+  // E' o caso comum de quem migrou (tudo 'Unica') e de quem so vende uma cor por
+  // modelo. Com 2+ cores, exigir a coluna — adivinhar aqui daria entrada na peca errada.
+  const getVarSemCor = db.prepare(`
+    SELECT v.id, v.cor, p.codigo, p.nome FROM variacoes v
     JOIN produtos p ON p.id = v.produto_id
     WHERE (p.codigo = ? OR LOWER(p.nome) = LOWER(?))
       AND v.tamanho = ?
@@ -214,33 +248,43 @@ router.post('/lote', (req, res) => {
 
   const tx = db.transaction(() => {
     for (const item of itens) {
-      const { codigo, nome, tamanho, quantidade, motivo } = item;
+      const { codigo, nome, quantidade, motivo } = item;
       const identificador = codigo || nome; // aceita tanto codigo quanto nome
+      const tamanho = normalizarTamanho(item.tamanho);
+      const corInformada = String(item.cor == null ? '' : item.cor).trim();
       const qtd = parseInt(quantidade, 10);
 
       // validações básicas
       if (!identificador || !tamanho || isNaN(qtd) || qtd <= 0) {
         erros.push({
-          codigo: identificador || '?',
-          tamanho,
+          codigo: identificador || '?', cor: corInformada, tamanho: item.tamanho,
           motivo: 'Dados inválidos (código OU nome, tamanho e quantidade > 0 obrigatórios)'
         });
         continue;
       }
 
-      // busca a variação (por código OU nome, o SQL tenta os dois com OR)
-      const v = getVarId.get(
-        String(codigo || '').trim(),
-        String(nome || '').trim(),
-        String(tamanho).trim().toUpperCase(),
-        req.tenantId
-      );
+      const cod = String(codigo || '').trim();
+      const nom = String(nome || '').trim();
+
+      let v;
+      if (corInformada) {
+        v = getVarId.get(cod, nom, normalizarCor(corInformada), tamanho, req.tenantId);
+      } else {
+        const achadas = getVarSemCor.all(cod, nom, tamanho, req.tenantId);
+        if (achadas.length > 1) {
+          erros.push({
+            codigo: identificador, cor: '', tamanho,
+            motivo: `Esse produto tem ${achadas.length} cores nesse tamanho (${achadas.map(a => a.cor).join(', ')}). Informe a coluna "cor".`
+          });
+          continue;
+        }
+        v = achadas[0];
+      }
 
       if (!v) {
         erros.push({
-          codigo: identificador,
-          tamanho,
-          motivo: 'Código ou nome não encontrado'
+          codigo: identificador, cor: corInformada, tamanho,
+          motivo: corInformada ? 'Produto/cor/tamanho não encontrado' : 'Código ou nome não encontrado'
         });
         continue;
       }
@@ -250,9 +294,9 @@ router.post('/lote', (req, res) => {
         db.prepare('UPDATE variacoes SET quantidade = quantidade + ? WHERE id = ?').run(qtd, v.id);
         db.prepare("INSERT INTO movimentos_estoque (variacao_id, tipo, qtd, motivo) VALUES (?, 'entrada', ?, ?)")
           .run(v.id, qtd, motivo || 'entrada em lote');
-        processados.push({ codigo: v.codigo, nome: v.nome, tamanho, quantidade: qtd });
+        processados.push({ codigo: v.codigo, nome: v.nome, cor: v.cor, tamanho, quantidade: qtd });
       } catch (e) {
-        erros.push({ codigo: identificador, tamanho, motivo: e.message });
+        erros.push({ codigo: identificador, cor: corInformada, tamanho, motivo: e.message });
       }
     }
   });

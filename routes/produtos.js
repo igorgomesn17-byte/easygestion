@@ -9,6 +9,10 @@ const { db } = require('../db/database');
 const { sugerirPreco, analisarPreco } = require('../lib/calculos');
 const { limiteUploadPorTenant, limiteUploadFrequencia } = require('../middleware/rate-limit-custoso');
 const { exigirDentroDoLimite, exigirFeature } = require('../middleware/seguranca');
+const {
+  COR_PADRAO, normalizarCor, normalizarTamanho,
+  resolverCodigoBarras, gerarCodigoBarras, validarCodigoBarras, codigoEmUso,
+} = require('../lib/sku');
 
 // Conta produtos ativos do tenant (para o limite por plano).
 const contarProdutos = (tenantId) =>
@@ -101,18 +105,35 @@ function proximoCodigo(prefixo, tenantId = 1) {
   return prefixo + String(n).padStart(3, '0');
 }
 
-// Gera codigo de barras EAN-13 simples (prefixo 200 = uso interno) + digito verificador
-function gerarEAN13() {
-  // base: 200 + timestamp parcial + aleatorio (12 digitos), calcula verificador
-  let base = '200' + String(Date.now()).slice(-6) + String(Math.floor(Math.random() * 1000)).padStart(3, '0');
-  base = base.slice(0, 12);
-  let soma = 0;
-  for (let i = 0; i < 12; i++) {
-    soma += parseInt(base[i], 10) * (i % 2 === 0 ? 1 : 3);
+// A geracao de codigo de barras mora em lib/sku.js (gerarCodigoBarras): o codigo
+// agora e' por VARIACAO (cada cor+tamanho e' um SKU), e a mesma regra e' usada no
+// cadastro, na edicao e na entrada de estoque. Havia aqui um gerarEAN13() local
+// que so servia ao produto e nao checava colisao.
+
+// Le a grade (matriz cor x tamanho) de um ou mais produtos de uma vez.
+// Uma query so pros N produtos: o padrao N+1 aqui ja tinha sido corrigido antes.
+function gradeDe(produtoIds, { somenteComEstoque = false } = {}) {
+  const porProduto = new Map();
+  if (!produtoIds.length) return porProduto;
+  const ph = produtoIds.map(() => '?').join(',');
+  const filtro = somenteComEstoque ? 'AND quantidade > 0' : '';
+  const linhas = db.prepare(
+    `SELECT id, produto_id, cor, tamanho, quantidade, codigo_barras
+     FROM variacoes WHERE produto_id IN (${ph}) ${filtro}
+     ORDER BY produto_id, cor, id`
+  ).all(...produtoIds);
+  for (const v of linhas) {
+    if (!porProduto.has(v.produto_id)) porProduto.set(v.produto_id, []);
+    porProduto.get(v.produto_id).push({
+      id: v.id, cor: v.cor || COR_PADRAO, tamanho: v.tamanho,
+      quantidade: v.quantidade, codigo_barras: v.codigo_barras,
+    });
   }
-  const verificador = (10 - (soma % 10)) % 10;
-  return base + verificador;
+  return porProduto;
 }
+
+// As cores distintas de um produto, na ordem em que aparecem na grade.
+const coresDaGrade = (grade) => [...new Set(grade.map((g) => g.cor))];
 
 // GET /api/produtos  -> lista produtos com estoque total e grade
 router.get('/', (req, res) => {
@@ -121,8 +142,13 @@ router.get('/', (req, res) => {
   let sql = 'SELECT * FROM produtos WHERE ativo = 1 AND tenant_id = ?';
   const params = [tenantId];
   if (busca) {
-    sql += ' AND (nome LIKE ? OR codigo LIKE ? OR codigo_barras = ?)';
-    params.push(`%${busca}%`, `%${busca}%`, busca);
+    // O codigo de barras agora e' da VARIACAO (cada cor+tamanho e' um SKU), entao a
+    // busca tem que alcancar variacoes.codigo_barras — senao bipar a etiqueta no PDV
+    // nao acha mais nada. produtos.codigo_barras continua na busca pelos cadastros
+    // antigos, que ainda tem o codigo no produto.
+    sql += ` AND (nome LIKE ? OR codigo LIKE ? OR codigo_barras = ?
+                  OR id IN (SELECT produto_id FROM variacoes WHERE codigo_barras = ?))`;
+    params.push(`%${busca}%`, `%${busca}%`, busca, busca);
   }
   if (categoria) { sql += ' AND categoria = ?'; params.push(categoria); }
   if (colecao) { sql += ' AND colecao = ?'; params.push(colecao); }
@@ -131,23 +157,18 @@ router.get('/', (req, res) => {
   const ehAdmin = req.session && req.session.papel === 'admin';
   const produtos = db.prepare(sql).all(...params);
 
-  // Buscar todas as variações de uma vez (N+1 fix)
-  const produtoIds = produtos.map(p => p.id);
-  const gradePorProduto = new Map();
-  if (produtoIds.length > 0) {
-    const placeholders = produtoIds.map(() => '?').join(',');
-    const todasVariacoes = db.prepare(
-      `SELECT id, produto_id, tamanho, quantidade FROM variacoes WHERE produto_id IN (${placeholders}) ORDER BY produto_id, id`
-    ).all(...produtoIds);
-    for (const v of todasVariacoes) {
-      if (!gradePorProduto.has(v.produto_id)) gradePorProduto.set(v.produto_id, []);
-      gradePorProduto.get(v.produto_id).push({ id: v.id, tamanho: v.tamanho, quantidade: v.quantidade });
-    }
-  }
+  const gradePorProduto = gradeDe(produtos.map((p) => p.id));
 
   for (const p of produtos) {
     p.grade = gradePorProduto.get(p.id) || [];
+    p.cores = coresDaGrade(p.grade);
     p.estoque_total = p.grade.reduce((s, v) => s + v.quantidade, 0);
+    // Se a busca foi por codigo de barras e ele bate com UM SKU, devolve qual: o PDV
+    // usa isso pra jogar a peca certa no carrinho sem perguntar cor nem tamanho.
+    if (busca) {
+      const bipada = p.grade.find((g) => g.codigo_barras && g.codigo_barras === busca);
+      if (bipada) p.variacao_bipada = bipada.id;
+    }
     if (ehAdmin) p.margem = analisarPreco(p.custo, p.preco_venda);
     else { delete p.custo; }
   }
@@ -163,7 +184,8 @@ router.get('/vitrine', (req, res) => {
   if (!req.tenantId) {
     return res.json({ produtos: [], categorias: [], colecoes: [] });
   }
-  let sql = 'SELECT id, codigo, nome, categoria, cor, preco_venda, foto, colecao FROM produtos WHERE ativo = 1 AND tenant_id = ?';
+  // p.cor (do produto) esta DEPRECADA — a cor mora na variacao. Nao selecionada aqui.
+  let sql = 'SELECT id, codigo, nome, categoria, preco_venda, foto, colecao FROM produtos WHERE ativo = 1 AND tenant_id = ?';
   const params = [req.tenantId];
   if (busca) { sql += ' AND nome LIKE ?'; params.push(`%${busca}%`); }
   if (categoria) { sql += ' AND categoria = ?'; params.push(categoria); }
@@ -171,23 +193,12 @@ router.get('/vitrine', (req, res) => {
   sql += ' ORDER BY criado_em DESC';
   const produtos = db.prepare(sql).all(...params);
 
-  // Buscar variações e fotos de uma vez (N+1 fix)
   const produtoIds = produtos.map(p => p.id);
-  const gradePorProduto = new Map();
+  const gradePorProduto = gradeDe(produtoIds, { somenteComEstoque: true });
   const fotosPorProduto = new Map();
 
   if (produtoIds.length > 0) {
     const placeholders = produtoIds.map(() => '?').join(',');
-
-    // Buscar variações com estoque
-    const todasVar = db.prepare(
-      `SELECT produto_id, tamanho, quantidade FROM variacoes WHERE produto_id IN (${placeholders}) AND quantidade > 0 ORDER BY produto_id, id`
-    ).all(...produtoIds);
-    for (const v of todasVar) {
-      if (!gradePorProduto.has(v.produto_id)) gradePorProduto.set(v.produto_id, []);
-      gradePorProduto.get(v.produto_id).push({ tamanho: v.tamanho, quantidade: v.quantidade });
-    }
-
     // Buscar fotos extras. Os produtoIds ja vieram de uma listagem filtrada por tenant,
     // mas a query filtra de novo: a tabela nao deve depender de quem a chama.
     // (este handler e' o GET /vitrine, que usa req.tenantId — nao ha `tenantId` local)
@@ -204,14 +215,18 @@ router.get('/vitrine', (req, res) => {
   for (const p of produtos) {
     const grade = gradePorProduto.get(p.id) || [];
     if (grade.length === 0) continue;
-    p.tamanhos = grade.map(g => g.tamanho);
+    p.grade = grade;                       // a matriz cheia (cor x tamanho, com estoque)
+    p.cores = coresDaGrade(grade);         // as cores disponiveis desta peca
+    p.tamanhos = [...new Set(grade.map(g => g.tamanho))];  // mantido: quem so quer tamanho
     // galeria: capa (foto) + extras, na ordem. Só caminhos válidos.
     p.galeria = [p.foto, ...(fotosPorProduto.get(p.id) || [])].filter(Boolean);
     // titulo pra vitrine (A14): se o nome for o proprio codigo (cadastro sem nome),
-    // mostra Categoria + Cor pra cliente, nunca o codigo cru.
+    // mostra Categoria + Cor pra cliente, nunca o codigo cru. A cor agora vem da grade
+    // — e so entra no titulo se a peca tiver UMA cor so (com varias, o titulo mentiria).
     if (p.nome === p.codigo) {
       const cat = p.categoria ? (p.categoria.charAt(0).toUpperCase() + p.categoria.slice(1)) : 'Peça';
-      p.titulo = (cat + (p.cor ? ' ' + p.cor : '')).trim();
+      const corUnica = (p.cores.length === 1 && p.cores[0] !== COR_PADRAO) ? ' ' + p.cores[0] : '';
+      p.titulo = (cat + corUnica).trim();
     } else {
       p.titulo = p.nome;
     }
@@ -228,7 +243,9 @@ router.get('/:id', (req, res) => {
   const tenantId = req.tenantId;
   const p = db.prepare('SELECT * FROM produtos WHERE id = ? AND tenant_id = ?').get(req.params.id, tenantId);
   if (!p) return res.status(404).json({ erro: 'Produto nao encontrado' });
-  p.grade = db.prepare('SELECT id, tamanho, quantidade FROM variacoes WHERE produto_id = ? ORDER BY id').all(p.id);
+  p.grade = gradeDe([p.id]).get(p.id) || [];
+  p.cores = coresDaGrade(p.grade);
+  p.tamanhos = [...new Set(p.grade.map((g) => g.tamanho))];
   p.estoque_total = p.grade.reduce((s, v) => s + v.quantidade, 0);
   p.fotos = fotosExtrasDe(p.id, tenantId); // fotos extras da galeria (a capa fica em p.foto)
   if (req.session && req.session.papel === 'admin') p.margem = analisarPreco(p.custo, p.preco_venda);
@@ -236,52 +253,62 @@ router.get('/:id', (req, res) => {
   res.json(p);
 });
 
-// POST /api/produtos/rapido -> cadastro EXPRESSO no PDV (nome + preço + 1 tamanho)
-// Cria o produto com 1 unidade do tamanho e devolve a VARIAÇÃO pronta pro carrinho.
-// O resto (custo, categoria, foto) o admin completa depois em Produtos.
-router.post('/rapido', exigirDentroDoLimite('produtos', contarProdutos), (req, res) => {
+// POST /api/produtos/rapido -> cadastro EXPRESSO no PDV (nome + preço + 1 SKU)
+// Cria o produto com 1 unidade e devolve a VARIAÇÃO pronta pro carrinho.
+// O resto (custo, categoria, foto, outras cores) o admin completa depois em Produtos.
+router.post('/rapido', exigirDentroDoLimite('produtos', contarProdutos), (req, res, next) => {
   const tenantId = req.tenantId;
   const nome = String(req.body.nome || '').trim();
   const preco = parseFloat(req.body.preco_venda) || 0;
-  const tamanho = String(req.body.tamanho || 'U').trim().toUpperCase() || 'U';
+  const cor = normalizarCor(req.body.cor);              // sem cor -> 'Unica'
+  const tamanho = normalizarTamanho(req.body.tamanho) || 'U';
   const qtd = parseInt(req.body.quantidade, 10) || 1;
   if (!nome) return res.status(400).json({ erro: 'Informe o nome da peça' });
   if (preco <= 0) return res.status(400).json({ erro: 'Informe o preço de venda' });
 
   const codigo = proximoCodigo('PRD', tenantId);
-  const codigo_barras = gerarEAN13();
   const tx = db.transaction(() => {
-    const info = db.prepare(`INSERT INTO produtos (codigo, codigo_barras, nome, preco_venda, tenant_id) VALUES (?, ?, ?, ?, ?)`)
-      .run(codigo, codigo_barras, nome, preco, tenantId);
+    // o codigo de barras e' do SKU, nao do produto: produtos.codigo_barras fica NULL
+    // nos cadastros novos (a coluna so existe pelos antigos).
+    const codigoBarras = resolverCodigoBarras(req.body.codigo_barras, tenantId);
+    const info = db.prepare(`INSERT INTO produtos (codigo, nome, preco_venda, tenant_id) VALUES (?, ?, ?, ?)`)
+      .run(codigo, nome, preco, tenantId);
     const produtoId = info.lastInsertRowid;
-    const vinfo = db.prepare('INSERT INTO variacoes (produto_id, tamanho, quantidade, tenant_id) VALUES (?, ?, ?, ?)')
-      .run(produtoId, tamanho, qtd, tenantId);
+    const vinfo = db.prepare('INSERT INTO variacoes (produto_id, cor, tamanho, quantidade, codigo_barras, tenant_id) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(produtoId, cor, tamanho, qtd, codigoBarras, tenantId);
     if (qtd > 0) db.prepare("INSERT INTO movimentos_estoque (variacao_id, tipo, qtd, motivo) VALUES (?, 'entrada', ?, 'cadastro rápido no PDV')")
       .run(vinfo.lastInsertRowid, qtd);
-    return { produtoId, variacaoId: vinfo.lastInsertRowid };
+    return { produtoId, variacaoId: vinfo.lastInsertRowid, codigoBarras };
   });
   try {
     const r = tx();
     // devolve no formato que o PDV usa pra adicionar ao carrinho
     res.status(201).json({
       id: r.produtoId, produto_id: r.produtoId, variacao_id: r.variacaoId, codigo,
-      nome, preco_venda: preco, custo: 0, tamanho, quantidade: qtd, estoque: qtd,
-      grade: [{ id: r.variacaoId, tamanho, quantidade: qtd }]
+      nome, preco_venda: preco, custo: 0, cor, tamanho, quantidade: qtd, estoque: qtd,
+      cores: [cor],
+      grade: [{ id: r.variacaoId, cor, tamanho, quantidade: qtd, codigo_barras: r.codigoBarras }]
     });
   } catch (e) {
-    res.status(500).json({ erro: e.message });
+    if (e.status === 400) return res.status(400).json({ erro: e.message });
+    next(e);
   }
 });
 
-// POST /api/produtos  -> cadastra produto + grade
-// body: { nome, categoria, descricao, cor, custo, preco_venda, foto, fotos:[base64...], grade: [{tamanho, quantidade}] }
+// POST /api/produtos  -> cadastra o produto (o MODELO) + a matriz cor x tamanho
+// body: {
+//   nome, categoria, descricao, custo, preco_venda, foto, fotos:[base64...], colecao,
+//   grade: [{ cor, tamanho, quantidade, codigo_barras? }]   <- uma linha por SKU
+// }
+// Cada celula preenchida da matriz vira uma variacao (um SKU) com estoque e codigo
+// de barras proprios. Celula vazia (qtd 0 e sem codigo) nao vira SKU: cadastrar
+// "Vermelho / GG = 0" polui a arara com peca que a loja nem comprou.
 router.post('/', exigirDentroDoLimite('produtos', contarProdutos), limiteUploadPorTenant, limiteUploadFrequencia, (req, res, next) => {
   const tenantId = req.tenantId;
-  const { nome, categoria, descricao, cor, custo, preco_venda, foto, fotos, grade, colecao } = req.body;
+  const { nome, categoria, descricao, custo, preco_venda, foto, fotos, grade, colecao } = req.body;
 
   const prefixo = (categoria || 'PRD').slice(0, 3).toUpperCase();
   const codigo = proximoCodigo(prefixo, tenantId);
-  const codigo_barras = gerarEAN13();
 
   // Nome opcional (A14): se vazio, usa o proprio codigo gerado como nome (controle interno).
   // A vitrine mostra categoria+cor pra cliente quando nome == codigo.
@@ -295,47 +322,71 @@ router.post('/', exigirDentroDoLimite('produtos', contarProdutos), limiteUploadP
     fotoPath = resultFoto.caminho;
   }
 
+  // produtos.cor e codigos_barras nao sao mais preenchidos: os dois viraram atributo
+  // do SKU. As colunas continuam existindo so pelos cadastros antigos.
   const insertProduto = db.prepare(`
-    INSERT INTO produtos (codigo, codigo_barras, nome, categoria, descricao, cor, custo, preco_venda, foto, colecao, tenant_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO produtos (codigo, nome, categoria, descricao, custo, preco_venda, foto, colecao, tenant_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
-  const insertVar = db.prepare('INSERT INTO variacoes (produto_id, tamanho, quantidade, tenant_id) VALUES (?, ?, ?, ?)');
+  const insertVar = db.prepare('INSERT INTO variacoes (produto_id, cor, tamanho, quantidade, codigo_barras, tenant_id) VALUES (?, ?, ?, ?, ?, ?)');
   const insertMov = db.prepare("INSERT INTO movimentos_estoque (variacao_id, tipo, qtd, motivo) VALUES (?, 'entrada', ?, 'cadastro inicial')");
 
   const tx = db.transaction(() => {
-    const info = insertProduto.run(codigo, codigo_barras, nomeFinal, categoria || null, descricao || null, cor || null,
+    const info = insertProduto.run(codigo, nomeFinal, categoria || null, descricao || null,
       parseFloat(custo) || 0, parseFloat(preco_venda) || 0, fotoPath, colecao || null, tenantId);
     const produtoId = info.lastInsertRowid;
-    if (Array.isArray(grade)) {
-      for (const g of grade) {
-        if (!g.tamanho) continue;
-        const qtd = parseInt(g.quantidade, 10) || 0;
-        const vinfo = insertVar.run(produtoId, String(g.tamanho).toUpperCase(), qtd, tenantId);
-        if (qtd > 0) insertMov.run(vinfo.lastInsertRowid, qtd);
+
+    const skus = [];
+    const vistos = new Set();
+    for (const g of (Array.isArray(grade) ? grade : [])) {
+      const tamanho = normalizarTamanho(g.tamanho);
+      if (!tamanho) continue;
+      const cor = normalizarCor(g.cor);
+      const qtd = Math.max(0, parseInt(g.quantidade, 10) || 0);
+
+      // A mesma celula duas vezes estouraria o UNIQUE(produto_id, cor, tamanho) e
+      // derrubaria o cadastro inteiro. Erro claro em vez de "constraint failed".
+      const chave = `${cor}|${tamanho}`;
+      if (vistos.has(chave)) {
+        throw Object.assign(new Error(`A peça "${cor} / ${tamanho}" aparece duas vezes na grade.`), { status: 400 });
       }
+      vistos.add(chave);
+
+      const codigoBarras = resolverCodigoBarras(g.codigo_barras, tenantId);
+      const vinfo = insertVar.run(produtoId, cor, tamanho, qtd, codigoBarras, tenantId);
+      if (qtd > 0) insertMov.run(vinfo.lastInsertRowid, qtd);
+      skus.push({ id: vinfo.lastInsertRowid, cor, tamanho, quantidade: qtd, codigo_barras: codigoBarras });
     }
+    if (!skus.length) {
+      throw Object.assign(new Error('Informe pelo menos uma peça na grade (cor e tamanho).'), { status: 400 });
+    }
+
     // galeria (fotos extras)
     if (Array.isArray(fotos)) {
       const resultFotos = salvarFotosExtras(produtoId, codigo, fotos, tenantId);
       if (!resultFotos.ok) throw new Error(resultFotos.erro);
     }
-    return produtoId;
+    return { produtoId, skus };
   });
 
   try {
-    const id = tx();
-    res.status(201).json({ id, codigo, codigo_barras });
+    const { produtoId, skus } = tx();
+    res.status(201).json({ id: produtoId, codigo, grade: skus });
   } catch (e) {
+    if (e.status === 400) return res.status(400).json({ erro: e.message });
     // sobe pro handler central (server.js), que loga rota + stack. Responder 500
     // aqui engolia a causa e o erro chegava ao lojista como "Erro interno".
     next(e);
   }
 });
 
-// PUT /api/produtos/:id -> edita dados (nao mexe na grade aqui; estoque e via /api/estoque)
+// PUT /api/produtos/:id -> edita o produto e a matriz cor x tamanho
+// A grade enviada e' o estado DESEJADO: SKU novo e' criado, SKU existente tem a
+// quantidade/codigo atualizados. SKU que sumiu da matriz e' ZERADO, nao apagado —
+// ver o porque logo abaixo.
 router.put('/:id', limiteUploadPorTenant, limiteUploadFrequencia, (req, res, next) => {
   const tenantId = req.tenantId;
-  const { nome, categoria, descricao, cor, custo, preco_venda, foto, fotos, grade, colecao } = req.body;
+  const { nome, categoria, descricao, custo, preco_venda, foto, fotos, grade, colecao } = req.body;
   const p = db.prepare('SELECT id, codigo, foto FROM produtos WHERE id = ? AND tenant_id = ?').get(req.params.id, tenantId);
   if (!p) return res.status(404).json({ erro: 'Produto nao encontrado' });
 
@@ -350,37 +401,81 @@ router.put('/:id', limiteUploadPorTenant, limiteUploadFrequencia, (req, res, nex
   }
 
   const tx = db.transaction(() => {
+    // produtos.cor NAO e' mais escrita (deprecada — a cor mora na variacao).
     db.prepare(`
-      UPDATE produtos SET nome=?, categoria=?, descricao=?, cor=?, custo=?, preco_venda=?, foto=?, colecao=?
+      UPDATE produtos SET nome=?, categoria=?, descricao=?, custo=?, preco_venda=?, foto=?, colecao=?
       WHERE id=? AND tenant_id=?
-    `).run(nome, categoria || null, descricao || null, cor || null,
+    `).run(nome, categoria || null, descricao || null,
       parseFloat(custo) || 0, parseFloat(preco_venda) || 0, fotoPath, colecao || null, req.params.id, tenantId);
+
     // só mexe na galeria se 'fotos' foi enviado (undefined = não alterar)
     if (Array.isArray(fotos)) {
       const resultFotos = salvarFotosExtras(p.id, p.codigo, fotos, tenantId);
       if (!resultFotos.ok) throw new Error(resultFotos.erro);
     }
-    // atualizar grade de tamanhos/quantidades se enviada
-    if (Array.isArray(grade)) {
-      const updateVar = db.prepare('UPDATE variacoes SET quantidade = ? WHERE produto_id = ? AND tamanho = ?');
-      const insertVar = db.prepare('INSERT INTO variacoes (produto_id, tamanho, quantidade, tenant_id) VALUES (?, ?, ?, ?)');
-      for (const g of grade) {
-        if (!g.tamanho) continue;
-        const qtd = parseInt(g.quantidade, 10) || 0;
-        const tamanho = String(g.tamanho).toUpperCase();
-        // tenta atualizar; se não encontrar, cria nova variação
-        const updated = db.prepare('UPDATE variacoes SET quantidade = ? WHERE produto_id = ? AND tamanho = ?')
-          .run(qtd, req.params.id, tamanho);
-        if (updated.changes === 0) {
-          insertVar.run(req.params.id, tamanho, qtd, tenantId);
+
+    if (!Array.isArray(grade)) return;   // grade ausente = nao mexer na matriz
+
+    const existentes = db.prepare('SELECT id, cor, tamanho, quantidade, codigo_barras FROM variacoes WHERE produto_id = ?')
+      .all(p.id);
+    const porChave = new Map(existentes.map((v) => [`${v.cor}|${v.tamanho}`, v]));
+    const insertVar = db.prepare('INSERT INTO variacoes (produto_id, cor, tamanho, quantidade, codigo_barras, tenant_id) VALUES (?, ?, ?, ?, ?, ?)');
+    const insertMov = db.prepare("INSERT INTO movimentos_estoque (variacao_id, tipo, qtd, motivo) VALUES (?, 'ajuste', ?, ?)");
+
+    const enviados = new Set();
+    for (const g of grade) {
+      const tamanho = normalizarTamanho(g.tamanho);
+      if (!tamanho) continue;
+      const cor = normalizarCor(g.cor);
+      const qtd = Math.max(0, parseInt(g.quantidade, 10) || 0);
+      const chave = `${cor}|${tamanho}`;
+      if (enviados.has(chave)) {
+        throw Object.assign(new Error(`A peça "${cor} / ${tamanho}" aparece duas vezes na grade.`), { status: 400 });
+      }
+      enviados.add(chave);
+
+      const atual = porChave.get(chave);
+      if (atual) {
+        // Codigo de barras so muda se o lojista mandou um. Undefined = nao mexer
+        // (senao editar a quantidade apagaria a etiqueta ja colada na peca).
+        let codigoBarras = atual.codigo_barras;
+        if (g.codigo_barras !== undefined && String(g.codigo_barras || '').trim() !== String(atual.codigo_barras || '')) {
+          codigoBarras = resolverCodigoBarras(g.codigo_barras, tenantId, { variacaoIdIgnorar: atual.id, gerar: !atual.codigo_barras });
+        }
+        if (qtd !== atual.quantidade) {
+          db.prepare('UPDATE variacoes SET quantidade = ?, codigo_barras = ? WHERE id = ?').run(qtd, codigoBarras, atual.id);
+          // o ajuste de estoque na edicao tambem e' movimento: sem isso, o estoque
+          // muda e o historico nao sabe explicar por que.
+          insertMov.run(atual.id, qtd - atual.quantidade, 'edição do produto');
+        } else {
+          db.prepare('UPDATE variacoes SET codigo_barras = ? WHERE id = ?').run(codigoBarras, atual.id);
+        }
+      } else {
+        const codigoBarras = resolverCodigoBarras(g.codigo_barras, tenantId);
+        const vinfo = insertVar.run(p.id, cor, tamanho, qtd, codigoBarras, tenantId);
+        if (qtd > 0) {
+          db.prepare("INSERT INTO movimentos_estoque (variacao_id, tipo, qtd, motivo) VALUES (?, 'entrada', ?, 'nova peça na grade')")
+            .run(vinfo.lastInsertRowid, qtd);
         }
       }
+    }
+
+    // SKU que sumiu da matriz: ZERA o estoque, mas NAO apaga a variacao.
+    // Apagar dispararia ON DELETE CASCADE em movimentos_estoque (o historico da peca
+    // evapora) e SET NULL em venda_itens (a venda antiga perde o vinculo e o relatorio
+    // por cor passa a mentir). Zerado, o SKU some das telas de venda do mesmo jeito.
+    const zera = db.prepare('UPDATE variacoes SET quantidade = 0 WHERE id = ?');
+    for (const v of existentes) {
+      if (enviados.has(`${v.cor}|${v.tamanho}`) || v.quantidade === 0) continue;
+      zera.run(v.id);
+      insertMov.run(v.id, -v.quantidade, 'peça removida da grade');
     }
   });
   try {
     tx();
     res.json({ ok: true });
   } catch (e) {
+    if (e.status === 400) return res.status(400).json({ erro: e.message });
     next(e); // handler central loga rota + stack
   }
 });
@@ -390,6 +485,58 @@ router.delete('/:id', (req, res) => {
   const tenantId = req.tenantId;
   db.prepare('UPDATE produtos SET ativo = 0 WHERE id = ? AND tenant_id = ?').run(req.params.id, tenantId);
   res.json({ ok: true });
+});
+
+// POST /api/produtos/codigo-barras/gerar -> devolve um EAN-13 interno livre
+// O botao "gerar" da matriz chama isto pra preencher a celula ANTES de salvar
+// (o lojista ve o codigo e pode imprimir a etiqueta sabendo o que vai sair).
+router.post('/codigo-barras/gerar', (req, res, next) => {
+  try {
+    res.json({ codigo_barras: gerarCodigoBarras() });
+  } catch (e) { next(e); }
+});
+
+// POST /api/produtos/codigo-barras/verificar  body: { codigo, variacao_id? }
+// Valida o codigo que o lojista bipou/colou: formato, digito verificador e se ja
+// esta em uso por outra peca. A tela chama no blur do campo, pra avisar na hora em
+// vez de deixar o erro estourar so no salvar.
+router.post('/codigo-barras/verificar', (req, res) => {
+  const val = validarCodigoBarras(req.body.codigo);
+  if (!val.ok) return res.json({ ok: false, erro: val.erro });
+  if (!val.codigo) return res.json({ ok: true, codigo: null });
+  const varId = parseInt(req.body.variacao_id, 10) || null;
+  if (codigoEmUso(val.codigo, req.tenantId, varId)) {
+    return res.json({ ok: false, erro: `O código "${val.codigo}" já está em uso por outra peça.` });
+  }
+  res.json({ ok: true, codigo: val.codigo });
+});
+
+// GET /api/produtos/:id/etiquetas -> uma etiqueta por PEÇA em estoque
+// A tela de etiquetas imprimia N copias iguais do codigo do produto. Com SKU por
+// cor isso vira etiqueta errada na peca errada: se ha 3 pretos M e 2 vermelhos G,
+// tem que sair 3 etiquetas do SKU preto-M e 2 do vermelho-G.
+router.get('/:id/etiquetas', (req, res) => {
+  const tenantId = req.tenantId;
+  const p = db.prepare('SELECT id, codigo, nome, preco_venda, codigo_barras FROM produtos WHERE id = ? AND tenant_id = ?')
+    .get(req.params.id, tenantId);
+  if (!p) return res.status(404).json({ erro: 'Produto nao encontrado' });
+
+  const grade = gradeDe([p.id]).get(p.id) || [];
+  const etiquetas = [];
+  for (const v of grade) {
+    if (v.quantidade <= 0) continue;
+    // Cadastro antigo (pre-029) nao tem codigo no SKU: cai no codigo do produto, que
+    // e' o que esta impresso na etiqueta que ja existe. Sem fallback, a peca antiga
+    // sairia sem codigo nenhum.
+    const codigo = v.codigo_barras || p.codigo_barras || null;
+    for (let i = 0; i < v.quantidade; i++) {
+      etiquetas.push({
+        variacao_id: v.id, nome: p.nome, cor: v.cor, tamanho: v.tamanho,
+        preco_venda: p.preco_venda, codigo_barras: codigo,
+      });
+    }
+  }
+  res.json({ produto: { id: p.id, nome: p.nome, codigo: p.codigo }, etiquetas });
 });
 
 // POST /api/produtos/sugerir-preco  body: { custo }

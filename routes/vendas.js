@@ -14,6 +14,7 @@ const { cacheRelatorioPorTenant } = require('../middleware/rate-limit-custoso');
 const { schemaVenda } = require('../lib/schemas');
 const { z } = require('zod');
 const { exigirFeature } = require('../middleware/seguranca');
+const { rotuloSku } = require('../lib/sku');
 
 // O vendedor só pode CRIAR venda (POST /). Toda leitura/edição (histórico com
 // lucro/custo, detalhe, cancelamento) é exclusiva do admin. Bloqueia aqui dentro
@@ -99,7 +100,7 @@ router.post('/', (req, res) => {
 
   // Busca dados de cada item (preco, custo, estoque) e valida disponibilidade
   const getVar = db.prepare(`
-    SELECT v.id AS variacao_id, v.quantidade, v.tamanho, v.produto_id,
+    SELECT v.id AS variacao_id, v.quantidade, v.cor, v.tamanho, v.produto_id,
            p.nome, p.preco_venda, p.custo
     FROM variacoes v JOIN produtos p ON p.id = v.produto_id
     WHERE v.id = ? AND p.tenant_id = ?
@@ -116,7 +117,9 @@ router.post('/', (req, res) => {
     const qtd = valQtd.valor;
 
     if (v.quantidade < qtd) {
-      return res.status(400).json({ erro: `Estoque insuficiente: ${v.nome} tam ${v.tamanho} (tem ${v.quantidade}, pediu ${qtd})` });
+      // rotuloSku: "Vestido Amanda (Preto / M)" — sem a cor, o lojista nao sabe QUAL
+      // peca faltou quando o modelo existe em 4 cores.
+      return res.status(400).json({ erro: `Estoque insuficiente: ${rotuloSku(v.nome, v.cor, v.tamanho)} (tem ${v.quantidade}, pediu ${qtd})` });
     }
     linhas.push({ ...v, qtd, preco_unit: v.preco_venda, custo_unit: v.custo });
   }
@@ -288,7 +291,8 @@ router.post('/', (req, res) => {
     const mov = db.prepare("INSERT INTO movimentos_estoque (variacao_id, tipo, qtd, motivo) VALUES (?, 'saida', ?, ?)");
     for (const l of linhas) {
       const precoComDesconto = +(l.preco_unit * proporcaoDesconto).toFixed(2);
-      insItem.run(vendaId, req.tenantId, l.variacao_id, l.produto_id, `${l.nome} (${l.tamanho})`, l.qtd, precoComDesconto, l.custo_unit);
+      // a descricao vai pro cupom e pro historico: precisa dizer QUAL peca saiu
+      insItem.run(vendaId, req.tenantId, l.variacao_id, l.produto_id, rotuloSku(l.nome, l.cor, l.tamanho), l.qtd, precoComDesconto, l.custo_unit);
       baixa.run(l.qtd, l.variacao_id);
       mov.run(l.variacao_id, -l.qtd, `venda #${vendaId}`);
     }

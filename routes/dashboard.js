@@ -59,10 +59,10 @@ router.get('/', (req, res) => {
   // Sem o filtro de tenant, o painel de uma loja listava produtos (codigo e nome)
   // das OUTRAS lojas.
   const estoqueBaixo = db.prepare(`
-    SELECT p.codigo, p.nome, v.tamanho, v.quantidade
+    SELECT p.codigo, p.nome, v.cor, v.tamanho, v.quantidade
     FROM produtos p JOIN variacoes v ON v.produto_id = p.id
     WHERE p.ativo = 1 AND v.quantidade <= ? AND p.tenant_id = ?
-    ORDER BY v.quantidade ASC, p.nome LIMIT 12
+    ORDER BY v.quantidade ASC, p.nome, v.cor LIMIT 12
   `).all(minAlerta, req.tenantId);
   const estoqueBaixoTotal = db.prepare(`
     SELECT COUNT(*) AS n FROM produtos p JOIN variacoes v ON v.produto_id = p.id
