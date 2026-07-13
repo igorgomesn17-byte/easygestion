@@ -206,6 +206,172 @@ function migration029(db) {
   }
 }
 
+// ============================================================
+// MIGRATION 034 — o codigo do produto passa a ser unico POR LOJA
+//
+// BUG (500 no cadastro de produto, "Erro interno do servidor"): em producao a
+// tabela `produtos` e' de antes do multi-tenant e tem
+//
+//     codigo        TEXT UNIQUE NOT NULL      <- UNIQUE GLOBAL, entre TODAS as lojas
+//     codigo_barras TEXT UNIQUE               <- idem
+//
+// enquanto o schema.sql (que so vale pra banco NOVO — CREATE TABLE IF NOT EXISTS
+// nao altera tabela existente) ja diz UNIQUE(tenant_id, codigo). O codigo assume o
+// schema novo: proximoCodigo() em routes/produtos.js procura o ultimo codigo DA
+// LOJA e gera o proximo. Com a UNIQUE global, a loja B tentando cadastrar 'TES003'
+// batia no 'TES003' que a loja A ja tinha — e o INSERT morria com
+// "UNIQUE constraint failed: produtos.codigo". A loja B simplesmente nao conseguia
+// mais cadastrar produto, e o motivo estava na base de OUTRA loja.
+//
+// Nao e' so um 500: e' vazamento entre lojas. Cada loja nova encostava na anterior.
+//
+// -- POR QUE E' PERIGOSA, e o que a torna segura --
+//
+// UNIQUE inline nao sai com ALTER TABLE: a tabela precisa ser recriada. E `produtos`
+// e' referenciada por 5 FKs — DUAS delas ON DELETE CASCADE:
+//
+//   produto_fotos.produto_id     -> CASCADE   (apagaria a galeria inteira)
+//   variacoes.produto_id         -> CASCADE   (apagaria a grade... e o CASCADE de
+//                                              movimentos_estoque.variacao_id atras dela)
+//   venda_itens.produto_id       -> SET NULL  (o historico de venda perderia a peca)
+//   troca_itens.produto_id       -> SET NULL
+//   encomendas.produto_id        -> SET NULL
+//
+// Um DROP TABLE produtos com as FKs ligadas nao daria erro nenhum: levaria junto a
+// grade, as fotos e o historico de movimento, e zeraria a peca das vendas passadas.
+// As duas defesas sao as mesmas da migration 029, pelos mesmos motivos:
+//
+//   1. PRAGMA foreign_keys = OFF durante o rebuild (procedimento oficial do SQLite,
+//      sqlite.org/lang_altertable.html). Sem CASCADE, o DROP nao propaga.
+//      O PRAGMA e' IGNORADO em silencio dentro de transacao -> fica FORA do BEGIN.
+//   2. O INSERT..SELECT copia `id` EXPLICITAMENTE. Sem isso o AUTOINCREMENT renumera
+//      e variacoes/venda_itens passam a apontar pro produto ERRADO — dado mentiroso,
+//      que e' pior que dado perdido porque ninguem percebe.
+//
+// Idempotente: so roda se a UNIQUE global antiga ainda estiver la.
+// ============================================================
+function migration034(db) {
+  // A assinatura do bug: `codigo TEXT UNIQUE` na propria coluna. No schema correto
+  // a palavra UNIQUE so aparece nas constraints de tabela, no fim do CREATE.
+  const tabela = db.prepare(
+    `SELECT sql FROM sqlite_master WHERE type='table' AND name='produtos'`
+  ).get();
+  if (!tabela) return;                                   // banco sem produtos: nada a fazer
+  const temUniqueGlobal = /codigo\s+TEXT\s+UNIQUE/i.test(tabela.sql);
+  if (!temUniqueGlobal) return;                          // banco novo: ja nasceu certo
+
+  // Colisoes REAIS de (tenant_id, codigo) impediriam a UNIQUE nova de ser criada.
+  // A UNIQUE global antiga tornava isso impossivel dentro do mesmo tenant, mas
+  // conferimos antes de derrubar a tabela — falhar aqui e' falhar ANTES do DROP.
+  const dup = db.prepare(`
+    SELECT COALESCE(tenant_id, 1) t, codigo, COUNT(*) n FROM produtos
+    GROUP BY COALESCE(tenant_id, 1), codigo HAVING n > 1 LIMIT 1
+  `).get();
+  if (dup) {
+    throw new Error(`034: loja ${dup.t} tem o codigo '${dup.codigo}' repetido ${dup.n}x — resolva antes`);
+  }
+
+  const antes = db.prepare('SELECT COUNT(*) n FROM produtos').get().n;
+  const varAntes = db.prepare('SELECT COUNT(*) n FROM variacoes').get().n;
+  const movAntes = db.prepare('SELECT COUNT(*) n FROM movimentos_estoque').get().n;
+  const fotosAntes = db.prepare('SELECT COUNT(*) n FROM produto_fotos').get().n;
+  // Quantos itens de venda apontam pra um produto: se um SET NULL escapar, isto cai.
+  const itensAntes = db.prepare('SELECT COUNT(*) n FROM venda_itens WHERE produto_id IS NOT NULL').get().n;
+
+  // As colunas que a tabela REALMENTE tem hoje: `ncm` entrou por ALTER TABLE em
+  // producao e nao existe no schema.sql. Copiar uma coluna que nao existe (ou
+  // esquecer uma que existe) quebraria o INSERT..SELECT.
+  const colunas = db.prepare('PRAGMA table_info(produtos)').all().map((c) => c.name);
+  const temNcm = colunas.includes('ncm');
+
+  // FKs OFF: e' o que impede o DROP de comer variacoes, produto_fotos e o historico.
+  // FORA do BEGIN — dentro de transacao o PRAGMA e' ignorado sem avisar.
+  db.exec('PRAGMA foreign_keys = OFF;');
+  try {
+    db.exec('BEGIN IMMEDIATE;');
+    try {
+      db.exec(`
+        CREATE TABLE produtos_nova (
+          id            INTEGER PRIMARY KEY AUTOINCREMENT,
+          tenant_id     INTEGER NOT NULL DEFAULT 1,
+          codigo        TEXT NOT NULL,
+          codigo_barras TEXT,
+          nome          TEXT NOT NULL,
+          categoria     TEXT,
+          descricao     TEXT,
+          cor           TEXT,
+          custo         REAL NOT NULL DEFAULT 0,
+          preco_venda   REAL NOT NULL DEFAULT 0,
+          foto          TEXT,
+          colecao       TEXT,
+          ativo         INTEGER NOT NULL DEFAULT 1,
+          criado_em     TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+          ncm           TEXT,
+          UNIQUE(tenant_id, codigo),
+          UNIQUE(tenant_id, codigo_barras)
+        );
+      `);
+
+      // `id` copiado EXPLICITAMENTE (ver o cabecalho). tenant_id COALESCE pra 1:
+      // a coluna e' nullable na tabela antiga e NOT NULL na nova.
+      db.exec(`
+        INSERT INTO produtos_nova (id, tenant_id, codigo, codigo_barras, nome, categoria,
+                                   descricao, cor, custo, preco_venda, foto, colecao,
+                                   ativo, criado_em, ncm)
+        SELECT id, COALESCE(tenant_id, 1), codigo, codigo_barras, nome, categoria,
+               descricao, cor, custo, preco_venda, foto, colecao,
+               ativo, criado_em, ${temNcm ? 'ncm' : 'NULL'}
+        FROM produtos;
+      `);
+
+      db.exec('DROP TABLE produtos;');                   // nao propaga CASCADE: FKs OFF
+      db.exec('ALTER TABLE produtos_nova RENAME TO produtos;');
+
+      // O DROP levou os indices junto.
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_produtos_tenant ON produtos(tenant_id);
+        CREATE INDEX IF NOT EXISTS idx_produtos_tenant_categoria ON produtos(tenant_id, categoria);
+        CREATE INDEX IF NOT EXISTS idx_produtos_tenant_colecao ON produtos(tenant_id, colecao);
+      `);
+
+      // Preserva o AUTOINCREMENT: senao o proximo INSERT recicla um id ja usado e
+      // colide com o historico que aponta pra ele.
+      db.exec(`
+        INSERT OR REPLACE INTO sqlite_sequence (name, seq)
+        VALUES ('produtos', (SELECT COALESCE(MAX(id), 0) FROM produtos));
+      `);
+
+      // -- Provas, ainda DENTRO da transacao: se qualquer uma falhar, ROLLBACK. --
+      const depois = db.prepare('SELECT COUNT(*) n FROM produtos').get().n;
+      if (depois !== antes) throw new Error(`034: perdeu produto (${antes} -> ${depois})`);
+
+      const varDepois = db.prepare('SELECT COUNT(*) n FROM variacoes').get().n;
+      if (varDepois !== varAntes) throw new Error(`034: o CASCADE comeu a grade (${varAntes} -> ${varDepois})`);
+
+      const movDepois = db.prepare('SELECT COUNT(*) n FROM movimentos_estoque').get().n;
+      if (movDepois !== movAntes) throw new Error(`034: o CASCADE comeu movimentos_estoque (${movAntes} -> ${movDepois})`);
+
+      const fotosDepois = db.prepare('SELECT COUNT(*) n FROM produto_fotos').get().n;
+      if (fotosDepois !== fotosAntes) throw new Error(`034: o CASCADE comeu produto_fotos (${fotosAntes} -> ${fotosDepois})`);
+
+      const itensDepois = db.prepare('SELECT COUNT(*) n FROM venda_itens WHERE produto_id IS NOT NULL').get().n;
+      if (itensDepois !== itensAntes) throw new Error(`034: um SET NULL apagou a peca do historico de venda (${itensAntes} -> ${itensDepois})`);
+
+      const orfas = db.prepare('PRAGMA foreign_key_check').all();
+      if (orfas.length) throw new Error(`034: ${orfas.length} FK(s) orfa(s) apos o rebuild`);
+
+      db.exec('COMMIT;');
+    } catch (e) {
+      db.exec('ROLLBACK;');
+      throw e;
+    }
+  } finally {
+    // SEMPRE religa, mesmo se explodiu no meio: um servidor rodando com
+    // foreign_keys OFF aceita silenciosamente qualquer lixo referencial.
+    db.exec('PRAGMA foreign_keys = ON;');
+  }
+}
+
 function executarMigrations(db) {
   // 1. Criar tabela de controle (se não existir)
   db.exec(`
@@ -1064,6 +1230,11 @@ function executarMigrations(db) {
           semearConfigRelacionamento(db, t.id);
         }
       }
+    },
+    {
+      nome: '034_produtos_codigo_unico_por_tenant',
+      hash: 'v34-produtos-unique-tenant-codigo',
+      exec: migration034
     }
   ];
 
@@ -1096,7 +1267,7 @@ function executarMigrations(db) {
   console.log('✅ Todas as migrations executadas com sucesso');
 }
 
-// migration029 e' exportada pro teste conseguir roda-la contra um banco povoado.
-// E' a unica migration que mexe na identidade de uma tabela com 5 FKs apontando
-// pra ela — precisa de prova, nao de confianca.
-module.exports = { executarMigrations, migration029 };
+// 029 e 034 sao exportadas pros testes conseguirem roda-las contra um banco povoado.
+// Sao as duas que recriam uma tabela referenciada por 5 FKs (variacoes e produtos) —
+// rebuild com CASCADE atras precisa de prova, nao de confianca.
+module.exports = { executarMigrations, migration029, migration034 };
