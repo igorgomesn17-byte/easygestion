@@ -517,3 +517,98 @@ tbody tr:last-child td { border-bottom: none; }
   .config-subsidebar { width: 100%; position: static; flex-direction: row; flex-wrap: wrap; gap: 6px; }
   .config-subnav-item { flex: 1 1 auto; text-align: center; font-size: 0.82rem; padding: 8px 10px; }
 }
+
+/* ============================================================
+   MATRIZ COR x TAMANHO — a tela do cadastro de peça.
+   O lojista usa isso toda semana quando chega mercadoria: tem que ser rápida de
+   preencher (Tab entre células, colar da planilha), não bonita e burocrática.
+   ============================================================ */
+.matriz-wrap { overflow-x: auto; border: 1px solid var(--linha); border-radius: var(--radius-sm); background: var(--surface); }
+.matriz { border-collapse: separate; border-spacing: 0; width: 100%; box-shadow: none; font-size: 0.9rem; }
+.matriz th, .matriz td { padding: 0; border: none; }
+
+/* cabeçalho de tamanho: fica grudado no topo quando a grade é longa */
+.matriz thead th {
+  position: sticky; top: 0; z-index: 2;
+  background: var(--surface-2); color: var(--tinta-2);
+  font-weight: 600; font-size: 0.78rem; letter-spacing: 0.04em; text-transform: uppercase;
+  padding: 8px 6px; text-align: center; border-bottom: 1px solid var(--linha);
+  min-width: 62px;
+}
+/* a coluna da cor gruda na esquerda: com 8 tamanhos a tabela rola, e sem isto o
+   lojista perde de vista QUAL cor está preenchendo */
+.matriz .col-cor {
+  position: sticky; left: 0; z-index: 3;
+  background: var(--surface); border-right: 1px solid var(--linha);
+  min-width: 132px; text-align: left; padding: 6px 10px;
+}
+.matriz thead .col-cor { z-index: 4; background: var(--surface-2); }
+.matriz tbody tr:nth-child(even) td { background: var(--surface-2); }
+.matriz tbody tr:nth-child(even) .col-cor { background: var(--surface-2); }
+.matriz tbody td { border-bottom: 1px solid var(--linha); }
+
+.matriz-cor-nome { display: flex; align-items: center; gap: 6px; font-weight: 600; color: var(--tinta); }
+.matriz-cor-nome input {
+  border: 1px solid transparent; background: transparent; font-weight: 600;
+  padding: 4px 6px; border-radius: 6px; width: 100%; min-width: 90px; color: inherit; font-size: 0.9rem;
+}
+.matriz-cor-nome input:hover { border-color: var(--linha); }
+.matriz-cor-nome input:focus { border-color: var(--marca); background: var(--surface); outline: none; }
+
+/* a célula: é aqui que o dedo bate. Alvo grande, sem spinner, centralizado. */
+.matriz td.celula { padding: 3px; text-align: center; }
+.matriz .qtd {
+  width: 100%; min-width: 54px; padding: 9px 4px; text-align: center;
+  border: 1px solid var(--linha); border-radius: 6px; background: var(--surface);
+  font-size: 0.95rem; font-variant-numeric: tabular-nums; color: var(--tinta);
+  -moz-appearance: textfield; appearance: textfield;
+}
+.matriz .qtd::-webkit-outer-spin-button,
+.matriz .qtd::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.matriz .qtd:focus { border-color: var(--marca); box-shadow: 0 0 0 2px var(--marca-clara); outline: none; }
+/* célula preenchida se destaca: o lojista bate o olho e vê o que já lançou */
+.matriz .qtd.preenchida { border-color: var(--marca); background: var(--marca-clara); font-weight: 700; color: var(--marca-escura); }
+/* Célula vazia fica VAZIA de verdade. Um "0" de placeholder em toda célula não
+   preenchida vira ruído numa grade de 40 células, e ainda deixa ambíguo se é
+   "zero peças" ou "ainda não lancei". O 0 só aparece quando o lojista digita 0. */
+.matriz .qtd::placeholder { color: transparent; }
+
+/* total da linha (por cor) e da coluna (por tamanho). min-width fixo: sem ele a
+   coluna era a primeira a ser espremida quando a tabela apertava, e o cabeçalho
+   aparecia cortado ("TOTA"). */
+.matriz .total { text-align: center; font-weight: 700; color: var(--tinta-2); font-variant-numeric: tabular-nums; padding: 6px; min-width: 58px; }
+.matriz thead th:last-child, .matriz tfoot td:last-child { min-width: 58px; }
+.matriz tfoot td { background: var(--surface-2); border-top: 1px solid var(--linha-forte); font-weight: 700; }
+.matriz tfoot .col-cor { background: var(--surface-2); }
+
+/* o código de barras de cada SKU, embaixo da linha da cor */
+.matriz-codigos { padding: 0 10px 10px; }
+.sku-codigo { display: flex; align-items: center; gap: 6px; font-size: 0.76rem; padding: 3px 0; }
+.sku-codigo code { background: var(--surface-2); padding: 2px 6px; border-radius: 4px; color: var(--tinta-2); font-size: 0.74rem; }
+.sku-codigo input {
+  font-family: ui-monospace, 'Courier New', monospace; font-size: 0.76rem;
+  padding: 4px 8px; border: 1px solid var(--linha); border-radius: 6px; width: 170px;
+}
+.sku-codigo input:focus { border-color: var(--marca); outline: none; }
+.sku-codigo input.invalido { border-color: var(--vermelho); background: var(--vermelho-bg); }
+
+.btn-remover-cor {
+  border: none; background: transparent; color: var(--tinta-3); cursor: pointer;
+  font-size: 1.1rem; line-height: 1; padding: 2px 5px; border-radius: 4px; flex-shrink: 0;
+}
+.btn-remover-cor:hover { color: var(--vermelho); background: var(--vermelho-bg); }
+
+/* O .modal padrão tem max-width 540px — apertado pra uma matriz de 3 cores x 6
+   tamanhos: a coluna "Total" ficava cortada na borda. Modificador em vez de mudar o
+   .modal global, que as outras ~20 telas usam e não têm matriz nenhuma. */
+.modal.modal-largo { max-width: 860px; }
+
+.matriz-barra { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+.matriz-resumo { font-size: 0.85rem; color: var(--tinta-2); margin-top: 8px; }
+.matriz-resumo strong { color: var(--tinta); }
+
+@media (max-width: 640px) {
+  .matriz .col-cor { min-width: 104px; }
+  .matriz thead th { min-width: 52px; font-size: 0.72rem; }
+  .matriz .qtd { min-width: 44px; padding: 8px 2px; }
+}

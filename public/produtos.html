@@ -34,7 +34,8 @@
 
 
   <div class="modal-fundo" id="modalCad">
-    <div class="modal">
+    <!-- modal-largo: a matriz cor x tamanho não cabe nos 540px do modal padrão -->
+    <div class="modal modal-largo">
       <button class="modal-fechar" onclick="fecharCadastro()">&times;</button>
       <h2 id="tituloModal">Nova peça</h2>
       <input type="hidden" id="prodId">
@@ -51,14 +52,12 @@
         <label>Nome da peça *</label>
         <input type="text" id="nome" placeholder="Ex: Vestido Floral Midi">
       </div>
+      <!-- A cor saiu daqui: ela virou uma LINHA da matriz lá embaixo. Um produto é o
+           modelo ("Vestido Amanda") e pode existir em várias cores ao mesmo tempo. -->
       <div class="linha">
         <div class="campo">
           <label>Categoria</label>
           <select id="categoria"></select>
-        </div>
-        <div class="campo">
-          <label>Cor</label>
-          <input type="text" id="cor" placeholder="Ex: Vermelho">
         </div>
         <div class="campo">
           <label>Coleção</label>
@@ -88,9 +87,27 @@
 
 
       <div class="campo mt">
-        <label>Grade de tamanhos e quantidades</label>
-        <p class="texto-cinza" style="font-size:0.82rem; margin-bottom:8px;">Marque os tamanhos e informe quanto tem de cada um.</p>
-        <div id="gradeBuilder"></div>
+        <label>Grade — cor × tamanho</label>
+        <p class="texto-cinza" style="font-size:0.82rem; margin-bottom:8px;">
+          Uma linha por cor, uma coluna por tamanho. Preencha quanto chegou de cada peça.
+          <strong>Tab</strong> anda pela grade e você pode <strong>colar direto da planilha</strong>.
+        </p>
+
+        <div class="matriz-barra">
+          <input type="text" id="novaCor" placeholder="Cor (ex: Preto)" style="max-width:170px;"
+                 onkeydown="if(event.key==='Enter'){event.preventDefault();addCor();}">
+          <button class="btn btn-fino btn-escuro" type="button" onclick="addCor()">+ Cor</button>
+          <span style="width:1px;height:22px;background:var(--linha);"></span>
+          <button class="btn btn-fino btn-fantasma" type="button" onclick="editarTamanhos()">Tamanhos…</button>
+          <button class="btn btn-fino btn-fantasma" type="button" onclick="aplicarATodos()">Aplicar mesma qtd</button>
+          <label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;color:var(--tinta-2);cursor:pointer;margin-left:auto;">
+            <input type="checkbox" id="verCodigos" onchange="renderMatriz()" style="width:auto;margin:0;">
+            Códigos de barras
+          </label>
+        </div>
+
+        <div id="matrizBox"></div>
+        <div class="matriz-resumo" id="matrizResumo"></div>
       </div>
 
       <button class="btn btn-bloco mt" onclick="salvar()">Salvar peça</button>
@@ -98,6 +115,7 @@
   </div>
 
   <script src="js/comum.js"></script>
+  <script src="js/upgrade.js"></script>
   <script>
     montarLayout('produtos');
     popularSelectCategorias('categoria');
@@ -187,33 +205,321 @@
     function removerFoto(i) { galeriaFotos.splice(i, 1); renderGaleria(); }
     function tornarCapa(i) { const [f] = galeriaFotos.splice(i, 1); galeriaFotos.unshift(f); renderGaleria(); }
 
-    function montarGradeBuilder(valores = {}) {
-      const render = (lista) => lista.map(t => {
-        const q = valores[t] != null ? valores[t] : '';
-        return `<div class="chip-tam" style="cursor:default;">
-          <span class="t">${t}</span>
-          <input type="number" min="0" data-tam="${t}" value="${q}" placeholder="0"
-                 style="width:50px; padding:4px; text-align:center; margin-top:4px;">
-        </div>`;
-      }).join('');
-      document.getElementById('gradeBuilder').innerHTML = `
-        <div style="margin-bottom:6px;" class="texto-cinza">Letra</div>
-        <div class="grade-chips">${render(TAMANHOS_LETRA)}</div>
-        <div style="margin:10px 0 6px;" class="texto-cinza">Número</div>
-        <div class="grade-chips">${render(TAMANHOS_NUM)}</div>`;
+    // ============================================================
+    // A MATRIZ cor x tamanho
+    //
+    // É a tela que o lojista usa toda semana quando chega mercadoria. Uma linha por
+    // cor, uma coluna por tamanho, e a quantidade no cruzamento. O que a torna útil
+    // não é o desenho: é ser rápida de preencher (Tab anda pela grade, dá pra colar
+    // da planilha do fornecedor, "aplicar mesma qtd" preenche tudo de uma vez).
+    //
+    // Estado: MATRIZ = [{ cor, celulas: {TAM: qtd}, codigos: {TAM: ean}, ids: {TAM: variacao_id} }]
+    // `ids` só existe na edição — é o que liga a célula à variação que já está no banco.
+    // ============================================================
+    let TAMANHOS = ['PP','P','M','G','GG'];   // as colunas da matriz
+    let MATRIZ = [];                           // as linhas (uma por cor)
+
+    const COR_PADRAO = 'Unica';   // igual ao lib/sku.js do backend
+
+    function novaLinha(cor) {
+      return { cor, celulas: {}, codigos: {}, ids: {} };
     }
 
+    function addCor(nome) {
+      const campo = document.getElementById('novaCor');
+      const cor = String(nome || campo.value || '').trim();
+      if (!cor) { campo.focus(); return; }
+      // a comparação é case-insensitive: o backend normaliza "PRETO" e "preto" pra
+      // "Preto", então deixar as duas na tela criaria uma duplicata que só estoura no salvar
+      if (MATRIZ.some(l => l.cor.toLowerCase() === cor.toLowerCase())) {
+        toast('Essa cor já está na grade', 'erro');
+        return;
+      }
+      MATRIZ.push(novaLinha(cor));
+      campo.value = '';
+      renderMatriz();
+      // foca a primeira célula da cor nova: o lojista adicionou pra digitar, não pra olhar
+      const inp = document.querySelector(`#matrizBox input.qtd[data-linha="${MATRIZ.length - 1}"]`);
+      if (inp) inp.focus();
+    }
+
+    function removerCor(i) {
+      const linha = MATRIZ[i];
+      const temEstoque = Object.values(linha.celulas).some(q => q > 0);
+      const jaExiste = Object.keys(linha.ids).length > 0;
+      // Na edição, tirar a cor da tela ZERA o estoque dela no banco (não apaga a
+      // variação — isso levaria o histórico junto). Avisa, porque não é óbvio.
+      if (jaExiste && temEstoque && !confirm(`Remover "${linha.cor}" da grade vai zerar o estoque dessas peças. O histórico de vendas é preservado. Continuar?`)) return;
+      MATRIZ.splice(i, 1);
+      renderMatriz();
+    }
+
+    function editarTamanhos() {
+      const atual = TAMANHOS.join(', ');
+      const r = prompt('Tamanhos da grade, separados por vírgula:\n(ex: P, M, G, GG  —  ou  36, 38, 40, 42)', atual);
+      if (r === null) return;
+      const novos = r.split(',').map(t => t.trim().toUpperCase()).filter(Boolean);
+      if (!novos.length) { toast('Informe pelo menos um tamanho', 'erro'); return; }
+      // Tamanho que sai da grade e TEM peça lançada: avisa antes de perder o número.
+      const perdidos = TAMANHOS.filter(t => !novos.includes(t) && MATRIZ.some(l => l.celulas[t] > 0));
+      if (perdidos.length && !confirm(`Os tamanhos ${perdidos.join(', ')} têm peças lançadas e vão sair da grade. Continuar?`)) return;
+      TAMANHOS = [...new Set(novos)];
+      renderMatriz();
+    }
+
+    function aplicarATodos() {
+      if (!MATRIZ.length) { toast('Adicione uma cor primeiro', 'erro'); return; }
+      const r = prompt('Quantas peças de CADA cor e tamanho?\n(preenche a grade inteira de uma vez)', '1');
+      if (r === null) return;
+      const q = parseInt(r, 10);
+      if (isNaN(q) || q < 0) { toast('Quantidade inválida', 'erro'); return; }
+      MATRIZ.forEach(l => TAMANHOS.forEach(t => { l.celulas[t] = q; }));
+      renderMatriz();
+    }
+
+    function renderMatriz() {
+      const box = document.getElementById('matrizBox');
+      if (!MATRIZ.length) {
+        box.innerHTML = `<div class="vazio" style="padding:22px;">
+          Nenhuma cor ainda. Escreva a cor ali em cima e clique <strong>+ Cor</strong>.<br>
+          <span class="texto-cinza" style="font-size:0.85rem;">Se a peça não tem cor (uma bolsa, por exemplo), salve assim mesmo — ela entra como peça única.</span>
+        </div>`;
+        atualizarResumo();
+        return;
+      }
+
+      const verCodigos = document.getElementById('verCodigos').checked;
+      const totalCol = (t) => MATRIZ.reduce((s, l) => s + (parseInt(l.celulas[t], 10) || 0), 0);
+
+      const linhas = MATRIZ.map((l, i) => {
+        const totalLinha = TAMANHOS.reduce((s, t) => s + (parseInt(l.celulas[t], 10) || 0), 0);
+        const celulas = TAMANHOS.map(t => {
+          const v = l.celulas[t];
+          const preenchida = (parseInt(v, 10) || 0) > 0 ? 'preenchida' : '';
+          return `<td class="celula">
+            <input type="number" min="0" inputmode="numeric" class="qtd ${preenchida}"
+                   data-linha="${i}" data-tam="${esc(t)}" value="${v == null || v === '' ? '' : v}"
+                   placeholder="0" aria-label="${esc(l.cor)} tamanho ${esc(t)}">
+          </td>`;
+        }).join('');
+
+        // os códigos de barras de cada SKU dessa cor (um por tamanho preenchido)
+        let codigos = '';
+        if (verCodigos) {
+          const comPeca = TAMANHOS.filter(t => (parseInt(l.celulas[t], 10) || 0) > 0 || l.codigos[t]);
+          codigos = `<tr><td colspan="${TAMANHOS.length + 2}" class="matriz-codigos">
+            ${comPeca.length ? comPeca.map(t => `
+              <div class="sku-codigo">
+                <code>${esc(l.cor)} / ${esc(t)}</code>
+                <input type="text" placeholder="bipe ou cole o código do fornecedor"
+                       data-cod-linha="${i}" data-cod-tam="${esc(t)}"
+                       value="${esc(l.codigos[t] || '')}">
+                <button type="button" class="btn btn-fino btn-fantasma" onclick="gerarCodigo(${i}, '${esc(t)}')">Gerar</button>
+              </div>`).join('')
+              : `<span class="texto-cinza" style="font-size:0.8rem;">Lance a quantidade primeiro — o código é de cada peça (cor + tamanho).</span>`}
+            <div class="texto-cinza" style="font-size:0.76rem;margin-top:4px;">Deixe em branco e o sistema gera um código na hora de salvar.</div>
+          </td></tr>`;
+        }
+
+        return `<tr>
+          <td class="col-cor">
+            <div class="matriz-cor-nome">
+              <input type="text" value="${esc(l.cor)}" data-cor-linha="${i}" aria-label="Nome da cor">
+              <button type="button" class="btn-remover-cor" onclick="removerCor(${i})" title="Remover esta cor">&times;</button>
+            </div>
+          </td>
+          ${celulas}
+          <td class="total">${totalLinha || ''}</td>
+        </tr>${codigos}`;
+      }).join('');
+
+      const totalGeral = MATRIZ.reduce((s, l) => s + TAMANHOS.reduce((x, t) => x + (parseInt(l.celulas[t], 10) || 0), 0), 0);
+
+      box.innerHTML = `<div class="matriz-wrap"><table class="matriz">
+        <thead><tr>
+          <th class="col-cor">Cor</th>
+          ${TAMANHOS.map(t => `<th>${esc(t)}</th>`).join('')}
+          <th>Total</th>
+        </tr></thead>
+        <tbody>${linhas}</tbody>
+        <tfoot><tr>
+          <td class="col-cor" style="padding:8px 10px;">Total</td>
+          ${TAMANHOS.map(t => `<td class="total">${totalCol(t) || ''}</td>`).join('')}
+          <td class="total">${totalGeral || ''}</td>
+        </tr></tfoot>
+      </table></div>`;
+
+      ligarEventosMatriz();
+      atualizarResumo();
+    }
+
+    function ligarEventosMatriz() {
+      const box = document.getElementById('matrizBox');
+
+      box.querySelectorAll('input.qtd').forEach(inp => {
+        inp.addEventListener('input', () => {
+          const { linha, tam } = inp.dataset;
+          MATRIZ[linha].celulas[tam] = inp.value === '' ? '' : Math.max(0, parseInt(inp.value, 10) || 0);
+          // só o realce e os totais: um render inteiro aqui roubaria o foco a cada tecla
+          inp.classList.toggle('preenchida', (parseInt(inp.value, 10) || 0) > 0);
+          atualizarTotais();
+        });
+        // Colar da planilha do fornecedor: uma linha de números cai na linha da cor.
+        // É como a mercadoria chega de verdade — em lista, não digitada uma a uma.
+        inp.addEventListener('paste', (e) => {
+          const texto = (e.clipboardData || window.clipboardData).getData('text');
+          if (!texto || !/[\t\n,;]/.test(texto)) return;   // valor único: deixa o paste normal
+          e.preventDefault();
+          const valores = texto.trim().split(/[\t\n,;]+/).map(v => parseInt(v.trim(), 10));
+          const iLinha = parseInt(inp.dataset.linha, 10);
+          const iTam = TAMANHOS.indexOf(inp.dataset.tam);
+          valores.forEach((v, k) => {
+            const t = TAMANHOS[iTam + k];
+            if (t && !isNaN(v)) MATRIZ[iLinha].celulas[t] = Math.max(0, v);
+          });
+          renderMatriz();
+          toast(`${valores.filter(v => !isNaN(v)).length} valores colados`, 'sucesso');
+        });
+        // Enter desce pra próxima cor (mesmo tamanho): é como se preenche na prática,
+        // cor por cor. Sem isso o Enter submeteria o formulário.
+        inp.addEventListener('keydown', (e) => {
+          if (e.key !== 'Enter') return;
+          e.preventDefault();
+          const prox = box.querySelector(
+            `input.qtd[data-linha="${+inp.dataset.linha + 1}"][data-tam="${inp.dataset.tam}"]`
+          );
+          if (prox) { prox.focus(); prox.select(); }
+        });
+      });
+
+      // renomear a cor direto na tabela
+      box.querySelectorAll('input[data-cor-linha]').forEach(inp => {
+        inp.addEventListener('change', () => {
+          const i = inp.dataset.corLinha;
+          const novo = inp.value.trim();
+          if (!novo) { inp.value = MATRIZ[i].cor; return; }
+          if (MATRIZ.some((l, k) => k != i && l.cor.toLowerCase() === novo.toLowerCase())) {
+            toast('Essa cor já está na grade', 'erro');
+            inp.value = MATRIZ[i].cor;
+            return;
+          }
+          MATRIZ[i].cor = novo;
+          renderMatriz();
+        });
+      });
+
+      // código de barras: guarda no estado e valida no blur (avisa na hora, em vez de
+      // deixar o erro estourar só no salvar, quando o lojista já digitou a grade toda)
+      box.querySelectorAll('input[data-cod-linha]').forEach(inp => {
+        inp.addEventListener('input', () => {
+          MATRIZ[inp.dataset.codLinha].codigos[inp.dataset.codTam] = inp.value.trim();
+        });
+        inp.addEventListener('blur', async () => {
+          const codigo = inp.value.trim();
+          inp.classList.remove('invalido');
+          if (!codigo) return;
+          const l = MATRIZ[inp.dataset.codLinha];
+          try {
+            const r = await api('/produtos/codigo-barras/verificar', {
+              method: 'POST',
+              body: { codigo, variacao_id: l.ids[inp.dataset.codTam] || null },
+            });
+            if (!r.ok) { inp.classList.add('invalido'); toast(r.erro, 'erro'); }
+          } catch (e) { /* rede: o salvar valida de novo no servidor */ }
+        });
+      });
+    }
+
+    // Só os números (totais e realce). Chamado a cada tecla — não pode re-renderizar
+    // a tabela inteira, senão o input perde o foco no meio da digitação.
+    function atualizarTotais() {
+      const box = document.getElementById('matrizBox');
+      const tabela = box.querySelector('table.matriz');
+      if (!tabela) return;
+      const qtd = (l, t) => parseInt(MATRIZ[l].celulas[t], 10) || 0;
+
+      MATRIZ.forEach((l, i) => {
+        const tr = tabela.querySelector(`input.qtd[data-linha="${i}"]`)?.closest('tr');
+        const cel = tr?.querySelector('td.total');
+        if (cel) cel.textContent = TAMANHOS.reduce((s, t) => s + qtd(i, t), 0) || '';
+      });
+
+      const rodape = tabela.querySelectorAll('tfoot td.total');
+      TAMANHOS.forEach((t, k) => {
+        if (rodape[k]) rodape[k].textContent = MATRIZ.reduce((s, l, i) => s + qtd(i, t), 0) || '';
+      });
+      const geral = MATRIZ.reduce((s, l, i) => s + TAMANHOS.reduce((x, t) => x + qtd(i, t), 0), 0);
+      if (rodape[TAMANHOS.length]) rodape[TAMANHOS.length].textContent = geral || '';
+
+      atualizarResumo();
+    }
+
+    function atualizarResumo() {
+      const skus = MATRIZ.reduce((s, l) => s + TAMANHOS.filter(t => (parseInt(l.celulas[t], 10) || 0) > 0).length, 0);
+      const pecas = MATRIZ.reduce((s, l) => s + TAMANHOS.reduce((x, t) => x + (parseInt(l.celulas[t], 10) || 0), 0), 0);
+      const preco = parseFloat(document.getElementById('preco').value) || 0;
+      const el = document.getElementById('matrizResumo');
+      if (!pecas) { el.innerHTML = ''; return; }
+      el.innerHTML = `<strong>${pecas}</strong> peças em <strong>${skus}</strong> ${skus === 1 ? 'variação' : 'variações'} (cor + tamanho)`
+        + (preco > 0 ? ` • valor de venda <strong>${moeda(pecas * preco)}</strong>` : '');
+    }
+
+    async function gerarCodigo(iLinha, tam) {
+      try {
+        const r = await api('/produtos/codigo-barras/gerar', { method: 'POST' });
+        MATRIZ[iLinha].codigos[tam] = r.codigo_barras;
+        renderMatriz();
+      } catch (e) { toast('Não consegui gerar o código: ' + e.message, 'erro'); }
+    }
+
+    // Monta a matriz a partir da grade que veio do banco (edição).
+    function montarMatrizDaGrade(grade) {
+      MATRIZ = [];
+      const tamanhos = new Set();
+      (grade || []).forEach(g => {
+        tamanhos.add(g.tamanho);
+        let l = MATRIZ.find(x => x.cor === g.cor);
+        if (!l) { l = novaLinha(g.cor); MATRIZ.push(l); }
+        l.celulas[g.tamanho] = g.quantidade;
+        l.ids[g.tamanho] = g.id;
+        if (g.codigo_barras) l.codigos[g.tamanho] = g.codigo_barras;
+      });
+      // as colunas passam a ser os tamanhos que a peça REALMENTE tem, na ordem canônica
+      // (PP, P, M... e não a ordem que o banco devolveu). Tamanho fora da lista padrão
+      // (ex: "44") entra depois, senão a coluna dele sumiria da tela.
+      const ordem = [...TAMANHOS_LETRA, ...TAMANHOS_NUM];
+      const doProduto = [...tamanhos];
+      if (doProduto.length) {
+        TAMANHOS = [
+          ...ordem.filter(t => tamanhos.has(t)),
+          ...doProduto.filter(t => !ordem.includes(t)),
+        ];
+      }
+      renderMatriz();
+    }
+
+    // O que vai pro backend: uma linha por SKU.
     function coletarGrade() {
       const grade = [];
-      document.querySelectorAll('#gradeBuilder input[data-tam]').forEach(inp => {
-        const q = parseInt(inp.value, 10);
-        // ao editar: envia TODAS as quantidades (inclusive 0, pra zerar estoque)
-        // ao criar: envia só > 0 (só cria variacoes com estoque)
-        const ehEdicao = editandoId != null;
-        if (!isNaN(q) && (q > 0 || ehEdicao)) {
-          grade.push({ tamanho: inp.dataset.tam, quantidade: q });
+      const ehEdicao = editandoId != null;
+      for (const l of MATRIZ) {
+        for (const t of TAMANHOS) {
+          const q = parseInt(l.celulas[t], 10) || 0;
+          const jaExiste = l.ids[t] != null;
+          // Cadastro novo: só manda célula preenchida — criar "Vermelho/GG = 0" polui a
+          // arara com peça que a loja nem comprou.
+          // Edição: manda também as que já existem com 0, senão o backend as trata como
+          // "removidas da grade" e zera de novo (inofensivo, mas gera movimento à toa).
+          if (q > 0 || (ehEdicao && jaExiste)) {
+            grade.push({
+              cor: l.cor,
+              tamanho: t,
+              quantidade: q,
+              codigo_barras: l.codigos[t] || undefined,
+            });
+          }
         }
-      });
+      }
       return grade;
     }
 
@@ -269,12 +575,15 @@
     function abrirCadastro() {
       editandoId = null;
       document.getElementById('tituloModal').textContent = 'Nova peça';
-      ['nome','cor','custo','preco'].forEach(id => document.getElementById(id).value = '');
+      ['nome','custo','preco','novaCor'].forEach(id => document.getElementById(id).value = '');
       document.getElementById('categoria').selectedIndex = 0;
       document.getElementById('colecao').value = '';
       document.getElementById('analisePreco').innerHTML = 'Preencha custo e preço para ver o lucro real.';
+      document.getElementById('verCodigos').checked = false;
       galeriaFotos = []; renderGaleria();
-      montarGradeBuilder();
+      TAMANHOS = ['PP','P','M','G','GG'];
+      MATRIZ = [];
+      renderMatriz();
       document.getElementById('modalCad').classList.add('aberto');
     }
     function fecharCadastro() { document.getElementById('modalCad').classList.remove('aberto'); }
@@ -286,16 +595,17 @@
       // nome obrigatório só em cadastro novo; em edição é opcional (mantém o existente)
       if (!nome && !editandoId) { toast('Informe o nome da peça', 'erro'); return; }
       if (preco <= 0) { toast('Informe o preço de venda', 'erro'); return; }
+
       let grade = coletarGrade();
-      // Se é cadastro novo e grade vazia, criar variação padrão (UN = único tamanho)
+      // Peça sem cor e sem grade (uma bolsa, um cinto): vira uma peça única.
+      // O backend normaliza cor vazia pra 'Unica' — não mando cor nenhuma.
       if (!editandoId && grade.length === 0) {
-        grade = [{ tamanho: 'UN', quantidade: 1 }];
-        console.log('[DEBUG] Grade vazia, criando padrão:', grade);
+        if (MATRIZ.length) { toast('Lance a quantidade de pelo menos uma peça', 'erro'); return; }
+        grade = [{ tamanho: 'U', quantidade: 1 }];
       }
-      console.log('[DEBUG] Salvando com grade:', grade, 'editandoId:', editandoId);
+
       const dados = {
         nome, categoria: document.getElementById('categoria').value,
-        cor: document.getElementById('cor').value.trim(),
         colecao: document.getElementById('colecao').value,
         custo, preco_venda: preco, grade
       };
@@ -322,15 +632,15 @@
       document.getElementById('tituloModal').textContent = 'Editar: ' + p.nome;
       document.getElementById('nome').value = p.nome;
       document.getElementById('categoria').value = p.categoria || 'outro';
-      document.getElementById('cor').value = p.cor || '';
       document.getElementById('colecao').value = p.colecao || '';
       document.getElementById('custo').value = p.custo;
       document.getElementById('preco').value = p.preco_venda;
+      document.getElementById('novaCor').value = '';
+      document.getElementById('verCodigos').checked = false;
       // carrega a galeria: capa (p.foto) + extras (p.fotos)
       galeriaFotos = [p.foto, ...(p.fotos || [])].filter(Boolean);
       renderGaleria();
-      const valores = {}; p.grade.forEach(g => valores[g.tamanho] = g.quantidade);
-      montarGradeBuilder(valores);
+      montarMatrizDaGrade(p.grade);
       recalcular();
       document.getElementById('modalCad').classList.add('aberto');
     }
@@ -350,8 +660,22 @@
       const totVenda = lista.reduce((s,p)=>s+p.preco_venda*p.estoque_total,0);
       const resumo = `<div class="card" style="background:var(--surface-2,#F3EDE5);"><strong>${lista.length}</strong> peças cadastradas${col?` em <strong>${esc(col)}</strong>`:''} • <strong>${totPecas}</strong> em estoque • venda potencial <strong>${moeda(totVenda)}</strong></div>`;
       div.innerHTML = resumo + lista.map(p => {
-        const chips = p.grade.map(g => `<div class="chip-tam ${g.quantidade === 0 ? 'zerado' : ''}">
-          <span class="t">${g.tamanho}</span><span class="q">${g.quantidade}</span></div>`).join('');
+        // A grade agora é uma matriz: agrupa os chips por COR, senão "M 3" e "M 2"
+        // aparecem lado a lado sem dizer qual peça é qual.
+        const porCor = new Map();
+        (p.grade || []).forEach(g => {
+          if (!porCor.has(g.cor)) porCor.set(g.cor, []);
+          porCor.get(g.cor).push(g);
+        });
+        const chips = [...porCor.entries()].map(([cor, vars]) => {
+          const tags = vars.map(g => `<div class="chip-tam ${g.quantidade === 0 ? 'zerado' : ''}">
+            <span class="t">${esc(g.tamanho)}</span><span class="q">${g.quantidade}</span></div>`).join('');
+          // "Unica" é o placeholder de quem não tem cor: não vale mostrar pro lojista.
+          const rotulo = cor && cor !== 'Unica'
+            ? `<span class="texto-cinza" style="font-size:0.78rem;min-width:74px;">${esc(cor)}</span>` : '';
+          return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">
+            ${rotulo}<div class="grade-chips">${tags}</div></div>`;
+        }).join('');
         const lucro = p.margem ? p.margem.lucro : 0;
         const fotoTag = p.foto
           ? `<img src="/${p.foto}" style="width:54px;height:54px;border-radius:8px;object-fit:cover;flex-shrink:0;">`
@@ -364,7 +688,11 @@
                 <strong style="font-size:1.05rem;">${esc(p.nome)}</strong>
                 <span class="badge badge-dourado">${esc(p.codigo)}</span>
                 ${p.categoria ? `<span class="texto-cinza"> • ${esc(p.categoria)}</span>` : ''}
-                ${p.cor ? `<span class="texto-cinza"> • ${esc(p.cor)}</span>` : ''}
+                ${(() => {
+                  // as cores vêm da grade (p.cores), não mais de um campo do produto.
+                  const cores = (p.cores || []).filter(c => c && c !== 'Unica');
+                  return cores.length ? `<span class="texto-cinza"> • ${esc(cores.join(', '))}</span>` : '';
+                })()}
                 ${p.colecao ? `<br><span class="badge" style="background:var(--marrom,#6B5849);color:#fff;font-size:0.7rem;">${esc(p.colecao)}</span>` : ''}
               </div>
             </div>
@@ -373,7 +701,7 @@
               <div class="texto-cinza" style="font-size:0.8rem;">custo ${moeda(p.custo)} • lucro ${moeda(lucro)}</div>
             </div>
           </div>
-          <div class="grade-chips mt">${chips || '<span class="texto-cinza">sem grade</span>'}</div>
+          <div class="mt">${chips || '<span class="texto-cinza">sem grade</span>'}</div>
           <div class="mt flex-entre">
             <span class="texto-cinza" style="font-size:0.85rem;">Total em estoque: <strong>${p.estoque_total}</strong> peças</span>
             <div style="display:flex; gap:8px;">
@@ -411,7 +739,7 @@
       { seletor: '#nome', texto: 'Dê um nome para a peça. Ex: "Vestido Floral Midi".', posicao: 'right' },
       { seletor: '#custo', texto: 'Quanto você pagou por essa peça?', posicao: 'right' },
       { seletor: '#preco', texto: 'Por quanto você vai vender? Clique em "Sugerir preço" se não souber.', posicao: 'right' },
-      { seletor: '#gradeBuilder', texto: 'Marque os tamanhos que você tem em estoque e quantas peças de cada.', posicao: 'top' },
+      { seletor: '#matrizBox', texto: 'Adicione as cores que você tem dessa peça e preencha quanto chegou de cada tamanho. Uma linha por cor.', posicao: 'top' },
       { seletor: 'button[onclick="salvar()"]', texto: 'Pronto! Clique aqui para salvar sua primeira peça.', posicao: 'top' },
     ];
 
