@@ -787,12 +787,14 @@
       carregarAssinaturas();
     }
 
-    // Catálogo de planos (Starter/Growth) buscado uma vez da fonte da verdade.
+    // Catálogo de planos ATRIBUÍVEIS pelo admin — inclui os que não estão à venda
+    // (enterprise congelado, interno). /api/assinaturas/planos só lista os públicos
+    // e esconderia o plano interno do próprio dono.
     let CATALOGO_PLANOS = [];
     async function garantirCatalogoPlanos() {
       if (CATALOGO_PLANOS.length) return;
       try {
-        const r = await fetch('/api/assinaturas/planos', { credentials: 'include' });
+        const r = await fetchAdmin('/planos');
         const d = await r.json();
         CATALOGO_PLANOS = d.planos || [];
       } catch (e) { CATALOGO_PLANOS = []; }
@@ -804,7 +806,6 @@
 
       const sel = document.getElementById('editPlanoSelect');
       sel.innerHTML = CATALOGO_PLANOS.map(p => `<option value="${p.id}">${p.nome}</option>`).join('');
-      // Pré-seleciona o plano atual, se for um dos vendáveis
       if (CATALOGO_PLANOS.some(p => p.id === planoAtual)) sel.value = planoAtual;
       document.getElementById('editPlanoCiclo').value = 'mensal';
       document.getElementById('editPlanoAssinaturaId').value = id;
@@ -815,11 +816,18 @@
     function atualizarPreviaPlano() {
       const plano = CATALOGO_PLANOS.find(p => p.id === document.getElementById('editPlanoSelect').value);
       const ciclo = document.getElementById('editPlanoCiclo').value;
+      const previa = document.getElementById('editPlanoPrevia');
       if (!plano) return;
+      // Plano sem preço (interno) não é cobrado: mostrar "R$ 0,00/mês" faria parecer
+      // que a cobrança está quebrada.
+      if (!plano.preco_mensal && !plano.preco_anual) {
+        previa.textContent = `Cliente ficará no ${plano.nome} — sem cobrança (uso próprio).`;
+        return;
+      }
       const valor = ciclo === 'anual'
         ? `R$ ${plano.preco_anual.toLocaleString('pt-BR',{minimumFractionDigits:2})}/ano`
         : `R$ ${plano.preco_mensal.toLocaleString('pt-BR',{minimumFractionDigits:2})}/mês`;
-      document.getElementById('editPlanoPrevia').textContent = `Cliente ficará no ${plano.nome} — ${valor}.`;
+      previa.textContent = `Cliente ficará no ${plano.nome} — ${valor}.`;
     }
 
     function salvarPlano() {

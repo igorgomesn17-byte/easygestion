@@ -15,7 +15,7 @@ const { exigirPapel, verificarSenha, hashSenha, limiteAdminPassword } = require(
 const { auditarAcao, buscarAuditoria } = require('../middleware/auditoria');
 const { enviarEmail, templateContaBloqueada, templateContaReativada } = require('../lib/email');
 const { obterStatusAssinatura } = require('../lib/assinatura');
-const { definicaoPlano, normalizarPlano, PLANOS } = require('../lib/planos');
+const { definicaoPlano, normalizarPlano, PLANOS, planosAtribuiveis } = require('../lib/planos');
 const router = express.Router();
 
 // --- Middleware: só admin acessa o backoffice ---
@@ -670,6 +670,14 @@ router.get('/assinaturas', exigirAdminBackoffice, (req, res) => {
     console.error('[ADMIN] Erro ao buscar assinaturas:', err);
     return res.status(500).json({ erro: 'Erro ao buscar assinaturas' });
   }
+});
+
+// --- GET /planos → planos que o admin pode ATRIBUIR manualmente ---
+// Diferente de GET /api/assinaturas/planos (público), que só lista os vendáveis:
+// aqui entram também os que não estão à venda (enterprise congelado, interno).
+// Sem isto, o dropdown do backoffice não ofereceria o plano interno ao próprio dono.
+router.get('/planos', exigirAdminBackoffice, (req, res) => {
+  res.json({ planos: planosAtribuiveis() });
 });
 
 // --- PATCH /assinaturas/:id → atualizar plano de assinatura (upgrade/downgrade) ---

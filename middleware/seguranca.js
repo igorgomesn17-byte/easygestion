@@ -140,11 +140,18 @@ function validarTenantAtivo(req, res, next) {
 
   const { db } = require('../db/database');
   const { obterStatusAssinatura } = require('../lib/assinatura');
-  const tenant = db.prepare('SELECT status FROM tenants WHERE id = ?').get(req.session.tenant_id);
+  const { normalizarPlano } = require('../lib/planos');
+  const tenant = db.prepare('SELECT status, plano FROM tenants WHERE id = ?').get(req.session.tenant_id);
 
   if (!tenant) {
     return res.status(400).json({ erro: 'Tenant não encontrado' });
   }
+
+  // Plano interno (uso próprio do dono): não tem assinatura no Stripe nem data de
+  // renovação, então obterStatusAssinatura o veria como 'vencida' e o expulsaria pra
+  // /planos.html — dentro do sistema dele mesmo. Só o bloqueio manual do admin
+  // (status='bloqueado', logo abaixo) continua valendo; a régua de cobrança, não.
+  const ehInterno = normalizarPlano(tenant.plano) === 'interno';
 
   // ✅ CRÍTICO: Se tenant foi bloqueado, destruir sessão e negar acesso
   if (tenant.status === 'bloqueado') {
@@ -160,7 +167,7 @@ function validarTenantAtivo(req, res, next) {
 
   // Verificar se trial venceu ou assinatura está vencida (bloqueia acesso)
   // NOTA: trial ativo NÃO bloqueia — cliente pode usar normalmente e fazer upgrade quando quiser
-  const statusAssinatura = obterStatusAssinatura(req.session.tenant_id);
+  const statusAssinatura = ehInterno ? { status: 'ativa', bloqueado: false } : obterStatusAssinatura(req.session.tenant_id);
   if (statusAssinatura.status === 'vencida' || statusAssinatura.bloqueado) {
     // Se for uma requisição API, retornar erro
     if (req.path.startsWith('/api')) {
