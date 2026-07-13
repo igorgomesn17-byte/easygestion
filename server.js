@@ -365,7 +365,6 @@ app.use('/api/backup',        apenasAdmin, require('./routes/backup'));
 app.use('/api/usuarios',      apenasAdmin, require('./routes/usuarios'));
 app.use('/api/auditoria',     apenasAdmin, require('./routes/auditoria'));  // LGPD: logs de ações
 app.use('/api/assinaturas',   require('./routes/assinaturas'));  // cliente pode ver sua, admin vê todas
-app.use('/api/pagamentos',    require('./routes/pagamentos'));   // Stripe checkout + webhook
 
 // ---------- Arquivos estáticos (telas + fotos no disco persistente) ----------
 const UPLOADS_DIR = process.env.UPLOADS_DIR || path.join(__dirname, 'public', 'img', 'produtos');
