@@ -221,12 +221,14 @@ EASYGESTION/
 │   ├── auditoria.html          # Consulta de logs
 │   ├── admin-dashboard.html    # Backoffice SaaS (clientes, planos, cobranças)
 │   ├── admin-login.html / admin-2fa*.html  # Login admin + 2FA
-│   ├── landing.html            # Landing pública (marketing, Playfair+Poppins)
+│   ├── landing-v2.html         # Landing pública OFICIAL (servida em / — Playfair+Poppins)
+│   ├── landing.html            # Landing antiga (backup, acessível em /landing.html)
 │   ├── vitrine/                # Vitrine pública por slug (index.html, css/, js/)
 │   ├── css/ds.css              # Design system único
 │   ├── img/                    # Logo, ícones, marca
 │   └── [30+ mais templates]
 │   # NOTA: dre.html NÃO existe (o DRE mora em fluxo.html); inbox.html foi deletado
+│   # NOTA: / serve landing-v2.html (server.js); pdv.html usa cards de catálogo
 │
 ├── tests/                       # Testes
 │   ├── golden-path.test.js     # Teste de fluxo completo
@@ -1342,4 +1344,60 @@ Varredura pra remover o que não existe mais. Corrigido:
 
 ---
 
-**Documento versão 1.5 — Atualizado em 7 de julho de 2026. Auditoria doc × código: removido o que não existe mais (Inbox, dre.html, deploy Render). Trial no Growth; admin muda plano. Stripe ainda em modo TEST.**
+## Últimas Mudanças (7 de julho de 2026 — noite) — Landing v2, PDV em cards, DRE redesenhado, 2 erros de prod corrigidos
+
+**Commits:** `5605f4c` (landing v2) e `ef0bb90` (DRE + PDV + erros). No ar em produção.
+
+- **Landing nova é a oficial:** `public/landing-v2.html` (redesign editorial refinado, Playfair+Poppins, verde/dourado, representações fiéis das telas em SVG/CSS, preços dinâmicos via `GET /api/assinaturas/planos` com toggle mensal/anual, faixa de confiança em marquee, hovers, reveal com fallback). `server.js` `GET /` passou a servir `landing-v2.html`; a **antiga `landing.html` virou backup** acessível em `/landing.html`. Regras de conteúdo desta landing: sem número de clientes inventado (confiança = garantias reais), sem travessão "—", sem "ERP" nem "interior" na copy.
+- **PDV em cards (`public/pdv.html`):** a lista horizontal de produtos virou **grade de cards quadrados com foto** (padrão reaproveitado da vitrine, classes `.cat-card*`), e o **catálogo aparece SEMPRE ao abrir** (`carregarCatalogo('')` no load; a busca só filtra). A foto do produto foi movida pro modal de tamanho. Carrinho, pagamento e leitor de código de barras (pistola/Enter) permanecem intactos.
+- **DRE redesenhado (`public/fluxo.html`):** a tela "DRE" do menu ganhou visual novo (3 cards-chave Faturamento/Custos+taxas/Resultado-com-margem, o gráfico "cada R$100" reaproveitado de `montarComposicao`, DRE detalhada + alertas). Backend e cálculos inalterados. Bug corrigido: `exportar()` tinha condição invertida que bloqueava a exportação CSV.
+- **Erro Stripe "Cliente não encontrado" (corrigido):** `GET /api/assinaturas/minha` agora expõe `tem_stripe`; o botão "Gerenciar Pagamento" (`assinatura.html`) só aparece pra quem tem customer no Stripe; `GET /api/assinaturas/portal` devolve **409 + redirect** (não 500) pra quem não tem customer (via `err.code='SEM_CUSTOMER'` em `lib/stripe.js`), sem logar como erro fatal. Assinatura pode estar "ativa" (por data) sem Stripe (trial/cadastro manual) — esse caso agora é tratado.
+- **Erro `SQLite parameter 2` (corrigido na raiz):** o handler central de erro (`server.js`) passou a logar **stack + método/rota** (antes só `err.message`, escondendo a origem). Isso revelou a causa: `routes/config.js` `lojaPublica` (rota pública `/api/loja-publica`) passava `req.tenantId` **undefined** ao 2º `?` da query em acesso **anônimo**. Corrigido com guard `if (!req.tenantId) return res.json({})`. Verificado em produção: zero ocorrências após o deploy. **Padrão útil:** erro genérico de bind do SQLite → instrumentar o log central com stack antes de adivinhar.
+
+---
+
+## Últimas Mudanças (13 de julho de 2026) — Relacionamento + Clube de fidelidade (plano `interno`)
+
+Portados do sistema legado da DS Store (`DS STORE - OS/07-OPERACOES/DS-SISTEMA`). **O `lib/crm.js` já estava no repo, copiado num port anterior e órfão** (ninguém importava) — o trabalho foi ligar e consertar, não escrever.
+
+### O que é
+
+- **Régua de relacionamento** — NÃO é automação de envio. É a *lista de tarefas de contato do dia*: o sistema varre a base, olha há quantos dias cada cliente não compra, e monta uma fila de cards com a **mensagem já pronta**. O envio é um clique humano no `wa.me`. Gatilhos: dia 0 (boas-vindas + clube), 3 (satisfação), 5 (Google), 10 (indicação), 18-22 (recompra), 28-32/58-62/88-92 (reativação em 3 ondas), aniversário (e 3 dias antes), datas comerciais, lançamento.
+- **Matriz RFM** — 8 segmentos (campeãs, fiéis, novas, promissoras, atenção, risco, perdidas, hibernando). Não cria tarefa; **tempera a prioridade** da régua (cliente "em risco" sobe na fila; "fiel" recente é despriorizada na reativação) e alimenta a tela de campanha por segmento.
+- **Clube de selos** — cartão de carimbo digital: a cada R$ X gastos, 1 selo; N selos completam o cartão e viram um **vale-crédito de verdade** (tabela `vales`), emitido **dentro da transação da venda**. Não é pontos, não é cashback.
+
+### Plano `interno` (novo tier)
+
+Em `lib/planos.js`: tudo `true`, preço 0, **fora de `PLANOS_PUBLICOS`** (mesmo padrão do enterprise congelado). Não tem Price ID — `ehVendavel()` barra no checkout. É onde mora a feature `relacionamento` enquanto ela não vira produto; **pra vender, basta ligar `relacionamento: true` no growth**. Atribuível só pelo admin (`GET /api/admin/planos` → `planosAtribuiveis()`; o dropdown lia `planosPublicos()` e esconderia o interno do próprio dono).
+
+Três lugares assumiam que todo tenant paga e precisaram de guarda: `middleware/seguranca.js` (expulsaria o dono pra `/planos.html`), `cobranca-scheduler` (bloquearia a conta), `lib/stripe.js` (checkout + webhook).
+
+### Armadilhas que o port tinha (e o que as resolveu)
+
+| Problema | Solução |
+|---|---|
+| `lib/crm.js` era single-tenant: `SELECT * FROM clientes` **sem `WHERE tenant_id`**, e `getConfig()` sem o 3º arg (que tem `tenantId = 1` de default) → uma loja veria os clientes de todas | Toda função recebe `tenantId` como 1º parâmetro **obrigatório**; `exigirTenant()` derruba se faltar. Provado por `tests/crm-tenant.test.js` |
+| Sem cron, gatilho de dia exato (3, 5, 10) se **perdia pra sempre** se a tela não fosse aberta | `lib/relacionamento-scheduler.js` (06:00, **itera tenants**) materializa em `crm_acoes`. Deu snooze + histórico + badge de graça |
+| Cancelar venda devolve `total_gasto` → **os selos diminuem** → controle ingênuo reemitiria o prêmio | Idempotência por **high-water mark** (`MAX(clube_ciclo)`), que nunca anda pra trás |
+| Prêmio pago com o próprio vale geraria selo novo → **a loja financia a própria fidelidade** | `clientes.gasto_sem_selo` (anti-farming). O cancelamento reverte os dois campos juntos |
+| **BUG PRÉ-EXISTENTE:** `setConfig` gravava sem invalidar o cache (TTL 5 min) → a lojista mudava a taxa do cartão e o PDV usava a antiga por 5 minutos, em silêncio | `setConfig` agora atualiza o cache. Vale pra **todas** as configs |
+
+### Arquivos
+
+- `lib/crm.js` (motor: régua + RFM + selos), `lib/crm-templates.js` (as 17 mensagens viraram **dados**, sem "DS Lover" hardcoded), `lib/clube.js` (emissão do prêmio), `lib/relacionamento-scheduler.js`, `lib/config-relacionamento.js` (defaults compartilhados migration↔signup)
+- `routes/relacionamento.js` — gate `exigirFeature('relacionamento')` **no `app.use`**, não rota a rota
+- Telas: `relacionamento.html` (contatos do dia), `segmentos.html`, `clube.html` (config + editor dos templates)
+- Migrations **030-033** (todas em `db/migrations.js`, nunca no schema.sql)
+- Testes: `npm run test:crm` (isolamento cross-tenant), `npm run test:clube` (idempotência, high-water, anti-farming, divisão por zero)
+
+### Menu por feature
+
+`public/js/comum.js`: itens do `NAV` carregam `feature`, e `montarLayout` esconde quem o plano não tem (`/api/me` já devolvia `me.features`). **Esconde em vez de mostrar bloqueado** — o card de upgrade leva ao checkout do Growth, que não entrega a feature. Corrigido no caminho um bug latente: a limpeza de títulos de grupo vazios olhava `nextElementSibling` esperando um `.nav-link`, mas o irmão é o container `.nav-grupo-items` — o título nunca sumia.
+
+### O que NÃO foi feito (de propósito)
+
+**Motor de cupom.** Os `VOLTE20`/`SAUDADE25`/`ANIV10` são **só texto na mensagem** — não existe tabela de cupom nem validação no PDV. Na DS era combinado verbal com a cliente. Não construir em cima disso sem decidir fazer o motor de verdade.
+
+---
+
+**Documento versão 1.7 — Atualizado em 13 de julho de 2026. Relacionamento (régua + RFM) e Clube de selos no ar, gated no novo plano `interno`. Landing v2 é a oficial (`/` serve `landing-v2.html`). PDV em cards. DRE redesenhado. Stripe em modo LIVE (ver memória `stripe-live-no-ar-2026-07-08`).**
