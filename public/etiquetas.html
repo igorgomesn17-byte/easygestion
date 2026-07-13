@@ -1,120 +1,338 @@
-<DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Etiqueta de produto • EasyGestão</title>
+  <title>Etiquetas • EasyGestão</title>
   <link rel="stylesheet" href="css/ds.css">
   <style>
-    .container-etiquetas { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; padding: 20px; max-width: 220mm; margin: 0 auto; }
-    .etiqueta {
-      width: 100mm; height: 50mm;
-      background: #fff; border: 1px solid #ddd; border-radius: 4px;
-      padding: 6mm; display: flex; flex-direction: column; justify-content: space-between;
-      font-family: 'Courier New', monospace; font-size: 12px; box-sizing: border-box;
-    }
-    .etiqueta .loja { font-size: 9px; color: #666; text-align: center; margin-bottom: 4px; font-weight: 600; }
-    .etiqueta .nome { font-size: 11px; font-weight: 700; text-align: center; margin-bottom: 6px; line-height: 1.2; }
-    .etiqueta .barcode { text-align: center; margin: 6px 0; }
-    .etiqueta .barcode img { height: 22mm; max-width: 90mm; }
-    .etiqueta .preco { font-size: 16px; font-weight: 700; text-align: center; color: #000; }
+    /* ============================================================
+       ETIQUETAS — a geometria vem do ROLO, não do papel A4.
 
-    .controles { background: #f9fbfa; padding: 20px; border-bottom: 1px solid #e0e8e5; position: sticky; top: 0; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-    .controles input { padding: 8px 12px; border: 1px solid #d0dcd7; border-radius: 6px; font-size: 14px; }
-    .controles label { display: flex; align-items: center; gap: 6px; font-weight: 500; }
+       Rolo duplo (o mais comum em loja de roupa): o papel tem 100mm de largura e
+       75mm de altura, com DUAS etiquetas de 50mm lado a lado. Ou seja:
+         - cada etiqueta  = 50 x 75mm
+         - a FOLHA (@page) = 100 x 75mm  ← é o PAR, não uma etiqueta
+         - quebra de página a cada 2 etiquetas
+
+       Errar isso não é detalhe estético: a impressora térmica corta a etiqueta ao
+       meio e o rolo inteiro vira lixo. Por isso `margin: 0` e o `size` exato.
+
+       Tudo é dirigido por variáveis CSS, e o seletor de formato só as troca — sem
+       isso, cada lojista com um rolo diferente precisaria de outra versão do CSS.
+       ============================================================ */
+    :root {
+      --et-larg: 50mm;   /* uma etiqueta */
+      --et-alt: 75mm;
+      --et-cols: 2;      /* quantas cabem lado a lado no papel */
+    }
+
+    .folha {
+      display: grid;
+      grid-template-columns: repeat(var(--et-cols), var(--et-larg));
+      width: calc(var(--et-larg) * var(--et-cols));
+      margin: 18px auto;
+      background: #fff;
+      box-shadow: 0 1px 3px rgba(0,0,0,.1), 0 8px 24px rgba(0,0,0,.05);
+    }
+
+    .etiqueta {
+      width: var(--et-larg); height: var(--et-alt);
+      box-sizing: border-box;
+      padding: 3mm 2.5mm;
+      display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+      text-align: center;
+      border: 1px dashed #d5d9d7;   /* a linha de corte. Some na impressão. */
+      overflow: hidden;
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      color: #000;
+      background: #fff;
+    }
+
+    /* Hierarquia: de longe a cliente lê o PREÇO; no balcão a vendedora lê o nome e a
+       variação. O código de barras é pra máquina. */
+    .etiqueta .marca { max-height: 11mm; display: flex; align-items: center; justify-content: center; }
+    .etiqueta .marca img { max-height: 11mm; max-width: 40mm; object-fit: contain; }
+    .etiqueta .marca .txt {
+      font-family: Georgia, 'Times New Roman', serif; font-weight: 700;
+      letter-spacing: 2px; font-size: 10pt; line-height: 1.1; text-transform: uppercase;
+    }
+    .etiqueta .nome {
+      font-size: 8pt; line-height: 1.25; font-weight: 600;
+      display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+      overflow: hidden; width: 100%;
+    }
+    /* cor + tamanho: é o que distingue ESTA peça da idêntica ao lado na arara.
+       Fica em caixa, destacado — a vendedora confere sem óculos, na correria. */
+    .etiqueta .variacao {
+      font-size: 8.5pt; font-weight: 700; letter-spacing: .03em;
+      border: 1px solid #000; border-radius: 3px; padding: .4mm 2mm;
+    }
+    .etiqueta .cod { font-size: 6.5pt; color: #555; letter-spacing: .05em; }
+    .etiqueta .barcode { display: flex; align-items: center; justify-content: center; width: 100%; }
+    .etiqueta .barcode img { max-width: 44mm; max-height: 20mm; object-fit: contain; }
+    .etiqueta .sem-codigo { font-size: 6.5pt; color: #999; }
+    .etiqueta .preco { font-size: 15pt; font-weight: 800; line-height: 1; letter-spacing: -.01em; }
+
+    /* linha de ajuste por SKU (quantas etiquetas de cada peça) */
+    .sku-linha { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--linha); }
+    .sku-linha:last-child { border-bottom: none; }
+    .sku-linha .rot { min-width: 130px; font-weight: 600; font-size: 0.9rem; }
+    .sku-linha .est { font-size: 0.8rem; color: var(--tinta-2); }
+    .sku-linha input { width: 66px; text-align: center; padding: 6px; }
 
     @media print {
-      @page { size: 210mm 297mm; margin: 0; }
-      .controles, .nao-imprime { display: none !important; }
-      body { background: #fff; }
-      .container-etiquetas { padding: 0; gap: 0; grid-template-columns: repeat(2, 105mm); }
-      .etiqueta { border: none; border-radius: 0; margin: 0; page-break-inside: avoid; }
+      /* A folha é o PAR de etiquetas (o papel do rolo), não A4. */
+      @page { size: calc(var(--et-larg) * var(--et-cols)) var(--et-alt); margin: 0; }
+      html, body { background: #fff; margin: 0; padding: 0; }
+      .sidebar, .topbar, .topo, .menu, h1, .subtitulo, .nao-imprime { display: none !important; }
+      .app, .main, #main-conteudo, .conteudo {
+        display: block !important; margin: 0 !important; padding: 0 !important; max-width: none !important;
+      }
+      .folha { margin: 0; box-shadow: none; width: auto; }
+      .etiqueta { border: none; page-break-inside: avoid; break-inside: avoid; }
+      /* Corta a folha ao fim de cada LINHA do rolo. `nth-child(var(--et-cols)n)` não
+         existe — o CSS não aceita variável dentro de nth-child. Por isso a classe
+         .cols-N no container, e uma regra explícita por formato. */
+      .folha.cols-1 .etiqueta:nth-child(1n) { page-break-after: always; }
+      .folha.cols-2 .etiqueta:nth-child(2n) { page-break-after: always; }
+      .folha.cols-3 .etiqueta:nth-child(3n) { page-break-after: always; }
+      /* a última não precisa de quebra: evita cuspir uma folha em branco no fim */
+      .folha .etiqueta:last-child { page-break-after: auto; }
     }
   </style>
 </head>
 <body>
-  <div class="controles nao-imprime">
-    <label style="display:flex;align-items:center;gap:6px;">
-      <input type="checkbox" id="umaPorPeca" checked onchange="carregar()" style="width:auto;">
-      Uma etiqueta por peça em estoque
-    </label>
-    <div id="boxCopias" style="display:none;">
-      <label>Cópias de cada peça:</label>
-      <input type="number" id="quantidade" value="1" min="1" max="100" style="width: 60px;">
+  <div class="conteudo">
+    <div class="flex-entre nao-imprime">
+      <div>
+        <h1>Etiquetas</h1>
+        <p class="subtitulo" id="subtitulo">Uma etiqueta por peça — com a cor, o tamanho e o código daquela peça</p>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <a class="btn btn-fantasma" id="btnVoltar" href="produtos.html">← Voltar</a>
+        <button class="btn btn-verde" onclick="window.print()">Imprimir</button>
+      </div>
     </div>
-    <button class="btn btn-bloco btn-verde" onclick="window.print()">Imprimir</button>
-    <a class="btn btn-bloco btn-fantasma" href="produtos.html">← Voltar</a>
-    <div id="resumoEtiq" class="texto-cinza" style="font-size: 0.85rem; margin-left: auto;">Elgin L42PRO (100mm × 50mm, 2 colunas)</div>
-  </div>
 
-  <div class="container-etiquetas" id="etiquetas"></div>
+    <div class="card nao-imprime">
+      <div class="linha" style="align-items:flex-end; gap:16px;">
+        <div class="campo" style="margin:0; flex:1; min-width:230px;">
+          <label>Formato da etiqueta</label>
+          <select id="formato" onchange="trocarFormato()"></select>
+        </div>
+        <div class="campo" style="margin:0;">
+          <label>&nbsp;</label>
+          <button class="btn btn-escuro" type="button" onclick="usarEstoque()">Quantidade = estoque</button>
+        </div>
+        <div class="campo" style="margin:0;">
+          <label>&nbsp;</label>
+          <button class="btn btn-fantasma" type="button" onclick="zerarTudo()">Limpar</button>
+        </div>
+      </div>
+
+      <div id="ajustes" class="mt"></div>
+
+      <div class="texto-cinza mt" id="dicaImpressao" style="font-size:0.82rem; background:var(--surface-2); padding:10px 12px; border-radius:8px;"></div>
+    </div>
+
+    <div class="folha" id="area"></div>
+  </div>
 
   <script src="js/comum.js"></script>
   <script>
-    const produtoId = new URLSearchParams(location.search).get('id');
-    if (!produtoId) { alert('Produto não especificado'); location.href = 'produtos.html'; }
+    montarLayout('produtos');
 
-    // COR_PADRAO vem do comum.js.
-    // A etiqueta agora é do SKU (cor + tamanho), não do produto: cada peça na arara
-    // tem o seu código. A tela antiga imprimia N cópias do MESMO código — com grade
-    // por cor, isso cola a etiqueta do preto na peça vermelha.
+    const params = new URLSearchParams(location.search);
+    const idUnico = params.get('id');
+    const idsLote = params.get('ids');   // ?ids=1,2,3 — etiquetar a remessa inteira
+
+    // Os rolos comuns em loja de roupa. O padrão é o rolo duplo 50x75 (papel de 100mm).
+    // Guardado no navegador: o lojista escolhe uma vez e não pensa mais nisso.
+    const FORMATOS = [
+      { id: '50x75x2',  nome: '50×75mm — rolo duplo (papel 100mm, saem 2 a 2)', larg: 50,  alt: 75, cols: 2 },
+      { id: '50x30x2',  nome: '50×30mm — rolo duplo (papel 100mm, saem 2 a 2)', larg: 50,  alt: 30, cols: 2 },
+      { id: '100x75',   nome: '100×75mm — coluna única',                        larg: 100, alt: 75, cols: 1 },
+      { id: '100x50',   nome: '100×50mm — coluna única',                        larg: 100, alt: 50, cols: 1 },
+      { id: '40x25x3',  nome: '40×25mm — rolo triplo (papel 120mm)',            larg: 40,  alt: 25, cols: 3 },
+    ];
+    const CHAVE_FORMATO = 'etiqueta_formato';
+
+    let loja = {};
+    let skus = [];              // [{ variacao_id, nome, codigo, cor, tamanho, codigo_barras, preco_venda, estoque, qtd }]
+
+    const formatoAtual = () =>
+      FORMATOS.find(f => f.id === localStorage.getItem(CHAVE_FORMATO)) || FORMATOS[0];
+
+    function aplicarFormato(f) {
+      const r = document.documentElement.style;
+      r.setProperty('--et-larg', f.larg + 'mm');
+      r.setProperty('--et-alt',  f.alt  + 'mm');
+      r.setProperty('--et-cols', f.cols);
+      // classe explícita: o page-break a cada N etiquetas não pode usar variável CSS
+      // (nth-child(var(--x)n) não existe), então cada formato tem sua regra.
+      const folha = document.getElementById('area');
+      folha.className = 'folha cols-' + f.cols;
+      // A dica é o que salva o rolo: sem "Margens: Nenhuma" e escala 100%, o Chrome
+      // encolhe a página e a impressora corta a etiqueta no lugar errado.
+      document.getElementById('dicaImpressao').innerHTML =
+        `💡 <strong>Na hora de imprimir:</strong> escolha sua impressora de etiqueta, papel `
+        + `<strong>${f.larg * f.cols}×${f.alt}mm</strong>, Margens <strong>Nenhuma</strong>, `
+        + `Escala <strong>100%</strong> e <strong>desmarque</strong> "Cabeçalhos e rodapés".`
+        + (f.cols > 1 ? ` As etiquetas saem <strong>${f.cols} a ${f.cols}</strong>.` : '');
+    }
+
+    function trocarFormato() {
+      const f = FORMATOS.find(x => x.id === document.getElementById('formato').value) || FORMATOS[0];
+      localStorage.setItem(CHAVE_FORMATO, f.id);
+      aplicarFormato(f);
+      render();
+    }
+
+    (function montarSeletor() {
+      const atual = formatoAtual();
+      document.getElementById('formato').innerHTML =
+        FORMATOS.map(f => `<option value="${f.id}" ${f.id === atual.id ? 'selected' : ''}>${esc(f.nome)}</option>`).join('');
+      aplicarFormato(atual);
+    })();
+
+    // ---------- carregar ----------
+
     async function carregar() {
       try {
-        const [loja, dados] = await Promise.all([
-          api('/config'),
-          api('/produtos/' + produtoId + '/etiquetas'),
-        ]);
-
-        const umaPorPeca = document.getElementById('umaPorPeca').checked;
-        document.getElementById('boxCopias').style.display = umaPorPeca ? 'none' : 'flex';
-
-        let etiquetas = dados.etiquetas || [];
-        if (!umaPorPeca) {
-          // uma etiqueta por SKU (não por peça), repetida N vezes — pra repor etiqueta
-          // que descolou, sem reimprimir a grade inteira
-          const copias = parseInt(document.getElementById('quantidade').value) || 1;
-          const unicos = [];
-          const visto = new Set();
-          for (const e of etiquetas) {
-            const chave = e.variacao_id;
-            if (visto.has(chave)) continue;
-            visto.add(chave);
-            for (let i = 0; i < copias; i++) unicos.push(e);
-          }
-          etiquetas = unicos;
-        }
-
-        if (!etiquetas.length) {
-          document.getElementById('etiquetas').innerHTML =
-            '<div class="vazio" style="grid-column:1/-1;padding:30px;">Nenhuma peça em estoque para etiquetar.</div>';
-          document.getElementById('resumoEtiq').textContent = '';
+        const rota = idsLote
+          ? '/produtos/etiquetas?ids=' + encodeURIComponent(idsLote)
+          : '/produtos/' + idUnico + '/etiquetas';
+        if (!idsLote && !idUnico) {
+          document.getElementById('area').innerHTML = '<div class="vazio">Produto não informado.</div>';
           return;
         }
 
-        document.getElementById('etiquetas').innerHTML = etiquetas.map(e => {
-          // "Preto / M" — mas sem poluir com "Unica" quando a peça não tem cor
-          const detalhe = [e.cor && e.cor !== COR_PADRAO ? e.cor : null, e.tamanho].filter(Boolean).join(' / ');
-          const barcode = e.codigo_barras
-            ? `<img src="/api/codigo-barras/${encodeURIComponent(e.codigo_barras)}.png" alt="código de barras">`
-            : `<span class="texto-cinza" style="font-size:10px;">sem código de barras</span>`;
-          return `
-            <div class="etiqueta">
-              <div class="loja">${esc(loja.loja_nome || 'EasyGestão')}</div>
-              <div class="nome">${esc(e.nome)}${detalhe ? `<br><span style="font-weight:400;">${esc(detalhe)}</span>` : ''}</div>
-              <div class="barcode">${barcode}</div>
-              <div class="preco">${moeda(e.preco_venda)}</div>
-            </div>`;
-        }).join('');
+        const [cfg, dados] = await Promise.all([api('/config'), api(rota)]);
+        loja = cfg;
 
-        document.getElementById('resumoEtiq').textContent =
-          `${etiquetas.length} etiqueta${etiquetas.length > 1 ? 's' : ''} • Elgin L42PRO (100mm × 50mm)`;
-      } catch(e) {
-        alert('Erro ao carregar produto: ' + e.message);
-        location.href = 'produtos.html';
+        // O backend devolve uma etiqueta POR PEÇA (3 pretos M = 3 etiquetas). Aqui a
+        // tela agrupa de volta por SKU, porque o lojista quer AJUSTAR a quantidade
+        // antes de imprimir — nem sempre etiqueta tudo o que tem em estoque.
+        const porSku = new Map();
+        for (const e of (dados.etiquetas || [])) {
+          const k = e.variacao_id;
+          if (!porSku.has(k)) porSku.set(k, { ...e, estoque: 0, qtd: 0 });
+          porSku.get(k).estoque++;
+        }
+        skus = [...porSku.values()];
+        skus.forEach(s => { s.qtd = s.estoque; });   // começa com o estoque (o caso comum)
+
+        if (idsLote) {
+          const n = (dados.produtos || []).length;
+          document.getElementById('subtitulo').textContent =
+            `${n} peça${n > 1 ? 's' : ''} — uma etiqueta por peça em estoque, com cor, tamanho e código`;
+          document.getElementById('btnVoltar').href = 'lote.html';
+        }
+
+        renderAjustes();
+        render();
+      } catch (e) {
+        document.getElementById('area').innerHTML =
+          `<div class="vazio">Erro ao carregar: ${esc(e.message)}</div>`;
       }
     }
 
-    document.getElementById('quantidade').addEventListener('change', carregar);
+    // ---------- ajuste da quantidade por SKU ----------
+
+    function renderAjustes() {
+      const box = document.getElementById('ajustes');
+      if (!skus.length) {
+        box.innerHTML = '<div class="texto-cinza">Nenhuma peça em estoque para etiquetar.</div>';
+        return;
+      }
+      // agrupa por produto quando é lote (senão vira uma lista solta sem contexto)
+      const porProduto = new Map();
+      for (const s of skus) {
+        if (!porProduto.has(s.produto_id)) porProduto.set(s.produto_id, []);
+        porProduto.get(s.produto_id).push(s);
+      }
+
+      box.innerHTML = [...porProduto.values()].map(lista => {
+        const p = lista[0];
+        const linhas = lista.map((s, i) => {
+          const idx = skus.indexOf(s);
+          const detalhe = [s.cor && s.cor !== COR_PADRAO ? s.cor : null, s.tamanho]
+            .filter(Boolean).join(' · ') || 'Peça única';
+          return `<div class="sku-linha">
+            <span class="rot">${esc(detalhe)}</span>
+            <input type="number" min="0" max="200" value="${s.qtd}" data-sku="${idx}">
+            <span class="est">etiqueta(s) &nbsp;•&nbsp; ${s.estoque} em estoque</span>
+            ${!s.codigo_barras ? '<span class="badge badge-vermelho">sem código</span>' : ''}
+          </div>`;
+        }).join('');
+        return `<div class="mt">
+          <div class="flex-entre">
+            <strong>${esc(p.nome)}</strong>
+            <span class="badge badge-dourado">${esc(p.codigo || '')}</span>
+          </div>
+          ${linhas}
+        </div>`;
+      }).join('');
+
+      box.querySelectorAll('input[data-sku]').forEach(inp => {
+        inp.addEventListener('input', () => {
+          skus[inp.dataset.sku].qtd = Math.max(0, parseInt(inp.value, 10) || 0);
+          render();
+        });
+      });
+    }
+
+    function usarEstoque() {
+      skus.forEach(s => { s.qtd = s.estoque; });
+      renderAjustes(); render();
+    }
+    function zerarTudo() {
+      skus.forEach(s => { s.qtd = 0; });
+      renderAjustes(); render();
+    }
+
+    // ---------- a etiqueta ----------
+
+    function etiquetaHTML(s) {
+      // A logo da loja (cada lojista sobe a sua em Configurações). Sem logo, cai no
+      // nome da loja em serifada — nunca no nome do sistema, que não é a marca dele.
+      const marca = loja.loja_logo
+        ? `<div class="marca"><img src="/${esc(loja.loja_logo)}" alt=""
+             onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'txt',textContent:${JSON.stringify(loja.loja_nome || '')}}))"></div>`
+        : `<div class="marca"><div class="txt">${esc(loja.loja_nome || '')}</div></div>`;
+
+      // "Preto · M" — sem poluir com "Unica" quando a peça não tem cor
+      const detalhe = [s.cor && s.cor !== COR_PADRAO ? s.cor : null, s.tamanho].filter(Boolean).join(' · ');
+
+      const barcode = s.codigo_barras
+        ? `<img src="/api/codigo-barras/${encodeURIComponent(s.codigo_barras)}.png" alt="">`
+        : `<span class="sem-codigo">sem código de barras</span>`;
+
+      return `<div class="etiqueta">
+        ${marca}
+        <div class="nome">${esc(s.nome)}</div>
+        ${detalhe ? `<div class="variacao">${esc(detalhe)}</div>` : ''}
+        <div class="cod">${esc(s.codigo || '')}</div>
+        <div class="barcode">${barcode}</div>
+        <div class="preco">${moeda(s.preco_venda)}</div>
+      </div>`;
+    }
+
+    function render() {
+      const total = skus.reduce((n, s) => n + s.qtd, 0);
+      const area = document.getElementById('area');
+      if (!total) {
+        area.innerHTML = '<div class="vazio nao-imprime" style="grid-column:1/-1; padding:26px;">Ajuste a quantidade acima para gerar as etiquetas.</div>';
+        return;
+      }
+      let html = '';
+      for (const s of skus) {
+        for (let i = 0; i < s.qtd; i++) html += etiquetaHTML(s);
+      }
+      area.innerHTML = html;
+    }
+
     carregar();
   </script>
 </body>

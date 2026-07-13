@@ -184,32 +184,9 @@ test('estoque: clicar num chip abre o ajuste da PECA certa (com a cor no titulo)
   assert.equal(await pagina.inputValue('#ajNova'), '5', 'trouxe a quantidade de outra peca');
 });
 
-// ---------------- ETIQUETAS ----------------
-
-test('etiquetas: uma por peca, com a cor e o codigo daquele SKU', async () => {
-  await pagina.goto(`${URL}/etiquetas.html?id=${vestidoId}`);
-  await pagina.waitForSelector('.etiqueta');
-
-  const emEstoque = DB().prepare(`SELECT COALESCE(SUM(quantidade),0) s FROM variacoes
-                                  WHERE produto_id = ?`).get(vestidoId).s;
-  // a tela antiga imprimia N copias do MESMO codigo do produto — com SKU por cor,
-  // isso cola a etiqueta do preto na peca vermelha
-  assert.equal(await pagina.locator('.etiqueta').count(), emEstoque,
-    'deveria sair 1 etiqueta por peca em estoque');
-
-  const texto = await pagina.textContent('#etiquetas');
-  assert.match(texto, /Preto/);
-  assert.match(texto, /Vermelho/);
-
-  // cada etiqueta tem a imagem do codigo de barras DELA
-  const imgs = await pagina.locator('.etiqueta .barcode img').count();
-  assert.equal(imgs, emEstoque, 'alguma etiqueta saiu sem codigo de barras');
-  const srcs = await pagina.locator('.etiqueta .barcode img').evaluateAll(
-    (els) => [...new Set(els.map((e) => e.getAttribute('src')))]);
-  const skus = DB().prepare(`SELECT COUNT(*) n FROM variacoes
-                             WHERE produto_id = ? AND quantidade > 0`).get(vestidoId).n;
-  assert.equal(srcs.length, skus, 'as etiquetas de cores diferentes usaram o MESMO codigo');
-});
+// ETIQUETAS: cobertas por tests/etiquetas-ui.test.js, que faz mais — mede a geometria
+// do PDF em milímetros (se a folha não tiver a medida exata do rolo, a impressora corta
+// a etiqueta ao meio e o rolo vira lixo), testa os formatos e o modo lote.
 
 // ---------------- VITRINE ----------------
 

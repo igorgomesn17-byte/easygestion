@@ -14,6 +14,10 @@
         <p class="subtitulo">Cadastre as peças, defina o preço e veja o lucro real</p>
       </div>
       <div style="display:flex; gap:8px;">
+        <!-- Etiqueta as peças que estão NA TELA (o filtro atual). A mercadoria chega
+             em lote: filtra a coleção nova e etiqueta a remessa inteira de uma vez,
+             em vez de abrir peça por peça. -->
+        <button class="btn btn-fantasma" id="btnEtiquetarTudo" onclick="etiquetarFiltrados()">Etiquetar</button>
         <a class="btn btn-escuro" href="lote.html">Cadastro em lote</a>
         <button class="btn" onclick="abrirCadastro()">+ Nova peça</button>
       </div>
@@ -645,15 +649,34 @@
       document.getElementById('modalCad').classList.add('aberto');
     }
 
+    // as peças atualmente na tela (o filtro aplicado) — é o que o "Etiquetar" usa
+    let listaNaTela = [];
+
+    // Abre a tela de etiquetas com TODAS as peças filtradas. A mercadoria chega em
+    // lote (uma coleção inteira), e etiquetar peça por peça é o tipo de burocracia
+    // que faz o lojista desistir do sistema.
+    function etiquetarFiltrados() {
+      const comEstoque = listaNaTela.filter(p => (p.estoque_total || 0) > 0);
+      if (!comEstoque.length) { toast('Nenhuma peça em estoque para etiquetar', 'erro'); return; }
+      location.href = 'etiquetas.html?ids=' + comEstoque.map(p => p.id).join(',');
+    }
+
     async function carregar() {
       const busca = document.getElementById('busca').value;
       const cat = document.getElementById('filtroCategoria').value;
       const col = document.getElementById('filtroColecao').value;
       const url = '/produtos?busca=' + encodeURIComponent(busca) + (cat ? '&categoria=' + encodeURIComponent(cat) : '') + (col ? '&colecao=' + encodeURIComponent(col) : '');
       const lista = await api(url);
-      console.log('[DEBUG] GET ' + url, 'resposta:', lista);
       const div = document.getElementById('lista');
       if (!Array.isArray(lista)) { console.error('[ERRO] lista não é array:', lista); div.innerHTML = '<div class="vazio">Erro ao carregar produtos.</div>'; return; }
+      listaNaTela = lista;
+
+      // o botão só faz sentido se há o que etiquetar
+      const nEtiquetar = lista.reduce((s, p) => s + (p.estoque_total || 0), 0);
+      const btnEtiq = document.getElementById('btnEtiquetarTudo');
+      btnEtiq.disabled = nEtiquetar === 0;
+      btnEtiq.textContent = nEtiquetar ? `Etiquetar (${nEtiquetar})` : 'Etiquetar';
+
       if (lista.length === 0) { div.innerHTML = '<div class="vazio">Nenhuma peça encontrada.</div>'; return; }
       // resumo do filtro: quantas peças e valor
       const totPecas = lista.reduce((s,p)=>s+p.estoque_total,0);

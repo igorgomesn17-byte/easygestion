@@ -238,6 +238,32 @@ router.get('/vitrine', (req, res) => {
   res.json({ produtos: comEstoque, categorias: cats, colecoes });
 });
 
+const COLUNAS_ETIQUETA = 'id, codigo, nome, preco_venda, codigo_barras';
+
+// GET /api/produtos/etiquetas?ids=1,2,3 -> etiquetas de VÁRIOS produtos de uma vez.
+// A mercadoria chega em lote: o lojista quer etiquetar a remessa inteira, nao abrir
+// peca por peca.
+//
+// Registrada AQUI, antes do GET /:id: o Express casa na ordem de registro, e /:id
+// capturaria a palavra "etiquetas" (virando id="etiquetas" -> 404).
+router.get('/etiquetas', (req, res) => {
+  const ids = String(req.query.ids || '')
+    .split(',').map((s) => parseInt(s, 10)).filter(Boolean).slice(0, 200);
+  if (!ids.length) return res.status(400).json({ erro: 'Informe os produtos (ids)' });
+
+  const ph = ids.map(() => '?').join(',');
+  const produtos = db.prepare(
+    `SELECT ${COLUNAS_ETIQUETA} FROM produtos WHERE id IN (${ph}) AND tenant_id = ?`
+  ).all(...ids, req.tenantId);
+
+  const grades = gradeDe(produtos.map((p) => p.id));
+  const etiquetas = produtos.flatMap((p) => etiquetasDe(p, grades.get(p.id) || []));
+  res.json({
+    produtos: produtos.map((p) => ({ id: p.id, nome: p.nome, codigo: p.codigo })),
+    etiquetas,
+  });
+});
+
 // GET /api/produtos/:id
 router.get('/:id', (req, res) => {
   const tenantId = req.tenantId;
@@ -511,32 +537,44 @@ router.post('/codigo-barras/verificar', (req, res) => {
   res.json({ ok: true, codigo: val.codigo });
 });
 
-// GET /api/produtos/:id/etiquetas -> uma etiqueta por PEÇA em estoque
-// A tela de etiquetas imprimia N copias iguais do codigo do produto. Com SKU por
-// cor isso vira etiqueta errada na peca errada: se ha 3 pretos M e 2 vermelhos G,
-// tem que sair 3 etiquetas do SKU preto-M e 2 do vermelho-G.
-router.get('/:id/etiquetas', (req, res) => {
-  const tenantId = req.tenantId;
-  const p = db.prepare('SELECT id, codigo, nome, preco_venda, codigo_barras FROM produtos WHERE id = ? AND tenant_id = ?')
-    .get(req.params.id, tenantId);
-  if (!p) return res.status(404).json({ erro: 'Produto nao encontrado' });
-
-  const grade = gradeDe([p.id]).get(p.id) || [];
+// Monta as etiquetas de UM produto: uma por PEÇA em estoque.
+// A tela antiga imprimia N copias iguais do codigo do produto. Com SKU por cor isso
+// cola a etiqueta do preto na peca vermelha: se ha 3 pretos M e 2 vermelhos G, tem
+// que sair 3 etiquetas do SKU preto-M e 2 do vermelho-G.
+function etiquetasDe(produto, grade) {
   const etiquetas = [];
   for (const v of grade) {
     if (v.quantidade <= 0) continue;
-    // Cadastro antigo (pre-029) nao tem codigo no SKU: cai no codigo do produto, que
-    // e' o que esta impresso na etiqueta que ja existe. Sem fallback, a peca antiga
-    // sairia sem codigo nenhum.
-    const codigo = v.codigo_barras || p.codigo_barras || null;
+    // Cadastro ANTIGO (pre-029) nao tem codigo no SKU: cai no codigo do produto, que
+    // e' justamente o que ja esta impresso na etiqueta colada naquela peca. Sem o
+    // fallback ela sairia sem codigo nenhum.
+    const codigo = v.codigo_barras || produto.codigo_barras || null;
     for (let i = 0; i < v.quantidade; i++) {
       etiquetas.push({
-        variacao_id: v.id, nome: p.nome, cor: v.cor, tamanho: v.tamanho,
-        preco_venda: p.preco_venda, codigo_barras: codigo,
+        variacao_id: v.id, produto_id: produto.id,
+        nome: produto.nome, codigo: produto.codigo,
+        cor: v.cor, tamanho: v.tamanho,
+        preco_venda: produto.preco_venda, codigo_barras: codigo,
       });
     }
   }
-  res.json({ produto: { id: p.id, nome: p.nome, codigo: p.codigo }, etiquetas });
+  return etiquetas;
+}
+
+// GET /api/produtos/:id/etiquetas -> uma etiqueta por PEÇA em estoque
+// (o modo LOTE — /etiquetas?ids=1,2,3 — está registrado lá em cima, antes do
+// GET /:id: o Express casa as rotas na ordem, e /:id capturaria a palavra "etiquetas")
+router.get('/:id/etiquetas', (req, res) => {
+  const p = db.prepare(`SELECT ${COLUNAS_ETIQUETA} FROM produtos WHERE id = ? AND tenant_id = ?`)
+    .get(req.params.id, req.tenantId);
+  if (!p) return res.status(404).json({ erro: 'Produto nao encontrado' });
+
+  const grade = gradeDe([p.id]).get(p.id) || [];
+  res.json({
+    produto: { id: p.id, nome: p.nome, codigo: p.codigo },
+    grade,                                   // a tela usa pra deixar ajustar a qtd por SKU
+    etiquetas: etiquetasDe(p, grade),
+  });
 });
 
 // POST /api/produtos/sugerir-preco  body: { custo }
