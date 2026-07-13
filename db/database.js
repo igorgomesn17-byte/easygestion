@@ -392,6 +392,10 @@ function getConfig(chave, fallback = null, tenantId = 1) {
 function setConfig(chave, valor, tenantId = 1) {
   db.prepare('INSERT INTO config (chave, valor, tenant_id) VALUES (?, ?, ?) ON CONFLICT(chave, tenant_id) DO UPDATE SET valor = excluded.valor')
     .run(chave, String(valor), tenantId);
+  // Sem isto, o valor novo so passa a valer quando o cache expira (TTL de 5 min):
+  // a lojista muda a taxa do cartao, salva, e o PDV segue calculando com a antiga
+  // por cinco minutos — sem nenhum sinal de que algo esta errado.
+  cacheConfigPorTenant.set(tenantId, chave, String(valor));
 }
 
 // Credenciais das APIs da Meta (Inbox) — vêm do ambiente (.env), NUNCA do banco.
