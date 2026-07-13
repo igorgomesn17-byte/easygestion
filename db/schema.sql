@@ -16,6 +16,10 @@ CREATE TABLE IF NOT EXISTS produtos (
   nome          TEXT NOT NULL,
   categoria     TEXT,                          -- vestido, calca, blusa...
   descricao     TEXT,
+  -- DEPRECADA (migration 029): a cor virou atributo da VARIACAO, nao do produto.
+  -- Um produto e' o MODELO e pode existir em varias cores ao mesmo tempo.
+  -- Mantida so porque removê-la exigiria um rebuild de `produtos` (que tem FKs) sem
+  -- ganho nenhum. NAO leia nem escreva nesta coluna: leia variacoes.cor.
   cor           TEXT,
   custo         REAL NOT NULL DEFAULT 0,        -- quanto custou (compra)
   preco_venda   REAL NOT NULL DEFAULT 0,        -- preco de etiqueta
@@ -49,15 +53,32 @@ CREATE INDEX IF NOT EXISTS idx_produto_fotos ON produto_fotos(produto_id);
 -- existe neste ponto e um CREATE INDEX sobre ela derruba o servidor no boot.
 
 -- ------------------------------------------------------------
--- VARIACOES: a grade (um registro por tamanho de cada produto)
+-- VARIACOES: a grade, que e' uma MATRIZ cor x tamanho.
+-- Um registro por SKU: o par (cor, tamanho) de um produto, com estoque e codigo
+-- de barras proprios. O produto e' o MODELO ("Vestido Amanda"); a variacao e' a
+-- peca que existe na arara ("Vestido Amanda, preto, M").
+--
+-- A cor mora AQUI, nao em produtos. produtos.cor ainda existe mas esta MORTA
+-- (ver o comentario na tabela produtos) — nao leia dela.
+--
+-- ATENCAO ao alterar esta tabela: 5 FKs apontam pra variacoes.id (venda_itens,
+-- movimentos_estoque, troca_itens, permuta_itens, encomendas) e a de
+-- movimentos_estoque e' ON DELETE CASCADE. Qualquer rebuild precisa de
+-- PRAGMA foreign_keys = OFF e de copiar os ids explicitamente, senao apaga
+-- historico em silencio. Ver a migration 029 em db/migrations.js.
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS variacoes (
-  id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  produto_id  INTEGER NOT NULL,
-  tamanho     TEXT NOT NULL,
-  quantidade  INTEGER NOT NULL DEFAULT 0,
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  produto_id    INTEGER NOT NULL,
+  cor           TEXT NOT NULL DEFAULT 'Unica',  -- 'Unica' quando a peca nao tem cor
+  tamanho       TEXT NOT NULL,
+  quantidade    INTEGER NOT NULL DEFAULT 0,
+  codigo_barras TEXT,                            -- EAN do SKU (cada cor+tamanho tem o seu)
+  tenant_id     INTEGER,
   FOREIGN KEY (produto_id) REFERENCES produtos(id) ON DELETE CASCADE,
-  UNIQUE (produto_id, tamanho)
+  -- cor NOT NULL nao e' capricho: no SQLite NULL != NULL, entao com cor NULL este
+  -- UNIQUE nao barraria duplicata nenhuma e viraria decoracao.
+  UNIQUE (produto_id, cor, tamanho)
 );
 
 -- ------------------------------------------------------------
@@ -582,6 +603,12 @@ INSERT OR IGNORE INTO config (chave, valor, tenant_id) VALUES
 CREATE INDEX IF NOT EXISTS idx_despesas_competencia ON despesas(data_competencia);
 CREATE INDEX IF NOT EXISTS idx_despesas_vencimento ON despesas(vencimento);
 CREATE INDEX IF NOT EXISTS idx_variacoes_produto ON variacoes(produto_id);
+-- NAO adicione aqui indice sobre variacoes(cor), variacoes(codigo_barras) ou
+-- variacoes(tenant_id). Este arquivo roda ANTES das migrations, e num banco que ja
+-- existe o CREATE TABLE IF NOT EXISTS acima NAO recria a tabela — logo essas colunas
+-- ainda nao existem neste ponto, e um CREATE INDEX sobre elas derruba o boot com
+-- "no such column". Ja aconteceu antes. Esses indices moram na migration 029
+-- (db/migrations.js), que roda depois do ALTER TABLE que cria as colunas.
 CREATE INDEX IF NOT EXISTS idx_venda_itens_venda ON venda_itens(venda_id);
 CREATE INDEX IF NOT EXISTS idx_vendas_data ON vendas(data_hora);
 CREATE INDEX IF NOT EXISTS idx_vendas_vendedor ON vendas(vendedor_id);

@@ -18,6 +18,194 @@ function hashSenha(senha) {
 const DB_DIR = process.env.DB_DIR || path.join(__dirname);
 const DB_PATH = path.join(DB_DIR, 'easygestion.db');
 
+// ============================================================
+// MIGRATION 029 — a grade vira matriz COR x TAMANHO
+//
+// Antes: a cor era um campo do PRODUTO e a grade so tinha tamanho. O "Vestido
+// Amanda preto" e o "Vestido Amanda vermelho" eram dois cadastros separados —
+// entao era impossivel responder "o preto vende e o amarelo encalha" dentro do
+// mesmo modelo, que e' metade da decisao de recompra em moda.
+// Depois: um produto (o modelo) tem N variacoes, cada uma sendo o par (cor, tamanho),
+// com estoque e codigo de barras proprios. Cada par e' um SKU.
+//
+// Esta migration esta separada e EXPORTADA porque ela mexe na identidade de uma
+// tabela referenciada por 5 FKs — o teste (tests/migration-029-grade.test.js)
+// precisa chama-la contra um banco povoado pra provar que nada se perdeu.
+//
+// -- POR QUE E' PERIGOSA, e o que a torna segura --
+//
+// O UNIQUE(produto_id, tamanho) e' INLINE no CREATE TABLE. ALTER TABLE nao remove
+// constraint inline, entao trocar pra UNIQUE(produto_id, cor, tamanho) exige
+// recriar a tabela. E recriar `variacoes` tem duas armadilhas silenciosas:
+//
+//   1. movimentos_estoque.variacao_id tem ON DELETE CASCADE, e o boot roda com
+//      PRAGMA foreign_keys = ON. Um DROP TABLE variacoes apagaria TODO o historico
+//      de movimento de estoque sem uma linha de erro.
+//      -> Defesa: PRAGMA foreign_keys = OFF durante o rebuild. Com as FKs
+//         desligadas o DROP nao propaga CASCADE. E' o procedimento oficial do
+//         SQLite pra alteracao de schema (sqlite.org/lang_altertable.html).
+//
+//   2. Se o INSERT..SELECT nao copiar o `id` EXPLICITAMENTE, o AUTOINCREMENT
+//      renumera as linhas. O banco continua integro — e venda_itens, troca_itens
+//      e movimentos_estoque passam a apontar pra variacao ERRADA. Dado mentiroso
+//      e' pior que dado perdido, porque ninguem percebe.
+//      -> Defesa: o SELECT abaixo copia `id` na primeira coluna. Os ids sobrevivem.
+//
+// O PRAGMA foreign_keys e' IGNORADO em silencio dentro de uma transacao, entao
+// ele fica fora do BEGIN. O runner de migrations nao abre transacao — por isso
+// isto funciona aqui, e nao funcionaria se alguem envelopasse tudo num db.transaction().
+// ============================================================
+function migration029(db) {
+  const colunas = () => db.prepare('PRAGMA table_info(variacoes)').all().map((c) => c.name);
+
+  // ---- 1. Colunas novas (ADD COLUMN: nao toca na identidade da tabela) ----
+  // Idempotente: em banco novo (schema.sql ja atualizado) elas ja existem.
+  //
+  // `cor` nasce NULL de proposito e e' preenchida no backfill logo abaixo. Um
+  // DEFAULT 'Unica' aqui mascararia produtos que TEM cor cadastrada e ainda nao
+  // foram backfillados — e o NOT NULL so pode entrar depois que todo mundo tem valor.
+  if (!colunas().includes('cor')) {
+    db.exec(`ALTER TABLE variacoes ADD COLUMN cor TEXT;`);
+  }
+  // O EAN passa a ser por VARIACAO: cada cor+tamanho e' um SKU distinto e merece o
+  // proprio codigo. produtos.codigo_barras continua existindo (os antigos usam).
+  if (!colunas().includes('codigo_barras')) {
+    db.exec(`ALTER TABLE variacoes ADD COLUMN codigo_barras TEXT;`);
+  }
+  // tenant_id: existe em producao (entrou por um ALTER solto) mas NUNCA foi
+  // declarado no schema.sql. Ou seja: um cliente NOVO nascia com variacoes sem
+  // tenant_id, e o INSERT de routes/produtos.js (que passa tenant_id) quebrava no
+  // primeiro cadastro. Mesmo padrao do bug das colunas de clientes (migration 028).
+  // Corrigido no schema.sql; aqui fica o ALTER pros bancos que ainda nao tem.
+  if (!colunas().includes('tenant_id')) {
+    db.exec(`ALTER TABLE variacoes ADD COLUMN tenant_id INTEGER;`);
+  }
+
+  // ---- 2. Backfill ----
+  // Cada variacao herda a cor do produto pai. Onde o produto nao tem cor, vira
+  // 'Unica' — NUNCA NULL: no SQLite NULL != NULL, entao UNIQUE(produto_id, cor,
+  // tamanho) NAO barraria dois (produto=1, cor=NULL, tamanho='M'). O UNIQUE viraria
+  // decorativo justamente no caso mais comum (produto sem cor cadastrada).
+  db.exec(`
+    UPDATE variacoes
+    SET cor = COALESCE(
+      NULLIF(TRIM((SELECT p.cor FROM produtos p WHERE p.id = variacoes.produto_id)), ''),
+      'Unica'
+    )
+    WHERE cor IS NULL OR TRIM(cor) = '';
+  `);
+  // tenant_id orfao (bancos que pegaram o ALTER sem backfill): puxa do produto dono.
+  db.exec(`
+    UPDATE variacoes
+    SET tenant_id = (SELECT p.tenant_id FROM produtos p WHERE p.id = variacoes.produto_id)
+    WHERE tenant_id IS NULL;
+  `);
+
+  // ---- 3. Indices ----
+  // Moram AQUI e nao no schema.sql de proposito: o schema.sql roda ANTES das
+  // migrations e, num banco que ja existe, o CREATE TABLE IF NOT EXISTS nao recria
+  // a tabela — as colunas cor/codigo_barras/tenant_id so passam a existir depois dos
+  // ALTERs la em cima. Um CREATE INDEX sobre elas no schema.sql derruba o boot com
+  // "no such column" (ja aconteceu, e aconteceu de novo enquanto eu escrevia isto).
+  const criarIndices = () => {
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_variacoes_produto ON variacoes(produto_id);`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_variacoes_tenant  ON variacoes(tenant_id);`);
+    // EAN unico por SKU. Parcial (WHERE NOT NULL) porque as variacoes antigas nao tem
+    // codigo proprio — e deixar isso explicito e' melhor do que depender do fato de
+    // que, no SQLite, NULL nunca colide num UNIQUE.
+    db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_variacoes_ean ON variacoes(codigo_barras) WHERE codigo_barras IS NOT NULL;`);
+  };
+
+  // ---- 4. O rebuild (so pra trocar o UNIQUE inline) ----
+  // Se a tabela ja tem o UNIQUE novo, nao ha o que rebuildar: e' um banco criado do
+  // schema.sql ja atualizado. So garante os indices e sai. E' isto que torna a
+  // migration idempotente e inofensiva num banco novo.
+  const ddl = db.prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name='variacoes'`).get();
+  const precisaRebuild = ddl && /UNIQUE\s*\(\s*produto_id\s*,\s*tamanho\s*\)/i.test(ddl.sql);
+  if (!precisaRebuild) {
+    criarIndices();
+    return;
+  }
+
+  // Colisao: se dois produtos-cor foram cadastrados como o MESMO produto (nao deveria
+  // acontecer, o UNIQUE antigo impedia), o UNIQUE novo falharia no meio do rebuild e
+  // deixaria a tabela pela metade. Checa ANTES de derrubar qualquer coisa.
+  const colisao = db.prepare(`
+    SELECT produto_id, cor, tamanho, COUNT(*) n
+    FROM variacoes GROUP BY produto_id, cor, tamanho HAVING n > 1
+  `).all();
+  if (colisao.length) {
+    throw new Error(
+      `029 abortada: ${colisao.length} par(es) (produto, cor, tamanho) duplicados. ` +
+      `Resolva antes de migrar — o rebuild perderia esses registros. Ex: ` +
+      JSON.stringify(colisao[0])
+    );
+  }
+
+  const antes = db.prepare('SELECT COUNT(*) n, COALESCE(SUM(quantidade),0) s FROM variacoes').get();
+  const movAntes = db.prepare('SELECT COUNT(*) n FROM movimentos_estoque').get().n;
+
+  // FKs OFF: e' o que impede o DROP de disparar o CASCADE de movimentos_estoque.
+  // Fica FORA do BEGIN — dentro de transacao o PRAGMA e' ignorado sem avisar.
+  db.exec('PRAGMA foreign_keys = OFF;');
+  try {
+    db.exec('BEGIN IMMEDIATE;');
+    try {
+      db.exec(`
+        CREATE TABLE variacoes_nova (
+          id            INTEGER PRIMARY KEY AUTOINCREMENT,
+          produto_id    INTEGER NOT NULL,
+          cor           TEXT NOT NULL DEFAULT 'Unica',
+          tamanho       TEXT NOT NULL,
+          quantidade    INTEGER NOT NULL DEFAULT 0,
+          codigo_barras TEXT,
+          tenant_id     INTEGER,
+          FOREIGN KEY (produto_id) REFERENCES produtos(id) ON DELETE CASCADE,
+          UNIQUE (produto_id, cor, tamanho)
+        );
+      `);
+      // `id` copiado EXPLICITAMENTE. Sem isso o AUTOINCREMENT renumera e
+      // venda_itens/movimentos/troca_itens passam a apontar pra peca errada.
+      db.exec(`
+        INSERT INTO variacoes_nova (id, produto_id, cor, tamanho, quantidade, codigo_barras, tenant_id)
+        SELECT id, produto_id, COALESCE(NULLIF(TRIM(cor), ''), 'Unica'), tamanho, quantidade, codigo_barras, tenant_id
+        FROM variacoes;
+      `);
+      db.exec(`DROP TABLE variacoes;`);          // nao propaga CASCADE: FKs estao OFF
+      db.exec(`ALTER TABLE variacoes_nova RENAME TO variacoes;`);
+
+      criarIndices();  // o DROP levou os indices antigos junto
+
+      // Preserva o AUTOINCREMENT: sem isto, o proximo INSERT poderia reciclar um id
+      // ja usado por uma variacao apagada — e colidir com o historico que aponta pra ele.
+      db.exec(`
+        INSERT OR REPLACE INTO sqlite_sequence (name, seq)
+        VALUES ('variacoes', (SELECT COALESCE(MAX(id), 0) FROM variacoes));
+      `);
+
+      // -- Provas, ainda DENTRO da transacao: se qualquer uma falhar, ROLLBACK. --
+      const depois = db.prepare('SELECT COUNT(*) n, COALESCE(SUM(quantidade),0) s FROM variacoes').get();
+      if (depois.n !== antes.n) throw new Error(`029: perdeu variacao (${antes.n} -> ${depois.n})`);
+      if (depois.s !== antes.s) throw new Error(`029: o estoque total mudou (${antes.s} -> ${depois.s})`);
+
+      const movDepois = db.prepare('SELECT COUNT(*) n FROM movimentos_estoque').get().n;
+      if (movDepois !== movAntes) throw new Error(`029: o CASCADE comeu movimentos_estoque (${movAntes} -> ${movDepois})`);
+
+      const orfas = db.prepare('PRAGMA foreign_key_check').all();
+      if (orfas.length) throw new Error(`029: ${orfas.length} FK(s) orfa(s) apos o rebuild`);
+
+      db.exec('COMMIT;');
+    } catch (e) {
+      db.exec('ROLLBACK;');
+      throw e;
+    }
+  } finally {
+    // SEMPRE religa, mesmo se explodiu no meio: um servidor rodando com
+    // foreign_keys OFF aceita silenciosamente qualquer lixo referencial.
+    db.exec('PRAGMA foreign_keys = ON;');
+  }
+}
+
 function executarMigrations(db) {
   // 1. Criar tabela de controle (se não existir)
   db.exec(`
@@ -729,6 +917,11 @@ function executarMigrations(db) {
         db.exec(`CREATE INDEX IF NOT EXISTS idx_clientes_email    ON clientes(email);`);
         db.exec(`CREATE INDEX IF NOT EXISTS idx_clientes_cpf_cnpj ON clientes(tenant_id, cpf_cnpj);`);
       }
+    },
+    {
+      nome: '029_grade_cor_tamanho',
+      hash: 'v29-grade-cor-tamanho',
+      exec: migration029
     }
   ];
 
@@ -761,4 +954,7 @@ function executarMigrations(db) {
   console.log('✅ Todas as migrations executadas com sucesso');
 }
 
-module.exports = { executarMigrations };
+// migration029 e' exportada pro teste conseguir roda-la contra um banco povoado.
+// E' a unica migration que mexe na identidade de uma tabela com 5 FKs apontando
+// pra ela — precisa de prova, nao de confianca.
+module.exports = { executarMigrations, migration029 };
