@@ -2,6 +2,19 @@
 // DS SISTEMA - Servidor principal (com camada de segurança)
 // Inicie com:  node server.js  (ou npm start)
 // ============================================================
+
+// FUSO HORÁRIO — precisa vir ANTES de qualquer require que leia data.
+//
+// A EC2 roda em UTC. lib/datas.js tem um comentário jurando que hojeLocal() resolve
+// o problema do dia errado depois das 21h — e ele até evita o toISOString(), mas
+// "local" é o fuso do PROCESSO. Num servidor em UTC, "local" É UTC, e o bug que o
+// comentário dizia ter matado seguia vivo uma camada abaixo: toda venda feita depois
+// das 21h (horário da Bahia) era gravada no caixa do DIA SEGUINTE, e sumia da tela.
+//
+// Fixar aqui, e não no PM2/systemd, é de propósito: assim o fuso viaja junto com o
+// código e não depende de ninguém lembrar de configurar a máquina.
+process.env.TZ = process.env.TZ || 'America/Bahia';
+
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
