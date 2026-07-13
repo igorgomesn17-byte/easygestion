@@ -13,6 +13,7 @@
     "test:crediario": "jest tests/crediario.test.js",
     "test:cross-tenant": "DB_DIR=./tests/.tmp-cross-tenant PORT=3002 node --env-file-if-exists=.env server.js > /dev/null 2>&1 & sleep 3 && node tests/cross-tenant.test.js",
     "test:crm": "DB_DIR=./tests/.tmp-crm node tests/crm-tenant.test.js",
+    "test:clube": "DB_DIR=./tests/.tmp-clube node tests/clube.test.js",
     "backup": "node scripts/backup.js",
     "backup-s3": "node scripts/backup-s3.js"
   },

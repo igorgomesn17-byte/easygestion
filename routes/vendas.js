@@ -15,6 +15,8 @@ const { schemaVenda } = require('../lib/schemas');
 const { z } = require('zod');
 const { exigirFeature } = require('../middleware/seguranca');
 const { rotuloSku } = require('../lib/sku');
+const { emitirPremioClube, registrarGastoSemSelo } = require('../lib/clube');
+const { temFeature, planoDoTenant } = require('../lib/planos');
 
 // O vendedor só pode CRIAR venda (POST /). Toda leitura/edição (histórico com
 // lucro/custo, detalhe, cancelamento) é exclusiva do admin. Bloqueia aqui dentro
@@ -210,7 +212,10 @@ router.post('/', (req, res) => {
   if (valorEmVale > 0) {
     if (!codigoVale) return res.status(400).json({ erro: 'Pagamento em vale exige o codigo do vale' });
     const codigo = String(codigoVale).toUpperCase().trim();
-    const vale = db.prepare(`SELECT id, codigo, saldo, valor, validade FROM vales
+    // `origem` distingue o vale de troca (dinheiro que ja era da cliente) do vale do
+    // clube (premio que a loja deu). So o do clube tem compra minima e so ele bloqueia
+    // selo novo — ver o anti-farming no passo 2b.
+    const vale = db.prepare(`SELECT id, codigo, saldo, valor, validade, origem FROM vales
                              WHERE codigo = ? AND tenant_id = ? AND ativo = 1`).get(codigo, req.tenantId);
     if (!vale) return res.status(404).json({ erro: 'Vale nao encontrado, ja utilizado ou cancelado' });
     if (vale.validade && hoje > vale.validade) {
@@ -218,6 +223,17 @@ router.post('/', (req, res) => {
     }
     if (vale.saldo < valorEmVale) {
       return res.status(422).json({ erro: 'Saldo insuficiente no vale', saldo_disponivel: vale.saldo, valor_solicitado: valorEmVale });
+    }
+    // O premio do clube vale a partir de uma compra minima: e' um incentivo pra voltar
+    // e comprar, nao um desconto pra levar so o que o vale cobre.
+    if (vale.origem === 'clube') {
+      const minCompra = parseFloat(getConfig('clube_vale_min_compra', '0', req.tenantId)) || 0;
+      if (minCompra > 0 && total < minCompra - 0.01) {
+        return res.status(422).json({
+          erro: `O vale do clube só vale em compras de R$ ${minCompra.toFixed(2)} ou mais. Esta compra é R$ ${total.toFixed(2)}.`,
+          min_compra: minCompra,
+        });
+      }
     }
     valeParaDebitar = vale;
   } else if (codigoVale) {
@@ -262,6 +278,9 @@ router.post('/', (req, res) => {
 
   // preenchido dentro da tx; o front usa pra abrir o carne imprimivel
   let crediarioIdCriado = null;
+  // preenchido dentro da tx se a compra fechou o cartao de selos; o PDV avisa o caixa
+  // pra ele contar a novidade pra cliente na hora — o premio so vale se ela souber.
+  let valeClubeCriado = null;
 
   const tx = db.transaction(() => {
     // 1. grava venda
@@ -308,6 +327,16 @@ router.post('/', (req, res) => {
         WHERE id = ? AND tenant_id = ? AND ativo = 1 AND saldo >= ?`)
         .run(valorEmVale, valorEmVale, valorEmVale, vendaId, valeParaDebitar.id, req.tenantId, valorEmVale);
       if (upd.changes !== 1) throw new Error('Vale indisponivel ou saldo insuficiente');
+
+      // ANTI-FARMING: o que foi pago com o vale DO CLUBE nao gera selo novo. Sem isto
+      // o premio de R$50 entra no total_gasto, vira 1 selo, e acelera o proximo premio:
+      // a loja passa a financiar a propria fidelidade. Vale de TROCA nao entra aqui —
+      // aquele dinheiro ja era da cliente.
+      // Precisa vir ANTES do passo 3 (que soma o total_gasto), pra que o passo 3c leia
+      // os dois campos ja atualizados.
+      if (valeParaDebitar.origem === 'clube') {
+        registrarGastoSemSelo(req.tenantId, cliente_id, valorEmVale);
+      }
     }
 
     // 2c. cria o carne do crediario (mesma transacao da venda: ou os dois, ou nenhum).
@@ -335,6 +364,15 @@ router.post('/', (req, res) => {
     if (cliente_id) {
       db.prepare(`UPDATE clientes SET total_gasto = total_gasto + ?, num_compras = num_compras + 1, ultima_compra = ?
                   WHERE id = ? AND tenant_id = ?`).run(total, hoje, cliente_id, req.tenantId);
+
+      // 3c. CLUBE: esta compra fechou o cartao de selos? Entao o premio vira vale-credito
+      // AGORA, na mesma transacao — nao num job noturno nem num clique do front. Ou a
+      // venda e o premio existem juntos, ou nenhum dos dois (a licao que a baixa do vale
+      // ja ensinou neste arquivo).
+      // Depende do UPDATE acima: o calculo le o total_gasto JA somado.
+      if (temFeature(planoDoTenant(req.tenantId), 'relacionamento')) {
+        valeClubeCriado = emitirPremioClube(req.tenantId, cliente_id, vendaId);
+      }
     }
 
     // 3b. troco devolvido por PIX: a gaveta ficou com a sobra física (cliente pagou em
@@ -364,7 +402,7 @@ router.post('/', (req, res) => {
     const vendaId = tx();
     const mes = hoje.substring(0, 7); // YYYY-MM para invalidar DRE daquele mês
     cacheRelatorioPorTenant.invalidarTudo(req.tenantId);
-    res.status(201).json({ id: vendaId, total, crediario_id: crediarioIdCriado, ...r });
+    res.status(201).json({ id: vendaId, total, crediario_id: crediarioIdCriado, vale_clube: valeClubeCriado, ...r });
   } catch (e) {
     res.status(500).json({ erro: e.message });
   }
@@ -602,6 +640,22 @@ router.delete('/:id', (req, res) => {
     if (v.cliente_id) {
       db.prepare('UPDATE clientes SET total_gasto = total_gasto - ?, num_compras = MAX(num_compras - 1, 0) WHERE id = ? AND tenant_id = ?')
         .run(v.total, v.cliente_id, req.tenantId);
+
+      // Se a venda cancelada foi paga com vale DO CLUBE, o gasto_sem_selo tem que voltar
+      // junto com o total_gasto. Devolver so um dos dois faria a cliente PERDER selos:
+      // o gasto sai da conta, mas o "desconto do anti-farming" fica pra sempre.
+      // (O vale em si NAO e' cancelado nem devolvido — premio entregue e' compromisso
+      // com a cliente. O high-water mark de clube_ciclo impede reemitir o mesmo cartao.)
+      const valeDoClube = db.prepare(`
+        SELECT COALESCE(SUM(vp.valor), 0) AS v
+        FROM venda_pagamentos vp
+        JOIN vales va ON va.venda_utilizacao_id = vp.venda_id AND va.tenant_id = vp.tenant_id
+        WHERE vp.venda_id = ? AND vp.tenant_id = ? AND vp.forma = 'vale' AND va.origem = 'clube'
+      `).get(v.id, req.tenantId).v;
+      if (valeDoClube > 0) {
+        db.prepare('UPDATE clientes SET gasto_sem_selo = MAX(gasto_sem_selo - ?, 0) WHERE id = ? AND tenant_id = ?')
+          .run(valeDoClube, v.cliente_id, req.tenantId);
+      }
     }
     // Marcar como deletado em vez de apagar (auditoria)
     db.prepare('UPDATE vendas SET deletado = 1 WHERE id = ? AND tenant_id = ?').run(v.id, req.tenantId);
