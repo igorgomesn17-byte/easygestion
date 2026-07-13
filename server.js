@@ -30,7 +30,7 @@ const loggerMiddleware = require('./middleware/logger-middleware');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./lib/swagger-config');
 const { db } = require('./db/database');
-const { exigirLogin, injetarTenant, validarTenantAtivo, garantirTenantId, apenasAdmin, exigirPapel, limiteGlobal, limiteLogin } = require('./middleware/seguranca');
+const { exigirLogin, injetarTenant, validarTenantAtivo, garantirTenantId, apenasAdmin, exigirPapel, exigirFeature, limiteGlobal, limiteLogin } = require('./middleware/seguranca');
 const { middlewareAuditoria } = require('./middleware/auditoria');
 // PDV: admin OU vendedor (vendedor só vende e opera o caixa)
 const pdvOuAdmin = exigirPapel('admin', 'vendedor');
@@ -39,6 +39,7 @@ const { iniciar_backup_scheduler } = require('./lib/backup-scheduler');
 const { iniciar_alertas_scheduler } = require('./lib/alertas-scheduler');
 const { iniciar_renovacao_scheduler } = require('./lib/renovacao-scheduler');
 const { iniciar_cobranca_scheduler } = require('./lib/cobranca-scheduler');
+const { iniciar_relacionamento_scheduler } = require('./lib/relacionamento-scheduler');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -362,6 +363,10 @@ app.use('/api/dashboard',     apenasAdmin, require('./routes/dashboard'));
 app.use('/api/backup',        apenasAdmin, require('./routes/backup'));
 app.use('/api/usuarios',      apenasAdmin, require('./routes/usuarios'));
 app.use('/api/auditoria',     apenasAdmin, require('./routes/auditoria'));  // LGPD: logs de ações
+// Relacionamento (régua + RFM + clube de fidelidade). O gate vale pro router INTEIRO,
+// não rota a rota: rota nova nasce protegida sem ninguém precisar lembrar. É admin
+// porque a tela expõe a base de clientes com telefone — não é tela de vendedora.
+app.use('/api/relacionamento', apenasAdmin, exigirFeature('relacionamento'), require('./routes/relacionamento'));
 app.use('/api/assinaturas',   require('./routes/assinaturas'));  // cliente pode ver sua, admin vê todas
 
 // ---------- Arquivos estáticos (telas + fotos no disco persistente) ----------
@@ -519,10 +524,13 @@ if (USE_HTTPS) {
     console.log('========================================\n');
 
     // Iniciar agendadores automáticos
+    // (este bloco existe DUAS vezes: boot HTTPS e boot HTTP. Scheduler registrado
+    //  num só não sobe no outro modo — daí o replace nos dois.)
     iniciar_backup_scheduler();
     iniciar_alertas_scheduler();
     iniciar_renovacao_scheduler();
     iniciar_cobranca_scheduler();
+    iniciar_relacionamento_scheduler();
   });
 
   // HTTP também roda pra compatibilidade
@@ -542,9 +550,12 @@ if (USE_HTTPS) {
     console.log('========================================\n');
 
     // Iniciar agendadores automáticos
+    // (este bloco existe DUAS vezes: boot HTTPS e boot HTTP. Scheduler registrado
+    //  num só não sobe no outro modo — daí o replace nos dois.)
     iniciar_backup_scheduler();
     iniciar_alertas_scheduler();
     iniciar_renovacao_scheduler();
     iniciar_cobranca_scheduler();
+    iniciar_relacionamento_scheduler();
   });
 }
