@@ -257,11 +257,9 @@ app.use('/api/webhooks/stripe', express.raw({type: 'application/json'}), (req, r
 });
 app.use('/api/webhooks', require('./routes/webhooks'));
 
-// ---------- Webhook de Deploy: DESABILITADO por segurança ----------
-// Deploy é feito MANUALMENTE via SSH (ver CLAUDE.md). Expor git pull + pm2 restart
-// por HTTP é superfície de RCE desnecessária. Não reabilitar sem auth de sessão +
-// token sem fallback. O arquivo routes/deploy.js permanece só para referência.
-// app.use('/api/deploy', require('./routes/deploy'));
+// Não existe webhook de deploy. Deploy é MANUAL via SSH (ver CLAUDE.md): expor
+// git pull + pm2 restart por HTTP é superfície de RCE. A rota foi removida, não
+// só desligada — se for reintroduzir, exija sessão de admin e token sem fallback.
 
 // ---------- Body parsers ----------
 // guarda o corpo cru (raw) p/ validar a assinatura HMAC dos webhooks da Meta
