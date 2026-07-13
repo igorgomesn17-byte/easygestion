@@ -922,6 +922,148 @@ function executarMigrations(db) {
       nome: '029_grade_cor_tamanho',
       hash: 'v29-grade-cor-tamanho',
       exec: migration029
+    },
+    {
+      nome: '030_clube_vale_origem',
+      hash: 'v30-clube-vale-origem',
+      exec: (db) => {
+        // O vale so nascia de TROCA. Agora nasce tambem do clube de fidelidade
+        // (cartao de selo cheio -> vale-credito). Sao dinheiros diferentes:
+        //
+        // - `origem` distingue os dois. O vale do clube e' um PREMIO que a loja da';
+        //   o de troca e' dinheiro que ja era da cliente. So o do clube tem regra de
+        //   compra minima e so ele bloqueia selo novo (ver gasto_sem_selo abaixo).
+        // - `clube_ciclo` e' o numero do cartao (1o, 2o, 3o...). E' o high-water mark
+        //   da idempotencia: MAX(clube_ciclo) nunca anda pra tras. Precisa ser assim
+        //   porque DELETE /api/vendas devolve o total_gasto da cliente (vendas.js) —
+        //   cancelar uma venda FAZ OS SELOS DIMINUIREM. Um controle ingenuo
+        //   ("selos % total === 0") reemitiria o mesmo premio na proxima compra.
+        const colVales = db.prepare('PRAGMA table_info(vales)').all().map(c => c.name);
+        if (!colVales.includes('origem')) {
+          // DEFAULT 'troca' ja faz o backfill: todo vale que existe hoje veio de troca.
+          db.exec(`ALTER TABLE vales ADD COLUMN origem TEXT NOT NULL DEFAULT 'troca';`);
+        }
+        if (!colVales.includes('clube_ciclo')) {
+          db.exec(`ALTER TABLE vales ADD COLUMN clube_ciclo INTEGER;`);
+        }
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_vales_clube ON vales(tenant_id, cliente_id, clube_ciclo) WHERE origem = 'clube';`);
+
+        // ANTI-FARMING. Sem esta coluna o clube financia a si mesmo: a cliente
+        // ganha R$50 de vale, paga com ele, os R$50 entram no total_gasto, viram
+        // 1 selo — e ela acumula premio em cima do premio. `gasto_sem_selo` guarda
+        // quanto do total_gasto foi pago com vale DO CLUBE; o calculo de selos
+        // subtrai isso. Nao dava pra so descontar do total_gasto: esse campo e' o
+        // historico de faturamento que a RFM, os relatorios e a tela de clientes leem.
+        const colCli = db.prepare('PRAGMA table_info(clientes)').all().map(c => c.name);
+        if (!colCli.includes('gasto_sem_selo')) {
+          db.exec(`ALTER TABLE clientes ADD COLUMN gasto_sem_selo REAL NOT NULL DEFAULT 0;`);
+        }
+      }
+    },
+    {
+      nome: '031_crm_acoes',
+      hash: 'v31-crm-acoes-materializadas',
+      exec: (db) => {
+        // A REGUA DE RELACIONAMENTO — as tarefas de contato do dia.
+        //
+        // No sistema antigo (DS Store) nao havia tabela: a tela recalculava a regua
+        // a cada visita. O preco disso era caro e silencioso — os gatilhos de dia
+        // EXATO (pos-venda no dia 3, avaliacao no dia 5, indicacao no dia 10) so
+        // existiam no dia deles. Loja fechada na segunda? Todo mundo que comprou na
+        // sexta perdeu o pos-venda, pra sempre.
+        //
+        // Materializar resolve isso e ainda paga tres coisas de graca: adiar (snooze),
+        // historico do que foi enviado, e a contagem de pendentes pro badge do menu.
+        //
+        // A `mensagem` e' gravada JA INTERPOLADA de proposito: o texto que a lojista
+        // leu ontem e' o que ela manda hoje. Se o template mudar no meio, a acao que
+        // ja esta na fila nao pode mudar debaixo dela.
+        db.exec(`
+          CREATE TABLE IF NOT EXISTS crm_acoes (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            tenant_id    INTEGER NOT NULL,        -- SEM DEFAULT: default de tenant e' o bug
+            data         TEXT NOT NULL,           -- YYYY-MM-DD em que a acao nasceu
+            cliente_id   INTEGER NOT NULL,
+            tipo         TEXT NOT NULL,           -- DIA1 | REAT_2 | ANIVERSARIO | ...
+            prioridade   INTEGER NOT NULL DEFAULT 5,
+            label        TEXT,
+            detalhe      TEXT,
+            mensagem     TEXT NOT NULL,           -- ja interpolada (o que vai pro wa.me)
+            segmento     TEXT,                    -- RFM congelado no dia da geracao
+            cupom        TEXT,
+            status       TEXT NOT NULL DEFAULT 'pendente',  -- pendente|enviada|adiada|ignorada
+            adiada_para  TEXT,                    -- snooze: reabre a MESMA linha, nao cria outra
+            resolvido_em TEXT,
+            criado_em    TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+            UNIQUE (tenant_id, data, cliente_id, tipo),
+            FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE CASCADE
+          );
+        `);
+        // O UNIQUE acima e' o que torna o scheduler idempotente: rodar 5x no mesmo dia
+        // nao duplica, e o INSERT OR IGNORE nao ressuscita acao ja enviada/ignorada.
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_crm_acoes_pend    ON crm_acoes(tenant_id, status, data);`);
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_crm_acoes_cliente ON crm_acoes(tenant_id, cliente_id);`);
+      }
+    },
+    {
+      nome: '032_crm_templates',
+      hash: 'v32-crm-templates',
+      exec: (db) => {
+        // As mensagens da regua nasceram chumbadas no codigo, no tom da DS Store
+        // ("Clube DS Lover"). Num SaaS multi-loja isso nao serve: cada loja tem voz.
+        //
+        // Sem seed. Loja que nunca editou nao tem NENHUMA linha aqui e roda com os
+        // defaults de lib/crm-templates.js. So grava quem personaliza. Se semeassemos
+        // 17 linhas por tenant, uma melhoria futura no texto padrao nunca chegaria em
+        // ninguem — ficaria enterrada sob copias velhas.
+        //
+        // `ativo = 0` e' como a lojista DESLIGA um gatilho ("nao quero pedir avaliacao
+        // no Google") sem precisar de outra tabela pra isso.
+        //
+        // ATENCAO: cupom aqui e' TEXTO, nao motor. O sistema nao tem tabela de cupom
+        // nem aplica desconto por codigo no PDV — na DS o "VOLTE20" era combinado
+        // verbal com a cliente. Nao construir motor de cupom em cima disto sem decidir.
+        db.exec(`
+          CREATE TABLE IF NOT EXISTS crm_templates (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            tenant_id  INTEGER NOT NULL,
+            tipo       TEXT NOT NULL,       -- DIA1, CLUBE_BV, REAT_2...
+            texto      TEXT NOT NULL,       -- com {nome} {loja} {clube} {valor_premio} {cupom}
+            cupom      TEXT,
+            cupom_pct  INTEGER,
+            cupom_dias INTEGER,
+            ativo      INTEGER NOT NULL DEFAULT 1,   -- 0 = esta acao nao e' gerada nesta loja
+            criado_em  TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+            UNIQUE (tenant_id, tipo)
+          );
+        `);
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_crm_templates_tenant ON crm_templates(tenant_id);`);
+      }
+    },
+    {
+      nome: '033_seed_config_clube_por_tenant',
+      hash: 'v33-seed-clube-todos-tenants',
+      exec: (db) => {
+        // As configs do clube (valor do selo, quantos selos, valor do premio) eram
+        // semeadas com tenant_id = 1 chumbado. Toda loja diferente da primeira nao
+        // tinha config nenhuma e caia no fallback do codigo — que e' justamente o
+        // bug de getConfig(chave, fallback, tenantId = 1): a loja B lendo a config da A.
+        //
+        // INSERT OR IGNORE nao sobrescreve: quem ja configurou mantem o que tem.
+        //
+        // datas_comerciais nasce '[]' de proposito. As datas da DS ("Natal na DS
+        // Store...") NAO podem vazar pra base de outra loja — a lojista cadastra as
+        // dela. Um seed com texto da DS apareceria como mensagem pronta na tela de
+        // uma loja que nunca ouviu falar da DS.
+        //
+        // A lista de defaults mora em lib/config-relacionamento.js porque o signup
+        // (routes/auth.js) tambem precisa dela, pros tenants que nascerem DEPOIS
+        // desta migration. Duas listas divergem; uma so, nao.
+        const { semearConfigRelacionamento } = require('../lib/config-relacionamento');
+        for (const t of db.prepare('SELECT id FROM tenants').all()) {
+          semearConfigRelacionamento(db, t.id);
+        }
+      }
     }
   ];
 

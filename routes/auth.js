@@ -281,6 +281,13 @@ router.post('/registro', async (req, res) => {
       insertConfigStmt.run(chave, valor, r.tenantId);
     }
 
+    // Defaults do relacionamento (clube de fidelidade + régua). Sem isto, o tenant
+    // novo não tem NENHUMA config de clube e cai no fallback — que é o buraco de
+    // getConfig(chave, fallback, tenantId = 1): uma loja lendo a config de outra.
+    // Mesma fonte que a migration 033 usa pros tenants antigos.
+    const { semearConfigRelacionamento } = require('../lib/config-relacionamento');
+    semearConfigRelacionamento(db, r.tenantId);
+
     // Pré-preencher a config com os dados que o cliente JÁ informou no cadastro,
     // pra ele não redigitar em Configurações. INSERT OR IGNORE não sobrescreve se
     // já existir. loja_email/loja_cnpj são internos (NÃO estão em CHAVES_PUBLICAS
