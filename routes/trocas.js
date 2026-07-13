@@ -7,6 +7,7 @@ const express = require('express');
 const router = express.Router();
 const { db, getConfig } = require('../db/database');
 const { rotuloSku } = require('../lib/sku');
+const { gerarCodigoVale } = require('../lib/clube');
 
 // Helper: calcula dias úteis entre duas datas (seg-sáb)
 function diasUteisEntre(dataDe, dataAte) {
@@ -28,15 +29,8 @@ function hojeLocal() {
   return d.toISOString().split('T')[0];
 }
 
-// Helper: gerar código único de vale VALE-XXXXXX
-function gerarCodigoVale() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sem I,O,0,1 (confusão)
-  let codigo = '';
-  for (let i = 0; i < 6; i++) {
-    codigo += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return 'VALE-' + codigo;
-}
+// gerarCodigoVale mora em lib/clube.js (importada no topo). Aqui existia uma copia
+// identica dela — e nenhuma das duas conferia se o codigo ja existia antes de gravar.
 
 // Helper: calcular validade (30 dias por padrão)
 function calcularValidade() {
@@ -335,8 +329,9 @@ router.post('/', (req, res) => {
         clienteId = vendaInfo?.cliente_id || null;
       }
 
-      // Gera código único do vale (sem caracteres ambíguos)
-      const codigoVale = gerarCodigoVale();
+      // Gera código único do vale (sem caracteres ambíguos). O espaco de codigos e' por
+      // LOJA (UNIQUE(tenant_id, codigo)) — por isso a geradora precisa do tenant.
+      const codigoVale = gerarCodigoVale(req.tenantId);
 
       // Calcula validade: hoje + 30 dias
       const validadeStr = calcularValidade();

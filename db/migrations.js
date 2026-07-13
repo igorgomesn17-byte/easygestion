@@ -372,6 +372,301 @@ function migration034(db) {
   }
 }
 
+// ============================================================
+// MIGRATION 035 — o nome do usuario passa a ser unico POR LOJA (o email continua global)
+//
+// Mesma familia de bug da 024 (caixa_dia) e da 034 (produtos): em producao a tabela
+// e' de antes do multi-tenant e tem
+//
+//     nome  TEXT UNIQUE NOT NULL    <- UNIQUE GLOBAL, entre TODAS as lojas
+//     email TEXT UNIQUE
+//
+// Efeito: a loja A cadastra uma vendedora "Maria" e NENHUMA outra loja consegue
+// cadastrar a Maria dela. E "Maria", "Joao", "Caixa" sao exatamente os nomes que se
+// repetem entre lojas. routes/usuarios.js:40 ja valida como se fosse unico-por-loja
+// ("Ja existe um usuario com esse nome" checando AND tenant_id = ?) — o schema e' que
+// ficou pra tras. Nao estourou ainda so porque o signup grava o EMAIL no campo nome.
+//
+// -- POR QUE `nome` PODE virar por-loja e `email` NAO --
+//
+// nome: nao autentica nada (o login e' por email), nao e' FK de ninguem, e nao tem
+//   relacao com o vendedor da venda (vendas.vendedor_id -> tabela `vendedores`, outra
+//   coisa). No front e' so rotulo. -> UNIQUE(tenant_id, nome).
+//
+// email: E' a identidade de login. routes/auth.js faz
+//   `SELECT * FROM usuarios WHERE LOWER(email) = LOWER(?)` SEM tenant_id — a tela de
+//   login pede so email+senha, nao tem seletor de loja. Se dois usuarios de lojas
+//   diferentes tivessem o mesmo email, o .get() pegaria um dos dois por ordem de
+//   rowid e a pessoa entraria na LOJA ERRADA. -> o email continua UNIQUE GLOBAL.
+//   ATENCAO: db/schema.sql dizia UNIQUE(tenant_id, email), que e' MAIS FRACO que a
+//   producao. Copiar o schema.sql como estava aqui teria RELAXADO a garantia do email.
+//
+// De brinde, o UNIQUE global de email vira um indice sobre LOWER(email): a coluna era
+// case-sensitive, entao 'Maria@x.com' e 'maria@x.com' cabiam as duas na tabela — e o
+// login, que busca com LOWER(), pegava uma delas arbitrariamente.
+//
+// -- POR QUE E' PERIGOSA --
+//
+// UNIQUE inline nao sai com ALTER TABLE: a tabela precisa ser recriada. E DUAS FKs
+// CASCADE apontam pra usuarios (tokens_verificacao.usuario_id, email_verifications.
+// usuario_id): um DROP com as FKs ligadas apagaria os tokens em silencio. Defesas
+// identicas as da 034 — foreign_keys OFF fora do BEGIN, e id copiado explicitamente
+// (auditoria.usuario_id aponta pra ca; renumerar faria a auditoria acusar a pessoa
+// errada). Idempotente: so roda se a UNIQUE global antiga ainda estiver la.
+//
+// PRE-REQUISITO (mesmo deploy): routes/auth.js buscava o usuario logado por
+// `WHERE nome = ?` sem tenant (PATCH /me/senha e DELETE /me/conta). Com o nome
+// repetindo entre lojas, isso deixaria a Maria da loja B trocar a senha da Maria da
+// loja A. Agora a sessao guarda usuario_id e a busca e' por id.
+// ============================================================
+function migration035(db) {
+  const tabela = db.prepare(
+    `SELECT sql FROM sqlite_master WHERE type='table' AND name='usuarios'`
+  ).get();
+  if (!tabela) return;
+
+  // O indice unico do email e' criado AQUI (e nao no schema.sql) porque e' UNIQUE:
+  // num banco com dois emails que diferem so no maiusculo/minusculo — o UNIQUE antigo
+  // era case-SENSITIVE e deixava passar — cria-lo no boot derrubaria o servidor. Aqui
+  // da pra conferir antes. Roda ANTES do guard abaixo de proposito: banco NOVO ja
+  // nasce com o schema certo (nao cai no rebuild) mas tambem precisa deste indice.
+  const criarIndiceEmailGlobal = () => {
+    const dupEmail = db.prepare(`
+      SELECT LOWER(email) e, COUNT(*) n FROM usuarios
+      WHERE email IS NOT NULL AND TRIM(email) <> ''
+      GROUP BY LOWER(email) HAVING n > 1 LIMIT 1
+    `).get();
+    if (dupEmail) {
+      throw new Error(`035: o email '${dupEmail.e}' aparece ${dupEmail.n}x (o login ficaria ambiguo) — resolva antes`);
+    }
+    db.exec(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_usuarios_email_global
+      ON usuarios(LOWER(email)) WHERE email IS NOT NULL AND TRIM(email) <> '';
+    `);
+  };
+
+  // Assinatura do bug: UNIQUE colado na propria coluna.
+  if (!/nome\s+TEXT\s+UNIQUE/i.test(tabela.sql)) {
+    criarIndiceEmailGlobal();   // banco novo/ja migrado: so garante o indice
+    return;
+  }
+
+  // Falhar ANTES do DROP, nao depois. (nome e' case-insensitive na checagem porque
+  // routes/usuarios.js:40 compara com LOWER().)
+  const dupNome = db.prepare(`
+    SELECT COALESCE(tenant_id, 1) t, nome, COUNT(*) n FROM usuarios
+    GROUP BY COALESCE(tenant_id, 1), LOWER(nome) HAVING n > 1 LIMIT 1
+  `).get();
+  if (dupNome) {
+    throw new Error(`035: loja ${dupNome.t} tem o usuario '${dupNome.nome}' repetido ${dupNome.n}x — resolva antes`);
+  }
+
+  const antes = db.prepare('SELECT COUNT(*) n FROM usuarios').get().n;
+  const tokensAntes = db.prepare('SELECT COUNT(*) n FROM tokens_verificacao').get().n;
+  const verifAntes = db.prepare('SELECT COUNT(*) n FROM email_verifications').get().n;
+  // A auditoria aponta pra usuarios com SET NULL: se um id sumir, ela perde o autor.
+  const audAntes = db.prepare('SELECT COUNT(*) n FROM auditoria WHERE usuario_id IS NOT NULL').get().n;
+
+  const colunas = db.prepare('PRAGMA table_info(usuarios)').all().map((c) => c.name);
+  const temVerificado = colunas.includes('email_verificado');   // entrou por ALTER (014)
+
+  db.exec('PRAGMA foreign_keys = OFF;');   // FORA do BEGIN — dentro dele o PRAGMA e' ignorado
+  try {
+    db.exec('BEGIN IMMEDIATE;');
+    try {
+      db.exec(`
+        CREATE TABLE usuarios_nova (
+          id               INTEGER PRIMARY KEY AUTOINCREMENT,
+          tenant_id        INTEGER NOT NULL DEFAULT 1,
+          nome             TEXT NOT NULL,
+          email            TEXT,
+          senha_hash       TEXT NOT NULL,
+          papel            TEXT NOT NULL DEFAULT 'relacionamento',
+          ativo            INTEGER NOT NULL DEFAULT 1,
+          email_verificado INTEGER NOT NULL DEFAULT 0,
+          criado_em        TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+          UNIQUE(tenant_id, nome)
+        );
+      `);
+
+      // `id` copiado EXPLICITAMENTE: auditoria.usuario_id aponta pra ca.
+      db.exec(`
+        INSERT INTO usuarios_nova (id, tenant_id, nome, email, senha_hash, papel, ativo, email_verificado, criado_em)
+        SELECT id, COALESCE(tenant_id, 1), nome, email, senha_hash, papel, ativo,
+               ${temVerificado ? 'COALESCE(email_verificado, 0)' : '0'}, criado_em
+        FROM usuarios;
+      `);
+
+      db.exec('DROP TABLE usuarios;');     // nao propaga CASCADE: FKs OFF
+      db.exec('ALTER TABLE usuarios_nova RENAME TO usuarios;');
+
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_usuarios_nome ON usuarios(nome);
+        CREATE INDEX IF NOT EXISTS idx_usuarios_email ON usuarios(email);
+        CREATE INDEX IF NOT EXISTS idx_usuarios_tenant ON usuarios(tenant_id);
+        CREATE INDEX IF NOT EXISTS idx_usuarios_email_verificado ON usuarios(email_verificado);
+      `);
+
+      // O email continua GLOBAL (o login nao filtra por loja), agora tambem
+      // case-insensitive. Confere duplicata antes de criar — se houver, estoura aqui
+      // dentro da transacao e o ROLLBACK desfaz o rebuild inteiro.
+      criarIndiceEmailGlobal();
+
+      db.exec(`
+        INSERT OR REPLACE INTO sqlite_sequence (name, seq)
+        VALUES ('usuarios', (SELECT COALESCE(MAX(id), 0) FROM usuarios));
+      `);
+
+      // -- Provas, DENTRO da transacao: qualquer perda, ROLLBACK. --
+      const depois = db.prepare('SELECT COUNT(*) n FROM usuarios').get().n;
+      if (depois !== antes) throw new Error(`035: perdeu usuario (${antes} -> ${depois})`);
+
+      const tokensDepois = db.prepare('SELECT COUNT(*) n FROM tokens_verificacao').get().n;
+      if (tokensDepois !== tokensAntes) throw new Error(`035: o CASCADE comeu tokens_verificacao (${tokensAntes} -> ${tokensDepois})`);
+
+      const verifDepois = db.prepare('SELECT COUNT(*) n FROM email_verifications').get().n;
+      if (verifDepois !== verifAntes) throw new Error(`035: o CASCADE comeu email_verifications (${verifAntes} -> ${verifDepois})`);
+
+      const audDepois = db.prepare('SELECT COUNT(*) n FROM auditoria WHERE usuario_id IS NOT NULL').get().n;
+      if (audDepois !== audAntes) throw new Error(`035: um SET NULL apagou o autor na auditoria (${audAntes} -> ${audDepois})`);
+
+      const orfas = db.prepare('PRAGMA foreign_key_check').all();
+      if (orfas.length) throw new Error(`035: ${orfas.length} FK(s) orfa(s) apos o rebuild`);
+
+      db.exec('COMMIT;');
+    } catch (e) {
+      db.exec('ROLLBACK;');
+      throw e;
+    }
+  } finally {
+    db.exec('PRAGMA foreign_keys = ON;');
+  }
+}
+
+// ============================================================
+// MIGRATION 036 — o codigo do vale passa a ser unico POR LOJA
+//
+// Mesma familia: em producao `codigo TEXT UNIQUE NOT NULL` — global entre lojas.
+//
+// O agravante aqui e' COMO o codigo nasce: ele e' SORTEADO ('VALE-' + 6 chars de um
+// alfabeto de 32) e gravado sem checar se ja existe. Com a UNIQUE global, o sorteio
+// disputa espaco com TODAS as lojas somadas — o risco de colisao cresce com o numero
+// de clientes do SaaS, nao com o tamanho de cada loja. E o estrago e' desproporcional:
+// o vale do clube e' emitido DENTRO da transacao da venda (lib/clube.js), entao uma
+// colisao derruba a VENDA INTEIRA na frente da cliente.
+//
+// Isolar por loja da a cada uma seu proprio espaco de ~1 bilhao de codigos. E nao
+// quebra leitura nenhuma: TODA busca de vale por codigo ja filtra por tenant
+// (routes/vales.js, routes/vendas.js) — a UNIQUE global nao estava protegendo nada,
+// so causando INSERT que falha.
+//
+// A trava de vez esta no par: aqui (o espaco) + o retry em lib/clube.js
+// gerarCodigoVale() (que agora confere antes de gravar, no molde de lib/sku.js).
+//
+// Rebuild mais tranquilo que o da 035: NINGUEM aponta FK pra vales. Mas as defesas
+// ficam de pe do mesmo jeito — vales.troca_id/cliente_id apontam pra FORA, e o id
+// e' referenciado por vendas.vale_id... nao: por nada. Ainda assim copiamos o id
+// explicitamente (o codigo do vale circula impresso no cupom; renumerar seria feio).
+// ============================================================
+function migration036(db) {
+  const tabela = db.prepare(
+    `SELECT sql FROM sqlite_master WHERE type='table' AND name='vales'`
+  ).get();
+  if (!tabela) return;
+  if (!/codigo\s+TEXT\s+UNIQUE/i.test(tabela.sql)) return;   // ja migrado
+
+  const dup = db.prepare(`
+    SELECT COALESCE(tenant_id, 1) t, codigo, COUNT(*) n FROM vales
+    GROUP BY COALESCE(tenant_id, 1), codigo HAVING n > 1 LIMIT 1
+  `).get();
+  if (dup) {
+    throw new Error(`036: loja ${dup.t} tem o vale '${dup.codigo}' repetido ${dup.n}x — resolva antes`);
+  }
+
+  const antes = db.prepare('SELECT COUNT(*) n FROM vales').get().n;
+  const saldoAntes = db.prepare('SELECT COALESCE(SUM(saldo), 0) s FROM vales').get().s;
+
+  // A tabela ganhou colunas por ALTER (migrations 012, 025, 030) que NAO estao no
+  // CREATE original da 006. Copiar so o que existe de fato.
+  const colunas = db.prepare('PRAGMA table_info(vales)').all().map((c) => c.name);
+  const extras = ['venda_utilizacao_id', 'data_utilizacao', 'origem', 'clube_ciclo']
+    .filter((c) => colunas.includes(c));
+
+  db.exec('PRAGMA foreign_keys = OFF;');
+  try {
+    db.exec('BEGIN IMMEDIATE;');
+    try {
+      db.exec(`
+        CREATE TABLE vales_nova (
+          id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+          tenant_id           INTEGER NOT NULL DEFAULT 1,
+          codigo              TEXT NOT NULL,
+          valor               REAL NOT NULL DEFAULT 0,
+          saldo               REAL NOT NULL DEFAULT 0,
+          utilizado           REAL NOT NULL DEFAULT 0,
+          troca_id            INTEGER,
+          cliente_id          INTEGER,
+          data_geracao        TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+          validade            TEXT,
+          ativo               INTEGER NOT NULL DEFAULT 1,
+          notas               TEXT,
+          venda_utilizacao_id INTEGER,
+          data_utilizacao     TEXT,
+          origem              TEXT NOT NULL DEFAULT 'troca',
+          clube_ciclo         INTEGER,
+          UNIQUE (tenant_id, codigo),
+          FOREIGN KEY (troca_id) REFERENCES trocas(id) ON DELETE SET NULL,
+          FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE SET NULL
+        );
+      `);
+
+      const base = ['id', 'tenant_id', 'codigo', 'valor', 'saldo', 'utilizado', 'troca_id',
+        'cliente_id', 'data_geracao', 'validade', 'ativo', 'notas'];
+      const destino = [...base, ...extras].join(', ');
+      // COALESCE no tenant_id: a coluna e' nullable na antiga e NOT NULL na nova.
+      const origem = ['id', 'COALESCE(tenant_id, 1)', 'codigo', 'valor', 'saldo', 'utilizado',
+        'troca_id', 'cliente_id', 'data_geracao', 'validade', 'ativo', 'notas',
+        ...extras.map((c) => (c === 'origem' ? "COALESCE(origem, 'troca')" : c))].join(', ');
+
+      db.exec(`INSERT INTO vales_nova (${destino}) SELECT ${origem} FROM vales;`);
+      db.exec('DROP TABLE vales;');
+      db.exec('ALTER TABLE vales_nova RENAME TO vales;');
+
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_vales_codigo ON vales(codigo);
+        CREATE INDEX IF NOT EXISTS idx_vales_cliente ON vales(cliente_id);
+        CREATE INDEX IF NOT EXISTS idx_vales_ativo ON vales(ativo);
+      `);
+      // O indice parcial do clube (migration 030): e' o que impede emitir dois premios
+      // no mesmo ciclo pro mesmo cliente. O DROP levou junto — recria.
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_vales_clube
+        ON vales(tenant_id, cliente_id, clube_ciclo) WHERE origem = 'clube';
+      `);
+
+      db.exec(`
+        INSERT OR REPLACE INTO sqlite_sequence (name, seq)
+        VALUES ('vales', (SELECT COALESCE(MAX(id), 0) FROM vales));
+      `);
+
+      const depois = db.prepare('SELECT COUNT(*) n FROM vales').get().n;
+      if (depois !== antes) throw new Error(`036: perdeu vale (${antes} -> ${depois})`);
+      const saldoDepois = db.prepare('SELECT COALESCE(SUM(saldo), 0) s FROM vales').get().s;
+      if (saldoDepois !== saldoAntes) throw new Error(`036: o saldo em vales mudou (${saldoAntes} -> ${saldoDepois})`);
+
+      const orfas = db.prepare('PRAGMA foreign_key_check').all();
+      if (orfas.length) throw new Error(`036: ${orfas.length} FK(s) orfa(s) apos o rebuild`);
+
+      db.exec('COMMIT;');
+    } catch (e) {
+      db.exec('ROLLBACK;');
+      throw e;
+    }
+  } finally {
+    db.exec('PRAGMA foreign_keys = ON;');
+  }
+}
+
 function executarMigrations(db) {
   // 1. Criar tabela de controle (se não existir)
   db.exec(`
@@ -1235,6 +1530,16 @@ function executarMigrations(db) {
       nome: '034_produtos_codigo_unico_por_tenant',
       hash: 'v34-produtos-unique-tenant-codigo',
       exec: migration034
+    },
+    {
+      nome: '035_usuarios_nome_unico_por_tenant',
+      hash: 'v35-usuarios-unique-tenant-nome',
+      exec: migration035
+    },
+    {
+      nome: '036_vales_codigo_unico_por_tenant',
+      hash: 'v36-vales-unique-tenant-codigo',
+      exec: migration036
     }
   ];
 
@@ -1267,7 +1572,8 @@ function executarMigrations(db) {
   console.log('✅ Todas as migrations executadas com sucesso');
 }
 
-// 029 e 034 sao exportadas pros testes conseguirem roda-las contra um banco povoado.
-// Sao as duas que recriam uma tabela referenciada por 5 FKs (variacoes e produtos) —
-// rebuild com CASCADE atras precisa de prova, nao de confianca.
-module.exports = { executarMigrations, migration029, migration034 };
+// 029, 034, 035 e 036 sao exportadas pros testes conseguirem roda-las contra um banco
+// povoado. Sao as que RECRIAM uma tabela (unico jeito de trocar UNIQUE inline), e todas
+// tem CASCADE ou SET NULL apontando pra elas — rebuild assim nao da erro quando da
+// errado, apaga em silencio. Precisa de prova, nao de confianca.
+module.exports = { executarMigrations, migration029, migration034, migration035, migration036 };

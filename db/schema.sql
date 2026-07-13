@@ -362,8 +362,58 @@ CREATE TABLE IF NOT EXISTS troca_itens (
 );
 
 -- ------------------------------------------------------------
+-- VALES: credito da cliente na loja. Nasce de dois lugares:
+--   origem='troca'  -> devolveu peca e ficou com saldo a favor (routes/trocas.js)
+--   origem='clube'  -> fechou o cartao de fidelidade e ganhou o premio (lib/clube.js)
+--
+-- O CODIGO E' UNICO POR LOJA, nao global (migration 036). Ele e' SORTEADO
+-- (VALE- + 6 chars de um alfabeto de 32, sem I/O/0/1 porque a cliente le em voz alta
+-- pro caixa). Com UNIQUE global o sorteio disputava espaco com TODAS as lojas somadas,
+-- e a chance de colisao crescia com o numero de clientes do SaaS — nao com o tamanho
+-- de cada loja. E o vale do clube nasce DENTRO da transacao da venda: uma colisao
+-- derrubava a VENDA INTEIRA na frente da cliente. lib/clube.js gerarCodigoVale()
+-- ainda confere antes de gravar; o UNIQUE aqui e' a garantia final.
+--
+-- Esta tabela existia SO na migration 006 (nao aqui), entao banco novo nascia com o
+-- UNIQUE global e o bug voltava. Agora nasce certo.
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS vales (
+  id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+  tenant_id           INTEGER NOT NULL DEFAULT 1,
+  codigo              TEXT NOT NULL,                  -- VALE-XXXXXX (sorteado)
+  valor               REAL NOT NULL DEFAULT 0,        -- valor de face
+  saldo               REAL NOT NULL DEFAULT 0,        -- quanto ainda da pra gastar
+  utilizado           REAL NOT NULL DEFAULT 0,
+  troca_id            INTEGER,                        -- se veio de troca
+  cliente_id          INTEGER,
+  data_geracao        TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+  validade            TEXT,                           -- YYYY-MM-DD
+  ativo               INTEGER NOT NULL DEFAULT 1,     -- 0 = cancelado
+  notas               TEXT,
+  venda_utilizacao_id INTEGER,                        -- em que venda foi gasto
+  data_utilizacao     TEXT,
+  origem              TEXT NOT NULL DEFAULT 'troca',  -- 'troca' | 'clube'
+  clube_ciclo         INTEGER,                        -- qual cartao fechou (so no clube)
+  UNIQUE (tenant_id, codigo),
+  FOREIGN KEY (troca_id) REFERENCES trocas(id) ON DELETE SET NULL,
+  FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS idx_vales_codigo ON vales(codigo);
+CREATE INDEX IF NOT EXISTS idx_vales_cliente ON vales(cliente_id);
+CREATE INDEX IF NOT EXISTS idx_vales_ativo ON vales(ativo);
+-- ATENCAO: o indice idx_vales_clube (parcial, sobre `origem`) vive nas migrations 030
+-- e 036 — NAO aqui. Este arquivo roda em TODO boot e ANTES das migrations: num banco
+-- que ja existe, o CREATE TABLE IF NOT EXISTS acima nao recria a tabela, entao a
+-- coluna `origem` ainda nao existe neste ponto e um CREATE INDEX sobre ela derrubaria
+-- o servidor no boot. Mesma pegadinha do idx de produto_fotos (migration 026).
+
+-- ------------------------------------------------------------
 -- CRM_ACOES_ENVIADAS: marca quais ações da régua já foram enviadas
 -- num dia (cliente + tipo + data). A régua some o card depois de enviado.
+--
+-- ⚠️ TABELA MORTA: nenhum codigo le ou escreve nela. Foi substituida por `crm_acoes`
+-- (migration 031), que ja nasceu com UNIQUE(tenant_id, data, cliente_id, tipo).
+-- Mantida so pra nao quebrar bancos antigos. Nao construa em cima dela.
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS crm_acoes_enviadas (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -462,26 +512,39 @@ CREATE TABLE IF NOT EXISTS conversa_tags (
 );
 
 -- ------------------------------------------------------------
--- USUARIOS: login multiusuário com papel (admin / relacionamento).
--- O admin principal vem do .env (ADMIN_SENHA) e NÃO fica aqui —
--- esta tabela guarda os usuários adicionais (ex: a pessoa que opera
--- só o sistema de Relacionamento, sem ver financeiro).
--- ✅ NOVO: usuário admin de verdade com papel='admin' pode existir aqui também.
--- O sistema tenta .env primeiro; se não existir, tenta usuario admin na tabela.
+-- USUARIOS: quem entra no sistema, com papel (admin / vendedor / relacionamento).
+-- Sao os funcionarios de UMA loja. Os admins do SaaS (backoffice) moram na tabela
+-- `admins`, logo abaixo — coisa diferente.
+--
+-- NOME x EMAIL — a distincao importa (migration 035):
+--   `email` e' a IDENTIDADE DE LOGIN e e' UNICO GLOBAL (indice idx_usuarios_email_global,
+--     criado na 035). routes/auth.js autentica com
+--     `WHERE LOWER(email) = LOWER(?)` SEM filtrar tenant — a tela de login pede so
+--     email+senha, nao tem seletor de loja. Dois usuarios de lojas diferentes com o
+--     mesmo email fariam a pessoa entrar na LOJA ERRADA. NAO relaxe pra
+--     UNIQUE(tenant_id, email): seria mais fraco que o que ja roda em producao.
+--   `nome` e' so ROTULO (quem aparece na tela). Nao autentica nada. E' unico DENTRO
+--     da loja: duas lojas podem ter cada uma a sua "Maria" — antes da 035 nao podiam,
+--     e a segunda loja levava um 500 sem explicacao ao cadastrar a vendedora.
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS usuarios (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  tenant_id  INTEGER NOT NULL DEFAULT 1,                 -- isolamento multi-tenant
-  nome       TEXT NOT NULL,                              -- login (case-insensitive na consulta)
-  email      TEXT,                                       -- email do usuário (para recovery)
-  senha_hash TEXT NOT NULL,                              -- scrypt$salt$hash (mesmo formato do admin)
-  papel      TEXT NOT NULL DEFAULT 'relacionamento',     -- 'admin' | 'vendedor' | 'relacionamento'
-  ativo      INTEGER NOT NULL DEFAULT 1,
-  criado_em  TEXT NOT NULL DEFAULT (datetime('now','localtime')),
-  UNIQUE(tenant_id, nome),
-  UNIQUE(tenant_id, email)
+  id               INTEGER PRIMARY KEY AUTOINCREMENT,
+  tenant_id        INTEGER NOT NULL DEFAULT 1,                 -- isolamento multi-tenant
+  nome             TEXT NOT NULL,                              -- rotulo de exibicao (NAO e' login)
+  email            TEXT,                                       -- o login. unico GLOBAL (indice abaixo)
+  senha_hash       TEXT NOT NULL,                              -- scrypt$salt$hash
+  papel            TEXT NOT NULL DEFAULT 'relacionamento',     -- 'admin' | 'vendedor' | 'relacionamento'
+  ativo            INTEGER NOT NULL DEFAULT 1,
+  email_verificado INTEGER NOT NULL DEFAULT 0,
+  criado_em        TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+  UNIQUE(tenant_id, nome)
 );
 CREATE INDEX IF NOT EXISTS idx_usuarios_tenant ON usuarios(tenant_id);
+-- ATENCAO: o indice UNICO do email (idx_usuarios_email_global, sobre LOWER(email)) vive
+-- na migration 035, NAO aqui. E' um indice UNIQUE: num banco antigo que ja tivesse dois
+-- emails diferindo so no maiusculo/minusculo (o UNIQUE antigo era case-SENSITIVE e
+-- deixava passar), cria-lo aqui derrubaria o boot. A 035 confere as duplicatas ANTES
+-- de criar — este arquivo roda em todo boot e nao tem como conferir nada.
 
 -- ----
 -- ADMINS DA PLATAFORMA (backoffice SaaS)

@@ -125,6 +125,13 @@ router.post('/login', (req, res) => {
       }
 
       req.session.logado = true;
+      // O ID e' a identidade da sessao. O `nome` fica so pra exibir: ele NAO e'
+      // unico entre lojas (UNIQUE(tenant_id, nome) — migration 035), entao buscar
+      // usuario por nome acha a pessoa errada, de OUTRA loja. Quem precisa saber
+      // "quem esta logado" usa usuario_id.
+      // (Isto tambem preenche o usuario_id da auditoria LGPD, que middleware/
+      // auditoria.js sempre leu daqui e que ate agora gravava NULL em toda acao.)
+      req.session.usuario_id = u.id;
       req.session.usuario = u.nome;
       req.session.email = u.email;
       req.session.papel = u.papel;
@@ -572,9 +579,16 @@ router.patch('/me/senha', (req, res) => {
     return res.status(400).json({ erro: validacaoSenha.erro });
   }
 
-  // Procura usuário
-  const user = db.prepare('SELECT * FROM usuarios WHERE nome = ? AND ativo = 1')
-    .get(req.session.usuario);
+  // Procura usuário pelo ID da sessao, NUNCA pelo nome: o nome so e' unico DENTRO
+  // da loja (migration 035). Buscar por nome aqui devolveria a "Maria" de outra
+  // loja — e o UPDATE abaixo gravaria a senha nova na conta dela.
+  if (!req.session.usuario_id) {
+    // Sessao antiga (criada antes desta mudanca) nao tem o id. Melhor deslogar do
+    // que adivinhar quem e' pelo nome.
+    return res.status(401).json({ erro: 'Sessão expirada, entre novamente' });
+  }
+  const user = db.prepare('SELECT * FROM usuarios WHERE id = ? AND ativo = 1')
+    .get(req.session.usuario_id);
   if (!user) return res.status(404).json({ erro: 'Usuário não encontrado' });
 
   // Valida senha atual
@@ -605,8 +619,10 @@ router.get('/me/dados', (req, res) => {
   if (!req.tenantId) {
     return res.status(401).json({ erro: 'Tenant não identificado' });
   }
-  const usuario = db.prepare('SELECT id, nome, email, papel, criado_em FROM usuarios WHERE nome = ? AND tenant_id = ?')
-    .get(req.session.usuario, req.tenantId);
+  // Pelo ID (com o tenant como cinto de seguranca). Buscar por nome funcionaria —
+  // (tenant_id, nome) e' unico — mas o id nao depende de nada disso.
+  const usuario = db.prepare('SELECT id, nome, email, papel, criado_em FROM usuarios WHERE id = ? AND tenant_id = ?')
+    .get(req.session.usuario_id, req.tenantId);
 
   const dados = {
     usuario,
@@ -627,8 +643,16 @@ router.delete('/me/conta', (req, res) => {
   }
 
   const { senha } = req.body;
-  const user = db.prepare('SELECT * FROM usuarios WHERE nome = ?')
-    .get(req.session.usuario);
+  // Pelo ID, nao pelo nome — mesmo motivo do PATCH /me/senha acima: o nome se
+  // repete entre lojas e a busca acharia a pessoa errada.
+  if (!req.session.usuario_id) {
+    return res.status(401).json({ erro: 'Sessão expirada, entre novamente' });
+  }
+  const user = db.prepare('SELECT * FROM usuarios WHERE id = ?')
+    .get(req.session.usuario_id);
+
+  // Sem este guard, um usuario inexistente estourava TypeError lendo .senha_hash.
+  if (!user) return res.status(404).json({ erro: 'Usuário não encontrado' });
 
   if (!verificarSenha(senha, user.senha_hash)) {
     return res.status(403).json({ erro: 'Senha incorreta' });

@@ -112,6 +112,17 @@ function injetarTenant(req, res, next) {
     return next();
   }
 
+  // Sessao criada ANTES de o login passar a gravar usuario_id: reidrata o id aqui,
+  // em vez de deslogar quem ja estava dentro no dia do deploy. Busca por
+  // (nome, tenant) — o par e' unico (UNIQUE(tenant_id, nome)), entao acha a pessoa
+  // certa; buscar so por nome e' que pegaria a de outra loja.
+  if (!req.session.usuario_id && req.session.usuario && req.session.tenant_id) {
+    const { db } = require('../db/database');
+    const u = db.prepare('SELECT id FROM usuarios WHERE nome = ? AND tenant_id = ?')
+      .get(req.session.usuario, req.session.tenant_id);
+    if (u) req.session.usuario_id = u.id;
+  }
+
   // Se é admin do .env e ainda não tem tenant_id, assume tenant 1
   if (req.session?.papel === 'admin' && !req.session?.tenant_id) {
     req.tenantId = 1;
