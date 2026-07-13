@@ -15,6 +15,20 @@ function moeda(v) {
   return (Number(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
+// ---------- SKU: a peça é o par (cor, tamanho) ----------
+// Espelha lib/sku.js do backend. Fica aqui porque PDV, estoque, trocas, produtos e
+// etiquetas precisam da MESMA regra — cópias locais divergiriam.
+const COR_PADRAO = 'Unica';   // cor de quem não tem cor (nunca NULL: o UNIQUE do banco depende disso)
+
+// "Vestido Amanda (Preto / M)". Sem cor de verdade, não polui com "Unica": vira
+// "Vestido Amanda (M)".
+function rotuloSku(nome, cor, tamanho) {
+  const partes = [];
+  if (cor && cor !== COR_PADRAO) partes.push(cor);
+  if (tamanho) partes.push(tamanho);
+  return partes.length ? `${nome} (${partes.join(' / ')})` : String(nome == null ? '' : nome);
+}
+
 // Máscara de aniversário DD/MM: digita só números e a "/" entra sozinha.
 // Liga num input: mascaraAniversario(document.getElementById('aniv'))
 function mascaraAniversario(input) {

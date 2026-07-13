@@ -5,6 +5,11 @@
 const slug = window.location.pathname.split('/')[1];
 const API_BASE = '/api/vitrine';
 
+// A peça é o par (cor, tamanho). 'Unica' é a cor de quem não tem cor — igual ao
+// lib/sku.js do backend. Declarado AQUI no topo, e não perto de onde é usado:
+// `const` tem temporal dead zone, e renderizarProdutos() o consome bem antes.
+const COR_PADRAO = 'Unica';
+
 let dadosLoja = {};
 let todosProdutos = [];
 let carrinhoLocal = [];
@@ -306,7 +311,12 @@ function renderizarProdutos(produtos) {
         <h3 class="card-produto-nome">${p.titulo || p.nome}</h3>
         <p class="card-produto-categoria">${p.categoria || ''}</p>
         <p class="card-produto-preco">R$ ${formatarMoeda(p.preco_venda)}</p>
-        <p class="card-produto-tamanhos">${p.tamanhos.length} tamanho(s)</p>
+        <p class="card-produto-tamanhos">${(() => {
+          // as cores vendem mais que a contagem de tamanhos: a cliente escolhe pela cor
+          const cores = (p.cores || []).filter(c => c && c !== COR_PADRAO);
+          const tam = `${(p.tamanhos || []).length} tamanho(s)`;
+          return cores.length ? `${cores.slice(0, 3).join(' • ')}${cores.length > 3 ? ' +' + (cores.length - 3) : ''}` : tam;
+        })()}</p>
       </div>
     `;
     card.addEventListener('click', () => abrirModalProduto(p));
@@ -320,10 +330,12 @@ function renderizarProdutos(produtos) {
 
 let produtoSelecionado = null;
 let tamanhoSelecionado = null;
+let corSelecionada = null;
 
 function abrirModalProduto(produto) {
   produtoSelecionado = produto;
   tamanhoSelecionado = null;
+  corSelecionada = null;
 
   document.getElementById('modalProdutoNome').textContent = produto.titulo || produto.nome;
   document.getElementById('modalProdutoFoto').src = produto.foto;
@@ -346,20 +358,60 @@ function abrirModalProduto(produto) {
     galeriaContainer.appendChild(img);
   });
 
-  // Tamanhos
+  // COR e TAMANHO. A peça é o par (cor, tamanho): escolher só o tamanho não diz qual
+  // peça a cliente quer quando o mesmo modelo existe em preto e em vermelho.
+  // A cor vem primeiro, e os tamanhos mostrados são os DAQUELA cor — assim a cliente
+  // nunca escolhe uma combinação que a loja não tem.
+  const grade = produto.grade || [];
+  const cores = (produto.cores || [...new Set(grade.map(g => g.cor))]).filter(Boolean);
+  const temCor = cores.some(c => c !== COR_PADRAO);
+
+  const corContainer = document.getElementById('botoesCorProduto');
   const tamanhoContainer = document.getElementById('botoestTamanhoProduto');
-  tamanhoContainer.innerHTML = '';
-  produto.tamanhos.forEach(t => {
-    const btn = document.createElement('button');
-    btn.className = 'btn-tamanho';
-    btn.textContent = t.tamanho;
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.btn-tamanho').forEach(b => b.classList.remove('selected'));
-      btn.classList.add('selected');
-      tamanhoSelecionado = t.tamanho;
+
+  function renderTamanhos() {
+    tamanhoContainer.innerHTML = '';
+    tamanhoSelecionado = null;
+    const daCor = grade.filter(g => !corSelecionada || g.cor === corSelecionada);
+    // sem grade (produto antigo, pré-matriz): cai nos tamanhos soltos que a API manda
+    const lista = daCor.length ? daCor : (produto.tamanhos || []);
+    lista.forEach(t => {
+      const btn = document.createElement('button');
+      btn.className = 'btn-tamanho';
+      btn.textContent = t.tamanho;
+      btn.addEventListener('click', () => {
+        tamanhoContainer.querySelectorAll('.btn-tamanho').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        tamanhoSelecionado = t.tamanho;
+      });
+      tamanhoContainer.appendChild(btn);
     });
-    tamanhoContainer.appendChild(btn);
-  });
+  }
+
+  if (corContainer) corContainer.innerHTML = '';
+  const blocoCor = corContainer && (corContainer.closest('.opcao-produto') || corContainer);
+  if (blocoCor) blocoCor.style.display = temCor ? '' : 'none';
+
+  if (temCor && corContainer) {
+    cores.forEach((cor, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'btn-tamanho btn-cor';
+      btn.textContent = cor;
+      btn.addEventListener('click', () => {
+        corContainer.querySelectorAll('.btn-cor').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        corSelecionada = cor;
+        renderTamanhos();
+      });
+      corContainer.appendChild(btn);
+      // já deixa a primeira cor escolhida: a cliente vê tamanho disponível na hora, em
+      // vez de uma lista vazia esperando um clique que ela não sabe que precisa dar
+      if (i === 0) btn.click();
+    });
+  } else {
+    corSelecionada = cores[0] || COR_PADRAO;
+    renderTamanhos();
+  }
 
   // Quantidade
   document.getElementById('btnQtyMenos').addEventListener('click', () => {
@@ -390,6 +442,9 @@ function adicionarCarrinho() {
   const item = {
     id: produtoSelecionado.id,
     nome: produtoSelecionado.titulo || produtoSelecionado.nome,
+    // a cor vai junto: o pedido que chega no WhatsApp precisa dizer QUAL peça a
+    // cliente quer, senão a loja separa a errada
+    cor: corSelecionada && corSelecionada !== COR_PADRAO ? corSelecionada : null,
     tamanho: tamanhoSelecionado,
     qtd: qtd,
     preco: produtoSelecionado.preco_venda,
@@ -436,7 +491,7 @@ function renderizarCarrinho() {
     div.innerHTML = `
       <div class="carrinho-item-info">
         <p class="carrinho-item-nome">${item.nome}</p>
-        <p class="carrinho-item-detalhes">${item.tamanho} • ${item.qtd}x R$ ${formatarMoeda(item.preco)}</p>
+        <p class="carrinho-item-detalhes">${[item.cor, item.tamanho].filter(Boolean).join(' / ')} • ${item.qtd}x R$ ${formatarMoeda(item.preco)}</p>
       </div>
       <p class="carrinho-item-preco">R$ ${formatarMoeda(item.total)}</p>
       <button class="carrinho-item-remover" data-idx="${idx}">×</button>
@@ -477,7 +532,11 @@ function finalizarWhatsApp() {
   let total = 0;
 
   carrinhoLocal.forEach(item => {
-    mensagem += `${item.nome} (${item.tamanho}) x ${item.qtd} = R$ ${formatarMoeda(item.total)}\n`;
+    // A COR tem que estar aqui. Esta mensagem é o pedido que chega no WhatsApp da
+    // loja — é por ela que a peça é separada. "Vestido Amanda (M)" não diz se a
+    // cliente quer o preto ou o vermelho.
+    const detalhe = [item.cor, item.tamanho].filter(Boolean).join(' / ');
+    mensagem += `${item.nome}${detalhe ? ` (${detalhe})` : ''} x ${item.qtd} = R$ ${formatarMoeda(item.total)}\n`;
     total += item.total;
   });
 

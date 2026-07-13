@@ -17,7 +17,7 @@
     <div class="card">
       <h2 style="margin-top:0;">Passo 1: Baixar o template</h2>
       <button class="btn btn-fino" onclick="baixarTemplate()">Baixar template CSV</button>
-      <p class="texto-cinza" style="font-size:0.82rem; margin-top:10px;">O arquivo contém colunas de exemplo. Você pode editar, duplicar linhas e preencher os dados. Você pode usar <strong>Codigo</strong> OU <strong>Nome</strong> (uma das duas), junto com <strong>Tamanho</strong> e <strong>Quantidade</strong>. As demais colunas são ignoradas.</p>
+      <p class="texto-cinza" style="font-size:0.82rem; margin-top:10px;">O arquivo contém colunas de exemplo. Você pode editar, duplicar linhas e preencher os dados. Use <strong>Codigo</strong> OU <strong>Nome</strong> (uma das duas), junto com <strong>Tamanho</strong> e <strong>Quantidade</strong>. A coluna <strong>Cor</strong> é opcional — mas se a peça existe em mais de uma cor, ela é obrigatória (senão o sistema não sabe em qual cor dar entrada).</p>
     </div>
 
     
@@ -32,7 +32,7 @@
       </div>
       <div class="campo">
         <label>Ou cole o conteúdo do CSV aqui</label>
-        <textarea id="csvTexto" placeholder="Codigo,Tamanho,Quantidade&#10;V001,P,5&#10;V002,M,3" style="height:120px; font-family:monospace; font-size:0.9rem;"></textarea>
+        <textarea id="csvTexto" placeholder="Codigo,Cor,Tamanho,Quantidade&#10;V001,Preto,P,5&#10;V001,Vermelho,M,3" style="height:120px; font-family:monospace; font-size:0.9rem;"></textarea>
       </div>
       <button class="btn btn-bloco" onclick="processar()">▶ Processar</button>
     </div>
@@ -46,6 +46,7 @@
           <thead style="background:var(--cinza-claro); border-bottom:2px solid var(--linha-forte);">
             <tr>
               <th style="text-align:left; padding:8px;">Código</th>
+              <th style="text-align:left; padding:8px;">Cor</th>
               <th style="text-align:left; padding:8px;">Tamanho</th>
               <th style="text-align:right; padding:8px;">Quantidade</th>
               <th style="text-align:center; padding:8px;">Status</th>
@@ -75,14 +76,18 @@
   <script>
     montarLayout('estoque');
 
-    let csvParse = []; // array de {codigo, tamanho, quantidade, valido:true/false}
+    let csvParse = []; // array de {codigo, nome, cor, tamanho, quantidade, valido:true/false}
 
     function baixarTemplate() {
+      // A peça é o par (cor, tamanho): o mesmo modelo em 2 cores são 2 linhas, e é
+      // isso que o template precisa ensinar — senão o lojista monta a planilha sem cor
+      // e a importação recusa tudo que tem mais de uma cor.
       const linhas = [
-        ['Codigo', 'Nome', 'Tamanho', 'Quantidade'],
-        ['V001', '', 'P', '5'],
-        ['', 'Camiseta Azul', 'M', '3'],
-        ['V003', '', 'G', '2']
+        ['Codigo', 'Nome', 'Cor', 'Tamanho', 'Quantidade'],
+        ['V001', '', 'Preto', 'P', '5'],
+        ['V001', '', 'Preto', 'M', '8'],
+        ['V001', '', 'Vermelho', 'M', '3'],
+        ['', 'Camiseta Lisa', '', 'G', '2']
       ];
       const csv = linhas.map(l => l.map(c => `"${c}"`).join(',')).join('\n');
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -113,6 +118,7 @@
       const header = linhas[0].split(',').map(c => c.trim().toLowerCase());
       const idxCodigo = header.indexOf('codigo');
       const idxNome = header.indexOf('nome');
+      const idxCor = header.indexOf('cor');      // opcional: só é exigida se o produto tem 2+ cores
       const idxTamanho = header.indexOf('tamanho');
       const idxQtd = header.indexOf('quantidade');
 
@@ -131,6 +137,10 @@
         const campos = linhas[i].split(',').map(c => c.trim());
         const codigo = campos[idxCodigo] || '';
         const nome = campos[idxNome] || '';
+        // Cor é opcional. Sem ela, o backend acha o SKU pelo tamanho — e SÓ aceita se
+        // o produto tiver uma cor só. Com 2+ cores ele recusa a linha e pede a coluna,
+        // em vez de adivinhar e dar entrada na peça errada.
+        const cor = idxCor >= 0 ? (campos[idxCor] || '') : '';
         const tamanho = campos[idxTamanho] || '';
         const quantidade = parseInt(campos[idxQtd], 10);
 
@@ -138,7 +148,7 @@
         const temIdentificador = codigo.length > 0 || nome.length > 0;
         const valido = temIdentificador && tamanho.length > 0 && !isNaN(quantidade) && quantidade > 0;
 
-        csvParse.push({ codigo: codigo || nome, nome, tamanho, quantidade, valido });
+        csvParse.push({ codigo: codigo || nome, nome, cor, tamanho, quantidade, valido });
       }
 
       if (csvParse.length === 0) { toast('Nenhuma linha válida encontrada','erro'); return; }
@@ -148,11 +158,14 @@
 
     function mostrarPreview() {
       const validos = csvParse.filter(c => c.valido);
-      const erros = csvParse.filter(c => c.valido);
+      // BUG (corrigido): era `filter(c => c.valido)` — contava os VÁLIDOS como erros,
+      // então o resumo mostrava "0 erros / 0 erros" e o lojista não via o que ia falhar.
+      const erros = csvParse.filter(c => !c.valido);
 
       const html = csvParse.map(c => `
         <tr style="border-bottom:1px solid var(--linha);">
           <td style="padding:8px;">${esc(c.codigo)}</td>
+          <td style="padding:8px;">${esc(c.cor || '—')}</td>
           <td style="padding:8px;">${esc(c.tamanho)}</td>
           <td style="text-align:right; padding:8px;">${c.quantidade}</td>
           <td style="text-align:center; padding:8px;">
@@ -173,9 +186,15 @@
 
     async function confirmar() {
       const validos = csvParse.filter(c => c.valido);
-      if (validos.length) { toast('Nenhum item válido','erro'); return; }
+      // BUG (corrigido): era `if (validos.length)` — abortava justamente quando HAVIA
+      // itens válidos, e seguia em frente quando não havia nenhum. A importação em
+      // lote não funcionava.
+      if (!validos.length) { toast('Nenhum item válido','erro'); return; }
 
-      const body = validos.map(c => ({ codigo: c.codigo, tamanho: c.tamanho, quantidade: c.quantidade, motivo:'entrada em lote' }));
+      const body = validos.map(c => ({
+        codigo: c.codigo, cor: c.cor || undefined, tamanho: c.tamanho,
+        quantidade: c.quantidade, motivo: 'entrada em lote',
+      }));
 
       try {
         document.getElementById('btnConfirmar').disabled = true;
@@ -197,7 +216,7 @@
         html += `<div class="card" style="background:var(--vermelho-claro); border-left:4px solid var(--vermelho); margin-top:10px;">
           <strong class="texto-vermelho">${erros.length} item(ns) com erro (não foram importados):</strong>
           <ul style="margin:8px 0; padding-left:20px;">
-            ${erros.map(e => `<li>${esc(e.codigo)} / ${esc(e.tamanho)}: ${esc(e.motivo)}</li>`).join('')}
+            ${erros.map(e => `<li>${esc([e.codigo, e.cor, e.tamanho].filter(Boolean).join(' / '))}: ${esc(e.motivo)}</li>`).join('')}
           </ul>
         </div>`;
       }

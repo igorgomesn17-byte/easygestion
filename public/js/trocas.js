@@ -161,30 +161,43 @@ async function buscarProd() {
   }
   const prods = await api('/produtos?busca=' + encodeURIComponent(b));
   prodBusca = prods;
+
+  // A grade (matriz cor x tamanho) já vem no próprio produto — agrupada por cor, pra
+  // a atendente saber QUAL peça está entregando. Antes isto chamava
+  // `/estoque?produto=<id>` numa varredura por produto, mas o backend NÃO conhece o
+  // filtro `produto`: cada chamada devolvia o estoque da loja inteira (até 500 linhas)
+  // e os chips vinham de outras peças.
   document.getElementById('listaProd').innerHTML = prods.length === 0
     ? '<div class="texto-cinza" style="padding:8px;">Nenhuma peça.</div>'
-    : prods.map((p, pi) => `<div class="item" style="display:block;">
-        <div class="flex-entre"><strong>${esc(p.nome)}</strong> <span class="dinheiro">${moeda(p.preco_venda)}</span></div>
-        <div id="grade-${pi}"></div>
-      </div>`).join('');
-  for (let pi = 0; pi < prods.length; pi++) {
-    const p = prods[pi];
-    const vars = await api('/estoque?produto=' + p.id).catch(() => ([]));
-    variacoesPorProd[p.id] = vars;
-    const html = vars.map((g, gi) => `<span class="tam-chip ${g.quantidade <= 0 ? 'zerado' : ''}"
-          ${g.quantidade > 0 ? `onclick="addLevado(${pi}, ${g.variacao_id})"` : ''}>
-          ${esc(g.tamanho)} <small>(${g.quantidade})</small></span>`).join('');
-    document.getElementById('grade-' + pi).innerHTML = html;
-  }
+    : prods.map((p, pi) => {
+        variacoesPorProd[p.id] = p.grade || [];
+        const cores = [...new Set((p.grade || []).map(g => g.cor))];
+        const temCor = cores.some(c => c && c !== COR_PADRAO);
+        const grade = cores.map(cor => {
+          const chips = (p.grade || []).filter(g => g.cor === cor).map(g =>
+            `<span class="tam-chip ${g.quantidade <= 0 ? 'zerado' : ''}"
+                   ${g.quantidade > 0 ? `onclick="addLevado(${pi}, ${g.id})"` : ''}>
+               ${esc(g.tamanho)} <small>(${g.quantidade})</small></span>`).join('');
+          const rotulo = temCor
+            ? `<span class="texto-cinza" style="font-size:0.76rem;min-width:70px;">${esc(cor)}</span>` : '';
+          return `<div style="display:flex;align-items:center;gap:6px;margin-top:4px;">${rotulo}<div>${chips}</div></div>`;
+        }).join('');
+        return `<div class="item" style="display:block;">
+          <div class="flex-entre"><strong>${esc(p.nome)}</strong> <span class="dinheiro">${moeda(p.preco_venda)}</span></div>
+          ${grade}
+        </div>`;
+      }).join('');
 }
 
 function addLevado(pi, varId) {
   const p = prodBusca[pi];
   if (!p) return;
   const vars = variacoesPorProd[p.id] || [];
-  const var_sel = vars.find(v => v.variacao_id === varId);
-  const tamanho = var_sel ? var_sel.tamanho : '';
-  const descricao = `${p.nome}${tamanho ? ' (' + tamanho + ')' : ''}`;
+  const sel = vars.find(v => v.id === varId);
+  if (!sel) return;
+  // a descrição precisa dizer a COR: sem ela, o comprovante da troca não diz qual
+  // peça a cliente levou quando o modelo existe em 4 cores
+  const descricao = rotuloSku(p.nome, sel.cor, sel.tamanho);
   const ex = levados.find(l => l.variacao_id === varId);
   if (ex) ex.qtd++;
   else levados.push({ variacao_id: varId, produto_id: p.id, descricao, qtd: 1, valor_unit: p.preco_venda });

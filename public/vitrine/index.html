@@ -167,6 +167,15 @@
         </div>
         <div class="produto-detalhe-info">
           <p class="produto-preco" id="modalProdutoPreco">R$ 0,00</p>
+          <!-- A peça é o par (cor, tamanho). A cor vem primeiro: os tamanhos exibidos
+               são os DAQUELA cor, então a cliente nunca escolhe uma combinação que a
+               loja não tem. Some quando o produto não tem cor (uma bolsa, um cinto). -->
+          <div class="produto-tamanhos opcao-produto" id="blocoCorProduto">
+            <label>Cor:</label>
+            <div id="botoesCorProduto" class="tamanhos-grid">
+              <!-- Botões de cor aqui -->
+            </div>
+          </div>
           <div class="produto-tamanhos">
             <label>Tamanho:</label>
             <div id="botoestTamanhoProduto" class="tamanhos-grid">

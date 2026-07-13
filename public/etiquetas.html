@@ -34,13 +34,17 @@
 </head>
 <body>
   <div class="controles nao-imprime">
-    <div>
-      <label>Quantidade de cópias:</label>
+    <label style="display:flex;align-items:center;gap:6px;">
+      <input type="checkbox" id="umaPorPeca" checked onchange="carregar()" style="width:auto;">
+      Uma etiqueta por peça em estoque
+    </label>
+    <div id="boxCopias" style="display:none;">
+      <label>Cópias de cada peça:</label>
       <input type="number" id="quantidade" value="1" min="1" max="100" style="width: 60px;">
     </div>
     <button class="btn btn-bloco btn-verde" onclick="window.print()">Imprimir</button>
     <a class="btn btn-bloco btn-fantasma" href="produtos.html">← Voltar</a>
-    <div class="texto-cinza" style="font-size: 0.85rem; margin-left: auto;">Elgin L42PRO (100mm × 50mm, 2 colunas)</div>
+    <div id="resumoEtiq" class="texto-cinza" style="font-size: 0.85rem; margin-left: auto;">Elgin L42PRO (100mm × 50mm, 2 colunas)</div>
   </div>
 
   <div class="container-etiquetas" id="etiquetas"></div>
@@ -50,26 +54,60 @@
     const produtoId = new URLSearchParams(location.search).get('id');
     if (!produtoId) { alert('Produto não especificado'); location.href = 'produtos.html'; }
 
+    // COR_PADRAO vem do comum.js.
+    // A etiqueta agora é do SKU (cor + tamanho), não do produto: cada peça na arara
+    // tem o seu código. A tela antiga imprimia N cópias do MESMO código — com grade
+    // por cor, isso cola a etiqueta do preto na peça vermelha.
     async function carregar() {
       try {
-        const [loja, produto] = await Promise.all([
+        const [loja, dados] = await Promise.all([
           api('/config'),
-          api('/produtos/' + produtoId)
+          api('/produtos/' + produtoId + '/etiquetas'),
         ]);
 
-        // montar etiquetas repetidas conforme quantidade
-        const qde = parseInt(document.getElementById('quantidade').value) || 1;
-        let html = '';
-        for (let i = 0; i < qde; i++) {
-          html += `
+        const umaPorPeca = document.getElementById('umaPorPeca').checked;
+        document.getElementById('boxCopias').style.display = umaPorPeca ? 'none' : 'flex';
+
+        let etiquetas = dados.etiquetas || [];
+        if (!umaPorPeca) {
+          // uma etiqueta por SKU (não por peça), repetida N vezes — pra repor etiqueta
+          // que descolou, sem reimprimir a grade inteira
+          const copias = parseInt(document.getElementById('quantidade').value) || 1;
+          const unicos = [];
+          const visto = new Set();
+          for (const e of etiquetas) {
+            const chave = e.variacao_id;
+            if (visto.has(chave)) continue;
+            visto.add(chave);
+            for (let i = 0; i < copias; i++) unicos.push(e);
+          }
+          etiquetas = unicos;
+        }
+
+        if (!etiquetas.length) {
+          document.getElementById('etiquetas').innerHTML =
+            '<div class="vazio" style="grid-column:1/-1;padding:30px;">Nenhuma peça em estoque para etiquetar.</div>';
+          document.getElementById('resumoEtiq').textContent = '';
+          return;
+        }
+
+        document.getElementById('etiquetas').innerHTML = etiquetas.map(e => {
+          // "Preto / M" — mas sem poluir com "Unica" quando a peça não tem cor
+          const detalhe = [e.cor && e.cor !== COR_PADRAO ? e.cor : null, e.tamanho].filter(Boolean).join(' / ');
+          const barcode = e.codigo_barras
+            ? `<img src="/api/codigo-barras/${encodeURIComponent(e.codigo_barras)}.png" alt="código de barras">`
+            : `<span class="texto-cinza" style="font-size:10px;">sem código de barras</span>`;
+          return `
             <div class="etiqueta">
               <div class="loja">${esc(loja.loja_nome || 'EasyGestão')}</div>
-              <div class="nome">${esc(produto.nome)}</div>
-              <div class="barcode"><img src="/api/codigo-barras/${esc(produto.codigo_barras)}.png" alt="código de barras"></div>
-              <div class="preco">${moeda(produto.preco_venda)}</div>
+              <div class="nome">${esc(e.nome)}${detalhe ? `<br><span style="font-weight:400;">${esc(detalhe)}</span>` : ''}</div>
+              <div class="barcode">${barcode}</div>
+              <div class="preco">${moeda(e.preco_venda)}</div>
             </div>`;
-        }
-        document.getElementById('etiquetas').innerHTML = html;
+        }).join('');
+
+        document.getElementById('resumoEtiq').textContent =
+          `${etiquetas.length} etiqueta${etiquetas.length > 1 ? 's' : ''} • Elgin L42PRO (100mm × 50mm)`;
       } catch(e) {
         alert('Erro ao carregar produto: ' + e.message);
         location.href = 'produtos.html';

@@ -238,6 +238,7 @@
       <div class="campo"><label>Nome da peça *</label><input type="text" id="pnNome"></div>
       <div class="linha">
         <div class="campo"><label>Preço de venda (R$) *</label><input type="number" id="pnPreco" step="0.01" placeholder="0,00"></div>
+        <div class="campo"><label>Cor</label><input type="text" id="pnCor" placeholder="Ex: Preto"></div>
         <div class="campo"><label>Tamanho</label><input type="text" id="pnTamanho" placeholder="Ex: M, U, 38" value="U"></div>
       </div>
       <button class="btn btn-bloco btn-verde" onclick="salvarPecaNova()">Cadastrar e adicionar à venda</button>
@@ -361,6 +362,12 @@
           : `<div class="cat-foto-vazia">sem foto</div>`;
         const estClasse = semEstoque ? 'cat-estoque baixo' : (p.estoque_total <= 3 ? 'cat-estoque baixo' : 'cat-estoque');
         const estTxt = semEstoque ? 'Esgotado' : `${p.estoque_total} em estoque`;
+        // as cores que a peça tem: a vendedora já sabe, no card, se tem o preto —
+        // sem precisar abrir a peça pra descobrir
+        const cores = (p.cores || []).filter(c => c && c !== COR_PADRAO);
+        const coresTxt = cores.length
+          ? `<div class="texto-cinza" style="font-size:0.74rem;margin-top:2px;">${esc(cores.slice(0, 3).join(' • '))}${cores.length > 3 ? ' +' + (cores.length - 3) : ''}</div>`
+          : '';
         return `
         <div class="cat-card-wrap">
           <div class="cat-card ${semEstoque ? 'esgotado' : ''}" data-id="${p.id}">
@@ -368,6 +375,7 @@
             <span class="cat-badge">${esc(p.codigo || '')}</span>
             <div class="cat-info">
               <div class="cat-nome">${esc(p.nome)}</div>
+              ${coresTxt}
               <div class="cat-preco">${moeda(p.preco_venda)}</div>
               <div class="${estClasse}">${estTxt}</div>
             </div>
@@ -402,26 +410,44 @@
       const termo = document.getElementById('busca').value.trim();
       if (!termo) return;
       const lista = await api('/produtos?busca=' + encodeURIComponent(termo));
-      // casa por codigo_barras exato (leitura de pistola) ou codigo exato
+
+      // O código de barras agora é do SKU (cor + tamanho), não do produto: quando a
+      // pistola dispara, o backend diz QUAL variação foi bipada. Aí não há o que
+      // perguntar — a peça exata vai direto pro carrinho.
+      const bipado = lista.find(x => x.variacao_bipada);
+      if (bipado) {
+        const sku = (bipado.grade || []).find(g => g.id === bipado.variacao_bipada);
+        if (!sku) { toast('Peça não encontrada', 'erro'); limparBusca(); return; }
+        if (sku.quantidade <= 0) { toast(`Sem estoque: ${rotuloSku(bipado.nome, sku.cor, sku.tamanho)}`, 'erro'); limparBusca(); return; }
+        produtoTmp = bipado;
+        addCarrinho(sku.id, sku.cor, sku.tamanho, sku.quantidade);
+        toast(rotuloSku(bipado.nome, sku.cor, sku.tamanho) + ' adicionado', 'sucesso');
+        limparBusca();
+        return;
+      }
+
+      // casa por codigo do produto, ou pelo codigo_barras antigo (cadastros pre-grade)
       let p = lista.find(x => x.codigo_barras === termo || (x.codigo||'').toUpperCase() === termo.toUpperCase());
       // se não casou exato mas só veio 1 resultado, assume esse
-      if (p && lista.length === 1) p = lista[0];
+      if (!p && lista.length === 1) p = lista[0];
       if (!p) { toast('Produto não encontrado pra esse código', 'erro'); return; }
 
       const disp = (p.grade||[]).filter(g => g.quantidade > 0);
       if (disp.length === 0) { toast('Sem estoque dessa peça', 'erro'); limparBusca(); return; }
       produtoTmp = p;
       if (disp.length === 1) {
-        // 1 tamanho com estoque → vai direto pro carrinho
-        addCarrinho(disp[0].id, disp[0].tamanho, disp[0].quantidade);
-        toast('' + (p.nome) + ' adicionado', 'sucesso');
+        // uma peça só com estoque → vai direto pro carrinho
+        addCarrinho(disp[0].id, disp[0].cor, disp[0].tamanho, disp[0].quantidade);
+        toast(rotuloSku(p.nome, disp[0].cor, disp[0].tamanho) + ' adicionado', 'sucesso');
         limparBusca();
       } else {
-        // vários tamanhos → precisa escolher qual (o código de barras é do produto, não da variação)
+        // várias peças (cores/tamanhos) → precisa escolher qual
         escolherProduto(p);
         limparBusca();
       }
     }
+
+    // COR_PADRAO e rotuloSku vêm do comum.js (mesma regra do lib/sku.js do backend).
     function limparBusca() {
       document.getElementById('busca').value = '';
       carregarCatalogo('');   // volta a mostrar o catálogo completo (não deixa a tela vazia)
@@ -445,11 +471,33 @@
       } else {
         fotoDIV.style.display = 'none';
       }
-      document.getElementById('tamTitulo').textContent = p.nome + ' — escolha o tamanho';
-      document.getElementById('tamOpcoes').innerHTML = p.grade.map(g =>
-        `<span class="tam-btn ${g.quantidade===0?'zerado':''}" onclick="addCarrinho(${g.id}, '${g.tamanho}', ${g.quantidade})">
-          ${g.tamanho} <small>(${g.quantidade})</small></span>`).join('');
+      // A grade é uma matriz: agrupa por COR e mostra os tamanhos de cada uma. Sem
+      // isso, "M" e "M" apareceriam lado a lado sem dizer qual é o preto e qual é o
+      // vermelho — e a vendedora bipa a peça errada com a cliente esperando.
+      const cores = (p.cores || [...new Set(p.grade.map(g => g.cor))]);
+      const temCor = cores.some(c => c && c !== COR_PADRAO);
+      document.getElementById('tamTitulo').textContent =
+        p.nome + (temCor ? ' — escolha a cor e o tamanho' : ' — escolha o tamanho');
+
+      // O clique passa o ID da variação, não a cor/tamanho como texto: uma cor com
+      // aspas ou acento no onclick vira HTML quebrado. O resto vem da grade.
+      document.getElementById('tamOpcoes').innerHTML = cores.map(cor => {
+        const botoes = p.grade.filter(g => g.cor === cor).map(g =>
+          `<span class="tam-btn ${g.quantidade===0?'zerado':''}" onclick="addCarrinhoPorId(${g.id})">
+            ${esc(g.tamanho)} <small>(${g.quantidade})</small></span>`).join('');
+        const titulo = temCor
+          ? `<div class="texto-cinza" style="font-size:0.82rem;font-weight:600;margin:10px 0 6px;">${esc(cor)}</div>` : '';
+        return titulo + `<div class="grade-chips" style="margin-bottom:4px;">${botoes}</div>`;
+      }).join('');
       document.getElementById('modalTam').classList.add('aberto');
+    }
+
+    // Resolve o SKU na grade do produto aberto e joga no carrinho.
+    function addCarrinhoPorId(variacaoId) {
+      const g = (produtoTmp?.grade || []).find(x => x.id === variacaoId);
+      if (!g) { toast('Peça não encontrada', 'erro'); return; }
+      if (g.quantidade <= 0) { toast('Sem estoque dessa peça', 'erro'); return; }
+      addCarrinho(g.id, g.cor, g.tamanho, g.quantidade);
     }
     function fecharTam() { document.getElementById('modalTam').classList.remove('aberto'); }
 
@@ -458,6 +506,7 @@
       // pré-preenche o nome com o que foi digitado na busca
       document.getElementById('pnNome').value = document.getElementById('busca').value.trim();
       document.getElementById('pnPreco').value = '';
+      document.getElementById('pnCor').value = '';
       document.getElementById('pnTamanho').value = 'U';
       document.getElementById('modalPecaNova').classList.add('aberto');
       setTimeout(()=>document.getElementById('pnPreco').focus(), 100);
@@ -465,14 +514,15 @@
     async function salvarPecaNova() {
       const nome = document.getElementById('pnNome').value.trim();
       const preco = parseFloat(document.getElementById('pnPreco').value) || 0;
+      const cor = document.getElementById('pnCor').value.trim();   // vazio → 'Unica' no backend
       const tamanho = document.getElementById('pnTamanho').value.trim() || 'U';
       if (!nome) { toast('Informe o nome da peça','erro'); return; }
       if (preco <= 0) { toast('Informe o preço','erro'); return; }
       try {
-        const p = await api('/produtos/rapido', { method:'POST', body:{ nome, preco_venda:preco, tamanho, quantidade:1 }});
+        const p = await api('/produtos/rapido', { method:'POST', body:{ nome, preco_venda:preco, cor, tamanho, quantidade:1 }});
         // adiciona direto ao carrinho
         carrinho.push({ variacao_id: p.variacao_id, produto_id: p.produto_id, nome: p.nome,
-          tamanho: p.tamanho, preco: p.preco_venda, custo: 0, qtd: 1, estoque: p.quantidade });
+          cor: p.cor, tamanho: p.tamanho, preco: p.preco_venda, custo: 0, qtd: 1, estoque: p.quantidade });
         document.getElementById('modalPecaNova').classList.remove('aberto');
         limparBusca();
         toast('Peça cadastrada e adicionada à venda ','sucesso');
@@ -480,14 +530,14 @@
       } catch(e){ toast(e.message,'erro'); }
     }
 
-    function addCarrinho(variacaoId, tamanho, estoque) {
+    function addCarrinho(variacaoId, cor, tamanho, estoque) {
       const existe = carrinho.find(i => i.variacao_id === variacaoId);
       if (existe) {
         if (existe.qtd + 1 > estoque) { toast('Estoque insuficiente', 'erro'); return; }
         existe.qtd++;
       } else {
         carrinho.push({ variacao_id: variacaoId, produto_id: produtoTmp.id, nome: produtoTmp.nome,
-          tamanho, preco: produtoTmp.preco_venda, custo: produtoTmp.custo, qtd: 1, estoque });
+          cor, tamanho, preco: produtoTmp.preco_venda, custo: produtoTmp.custo, qtd: 1, estoque });
       }
       fecharTam();
       // catálogo permanece visível pra vender várias peças em sequência.
@@ -506,7 +556,9 @@
       div.innerHTML = carrinho.map((i, idx) => `
         <div class="carrinho-item">
           <div class="flex-entre">
-            <div><strong>${esc(i.nome)}</strong><br><span class="texto-cinza">Tam ${esc(i.tamanho)} • ${moeda(i.preco)}</span></div>
+            <div><strong>${esc(i.nome)}</strong><br><span class="texto-cinza">${
+              esc([i.cor && i.cor !== COR_PADRAO ? i.cor : null, i.tamanho ? 'Tam ' + i.tamanho : null].filter(Boolean).join(' • '))
+            }${i.cor || i.tamanho ? ' • ' : ''}${moeda(i.preco)}</span></div>
             <div class="direita">
               <div style="display:flex; align-items:center; gap:6px; justify-content:flex-end;">
                 <button class="btn btn-fino btn-escuro" onclick="mudarQtd(${idx},-1)">−</button>
