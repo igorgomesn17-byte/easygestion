@@ -1394,10 +1394,40 @@ Três lugares assumiam que todo tenant paga e precisaram de guarda: `middleware/
 
 `public/js/comum.js`: itens do `NAV` carregam `feature`, e `montarLayout` esconde quem o plano não tem (`/api/me` já devolvia `me.features`). **Esconde em vez de mostrar bloqueado** — o card de upgrade leva ao checkout do Growth, que não entrega a feature. Corrigido no caminho um bug latente: a limpeza de títulos de grupo vazios olhava `nextElementSibling` esperando um `.nav-link`, mas o irmão é o container `.nav-grupo-items` — o título nunca sumia.
 
-### O que NÃO foi feito (de propósito)
+---
 
-**Motor de cupom.** Os `VOLTE20`/`SAUDADE25`/`ANIV10` são **só texto na mensagem** — não existe tabela de cupom nem validação no PDV. Na DS era combinado verbal com a cliente. Não construir em cima disso sem decidir fazer o motor de verdade.
+## Últimas Mudanças (14 de julho de 2026) — Motor de cupom: a régua deixa de ser cega
+
+Os `VOLTE20`/`ANIV10` eram **só texto na mensagem** — não validavam, não descontavam e, o que mais importa, **não mediam**. "Mandei 40 mensagens" não responde se a régua funciona.
+
+### O desenho
+
+**Nominal, não por campanha.** A Maria recebe `VOLTE20-K3P9`; a Ana, `VOLTE20-M7X2`. Uso único. Código fixo pra todo mundo tem dois furos: **vaza** (uma cliente posta no grupo e vira desconto geral) e **não atribui** (não dá pra saber se a Maria voltou pela mensagem dela). O erro no balcão diz de quem é o código — a atendente não vira refém de discussão.
+
+**Nasce rascunho.** Só vale quando a lojista de fato **envia** a mensagem, e a validade conta a partir dali (a mensagem diz "vale até 20/07" e a cliente leu hoje). Ignorar o contato cancela o cupom junto.
+
+**Cupom ≠ vale.** Cupom = **desconto** (reduz o total antes do pagamento; entra em `vendas.desconto` e é distribuído nos itens — logo lucro, imposto e DRE saem certos de graça). Vale = **dinheiro** (forma de pagamento, `caixa_dia.total_vale`). Coexistem na mesma venda.
+
+**A baixa mora na transação da venda** (`routes/vendas.js`, passo 2d), com `AND status='ativo' AND validade >= ?` no próprio UPDATE — fecha a corrida entre duas vendas simultâneas, igual ao `AND saldo >= ?` do vale.
+
+**Cupom reduz os selos do clube, e isso é CERTO.** É o oposto do `gasto_sem_selo`: o vale do clube é dinheiro da *loja* voltando (se gerasse selo, o clube financiaria a si mesmo); o cupom é dinheiro que a loja **não recebeu**. Comprou R$400 e pagou R$320 → o faturamento dela é 320.
+
+**Cancelar a venda devolve o cupom** (não queima) — queimar deixaria a cliente sem a peça *e* sem o benefício. É o oposto do prêmio do clube, que não volta.
+
+**Expiração lazy, sem job.** Não existe status `'expirado'` gravado: expirado é `ativo + validade < hoje`. Um job que não roda (deploy, reboot) deixaria cupom vencido passar.
+
+### A tela de resultados (`resultados.html`)
+
+Responde "a régua se paga?" **sem inventar contrafactual**. Conta quem voltou *com o cupom na mão* — algumas voltariam de qualquer jeito; o cupom não prova causa, prova **contato**. A linha mais valiosa é a dos **expirados**: "mandei 40, 30 venceram" é o sinal de que a mensagem não convence, e a tela diz isso em português.
+
+### Arquivos
+
+`lib/cupons.js` (motor), `routes/cupons.js` (preview pro PDV — `pdvOuAdmin`, **sem** `exigirFeature`: a vendedora precisa fechar a venda), `public/resultados.html`, migration **037**. Teste: `npm run test:cupom` (49 asserts — código vazado, uso duplo, corrida, cancelamento, idempotência do scheduler).
+
+### Armadilha que quase entrou
+
+O scheduler roda às 06:00 **e** no catch-up de 10s do boot. Se ele emitisse o cupom e só depois descobrisse (pelo `INSERT OR IGNORE`) que a ação já existia, **cada rerun deixaria um código órfão** — e cada órfão é um desconto pendurado. A checagem vem **antes** da emissão.
 
 ---
 
-**Documento versão 1.7 — Atualizado em 13 de julho de 2026. Relacionamento (régua + RFM) e Clube de selos no ar, gated no novo plano `interno`. Landing v2 é a oficial (`/` serve `landing-v2.html`). PDV em cards. DRE redesenhado. Stripe em modo LIVE (ver memória `stripe-live-no-ar-2026-07-08`).**
+**Documento versão 1.8 — Atualizado em 14 de julho de 2026. Relacionamento (régua + RFM), Clube de selos e Motor de cupom nominal no ar, gated no plano `interno`. A régua deixou de ser cega: `resultados.html` responde "ela se paga?". Landing v2 é a oficial. PDV em cards. Stripe em modo LIVE (ver memória `stripe-live-no-ar-2026-07-08`).**
