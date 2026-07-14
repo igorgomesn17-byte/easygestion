@@ -14,8 +14,9 @@
 const express = require('express');
 const { db, getConfig, setConfig } = require('../db/database');
 const {
-  segmentarRFM, urlWhatsApp, clubeCfg, selosDe, SEGMENTOS, campanhaSegmento,
+  segmentarRFM, urlWhatsApp, clubeCfg, selosDe, SEGMENTOS, campanhaSegmento, templateDe,
 } = require('../lib/crm');
+const { ativarCupomDaAcao, cancelarCupomDaAcao, MAX_PCT } = require('../lib/cupons');
 const { DEFAULT_TEMPLATES, ROTULOS, VARIAVEIS_DISPONIVEIS } = require('../lib/crm-templates');
 const { gerarAcoesDoTenant, hojeLocal } = require('../lib/relacionamento-scheduler');
 
@@ -32,9 +33,11 @@ const router = express.Router();
 router.get('/acoes', (req, res) => {
   const hoje = hojeLocal();
   const acoes = db.prepare(`
-    SELECT a.*, c.nome, c.telefone, c.nao_perturbe
+    SELECT a.*, c.nome, c.telefone, c.nao_perturbe,
+           cp.pct AS cupom_pct, cp.validade AS cupom_validade
     FROM crm_acoes a
     JOIN clientes c ON c.id = a.cliente_id AND c.tenant_id = a.tenant_id
+    LEFT JOIN crm_cupons cp ON cp.id = a.cupom_id AND cp.tenant_id = a.tenant_id
     WHERE a.tenant_id = ?
       AND c.arquivado = 0
       AND (
@@ -53,7 +56,11 @@ router.get('/acoes', (req, res) => {
     acoes: visiveis.map((a) => ({
       id: a.id, cliente_id: a.cliente_id, nome: a.nome, telefone: a.telefone,
       tipo: a.tipo, label: a.label, detalhe: a.detalhe, prioridade: a.prioridade,
-      mensagem: a.mensagem, cupom: a.cupom,
+      mensagem: a.mensagem,
+      // O codigo NOMINAL desta cliente (VOLTE20-K3P9). A tela mostra num chip FORA do
+      // textarea: se a lojista apagar o codigo do texto sem querer, ela precisa ver
+      // que ele existe (e o sistema avisa antes de enviar).
+      cupom: a.cupom, cupom_pct: a.cupom_pct, cupom_validade: a.cupom_validade,
       segmento: a.segmento,
       segmento_nome: a.segmento && SEGMENTOS[a.segmento] ? SEGMENTOS[a.segmento].nome : null,
       segmento_cor: a.segmento && SEGMENTOS[a.segmento] ? SEGMENTOS[a.segmento].cor : null,
@@ -89,16 +96,32 @@ function resolver(req, res, status, adiadaPara = null) {
 
 // A mensagem pode ter sido editada na tela antes do envio — guarda o texto REAL
 // que foi mandado, senao o historico mente.
+//
+// E' AQUI que o cupom passa a valer. Ele nasceu 'rascunho' junto com a acao; so
+// agora, que a cliente de fato recebeu o codigo, ele vira 'ativo' — e o relogio da
+// validade comeca a correr a partir de HOJE. A mensagem diz "vale ate 20/07", e ela
+// leu hoje: contar o prazo do dia em que o servidor gerou a fila seria roubo de dias.
 router.post('/acoes/:id/enviada', (req, res) => {
   const id = parseInt(req.params.id, 10);
   const { mensagem } = req.body || {};
-  if (mensagem) {
-    db.prepare('UPDATE crm_acoes SET mensagem = ? WHERE id = ? AND tenant_id = ?')
-      .run(String(mensagem), id, req.tenantId);
-  }
+
+  const acao = db.prepare('SELECT tipo FROM crm_acoes WHERE id = ? AND tenant_id = ?').get(id, req.tenantId);
+  if (!acao) return res.status(404).json({ erro: 'Ação não encontrada' });
+
+  db.transaction(() => {
+    if (mensagem) {
+      db.prepare('UPDATE crm_acoes SET mensagem = ? WHERE id = ? AND tenant_id = ?')
+        .run(String(mensagem), id, req.tenantId);
+    }
+    const tpl = templateDe(req.tenantId, acao.tipo);
+    ativarCupomDaAcao(req.tenantId, id, (tpl && tpl.cupom_dias) || 7);
+  })();
+
   resolver(req, res, 'enviada');
 });
 
+// Adiar NAO mexe no cupom: ele fica rascunho, e a validade so comeca a contar
+// quando (e se) a lojista enviar.
 router.post('/acoes/:id/adiar', (req, res) => {
   const dias = Math.max(1, Math.min(30, parseInt((req.body || {}).dias, 10) || 1));
   const d = new Date();
@@ -106,7 +129,13 @@ router.post('/acoes/:id/adiar', (req, res) => {
   resolver(req, res, 'adiada', d.toISOString().slice(0, 10));
 });
 
-router.post('/acoes/:id/ignorar', (req, res) => resolver(req, res, 'ignorada'));
+// Tirou o contato da lista: o cupom morre junto. Senao ficaria um desconto valendo
+// pra uma cliente que nunca recebeu o codigo.
+router.post('/acoes/:id/ignorar', (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  cancelarCupomDaAcao(req.tenantId, id);
+  resolver(req, res, 'ignorada');
+});
 
 // POST /gerar — forca a geracao do dia pra ESTA loja, sem esperar as 06:00.
 // Existe pra tres coisas: testar, recuperar um dia perdido, e disparar campanha de
@@ -271,6 +300,30 @@ router.put('/templates/:tipo', (req, res) => {
   const texto = String(b.texto || '').trim();
   if (!texto) return res.status(400).json({ erro: 'A mensagem não pode ficar vazia.' });
 
+  // O cupom deixou de ser enfeite: ele DESCONTA de verdade no caixa. Config errada
+  // gravada aqui vira dinheiro saindo — um cupom_pct de 100 salvo por engano seria a
+  // loja dando tudo de graça, e ninguém perceberia até o fim do mês.
+  const vazio = (v) => v === undefined || v === null || v === '';
+  const prefixo = vazio(b.cupom) ? null : String(b.cupom).toUpperCase().trim();
+  const pct = vazio(b.cupom_pct) ? null : Number(b.cupom_pct);
+  const dias = vazio(b.cupom_dias) ? null : Number(b.cupom_dias);
+
+  if (prefixo !== null) {
+    // O hífen é o separador do sufixo nominal (VOLTE20-K3P9) — não pode vir no prefixo.
+    if (!/^[A-Z0-9]{3,12}$/.test(prefixo)) {
+      return res.status(400).json({ erro: 'O código do cupom deve ter de 3 a 12 letras/números, sem espaço nem hífen.' });
+    }
+    if (!(pct > 0)) {
+      return res.status(400).json({ erro: 'Informe o desconto do cupom (em %).' });
+    }
+  }
+  if (pct !== null && (!(pct > 0) || pct > MAX_PCT)) {
+    return res.status(400).json({ erro: `O desconto precisa ficar entre 1% e ${MAX_PCT}%.` });
+  }
+  if (dias !== null && (!Number.isInteger(dias) || dias < 1 || dias > 90)) {
+    return res.status(400).json({ erro: 'O prazo do cupom precisa ser de 1 a 90 dias.' });
+  }
+
   db.prepare(`
     INSERT INTO crm_templates (tenant_id, tipo, texto, cupom, cupom_pct, cupom_dias, ativo)
     VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -278,10 +331,7 @@ router.put('/templates/:tipo', (req, res) => {
       texto = excluded.texto, cupom = excluded.cupom,
       cupom_pct = excluded.cupom_pct, cupom_dias = excluded.cupom_dias, ativo = excluded.ativo
   `).run(
-    req.tenantId, tipo, texto,
-    b.cupom || null,
-    b.cupom_pct === undefined || b.cupom_pct === '' ? null : Number(b.cupom_pct),
-    b.cupom_dias === undefined || b.cupom_dias === '' ? null : Number(b.cupom_dias),
+    req.tenantId, tipo, texto, prefixo, pct, dias,
     b.ativo === undefined ? 1 : (b.ativo ? 1 : 0)
   );
   res.json({ ok: true, tipo });

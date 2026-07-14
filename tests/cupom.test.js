@@ -191,6 +191,47 @@ const ativos = cup.cuponsAtivosDe(A, maria, hoje);
 ok('lista só os usáveis agora', ativos.every((c) => c.validade >= hoje), `${ativos.length} cupons`);
 ok('não lista os da outra loja', cup.cuponsAtivosDe(B, maria, hoje).length === 0);
 
+// ============================================================
+secao('12. A régua emite o código nominal (e não duplica no rerun)');
+// ============================================================
+// Este é o teste que protege a idempotência do scheduler: ele roda todo dia às
+// 06:00 E no catch-up de 10s do boot. Se cada rerun emitisse um cupom, o banco
+// encheria de código órfão — e cada um deles seria um desconto pendurado.
+const { semearConfigRelacionamento } = require('../lib/config-relacionamento');
+const { gerarAcoesDoTenant } = require('../lib/relacionamento-scheduler');
+const { setConfig } = require('../db/database');
+
+const R = loja('Loja Regua');
+semearConfigRelacionamento(db, R);
+setConfig('loja_nome', 'Loja Regua', R);
+
+const d60 = (() => { const d = new Date(); d.setDate(d.getDate() - 60); return d.toISOString().slice(0, 10); })();
+const sumida = Number(db.prepare(`
+  INSERT INTO clientes (tenant_id, nome, telefone, total_gasto, num_compras, ultima_compra, arquivado, nao_perturbe)
+  VALUES (?, 'Sumida Silva', '73988887777', 1500, 6, ?, 0, 0)
+`).run(R, d60).lastInsertRowid);
+
+const n1 = gerarAcoesDoTenant(R, hoje);
+gerarAcoesDoTenant(R, hoje);
+gerarAcoesDoTenant(R, hoje);   // rerun 3x, como o scheduler faz de verdade
+
+const acoesR = db.prepare('SELECT * FROM crm_acoes WHERE tenant_id = ?').all(R);
+const cuponsR = db.prepare('SELECT * FROM crm_cupons WHERE tenant_id = ?').all(R);
+ok('gerou a ação de reativação', n1 === 1 && acoesR.length === 1);
+ok('rodar 3x NÃO duplica a ação', acoesR.length === 1, `${acoesR.length} ações`);
+ok('rodar 3x NÃO duplica o cupom', cuponsR.length === 1,
+  `${cuponsR.length} cupons — cada rerun deixaria um código órfão`);
+
+const acaoR = acoesR[0], cupR = cuponsR[0];
+ok('o cupom está amarrado à ação', cupR.acao_id === acaoR.id && acaoR.cupom_id === cupR.id);
+ok('nasce RASCUNHO (ainda não vale no caixa)', cupR.status === 'rascunho');
+ok('a MENSAGEM tem o código nominal, não o prefixo cru',
+  acaoR.mensagem.includes(cupR.codigo) && /VOLTE20-[A-Z2-9]{4}/.test(acaoR.mensagem));
+ok('e a data de validade em vez de "válido por N dias"', /Vale até \d{2}\/\d{2}/.test(acaoR.mensagem),
+  acaoR.mensagem.split('\n').find((l) => /Vale|válido/i.test(l)) || '');
+ok('o cupom não vale enquanto a mensagem não foi enviada',
+  !cup.validarCupom(R, cupR.codigo, sumida, 400, hoje).ok);
+
 // ---------- Resultado ----------
 console.log('');
 if (falhas === 0) {
