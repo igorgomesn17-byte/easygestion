@@ -187,6 +187,7 @@ const NAV = [
   // `feature`, e montarLayout esconde do menu quem não tem — ver o filtro lá.
   { grupo: 'Relacionamento', itens: [
     { id:'relacionamento', href:'relacionamento.html', ico:'clientes', txt:'Contatos do dia', feature:'relacionamento' },
+    { id:'resultados',     href:'resultados.html',     ico:'fluxo',    txt:'Deu resultado?',  feature:'relacionamento' },
     { id:'segmentos',      href:'segmentos.html',      ico:'vendas',   txt:'Segmentos',       feature:'relacionamento' },
     { id:'clube',          href:'clube.html',          ico:'config',   txt:'Clube de selos',  feature:'relacionamento' },
   ]},
@@ -211,7 +212,8 @@ const TITULOS = {
   relatorios:'Relatórios',
   nfce:'Notas fiscais (NFC-e)', produtos:'Produtos',
   estoque:'Estoque', clientes:'Clientes',
-  relacionamento:'Contatos do dia', segmentos:'Segmentos de clientes', clube:'Clube de selos',
+  relacionamento:'Contatos do dia', resultados:'A régua deu resultado?',
+  segmentos:'Segmentos de clientes', clube:'Clube de selos',
   usuarios:'Usuários', vendedores:'Comissões',
   assinatura:'Minha Assinatura', planos:'Escolha seu Plano', config:'Configurações',
 };

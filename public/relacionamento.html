@@ -27,6 +27,11 @@
     .pill.on { background:var(--marca); border-color:var(--marca); color:#fff; }
     .vazio { text-align:center; padding:56px 20px; color:var(--tinta-2); }
     .vazio-emoji { font-size:2.4rem; display:block; margin-bottom:10px; }
+    /* O cupom fica FORA do textarea: se a lojista apagar o código do texto sem
+       querer, ela precisa ver que ele existe (e o sistema avisa antes de enviar). */
+    .chip-cupom { margin-top:12px; padding:8px 12px; background:var(--dourado-claro);
+                  border-radius:var(--radius-sm); font-size:0.85rem; color:var(--dourado-escuro); }
+    .chip-nota { display:block; font-size:0.75rem; opacity:.85; margin-top:2px; }
   </style>
 </head>
 <body>
@@ -100,6 +105,13 @@
             ${a.segmento_nome ? `<span class="selo-seg" style="background:${a.segmento_cor}">${esc(a.segmento_nome)}</span>` : ''}
           </div>
 
+          ${a.cupom ? `
+            <div class="chip-cupom">
+              🎟️ <strong>${esc(a.cupom)}</strong> · ${a.cupom_pct}% de desconto
+              ${a.cupom_validade ? ` · vale até ${a.cupom_validade.split('-').reverse().join('/')}` : ''}
+              <span class="chip-nota">só desta cliente — desconta sozinho no caixa</span>
+            </div>` : ''}
+
           <textarea class="acao-msg" id="msg-${a.id}">${esc(a.mensagem)}</textarea>
 
           <div class="acao-btns">
@@ -128,6 +140,18 @@
     async function enviar(id) {
       const a = ACOES.find(x => x.id === id);
       const msg = textoDe(id);
+
+      // A mensagem é editável — e é fácil apagar o código sem perceber. O cupom
+      // continua existindo (a verdade mora no banco, não no texto), mas a cliente
+      // não vai saber dele: contato gasto, retorno zero.
+      if (a.cupom && !msg.includes(a.cupom)) {
+        if (!confirm(
+          `Você tirou o cupom ${a.cupom} da mensagem.\n\n` +
+          `A cliente não vai receber o código — e sem ele não tem como o desconto ser aplicado no caixa.\n\n` +
+          `Enviar assim mesmo?`
+        )) return;
+      }
+
       const tel = (a.telefone || '').replace(/\D/g, '');
       const full = tel.length <= 11 ? '55' + tel : tel;
 

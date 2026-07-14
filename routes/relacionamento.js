@@ -165,6 +165,90 @@ router.get('/historico', (req, res) => {
 });
 
 // ============================================================
+// RESULTADOS — "a régua se paga?"
+//
+// A pergunta que justifica o módulo inteiro. E a resposta tem que ser HONESTA: eu
+// mostro quem voltou COM o cupom, não invento contrafactual. Algumas dessas clientes
+// talvez voltassem de qualquer jeito — o cupom não prova causa, prova CONTATO.
+//
+// A linha mais valiosa da tela é a dos EXPIRADOS: "mandei 40, 30 expiraram" é o
+// sinal de que a mensagem não funciona. Nenhuma métrica de vaidade esconde isso.
+// ============================================================
+router.get('/resultados', (req, res) => {
+  const hoje = hojeLocal();
+  const ate = (req.query.ate || hoje).slice(0, 10);
+  const de = (req.query.de || (() => {
+    const d = new Date(); d.setDate(d.getDate() - 90);   // 90d = a janela de retenção do scheduler
+    return d.toISOString().slice(0, 10);
+  })()).slice(0, 10);
+
+  // A base é crm_acoes (o que foi ENVIADO), não crm_cupons — porque nem toda mensagem
+  // tem cupom, e "enviei 30 boas-vindas" também é trabalho feito.
+  // vendas.deletado = 0: venda cancelada devolve o cupom e sai do faturamento.
+  const linhas = db.prepare(`
+    SELECT a.tipo,
+      COUNT(*)                                                              AS enviadas,
+      COUNT(cp.id)                                                          AS cupons,
+      SUM(CASE WHEN cp.status = 'usado'                          THEN 1 ELSE 0 END) AS usados,
+      SUM(CASE WHEN cp.status = 'ativo' AND cp.validade <  ?     THEN 1 ELSE 0 END) AS expirados,
+      SUM(CASE WHEN cp.status = 'ativo' AND cp.validade >= ?     THEN 1 ELSE 0 END) AS em_aberto,
+      COALESCE(SUM(CASE WHEN v.deletado = 0 THEN v.total          END), 0) AS faturamento,
+      COALESCE(SUM(CASE WHEN v.deletado = 0 THEN cp.valor_desconto END), 0) AS desconto,
+      COALESCE(SUM(CASE WHEN v.deletado = 0 THEN v.lucro          END), 0) AS lucro
+    FROM crm_acoes a
+    LEFT JOIN crm_cupons cp ON cp.id = a.cupom_id AND cp.tenant_id = a.tenant_id
+    LEFT JOIN vendas v      ON v.id = cp.venda_id AND v.tenant_id = cp.tenant_id
+    WHERE a.tenant_id = ? AND a.status = 'enviada' AND a.data BETWEEN ? AND ?
+    GROUP BY a.tipo
+    ORDER BY faturamento DESC, enviadas DESC
+  `).all(hoje, hoje, req.tenantId, de, ate);
+
+  const itens = linhas.map((l) => ({
+    tipo: l.tipo,
+    label: (ROTULOS[l.tipo] || {}).label || l.tipo,
+    quando: (ROTULOS[l.tipo] || {}).quando || '',
+    enviadas: l.enviadas,
+    cupons: l.cupons,
+    usados: l.usados,
+    expirados: l.expirados,
+    em_aberto: l.em_aberto,
+    taxa_uso: l.cupons > 0 ? +((l.usados / l.cupons) * 100).toFixed(1) : null,
+    faturamento: +l.faturamento.toFixed(2),
+    desconto: +l.desconto.toFixed(2),
+    // O lucro do `vendas` já é líquido de custo, taxa, imposto e comissão — e já vem
+    // depois do desconto. É o número mais honesto que existe aqui.
+    lucro: +l.lucro.toFixed(2),
+  }));
+
+  const soma = (k) => itens.reduce((s, i) => s + (i[k] || 0), 0);
+  res.json({
+    de, ate,
+    total: {
+      enviadas: soma('enviadas'), cupons: soma('cupons'), usados: soma('usados'),
+      expirados: soma('expirados'), em_aberto: soma('em_aberto'),
+      faturamento: +soma('faturamento').toFixed(2),
+      desconto: +soma('desconto').toFixed(2),
+      lucro: +soma('lucro').toFixed(2),
+    },
+    itens,
+  });
+});
+
+// Quem voltou — a lojista quer o NOME, não só o número.
+router.get('/resultados/:tipo', (req, res) => {
+  const vendas = db.prepare(`
+    SELECT v.id, v.data_hora, v.total, cp.codigo, cp.pct, cp.valor_desconto, c.nome AS cliente
+    FROM crm_cupons cp
+    JOIN vendas v   ON v.id = cp.venda_id AND v.tenant_id = cp.tenant_id
+    JOIN clientes c ON c.id = cp.cliente_id AND c.tenant_id = cp.tenant_id
+    WHERE cp.tenant_id = ? AND cp.tipo = ? AND cp.status = 'usado' AND v.deletado = 0
+    ORDER BY v.data_hora DESC
+    LIMIT 100
+  `).all(req.tenantId, req.params.tipo);
+  res.json({ tipo: req.params.tipo, vendas });
+});
+
+// ============================================================
 // SEGMENTOS (RFM)
 // ============================================================
 router.get('/segmentos', (req, res) => {

@@ -83,6 +83,18 @@
           </div>
           <div id="impactoDesc"></div>
 
+          <!-- CUPOM DA REGUA. Nominal: o codigo e' exclusivo da cliente que recebeu a
+               mensagem. Por isso o campo so serve com a cliente selecionada. -->
+          <div class="campo mt">
+            <label>Cupom da cliente</label>
+            <div style="display:flex; gap:6px;">
+              <input type="text" id="codigoCupom" placeholder="Ex: VOLTE20-K3P9" style="flex:1; text-transform:uppercase;"
+                     oninput="buscarCupom()" disabled>
+              <button class="btn btn-sec" onclick="limparCupom()" style="white-space:nowrap;">Limpar</button>
+            </div>
+            <div id="avisoCupom" style="margin-top:6px; font-size:0.85rem;"></div>
+          </div>
+
           <div class="flex-entre" style="font-size:1.3rem;"><strong>TOTAL</strong><strong id="total" class="dinheiro texto-verde">R$ 0,00</strong></div>
 
           <h2>Pagamento</h2>
@@ -620,7 +632,11 @@
 
     async function atualizarTotais() {
       const subtotal = carrinho.reduce((s, i) => s + i.preco * i.qtd, 0);
-      const desc = calcDescontoReais();
+      const descManual = calcDescontoReais();
+      // O cupom soma com o desconto manual (a lojista pode dar "mais uns R$10"), mas o
+      // backend faz o clamp em subtotal — 90% na mão + 25% de cupom daria total negativo.
+      const descCupom = cupomAtual ? +(subtotal * cupomAtual.pct / 100).toFixed(2) : 0;
+      const desc = Math.min(descManual + descCupom, subtotal);
       const parcelas = formaSel === 'credito_parcelado' ? parseInt(document.getElementById('parcelas').value) : 1;
       let baseAposDesc = Math.max(subtotal - desc, 0);
 
@@ -1074,11 +1090,19 @@
       document.getElementById('buscaCli').value = '';
       document.getElementById('listaCli').style.display = 'none';
       mostrarSituacaoCredito(id);   // o que essa cliente já deve, antes de fiar de novo
+      // Trocar de cliente invalida o cupom digitado — ele é nominal. Sem isto, a
+      // atendente aplicaria o cupom da Maria na venda da Joana (o backend recusaria,
+      // mas só na hora de fechar, com o carrinho todo montado).
+      limparCupom();
+      cupomHabilitado();
+      oferecerCupom(id);
     }
     function limparCli() {
       document.getElementById('clienteId').value = '';
       document.getElementById('cliSelecionado').style.display = 'none';
       mostrarSituacaoCredito(null);
+      limparCupom();
+      cupomHabilitado();
     }
     function abrirNovoCliente(){ document.getElementById('modalCli').classList.add('aberto'); }
     // popula o select "Como conheceu a loja?" a partir do config (origens)
@@ -1131,7 +1155,14 @@
 
       const venda = {
         itens: carrinho.map(i => ({ variacao_id: i.variacao_id, qtd: i.qtd })),
+        // Só o desconto MANUAL vai aqui. O desconto do cupom o backend calcula
+        // sozinho, a partir do código — o front não decide quanto vale o cupom.
         desconto: calcDescontoReais(),
+        // A BAIXA acontece dentro da transação da venda, no backend. O front só passa
+        // o código. Nunca chamar rota de "usar cupom" aqui — foi assim que a baixa do
+        // vale ficou quebrada por meses (o navegador às vezes não chamava, e o vale
+        // seguia reutilizável pra sempre).
+        cupom_codigo: cupomAtual ? cupomAtual.codigo : null,
         cliente_id: document.getElementById('clienteId').value || null,
         vendedor_id: document.getElementById('vendedor').value || null,
         origem: document.getElementById('origem').value || 'loja',
@@ -1270,6 +1301,7 @@
       document.getElementById('codigoVale').value = '';
       document.getElementById('infoVale').innerHTML = '';
       valeAtual = null;
+      limparCupom();
       document.getElementById('tipoDesc').value = 'reais';
       document.querySelectorAll('.pgto-btn').forEach(b => b.classList.remove('sel'));
       document.getElementById('areaParcelas').style.display = 'none';
@@ -1289,6 +1321,73 @@
     }
 
     // ===== VALES =====
+    // ---------- Cupom da régua ----------
+    // NOMINAL: o código é exclusivo da cliente que recebeu a mensagem. Sem cliente
+    // selecionada, o campo nem habilita — e trocar de cliente revalida (senão a
+    // atendente aplicaria o cupom da Maria na venda da Joana).
+    //
+    // NADA aqui decide dinheiro: é só preview. A validação que vale roda dentro da
+    // transação da venda, no backend, e revalida tudo do zero.
+    let cupomAtual = null;
+    let timerCupom = null;
+
+    function cupomHabilitado() {
+      const cli = document.getElementById('clienteId').value;
+      const inp = document.getElementById('codigoCupom');
+      inp.disabled = !cli;
+      inp.placeholder = cli ? 'Ex: VOLTE20-K3P9' : 'Selecione a cliente primeiro';
+    }
+
+    function limparCupom() {
+      cupomAtual = null;
+      document.getElementById('codigoCupom').value = '';
+      document.getElementById('avisoCupom').innerHTML = '';
+      atualizarTotais();
+    }
+
+    async function buscarCupom() {
+      clearTimeout(timerCupom);
+      const codigo = document.getElementById('codigoCupom').value.trim().toUpperCase();
+      const aviso = document.getElementById('avisoCupom');
+      const clienteId = document.getElementById('clienteId').value;
+
+      if (!codigo) { cupomAtual = null; aviso.innerHTML = ''; atualizarTotais(); return; }
+      if (!clienteId) { aviso.innerHTML = '<span class="texto-vermelho">Selecione a cliente antes.</span>'; return; }
+
+      // espera a atendente parar de digitar (o código tem 12+ chars)
+      timerCupom = setTimeout(async () => {
+        const subtotal = carrinho.reduce((s, i) => s + i.preco * i.qtd, 0);
+        try {
+          const c = await api(`/cupons/${encodeURIComponent(codigo)}?cliente_id=${clienteId}&subtotal=${subtotal}`);
+          cupomAtual = c;
+          const val = c.validade.split('-').reverse().join('/');
+          aviso.innerHTML = `<span class="texto-verde">✓ ${c.pct}% de desconto — ${moeda(c.desconto)} a menos. Vale até ${val}.</span>`;
+        } catch (e) {
+          cupomAtual = null;
+          // A mensagem vem pronta do backend, na língua da atendente:
+          // "Este cupom é da Joana", "Cupom expirado em 12/07", "já foi usado".
+          aviso.innerHTML = `<span class="texto-vermelho">${e.message || 'Cupom inválido'}</span>`;
+        }
+        atualizarTotais();
+      }, 350);
+    }
+
+    // A cliente esquece o código. A atendente não deveria depender da memória dela pra
+    // loja receber o retorno de uma mensagem que já custou tempo e desconto.
+    async function oferecerCupom(clienteId) {
+      const aviso = document.getElementById('avisoCupom');
+      if (!clienteId) { aviso.innerHTML = ''; return; }
+      try {
+        const r = await api('/cupons/cliente/' + clienteId);
+        const c = (r.cupons || [])[0];
+        if (!c) { aviso.innerHTML = ''; return; }
+        const val = c.validade.split('-').reverse().join('/');
+        aviso.innerHTML = `<span style="color:var(--dourado-escuro); cursor:pointer;"
+          onclick="document.getElementById('codigoCupom').value='${c.codigo}'; buscarCupom();">
+          🎟️ Esta cliente tem um cupom de ${c.pct}% (vale até ${val}). Clique pra aplicar.</span>`;
+      } catch (e) { aviso.innerHTML = ''; }
+    }
+
     let valeAtual = null;
     async function buscarVale() {
       const codigo = document.getElementById('codigoVale').value.toUpperCase().trim();

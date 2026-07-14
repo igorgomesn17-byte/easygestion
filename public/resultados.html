@@ -1,0 +1,179 @@
+<DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Resultados do relacionamento • EasyGestão</title>
+  <link rel="stylesheet" href="css/ds.css">
+  <style>
+    .kpis { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:12px; margin-bottom:8px; }
+    .kpi   { background:var(--surface-2); border-radius:var(--radius-sm); padding:14px 16px; }
+    .kpi-n { font-size:1.5rem; font-weight:800; color:var(--tinta); line-height:1.1; }
+    .kpi-l { font-size:0.78rem; color:var(--tinta-2); margin-top:3px; }
+    .kpi.destaque { background:var(--marca-clara); }
+    .kpi.destaque .kpi-n { color:var(--marca-escura); }
+    .honesto { font-size:0.82rem; color:var(--tinta-2); background:var(--surface-2);
+               border-left:3px solid var(--linha-forte); padding:10px 14px;
+               border-radius:var(--radius-sm); line-height:1.5; margin-top:14px; }
+    table { width:100%; border-collapse:collapse; }
+    th { text-align:left; font-size:0.75rem; text-transform:uppercase; letter-spacing:.04em;
+         color:var(--tinta-2); padding:8px 10px; border-bottom:1px solid var(--linha); white-space:nowrap; }
+    td { padding:11px 10px; border-bottom:1px solid var(--linha); font-size:0.9rem; }
+    tr:last-child td { border-bottom:0; }
+    .num { text-align:right; white-space:nowrap; }
+    .msg-nome { font-weight:600; }
+    .msg-quando { font-size:0.75rem; color:var(--tinta-2); }
+    .taxa { font-weight:700; }
+    .taxa.boa   { color:var(--verde); }
+    .taxa.media { color:var(--amarelo); }
+    .taxa.ruim  { color:var(--vermelho); }
+    .clicavel { cursor:pointer; }
+    .clicavel:hover { background:var(--surface-2); }
+    .scroll { overflow-x:auto; }
+    .vazio { text-align:center; padding:48px 20px; color:var(--tinta-2); }
+    .periodo { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .periodo input { max-width:150px; }
+  </style>
+</head>
+<body>
+  <div class="conteudo">
+    <div class="flex-entre">
+      <div>
+        <h1>A régua está funcionando?</h1>
+        <p class="subtitulo">Quantas mensagens você mandou, quantas clientes voltaram com o cupom, e quanto isso deu.</p>
+      </div>
+      <div class="periodo">
+        <input type="date" id="de" onchange="carregar()">
+        <span style="color:var(--tinta-2);">até</span>
+        <input type="date" id="ate" onchange="carregar()">
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="kpis" id="kpis"></div>
+      <div class="honesto" id="honesto"></div>
+    </div>
+
+    <div class="card">
+      <h2 style="margin:0 0 4px;">Mensagem por mensagem</h2>
+      <p class="subtitulo" style="margin-bottom:12px;">Clique numa linha pra ver <strong>quem</strong> voltou.</p>
+      <div class="scroll"><div id="tabela"></div></div>
+    </div>
+
+    <div id="detalhe"></div>
+  </div>
+
+  <script src="js/comum.js"></script>
+  <script>
+    const moeda = (v) => (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    const esc = (s) => { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; };
+
+    async function carregar() {
+      const de = document.getElementById('de').value;
+      const ate = document.getElementById('ate').value;
+      const q = de && ate ? `?de=${de}&ate=${ate}` : '';
+      const d = await api('/relacionamento/resultados' + q);
+
+      document.getElementById('de').value = d.de;
+      document.getElementById('ate').value = d.ate;
+
+      const t = d.total;
+      const saldo = t.faturamento - t.desconto;
+
+      document.getElementById('kpis').innerHTML = `
+        <div class="kpi"><div class="kpi-n">${t.enviadas}</div><div class="kpi-l">mensagens enviadas</div></div>
+        <div class="kpi"><div class="kpi-n">${t.usados}</div><div class="kpi-l">clientes voltaram com o cupom</div></div>
+        <div class="kpi destaque"><div class="kpi-n">${moeda(t.faturamento)}</div><div class="kpi-l">faturado nessas vendas</div></div>
+        <div class="kpi"><div class="kpi-n">${moeda(t.desconto)}</div><div class="kpi-l">você deu de desconto</div></div>
+        <div class="kpi destaque"><div class="kpi-n">${moeda(saldo)}</div><div class="kpi-l">sobrou (lucro: ${moeda(t.lucro)})</div></div>
+      `;
+
+      // O texto honesto muda conforme o retrato. Sem número, sem teatro.
+      const box = document.getElementById('honesto');
+      if (!t.enviadas) {
+        box.innerHTML = 'Nenhuma mensagem enviada nesse período. Abra <strong>Contatos do dia</strong> e mande as que estão na fila.';
+      } else if (!t.cupons) {
+        box.innerHTML = 'As mensagens que você mandou não tinham cupom (boas-vindas, pós-venda, clube). Elas mantêm o relacionamento, mas não dá pra medir o retorno delas em dinheiro. As de <strong>reativação</strong> e <strong>aniversário</strong> têm cupom e são rastreáveis.';
+      } else if (t.expirados > t.usados) {
+        box.innerHTML = `<strong>Atenção:</strong> ${t.expirados} cupons venceram sem ser usados, contra ${t.usados} usados.
+          Isso é sinal de que a mensagem não está convencendo — ou o desconto é pequeno, ou o texto não fala com ela, ou você está mandando pra quem já foi embora faz tempo.
+          <br><em>Este número é o mais útil da tela. Ele diz o que não funciona.</em>`;
+      } else {
+        box.innerHTML = `Estes números contam quem voltou <strong>com o cupom na mão</strong>.
+          Algumas dessas clientes talvez voltassem de qualquer jeito — o cupom não prova que a mensagem causou a venda, prova que houve <strong>contato</strong>.
+          É o mais honesto que dá pra afirmar, e já é muito mais do que "acho que funciona".`;
+      }
+
+      const linhas = d.itens.map((i) => {
+        const cls = i.taxa_uso === null ? '' : i.taxa_uso >= 20 ? 'boa' : i.taxa_uso >= 8 ? 'media' : 'ruim';
+        const clicavel = i.usados > 0;
+        return `
+          <tr class="${clicavel ? 'clicavel' : ''}" ${clicavel ? `onclick="verQuem('${i.tipo}')"` : ''}>
+            <td>
+              <div class="msg-nome">${esc(i.label)}</div>
+              <div class="msg-quando">${esc(i.quando)}</div>
+            </td>
+            <td class="num">${i.enviadas}</td>
+            <td class="num">${i.cupons || '—'}</td>
+            <td class="num">${i.usados || '—'}</td>
+            <td class="num">${i.expirados || '—'}</td>
+            <td class="num"><span class="taxa ${cls}">${i.taxa_uso === null ? '—' : i.taxa_uso + '%'}</span></td>
+            <td class="num">${i.faturamento ? moeda(i.faturamento) : '—'}</td>
+            <td class="num">${i.desconto ? '−' + moeda(i.desconto) : '—'}</td>
+            <td class="num"><strong>${i.faturamento ? moeda(i.faturamento - i.desconto) : '—'}</strong></td>
+          </tr>`;
+      }).join('');
+
+      document.getElementById('tabela').innerHTML = d.itens.length ? `
+        <table>
+          <thead><tr>
+            <th>Mensagem</th>
+            <th class="num">Enviei</th>
+            <th class="num">Cupons</th>
+            <th class="num">Voltaram</th>
+            <th class="num">Venceram</th>
+            <th class="num">Taxa</th>
+            <th class="num">Faturei</th>
+            <th class="num">Desconto</th>
+            <th class="num">Sobrou</th>
+          </tr></thead>
+          <tbody>${linhas}</tbody>
+        </table>` : '<div class="vazio">Nada enviado nesse período.</div>';
+    }
+
+    async function verQuem(tipo) {
+      const d = await api('/relacionamento/resultados/' + tipo);
+      const linhas = d.vendas.map((v) => `
+        <tr>
+          <td class="msg-nome">${esc(v.cliente)}</td>
+          <td>${v.data_hora.slice(8, 10)}/${v.data_hora.slice(5, 7)}</td>
+          <td><code style="font-size:0.8rem;">${esc(v.codigo)}</code></td>
+          <td class="num">${moeda(v.total)}</td>
+          <td class="num">−${moeda(v.valor_desconto)}</td>
+        </tr>`).join('');
+
+      document.getElementById('detalhe').innerHTML = `
+        <div class="card">
+          <div class="flex-entre" style="margin-bottom:12px;">
+            <h2 style="margin:0;">Quem voltou</h2>
+            <button class="btn btn-sec" onclick="document.getElementById('detalhe').innerHTML=''">Fechar</button>
+          </div>
+          <div class="scroll">
+            <table>
+              <thead><tr><th>Cliente</th><th>Quando</th><th>Cupom</th><th class="num">Comprou</th><th class="num">Desconto</th></tr></thead>
+              <tbody>${linhas || '<tr><td colspan="5" class="vazio">Ninguém ainda.</td></tr>'}</tbody>
+            </table>
+          </div>
+        </div>`;
+      document.getElementById('detalhe').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      montarLayout('resultados');
+      carregar().catch((e) => {
+        document.getElementById('tabela').innerHTML = `<div class="vazio">Não consegui carregar. ${e.message || ''}</div>`;
+      });
+    });
+  </script>
+</body>
+</html>
