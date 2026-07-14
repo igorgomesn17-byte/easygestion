@@ -99,17 +99,23 @@ router.patch('/:id/cancelar', (req, res) => {
 
   const tx = db.transaction(() => {
     const itens = db.prepare('SELECT * FROM troca_itens WHERE troca_id = ? AND tenant_id = ?').all(troca.id, req.tenantId);
-    const baixa = db.prepare('UPDATE variacoes SET quantidade = quantidade - ? WHERE id = ?');
-    const sobe = db.prepare('UPDATE variacoes SET quantidade = quantidade + ? WHERE id = ?');
+    // Aqui os variacao_id vem de troca_itens JA filtrado por tenant, entao nao havia
+    // furo. Mas a tranca no UPDATE custa nada e sobrevive a um refactor que mude a
+    // origem dos ids — foi exatamente esse tipo de confianca que abriu o buraco no
+    // POST deste mesmo arquivo.
+    const baixa = db.prepare(`UPDATE variacoes SET quantidade = quantidade - ?
+      WHERE id = ? AND produto_id IN (SELECT id FROM produtos WHERE tenant_id = ?)`);
+    const sobe = db.prepare(`UPDATE variacoes SET quantidade = quantidade + ?
+      WHERE id = ? AND produto_id IN (SELECT id FROM produtos WHERE tenant_id = ?)`);
     const mov = db.prepare('INSERT INTO movimentos_estoque (variacao_id, tipo, qtd, motivo) VALUES (?, ?, ?, ?)');
 
     // reverte: devolução são "saidas" (baixa), levação são "entradas" (sobe)
     for (const it of itens) {
       if (it.tipo === 'devolvido' && it.variacao_id) {
-        baixa.run(it.qtd, it.variacao_id);
+        baixa.run(it.qtd, it.variacao_id, req.tenantId);
         mov.run(it.variacao_id, 'saida', -it.qtd, `cancelamento troca #${troca.id} (devolução revertida)`);
       } else if (it.tipo === 'levado' && it.variacao_id) {
-        sobe.run(it.qtd, it.variacao_id);
+        sobe.run(it.qtd, it.variacao_id, req.tenantId);
         mov.run(it.variacao_id, 'entrada', it.qtd, `cancelamento troca #${troca.id} (levação revertida)`);
       }
     }
@@ -191,13 +197,22 @@ router.post('/', (req, res) => {
   }
 
   // resolve dados das pecas levadas (incluir custo para CMVR)
+  //
+  // 🔒 `AND p.tenant_id = ?` NAO E' DECORACAO. Os variacao_id vem do BODY do request.
+  // Sem este filtro, a loja A mandava um variacao_id da loja B e o sistema:
+  //   - BAIXAVA o estoque da loja B (o UPDATE la embaixo tambem nao filtrava);
+  //   - devolvia o nome, o preco e o CUSTO do produto da concorrente.
+  // Provado em 14/07/2026: uma loja tirou 30 pecas do estoque da outra.
+  // O routes/vendas.js (getVar, ~linha 105) sempre fez isso certo — a licao estava
+  // no arquivo ao lado e nao tinha sido copiada pra ca.
   const getVar = db.prepare(`
     SELECT v.id AS variacao_id, v.quantidade, v.cor, v.tamanho, v.produto_id, p.nome, p.preco_venda, COALESCE(p.custo, 0) AS custo
-    FROM variacoes v JOIN produtos p ON p.id = v.produto_id WHERE v.id = ?`);
+    FROM variacoes v JOIN produtos p ON p.id = v.produto_id
+    WHERE v.id = ? AND p.tenant_id = ?`);
 
   const levadosResolv = [];
   for (const it of levados) {
-    const v = getVar.get(it.variacao_id);
+    const v = getVar.get(it.variacao_id, req.tenantId);
     if (!v) return res.status(400).json({ erro: `Peça levada inválida (id ${it.variacao_id})` });
     const qtd = parseInt(it.qtd, 10) || 1;
     if (v.quantidade < qtd) {
@@ -219,17 +234,18 @@ router.post('/', (req, res) => {
   // diz qual peca voltou — e a descricao e' o unico registro legivel dela.
   const getVar2 = db.prepare(`
     SELECT COALESCE(p.custo, 0) AS custo, p.nome, v.cor, v.tamanho
-    FROM variacoes v JOIN produtos p ON p.id = v.produto_id WHERE v.id = ?`);
+    FROM variacoes v JOIN produtos p ON p.id = v.produto_id
+    WHERE v.id = ? AND p.tenant_id = ?`);   // 🔒 idem: o id vem do body
   for (const d of devolvidos) {
     if (d.variacao_id) {
-      const p = getVar2.get(d.variacao_id);
+      const p = getVar2.get(d.variacao_id, req.tenantId);
       custoDevolv += (p?.custo || 0) * (parseInt(d.qtd, 10) || 1);
     }
   }
   let custoLeva = 0;
   for (const l of levadosResolv) {
     if (l.variacao_id) {
-      const p = getVar2.get(l.variacao_id);
+      const p = getVar2.get(l.variacao_id, req.tenantId);
       custoLeva += (p?.custo || 0) * (parseInt(l.qtd, 10) || 1);
     }
   }
@@ -253,8 +269,14 @@ router.post('/', (req, res) => {
     const insItem = db.prepare(`INSERT INTO troca_itens (troca_id, tenant_id, tipo, variacao_id, produto_id, descricao, qtd, valor_unit, custo_unit)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`);
 
-    const sobe = db.prepare('UPDATE variacoes SET quantidade = quantidade + ? WHERE id = ?');
-    const baixa = db.prepare('UPDATE variacoes SET quantidade = quantidade - ? WHERE id = ?');
+    // 🔒 O `AND produto_id IN (SELECT ... tenant_id = ?)` e' a segunda tranca: mesmo
+    // que um variacao_id de outra loja passe por algum caminho novo, o UPDATE nao
+    // encontra a linha e nao mexe em nada. So o filtro no SELECT ja bastaria — mas
+    // este arquivo acabou de provar que uma tranca so' se esquece.
+    const sobe = db.prepare(`UPDATE variacoes SET quantidade = quantidade + ?
+      WHERE id = ? AND produto_id IN (SELECT id FROM produtos WHERE tenant_id = ?)`);
+    const baixa = db.prepare(`UPDATE variacoes SET quantidade = quantidade - ?
+      WHERE id = ? AND produto_id IN (SELECT id FROM produtos WHERE tenant_id = ?)`);
     const mov = db.prepare('INSERT INTO movimentos_estoque (variacao_id, tipo, qtd, motivo) VALUES (?, ?, ?, ?)');
 
     // 2. devolvidos -> voltam ao estoque
@@ -263,14 +285,14 @@ router.post('/', (req, res) => {
       let custoDev = 0;
       let descricao = d.descricao || null;
       if (d.variacao_id) {
-        const p = getVar2.get(d.variacao_id);
+        const p = getVar2.get(d.variacao_id, req.tenantId);
         custoDev = p?.custo || 0;
         // a descricao do banco vence a do navegador: e' a unica que sabe a cor com certeza
         if (p) descricao = rotuloSku(p.nome, p.cor, p.tamanho);
       }
       insItem.run(trocaId, req.tenantId, 'devolvido', d.variacao_id || null, d.produto_id || null, descricao, qtd, parseFloat(d.valor_unit)||0, +custoDev.toFixed(2));
       if (d.variacao_id) {
-        sobe.run(qtd, d.variacao_id);
+        sobe.run(qtd, d.variacao_id, req.tenantId);
         mov.run(d.variacao_id, 'entrada', qtd, `troca #${trocaId} (devolução)`);
       }
     }
@@ -278,7 +300,7 @@ router.post('/', (req, res) => {
     // 3. levados -> saem do estoque
     for (const l of levadosResolv) {
       insItem.run(trocaId, req.tenantId, 'levado', l.variacao_id, l.produto_id, l.descricao, l.qtd, l.valor_unit, +l.custo.toFixed(2));
-      baixa.run(l.qtd, l.variacao_id);
+      baixa.run(l.qtd, l.variacao_id, req.tenantId);
       mov.run(l.variacao_id, 'saida', -l.qtd, `troca #${trocaId} (saída)`);
     }
 
@@ -290,8 +312,8 @@ router.post('/', (req, res) => {
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         req.tenantId,
-        venda_id ? db.prepare('SELECT cliente_id FROM vendas WHERE id = ?').get(venda_id)?.cliente_id : null,
-        venda_id ? db.prepare('SELECT vendedor_id FROM vendas WHERE id = ?').get(venda_id)?.vendedor_id : null,
+        venda_id ? db.prepare('SELECT cliente_id FROM vendas WHERE id = ? AND tenant_id = ?').get(venda_id, req.tenantId)?.cliente_id : null,
+        venda_id ? db.prepare('SELECT vendedor_id FROM vendas WHERE id = ? AND tenant_id = ?').get(venda_id, req.tenantId)?.vendedor_id : null,
         diferenca, 0, diferenca, forma_pagamento, 'loja', 1,
         0, diferenca, 0, 0, 0, 0, `Diferença de troca #${trocaId}`
       );

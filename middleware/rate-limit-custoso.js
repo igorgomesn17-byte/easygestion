@@ -11,7 +11,9 @@ const limiteUploadPorTenant = (() => {
   const store = new Map(); // { tenantId -> { bytes, resetTime } }
 
   return (req, res, next) => {
-    const tenantId = req.tenantId || 1;
+    // 'anon' e' um balde proprio: com `|| 1`, uma requisicao sem tenant consumia a
+    // cota de upload DA LOJA 1 (e podia esgota-la).
+    const tenantId = req.tenantId || 'anon';
     const hoje = new Date().toDateString();
     const chave = `${tenantId}-${hoje}`;
 
@@ -106,7 +108,10 @@ const cacheRelatorioPorTenant = (() => {
 
 // --- Middleware: DRE com cache ---
 function middlewareRelatorioComCache(req, res, next) {
-  const tenantId = req.tenantId || 1;
+  // Sem tenant NAO ha cache a consultar. O `|| 1` que estava aqui fazia uma
+  // requisicao sem tenant ler o cache DA LOJA 1 — e responder com o DRE dela.
+  if (!req.tenantId) return next();
+  const tenantId = req.tenantId;
   const mes = req.query.mes || new Date().toISOString().slice(0, 7);
   const cacheKey = `dre:${mes}`;
 
@@ -121,7 +126,8 @@ function middlewareRelatorioComCache(req, res, next) {
 
 // --- Middleware: Curva ABC com cache ---
 function middlewareCurvaAbcComCache(req, res, next) {
-  const tenantId = req.tenantId || 1;
+  if (!req.tenantId) return next();   // ver a nota no middlewareRelatorioComCache
+  const tenantId = req.tenantId;
   const de = req.query.de || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const ate = req.query.ate || new Date().toISOString().slice(0, 10);
   const cacheKey = `curva-abc:${de}:${ate}`;
@@ -139,7 +145,7 @@ function middlewareCurvaAbcComCache(req, res, next) {
 // 5 exports por hora por tenant
 const limiteExport = rateLimit({
   keyGenerator: (req, _res) => {
-    return `${req.tenantId || 1}-export`;
+    return `${req.tenantId || 'anon'}-export`;
   },
   windowMs: 60 * 60 * 1000, // 1 hora
   max: 5,
@@ -156,7 +162,7 @@ const limiteExport = rateLimit({
 // 30 requisições por minuto por tenant
 const limiteCálculoCustoso = rateLimit({
   keyGenerator: (req, _res) => {
-    return `${req.tenantId || 1}-calc`;
+    return `${req.tenantId || 'anon'}-calc`;
   },
   windowMs: 60 * 1000, // 1 minuto
   max: 30,
@@ -169,7 +175,7 @@ const limiteCálculoCustoso = rateLimit({
 // 10 uploads por hora por tenant
 const limiteUploadFrequencia = rateLimit({
   keyGenerator: (req, _res) => {
-    return `${req.tenantId || 1}-upload`;
+    return `${req.tenantId || 'anon'}-upload`;
   },
   windowMs: 60 * 60 * 1000, // 1 hora
   max: 10,

@@ -4,6 +4,7 @@
 const express = require('express');
 const router = express.Router();
 const { db, getConfig } = require('../db/database');
+const { exigirTenant } = require('../lib/tenant');
 const { resultadoVenda, acrescimoParcelamento, taxaPorForma } = require('../lib/calculos');
 const { hojeLocal } = require('../lib/datas');
 const { gerarParcelas } = require('../lib/crediario');
@@ -490,7 +491,8 @@ function acumularForma(acc, forma, valor) {
 }
 
 // Recalcula o caixa do dia a partir das vendas (idempotente)
-function atualizarCaixaDia(data, tenantId = 1) {
+function atualizarCaixaDia(data, tenantId) {
+  tenantId = exigirTenant(tenantId, 'vendas.atualizarCaixaDia');
   const vendas = db.prepare("SELECT * FROM vendas WHERE date(data_hora) = ? AND tenant_id = ?").all(data, tenantId);
   const acc = { pix: 0, debito: 0, credito: 0, dinheiro: 0, vale: 0, crediario: 0, bruto: 0, liquido: 0, lucro: 0, n: 0 };
   // soma por forma a partir das partes de pagamento (cobre vendas 'misto' corretamente)

@@ -6,6 +6,7 @@ const router = express.Router();
 const fs = require('fs');
 const path = require('path');
 const { db } = require('../db/database');
+const { exigirTenant } = require('../lib/tenant');
 const { sugerirPreco, analisarPreco } = require('../lib/calculos');
 const { limiteUploadPorTenant, limiteUploadFrequencia } = require('../middleware/rate-limit-custoso');
 const { exigirDentroDoLimite, exigirFeature } = require('../middleware/seguranca');
@@ -93,7 +94,8 @@ function validarTenantProduto(produtoId, tenantId) {
 }
 
 // Gera proximo codigo sequencial por categoria (ex: VES001)
-function proximoCodigo(prefixo, tenantId = 1) {
+function proximoCodigo(prefixo, tenantId) {
+  tenantId = exigirTenant(tenantId, 'produtos.proximoCodigo');
   const row = db.prepare(
     "SELECT codigo FROM produtos WHERE codigo LIKE ? AND tenant_id = ? ORDER BY id DESC LIMIT 1"
   ).get(prefixo + '%', tenantId);
@@ -511,7 +513,11 @@ router.put('/:id', limiteUploadPorTenant, limiteUploadFrequencia, (req, res, nex
 // DELETE /api/produtos/:id -> inativa (nao apaga, preserva historico de vendas)
 router.delete('/:id', (req, res) => {
   const tenantId = req.tenantId;
-  db.prepare('UPDATE produtos SET ativo = 0 WHERE id = ? AND tenant_id = ?').run(req.params.id, tenantId);
+  // O `AND tenant_id` isola: a loja A não apaga o produto da B. Mas sem checar
+  // `changes` a rota respondia {ok:true} mesmo afetando 0 linhas — mentia "apagado"
+  // pra um id de outra loja (ou inexistente). 404 é a resposta honesta.
+  const r = db.prepare('UPDATE produtos SET ativo = 0 WHERE id = ? AND tenant_id = ?').run(req.params.id, tenantId);
+  if (r.changes === 0) return res.status(404).json({ erro: 'Produto não encontrado' });
   res.json({ ok: true });
 });
 

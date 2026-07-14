@@ -4,10 +4,12 @@
 const express = require('express');
 const router = express.Router();
 const { db } = require('../db/database');
+const { exigirTenant } = require('../lib/tenant');
 const { hojeLocal } = require('../lib/datas');
 
 // Garante que existe a linha do caixa do dia (sem zerar valores existentes)
-function garantirLinha(data, tenantId = 1) {
+function garantirLinha(data, tenantId) {
+  tenantId = exigirTenant(tenantId, 'caixa.garantirLinha');
   db.prepare('INSERT OR IGNORE INTO caixa_dia (data, tenant_id) VALUES (?, ?)').run(data, tenantId);
 }
 
@@ -19,7 +21,8 @@ function dinheiroEsperado(c) {
 
 // Recalcula caixa_dia.sangrias/suprimentos contando APENAS movimentos em dinheiro
 // (os que afetam o físico da gaveta). Pix/cartão saem/entram na conta, não na gaveta.
-function recalcularMovimentos(data, tenantId = 1) {
+function recalcularMovimentos(data, tenantId) {
+  tenantId = exigirTenant(tenantId, 'caixa.recalcularMovimentos');
   const r = db.prepare(`
     SELECT
       COALESCE(SUM(CASE WHEN tipo='sangria'    AND forma='dinheiro' THEN valor END),0) AS sangria_din,
@@ -30,7 +33,8 @@ function recalcularMovimentos(data, tenantId = 1) {
 }
 
 // Totais de movimentos que saíram/entraram na CONTA (não-dinheiro), por tipo.
-function movimentosConta(data, tenantId = 1) {
+function movimentosConta(data, tenantId) {
+  tenantId = exigirTenant(tenantId, 'caixa.movimentosConta');
   const r = db.prepare(`
     SELECT
       COALESCE(SUM(CASE WHEN tipo='sangria'    AND forma<>'dinheiro' THEN valor END),0) AS sangrias_conta,
