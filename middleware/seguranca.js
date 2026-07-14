@@ -236,8 +236,24 @@ function exigirPapel(...papeis) {
     return res.status(403).json({ erro: 'Sem permissão para esta área' });
   };
 }
-// Atalho: só admin
+// Atalho: só admin DA LOJA (o dono). CUIDADO: todo dono de loja tem papel='admin'
+// (e' o admin da loja DELE). Use isto pra proteger o que e' do dono — estoque,
+// financeiro, usuarios da loja. NAO use pra proteger dado de TODAS as lojas: pra isso
+// existe exigirAdminBackoffice abaixo.
 const apenasAdmin = exigirPapel('admin');
+
+// Só o admin do BACKOFFICE (SaaS), que enxerga TODAS as lojas. A marca e'
+// `session.admin_id`, gravado so pelo login de backoffice (senha + 2FA contra a
+// tabela `admins`, em routes/admin.js). O dono de loja tem papel='admin' mas NUNCA
+// admin_id — por isso `apenasAdmin` (que olha papel) o deixaria entrar aqui, e uma
+// rota que lista/edita assinaturas ou clientes de todas as lojas nao pode permitir
+// isso. Duplicado do guard de routes/admin.js, centralizado aqui pra reuso.
+function exigirAdminBackoffice(req, res, next) {
+  if (!req.session?.admin_id) {
+    return res.status(403).json({ erro: 'Acesso negado. Apenas administradores do sistema.' });
+  }
+  return next();
+}
 
 // --- Autorização por PLANO (gate de features e limites por tier) ---
 // Fonte única: lib/planos.js. Requer req.tenantId já injetado (injetarTenant).
@@ -344,4 +360,4 @@ const limiteResetSenha = rateLimit({
   message: { erro: 'Muitas tentativas de reset. Aguarde 15 minutos.' },
 });
 
-module.exports = { hashSenha, verificarSenha, validarSenha, validarNaoReutilizada, exigirLogin, injetarTenant, validarTenantAtivo, validarTenantId, garantirTenantId, exigirPapel, apenasAdmin, exigirFeature, exigirDentroDoLimite, limiteGlobal, limiteLogin, limiteAdminPassword, limiteForgotPassword, limiteResetSenha, ehPublica };
+module.exports = { hashSenha, verificarSenha, validarSenha, validarNaoReutilizada, exigirLogin, injetarTenant, validarTenantAtivo, validarTenantId, garantirTenantId, exigirPapel, apenasAdmin, exigirAdminBackoffice, exigirFeature, exigirDentroDoLimite, limiteGlobal, limiteLogin, limiteAdminPassword, limiteForgotPassword, limiteResetSenha, ehPublica };

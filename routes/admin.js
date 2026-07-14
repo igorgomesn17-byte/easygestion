@@ -18,19 +18,21 @@ const { obterStatusAssinatura } = require('../lib/assinatura');
 const { definicaoPlano, normalizarPlano, PLANOS, planosAtribuiveis } = require('../lib/planos');
 const router = express.Router();
 
-// --- Middleware: só admin acessa o backoffice ---
-// Verifica: 1) logado na sessão, 2) papel === 'admin' ou 'super_admin'
+// --- Middleware: só o admin do BACKOFFICE (SaaS) acessa ---
+//
+// ⚠️ NAO checar por `papel`. TODO dono de loja e' gravado com papel='admin' no
+// registro (routes/auth.js: VALUES (..., 'admin', ...)) — e' o admin DELE, da loja
+// dele. Se este guard olhasse `papel`, qualquer cliente pagante logado entraria no
+// backoffice: mudaria o proprio plano pra Growth de graca, leria a base de clientes
+// de TODAS as lojas (email, telefone, CPF, faturamento) e veria o MRR do negocio.
+//
+// A marca do admin de VERDADE e' `session.admin_id`: so o login de backoffice o grava,
+// e so DEPOIS de senha + 2FA contra a tabela `admins` (ver /2fa-verify e /2fa-confirm
+// neste arquivo). O dono de loja nunca passa por esse fluxo, entao nunca tem admin_id.
 function exigirAdminBackoffice(req, res, next) {
-  // Se não está logado, nega
-  if (!req.session?.logado) {
-    return res.status(401).json({ erro: 'Não autenticado. Faça login primeiro.', login: true });
+  if (!req.session?.admin_id) {
+    return res.status(403).json({ erro: 'Acesso negado. Apenas administradores do sistema.' });
   }
-
-  // Se está logado mas não é admin ou super_admin, nega
-  if (req.session.papel !== 'admin' && req.session.papel !== 'super_admin') {
-    return res.status(403).json({ erro: 'Acesso negado. Apenas admins.' });
-  }
-
   return next();
 }
 

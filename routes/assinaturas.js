@@ -9,7 +9,7 @@
 // ============================================================
 const express = require('express');
 const { db } = require('../db/database');
-const { exigirPapel, apenasAdmin } = require('../middleware/seguranca');
+const { exigirPapel, apenasAdmin, exigirAdminBackoffice } = require('../middleware/seguranca');
 const { obterStatusAssinatura, renovarAssinatura, cancelarAssinatura } = require('../lib/assinatura');
 const { criarCheckoutSession, criarPortalSession } = require('../lib/stripe');
 const router = express.Router();
@@ -174,8 +174,16 @@ router.get('/portal', (req, res) => {
   }
 });
 
+// ⚠️ AS 4 ROTAS /admin/assinaturas ABAIXO SAO REDUNDANTES E O FRONT NAO AS CHAMA.
+// O backoffice (public/admin-dashboard.html) usa /api/admin/assinaturas* (routes/
+// admin.js), que e' a versao correta. Estas ficam sob /api/assinaturas/admin/... (URL
+// duplicada e esquisita). O PATCH daqui e' a versao ANTIGA e ERRADA: aceita
+// valor_mensal cru do body e so atualiza `assinaturas`, deixando tenants.plano (que os
+// gates leem) divergente. Ja estao atras do guard de backoffice — o risco imediato
+// esta fechado — mas devem ser REMOVIDAS numa limpeza. Nao construir em cima delas.
+
 // --- GET /admin/assinaturas → lista todas as assinaturas (admin) ---
-router.get('/admin/assinaturas', apenasAdmin, (req, res) => {
+router.get('/admin/assinaturas', exigirAdminBackoffice, (req, res) => {
   try {
     const assinaturas = db.prepare(`
       SELECT
@@ -205,7 +213,7 @@ router.get('/admin/assinaturas', apenasAdmin, (req, res) => {
 });
 
 // --- GET /admin/assinaturas/:id → detalhes de uma assinatura ---
-router.get('/admin/assinaturas/:id', apenasAdmin, (req, res) => {
+router.get('/admin/assinaturas/:id', exigirAdminBackoffice, (req, res) => {
   try {
     const assinatura = db.prepare(`
       SELECT
@@ -240,7 +248,7 @@ router.get('/admin/assinaturas/:id', apenasAdmin, (req, res) => {
 });
 
 // --- PATCH /admin/assinaturas/:id → mudar plano ou status ---
-router.patch('/admin/assinaturas/:id', apenasAdmin, (req, res) => {
+router.patch('/admin/assinaturas/:id', exigirAdminBackoffice, (req, res) => {
   try {
     const assinatura = db.prepare('SELECT * FROM assinaturas WHERE id = ?').get(req.params.id);
     if (!assinatura) {
@@ -277,7 +285,7 @@ router.patch('/admin/assinaturas/:id', apenasAdmin, (req, res) => {
 });
 
 // --- DELETE /admin/assinaturas/:id → cancelar assinatura ---
-router.delete('/admin/assinaturas/:id', apenasAdmin, (req, res) => {
+router.delete('/admin/assinaturas/:id', exigirAdminBackoffice, (req, res) => {
   try {
     const assinatura = db.prepare('SELECT * FROM assinaturas WHERE id = ?').get(req.params.id);
     if (!assinatura) {
