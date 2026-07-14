@@ -166,7 +166,10 @@ router.post('/', (req, res) => {
   // acrescimo: parcelamento 4x+ repassa a taxa ao cliente (so na forma unica).
   // OPCIONAL: se repassar_taxa=false, a loja absorve (sem acrescimo; a taxa entra no lucro).
   const baseAposDesc = +(subtotal - desc).toFixed(2);
-  const acrescimo = (temSplit || repassar_taxa === false) ? 0 : acrescimoParcelamento(baseAposDesc, parcelasValidas);
+  // O tenant NAO e' opcional aqui: sem ele, acrescimoParcelamento lia
+  // `parcelas_loja_absorve` e a taxa de credito DA LOJA 1 — e o acrescimo que a
+  // CLIENTE PAGA saia calculado com a politica de repasse de outra loja.
+  const acrescimo = (temSplit || repassar_taxa === false) ? 0 : acrescimoParcelamento(baseAposDesc, parcelasValidas, req.tenantId);
 
   // Validar acréscimo
   const valAcr = validarAcrescimo(acrescimo);
@@ -182,7 +185,7 @@ router.post('/', (req, res) => {
     partes = pagamentos.map(p => {
       const valor = +(parseFloat(p.valor) || 0).toFixed(2);
       const parc = parseInt(p.parcelas, 10) || 1;
-      const taxaPct = taxaPorForma(p.forma, parc);
+      const taxaPct = taxaPorForma(p.forma, parc, req.tenantId);
       const valorTaxa = +(valor * taxaPct / 100).toFixed(2);
       return { forma: p.forma, parcelas: parc, valor, taxaPct, valorTaxa, liquido: +(valor - valorTaxa).toFixed(2) };
     });
@@ -197,7 +200,11 @@ router.post('/', (req, res) => {
       return res.status(400).json({ erro: `A soma dos pagamentos (${somaPartes.toFixed(2)}) nao bate com o total (${total.toFixed(2)})` });
     }
   } else {
-    const taxaPct = taxaPorForma(forma_pagamento, parcelasValidas);
+    // Cada loja negocia a propria maquininha. Sem o tenant, TODA venda descontava a
+    // taxa da LOJA 1 — o liquido e o lucro saiam errados em toda venda, sem erro
+    // nenhum aparecer. Numa venda de R$1.000 no debito com taxa 1,37% (loja 1) vs
+    // 0,85% (a real), sao R$5,20 de lucro fantasma. Toda venda.
+    const taxaPct = taxaPorForma(forma_pagamento, parcelasValidas, req.tenantId);
     const valorTaxa = +(total * taxaPct / 100).toFixed(2);
     partes = [{ forma: forma_pagamento, parcelas: parcelasValidas, valor: total, taxaPct, valorTaxa, liquido: +(total - valorTaxa).toFixed(2) }];
   }
@@ -210,7 +217,10 @@ router.post('/', (req, res) => {
   const liquidoTotal = +(total - valorTaxaTotal).toFixed(2);
 
   // Imposto dinâmico por estado/categoria (fallback para config.imposto_simples se tabela vazia)
-  const impostoPct = obterImposto(req.tenantId, estado, categoria) || parseFloat(getConfig('imposto_simples', '7.30')) || 0;
+  // O obterImposto passava o tenant, mas o FALLBACK nao — e o fallback e' o caminho
+  // NORMAL (a tabela de imposto por estado/categoria nasce vazia em toda loja nova).
+  // Resultado: quase toda venda calculava imposto com a aliquota da loja 1.
+  const impostoPct = obterImposto(req.tenantId, estado, categoria) || parseFloat(getConfig('imposto_simples', '7.30', req.tenantId)) || 0;
   const imposto = +(total * impostoPct / 100).toFixed(2);
   const comissao = +(total * comissaoPct / 100).toFixed(2);
   const lucro = +(liquidoTotal - imposto - comissao - custoTotal - embalagemTotal).toFixed(2);
@@ -602,7 +612,7 @@ router.post('/impacto-desconto', (req, res) => {
   const { subtotal, desconto, custoTotal, forma, parcelas = 1, comissaoPct = 0, embalagemTotal = 0 } = req.body;
   const { impactoDesconto } = require('../lib/calculos');
   res.json(impactoDesconto(parseFloat(subtotal)||0, parseFloat(desconto)||0, parseFloat(custoTotal)||0,
-    forma, parseInt(parcelas)||1, parseFloat(comissaoPct)||0, parseFloat(embalagemTotal)||0, 0));
+    forma, parseInt(parcelas)||1, parseFloat(comissaoPct)||0, parseFloat(embalagemTotal)||0, 0, req.tenantId));
 });
 
 // PATCH /api/vendas/:id/vendedor  body: { vendedor_id }

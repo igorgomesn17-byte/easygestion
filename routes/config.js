@@ -369,7 +369,19 @@ router.delete('/impostos/:id', apenasAdmin, (req, res) => {
   res.json({ ok: true });
 });
 
-// Helper: Obter imposto para uma venda (estado + categoria)
+// Helper: Obter imposto para uma venda (estado + categoria).
+// Devolve NULL quando esta loja não cadastrou imposto — quem chama decide o fallback.
+//
+// Antes isto terminava com `return 7.3` chumbado. Como a tabela `impostos` nasce VAZIA
+// em toda loja (o cadastro por estado/categoria é opcional e quase ninguém usa), esse
+// 7,3 era o retorno NORMAL — e, como o chamador fazia
+//     obterImposto(...) || getConfig('imposto_simples', ...)
+// o `||` nunca chegava na config. Ou seja: a alíquota que a lojista digita na tela de
+// Configurações era IGNORADA em toda venda, e o imposto (e o lucro, e o DRE) saía com
+// 7,3% pra todo mundo.
+//
+// Devolvendo null, o `||` funciona e a config passa a valer. O 7,30 continua existindo
+// como último recurso — mas lá no chamador, onde é visível.
 function obterImposto(tenantId, estado = 'default', categoria = 'default') {
   // Tenta imposto específico (estado + categoria)
   let imposto = db.prepare(`
@@ -387,8 +399,8 @@ function obterImposto(tenantId, estado = 'default', categoria = 'default') {
 
   if (imposto && imposto.total > 0) return imposto.total;
 
-  // Fallback final: 7.3% (padrão antigo)
-  return 7.3;
+  // Não há imposto cadastrado pra esta loja: quem chama usa a config dela.
+  return null;
 }
 
 // Handler público: só as chaves seguras (montado em /api/loja-publica, SEM login)

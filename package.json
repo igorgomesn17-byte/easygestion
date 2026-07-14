@@ -16,7 +16,8 @@
     "test:clube": "node tests/clube.test.js",
     "test:cupom": "node tests/cupom.test.js",
     "backup": "node scripts/backup.js",
-    "backup-s3": "node scripts/backup-s3.js"
+    "backup-s3": "node scripts/backup-s3.js",
+    "test:calculos": "node tests/calculos-tenant.test.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1073.0",

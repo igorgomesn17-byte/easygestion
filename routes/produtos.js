@@ -169,7 +169,9 @@ router.get('/', (req, res) => {
       const bipada = p.grade.find((g) => g.codigo_barras && g.codigo_barras === busca);
       if (bipada) p.variacao_bipada = bipada.id;
     }
-    if (ehAdmin) p.margem = analisarPreco(p.custo, p.preco_venda);
+    // Sem o tenant, a margem saia calculada com o frete, a embalagem, o imposto e a
+    // comissao DA LOJA 1 — na tela em que a lojista decide o preco das peças dela.
+    if (ehAdmin) p.margem = analisarPreco(p.custo, p.preco_venda, { tenantId: req.tenantId });
     else { delete p.custo; }
   }
   res.json(produtos);
@@ -274,7 +276,7 @@ router.get('/:id', (req, res) => {
   p.tamanhos = [...new Set(p.grade.map((g) => g.tamanho))];
   p.estoque_total = p.grade.reduce((s, v) => s + v.quantidade, 0);
   p.fotos = fotosExtrasDe(p.id, tenantId); // fotos extras da galeria (a capa fica em p.foto)
-  if (req.session && req.session.papel === 'admin') p.margem = analisarPreco(p.custo, p.preco_venda);
+  if (req.session && req.session.papel === 'admin') p.margem = analisarPreco(p.custo, p.preco_venda, { tenantId: req.tenantId });
   else { delete p.custo; } // não-admin não vê custo/margem
   res.json(p);
 });
