@@ -1329,8 +1329,16 @@
         } else {
           venda.forma_pagamento = formaSel;
           venda.parcelas = formaSel === 'credito_parcelado' ? parseInt(document.getElementById('parcelas').value) : 1;
-          // 4x+: informa se repassa a taxa (default) ou a loja absorve (exceção)
-          if (formaSel === 'credito_parcelado' && venda.parcelas > LIMITE_LOJA_ABSORVE) {
+          // 4x+: informa se repassa a taxa (default) ou a loja absorve (exceção).
+          //
+          // A variável é `limiteAbsorve` (declarada lá em cima, alimentada pela config
+          // `parcelas_loja_absorve`, fallback 3). Aqui estava escrito LIMITE_LOJA_ABSORVE
+          // — um nome que NUNCA existiu em lugar nenhum do projeto. Efeito: escolher
+          // crédito PARCELADO e clicar em Finalizar estourava ReferenceError e matava a
+          // função em silêncio — sem toast, sem spinner, sem venda. O clique simplesmente
+          // não fazia nada, e o POST /api/vendas nem saía do navegador. As outras formas
+          // (pix/dinheiro/débito) não passam por esta linha; só o parcelado quebrava.
+          if (formaSel === 'credito_parcelado' && venda.parcelas > limiteAbsorve) {
             venda.repassar_taxa = repassarTaxaAtivo();
           }
           // troco (só dinheiro): valida recebido e anexa troco + forma de devolução
