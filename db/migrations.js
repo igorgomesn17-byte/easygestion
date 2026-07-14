@@ -1632,8 +1632,24 @@ function executarMigrations(db) {
         // entre os dois e' que e' a feature: "voce acha que paga 3,15%, voce paga 3,49%".
         const cols = db.prepare('PRAGMA table_info(venda_pagamentos)').all().map((c) => c.name);
         const add = (nome, tipo) => {
-          if (!cols.includes(nome)) db.exec(`ALTER TABLE venda_pagamentos ADD COLUMN ${nome} ${tipo};`);
+          if (!cols.includes(nome)) {
+            db.exec(`ALTER TABLE venda_pagamentos ADD COLUMN ${nome} ${tipo};`);
+            cols.push(nome);   // mantem o cache coerente pra quem consultar depois
+          }
         };
+
+        // ⚠️ tenant_id PRIMEIRO — o indice la embaixo depende dele.
+        //
+        // venda_pagamentos NAO tem tenant_id no schema.sql: quem a adiciona e' o
+        // garantirColuna() do db/database.js, que roda DEPOIS das migrations. Num banco
+        // NOVO a ordem era: schema cria a tabela sem a coluna -> esta migration tenta
+        // indexar tenant_id -> "no such column: tenant_id" -> BOOT MORRE. Em producao
+        // passava batido so porque o banco de la ja tinha a coluna de um boot anterior;
+        // qualquer banco novo (ou um restore de backup) nao subia.
+        //
+        // E' a armadilha de sempre: schema.sql roda ANTES das migrations. Se a migration
+        // depende de uma coluna, ela mesma tem que garanti-la.
+        add('tenant_id', 'INTEGER');
 
         add('adquirente', 'TEXT');          // 'mercadopago' (prepara p/ outros)
         add('nsu', 'TEXT');                 // reference_id do MP (o id numerico classico)
