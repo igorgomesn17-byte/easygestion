@@ -8,7 +8,9 @@ const { db } = require('../db/database');
 const { exigirFeature } = require('../middleware/seguranca');
 
 // GET /api/vales/:codigo -> consulta vale (valida e retorna saldo)
-router.get('/:codigo', (req, res) => {
+// Gated no Growth: o Starter não emite nem consome vale guardado (ver routes/trocas.js
+// e o passo do vale em routes/vendas.js). O PDV do Starter nem mostra o campo de vale.
+router.get('/:codigo', exigirFeature('vale_credito'), (req, res) => {
   try {
     const codigo = req.params.codigo.toUpperCase();
 

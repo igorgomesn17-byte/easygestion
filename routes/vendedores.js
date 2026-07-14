@@ -35,14 +35,16 @@ router.post('/', (req, res) => {
 // PUT /api/vendedores/:id
 router.put('/:id', (req, res) => {
   const { nome, telefone, comissao_pct } = req.body;
-  db.prepare('UPDATE vendedores SET nome=?, telefone=?, comissao_pct=? WHERE id=? AND tenant_id=?')
+  const r = db.prepare('UPDATE vendedores SET nome=?, telefone=?, comissao_pct=? WHERE id=? AND tenant_id=?')
     .run(nome, telefone || null, parseFloat(comissao_pct) || 0, req.params.id, req.tenantId);
+  if (r.changes === 0) return res.status(404).json({ erro: 'Vendedor não encontrado' });
   res.json({ ok: true });
 });
 
 // DELETE /api/vendedores/:id -> inativa
 router.delete('/:id', (req, res) => {
-  db.prepare('UPDATE vendedores SET ativo = 0 WHERE id = ? AND tenant_id = ?').run(req.params.id, req.tenantId);
+  const r = db.prepare('UPDATE vendedores SET ativo = 0 WHERE id = ? AND tenant_id = ?').run(req.params.id, req.tenantId);
+  if (r.changes === 0) return res.status(404).json({ erro: 'Vendedor não encontrado' });
   res.json({ ok: true });
 });
 

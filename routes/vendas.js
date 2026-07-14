@@ -246,6 +246,16 @@ router.post('/', (req, res) => {
     : null);
   let valeParaDebitar = null;
   if (valorEmVale > 0) {
+    // Pagar COM vale é feature do Growth (o Starter nem emite vale guardado — ver
+    // routes/trocas.js). Gate só este ramo: a venda normal (pix/dinheiro/cartão) do
+    // Starter passa intacta; só o pagamento em vale é recusado.
+    if (!temFeature(planoDoTenant(req.tenantId), 'vale_credito')) {
+      return res.status(403).json({
+        erro: 'Pagamento com vale-crédito está disponível no plano Growth.',
+        upgrade: true,
+        feature: 'vale_credito',
+      });
+    }
     if (!codigoVale) return res.status(400).json({ erro: 'Pagamento em vale exige o codigo do vale' });
     const codigo = String(codigoVale).toUpperCase().trim();
     // `origem` distingue o vale de troca (dinheiro que ja era da cliente) do vale do

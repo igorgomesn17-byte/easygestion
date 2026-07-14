@@ -8,6 +8,7 @@ const router = express.Router();
 const { db, getConfig } = require('../db/database');
 const { rotuloSku } = require('../lib/sku');
 const { gerarCodigoVale } = require('../lib/clube');
+const { planoDoTenant, temFeature } = require('../lib/planos');
 
 // Helper: calcula dias úteis entre duas datas (seg-sáb)
 function diasUteisEntre(dataDe, dataAte) {
@@ -167,6 +168,11 @@ router.patch('/:id/cancelar', (req, res) => {
 router.post('/', (req, res) => {
   const { venda_id = null, devolvidos = [], levados = [],
           forma_pagamento = null, obs = null, forcar_excecao = false } = req.body;
+
+  // Emitir VALE guardado é feature do Growth. A troca em si (inclusive com diferença a
+  // favor da cliente) funciona nos dois planos — no Starter a diferença é resolvida na
+  // hora, sem gerar vale. Lido UMA vez aqui, usado dentro da transação.
+  const podeVale = temFeature(planoDoTenant(req.tenantId), 'vale_credito');
 
   if ((!devolvidos || !devolvidos.length) && (!levados || !levados.length)) {
     return res.status(400).json({ erro: 'Informe ao menos uma peça devolvida ou levada.' });
@@ -344,6 +350,14 @@ router.post('/', (req, res) => {
     } else if (diferenca < 0) {
       const aFavor = Math.abs(diferenca);
 
+      // VALE-CRÉDITO GUARDADO é feature do Growth. No Starter a devolução funciona —
+      // a diferença a favor da cliente é resolvida NA HORA (dinheiro/desconto no balcão),
+      // mas o sistema NÃO emite um vale pra usar depois. O corte de valor: "crédito que
+      // fica salvo" sobe pro Growth; devolver na hora é básico e continua no Starter.
+      if (!podeVale) {
+        return { trocaId, valeGerado: null, aFavorSemVale: aFavor };
+      }
+
       // Cliente recebe em vale-crédito
       let clienteId = null;
       if (venda_id) {
@@ -386,6 +400,12 @@ router.post('/', (req, res) => {
         valor: resultado.valeGerado.valor,
         validade: resultado.valeGerado.validade,
       };
+    } else if (resultado.aFavorSemVale) {
+      // Starter: a cliente tem saldo a favor, mas o plano não emite vale guardado.
+      // A tela avisa pra devolver na hora (dinheiro/desconto).
+      resp.a_favor_cliente = resultado.aFavorSemVale;
+      resp.sem_vale = true;
+      resp.mensagem = `Cliente tem R$ ${resultado.aFavorSemVale.toFixed(2)} a favor. Devolva em dinheiro ou desconto — o vale-crédito guardado é do plano Growth.`;
     }
     res.status(201).json(resp);
   } catch (e) {

@@ -162,7 +162,10 @@ router.post('/:id/pagar', (req, res) => {
 
 // DELETE /api/despesas/:id
 router.delete('/:id', (req, res) => {
-  db.prepare('DELETE FROM despesas WHERE id = ? AND tenant_id = ?').run(req.params.id, req.tenantId);
+  // AND tenant_id isola; checar changes evita responder "apagado" pra despesa de
+  // outra loja (ou inexistente).
+  const r = db.prepare('DELETE FROM despesas WHERE id = ? AND tenant_id = ?').run(req.params.id, req.tenantId);
+  if (r.changes === 0) return res.status(404).json({ erro: 'Despesa não encontrada' });
   cacheRelatorioPorTenant.invalidarTudo(req.tenantId);
   res.json({ ok: true });
 });

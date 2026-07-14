@@ -230,28 +230,37 @@ router.put('/:id', (req, res) => {
     }
   }
 
-  db.prepare('UPDATE clientes SET nome=?, telefone=?, cidade=?, aniversario=?, origem=?, indicada_por=?, email=?, cpf_cnpj=? WHERE id=? AND tenant_id=?')
+  const r = db.prepare('UPDATE clientes SET nome=?, telefone=?, cidade=?, aniversario=?, origem=?, indicada_por=?, email=?, cpf_cnpj=? WHERE id=? AND tenant_id=?')
     .run(nome, telefone || null, cidade || null, aniversario || null, origem || null, indicada_por || null, email ? email.toLowerCase() : null, cpf_cnpj_limpo, req.params.id, req.tenantId);
+  if (r.changes === 0) return res.status(404).json({ erro: 'Cliente não encontrado' });
   res.json({ ok: true });
 });
 
 // PATCH /api/clientes/:id/arquivar   body: { arquivado: 0|1 }
 router.patch('/:id/arquivar', (req, res) => {
   const v = req.body.arquivado ? 1 : 0;
-  db.prepare('UPDATE clientes SET arquivado = ? WHERE id = ? AND tenant_id = ?').run(v, req.params.id, req.tenantId);
+  const r = db.prepare('UPDATE clientes SET arquivado = ? WHERE id = ? AND tenant_id = ?').run(v, req.params.id, req.tenantId);
+  if (r.changes === 0) return res.status(404).json({ erro: 'Cliente não encontrado' });
   res.json({ ok: true, arquivado: v });
 });
 
 // PATCH /api/clientes/:id/nao-perturbe   body: { nao_perturbe: 0|1 }
 router.patch('/:id/nao-perturbe', (req, res) => {
   const v = req.body.nao_perturbe ? 1 : 0;
-  db.prepare('UPDATE clientes SET nao_perturbe = ? WHERE id = ? AND tenant_id = ?').run(v, req.params.id, req.tenantId);
+  const r = db.prepare('UPDATE clientes SET nao_perturbe = ? WHERE id = ? AND tenant_id = ?').run(v, req.params.id, req.tenantId);
+  if (r.changes === 0) return res.status(404).json({ erro: 'Cliente não encontrado' });
   res.json({ ok: true, nao_perturbe: v });
 });
 
 // DELETE /api/clientes/:id  -> só permite excluir quem NÃO tem compras (senão, arquivar)
 router.delete('/:id', (req, res) => {
   const id = req.params.id;
+  // Confirma que o cliente é DESTA loja antes de qualquer coisa: senão a rota rodava
+  // a lógica de exclusão sobre um id de outra loja e respondia {ok:true} sem ter
+  // apagado nada (o AND tenant_id nos DELETEs abaixo já isolava, mas mentia o sucesso).
+  const cliente = db.prepare('SELECT id FROM clientes WHERE id = ? AND tenant_id = ?').get(id, req.tenantId);
+  if (!cliente) return res.status(404).json({ erro: 'Cliente não encontrado' });
+
   const temVenda = db.prepare('SELECT COUNT(*) AS n FROM vendas WHERE cliente_id = ? AND tenant_id = ?').get(id, req.tenantId).n;
   if (temVenda > 0) {
     return res.status(400).json({ erro: `Este cliente tem ${temVenda} compra(s) no histórico. Em vez de excluir (que apagaria o vínculo das vendas), arquive o cliente.` });

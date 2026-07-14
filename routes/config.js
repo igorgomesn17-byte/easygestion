@@ -365,7 +365,8 @@ router.post('/impostos', apenasAdmin, (req, res) => {
 router.delete('/impostos/:id', apenasAdmin, (req, res) => {
   if (!req.tenantId) return res.status(400).json({ erro: 'Tenant ID não encontrado' });
 
-  db.prepare('DELETE FROM impostos WHERE id = ? AND tenant_id = ?').run(req.params.id, req.tenantId);
+  const r = db.prepare('DELETE FROM impostos WHERE id = ? AND tenant_id = ?').run(req.params.id, req.tenantId);
+  if (r.changes === 0) return res.status(404).json({ erro: 'Imposto não encontrado' });
   res.json({ ok: true });
 });
 
