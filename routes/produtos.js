@@ -8,7 +8,7 @@ const path = require('path');
 const { db } = require('../db/database');
 const { exigirTenant } = require('../lib/tenant');
 const { sugerirPreco, analisarPreco } = require('../lib/calculos');
-const { limiteUploadPorTenant, limiteUploadFrequencia } = require('../middleware/rate-limit-custoso');
+const { limiteUploadPorTenant } = require('../middleware/rate-limit-custoso');
 const { exigirDentroDoLimite, exigirFeature } = require('../middleware/seguranca');
 const {
   COR_PADRAO, normalizarCor, normalizarTamanho,
@@ -341,7 +341,7 @@ router.post('/rapido', exigirDentroDoLimite('produtos', contarProdutos), (req, r
 // Cada celula preenchida da matriz vira uma variacao (um SKU) com estoque e codigo
 // de barras proprios. Celula vazia (qtd 0 e sem codigo) nao vira SKU: cadastrar
 // "Vermelho / GG = 0" polui a arara com peca que a loja nem comprou.
-router.post('/', exigirDentroDoLimite('produtos', contarProdutos), limiteUploadPorTenant, limiteUploadFrequencia, (req, res, next) => {
+router.post('/', exigirDentroDoLimite('produtos', contarProdutos), limiteUploadPorTenant, (req, res, next) => {
   const tenantId = req.tenantId;
   const { nome, categoria, descricao, custo, preco_venda, foto, fotos, grade, colecao } = req.body;
 
@@ -422,7 +422,7 @@ router.post('/', exigirDentroDoLimite('produtos', contarProdutos), limiteUploadP
 // A grade enviada e' o estado DESEJADO: SKU novo e' criado, SKU existente tem a
 // quantidade/codigo atualizados. SKU que sumiu da matriz e' ZERADO, nao apagado —
 // ver o porque logo abaixo.
-router.put('/:id', limiteUploadPorTenant, limiteUploadFrequencia, (req, res, next) => {
+router.put('/:id', limiteUploadPorTenant, (req, res, next) => {
   const tenantId = req.tenantId;
   const { nome, categoria, descricao, custo, preco_venda, foto, fotos, grade, colecao } = req.body;
   const p = db.prepare('SELECT id, codigo, foto FROM produtos WHERE id = ? AND tenant_id = ?').get(req.params.id, tenantId);

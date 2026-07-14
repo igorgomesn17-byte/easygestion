@@ -176,39 +176,22 @@ const limiteCálculoCustoso = rateLimit({
 });
 
 // --- Rate Limit: Upload (mais agressivo) ---
-// Uma requisição só é "upload" se traz FOTO NOVA (base64) no corpo.
+// ⚠️ O limitador de FREQUÊNCIA de upload (era 10/hora) foi REMOVIDO em 14/07/2026.
 //
-// Este middleware está montado no POST e no PUT de /api/produtos — que é por onde a
-// lojista cadastra e edita peça, com ou sem foto. Sem esta checagem ele contava TODA
-// requisição: cadastrar 10 peças sem foto nenhuma estourava a cota de "upload" e a
-// tela devolvia "Muitos uploads neste período" no meio do cadastro.
+// Ele existia pra proteger a CPU de um pico de processamento de imagem. Mas:
+//   - o processamento é trivial (decodifica base64, grava o arquivo);
+//   - quem protege o disco de verdade é o limiteUploadPorTenant (100MB/dia), que
+//     continua de pé — e um teto de BYTES já cobre o cenário de abuso.
 //
-// Ou seja: o limite punia exatamente o comportamento que o sistema mais quer — a
-// lojista subindo o catálogo dela. Aconteceu de verdade em 14/07/2026.
+// O de frequência só duplicava a defesa, e o preço era alto: montado no POST/PUT de
+// produtos, ele contava TODA requisição como upload (não tinha `skip`), então
+// cadastrar 10 peças sem foto nenhuma travava a lojista com "Muitos uploads neste
+// período" no meio do cadastro do catálogo. Punia exatamente o que o sistema mais
+// quer que ela faça. Aconteceu de verdade.
 //
-// `foto` é a capa e `fotos` a galeria. Caminho que já existe ('img/produtos/...')
-// significa foto MANTIDA, não enviada de novo — não conta.
-function temFotoNova(req) {
-  const b = req.body || {};
-  const ehNova = (f) => typeof f === 'string' && f.startsWith('data:');
-  if (ehNova(b.foto)) return true;
-  if (Array.isArray(b.fotos) && b.fotos.some(ehNova)) return true;
-  return false;
-}
-
-// 30 uploads de foto por hora por tenant. O teto era 10 — apertado demais pra quem
-// está montando o catálogo (o momento em que a lojista mais precisa que funcione).
-const limiteUploadFrequencia = rateLimit({
-  keyGenerator: (req, _res) => {
-    return `${req.tenantId || 'anon'}-upload`;
-  },
-  windowMs: 60 * 60 * 1000, // 1 hora
-  max: 30,
-  standardHeaders: true,
-  legacyHeaders: false,
-  skip: (req) => !temFotoNova(req),   // sem foto nova, não é upload
-  message: { erro: 'Muitas fotos enviadas neste período. Aguarde um pouco e continue.' },
-});
+// Se um dia o processamento de imagem ficar caro (resize, thumbnail, conversão),
+// reavaliar — mas aí com um `skip` que só conte requisição COM foto nova (base64 no
+// corpo), nunca cru. Contar toda requisição foi o erro original.
 
 // --- Função para invalidar cache quando dados mudam ---
 function invalidarCachesPeriodo(tenantId, mes) {
@@ -222,7 +205,6 @@ function invalidarCachesPeriodo(tenantId, mes) {
 
 module.exports = {
   limiteUploadPorTenant,
-  limiteUploadFrequencia,
   limiteExport,
   limiteCálculoCustoso,
   cacheRelatorioPorTenant,
