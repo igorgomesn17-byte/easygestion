@@ -1146,12 +1146,16 @@
     async function finalizar(comNfce) {
       if (carrinho.length === 0) { toast('Carrinho vazio','erro'); return; }
 
-      // Mostrar spinner e desabilitar botões
-      const areaBotoes = document.getElementById('areasBotoesFinalizar');
-      const spinner = document.getElementById('spinnerFinalizando');
-      areaBotoes.style.display = 'none';
-      spinner.style.display = 'flex';
-      document.querySelectorAll('#areasBotoesFinalizar button').forEach(b => b.disabled = true);
+      // ⚠️ O SPINNER SÓ LIGA DEPOIS DE TODA VALIDAÇÃO (logo antes do try, lá embaixo).
+      //
+      // Ele era ligado AQUI, no topo. Mas as validações abaixo saem com
+      // `toast(...); return;` — e 6 delas não restauravam a UI. Qualquer erro banal
+      // ("Escolha a forma de pagamento", "Os pagamentos precisam somar o total")
+      // deixava o spinner girando PARA SEMPRE: o toast some em segundos e a lojista
+      // fica olhando um "carregando" eterno, achando que o sistema travou — e a venda
+      // nunca era enviada (o POST /api/vendas nem saía do navegador).
+      // Ligar o spinner tarde torna impossível prendê-lo: daqui pra frente só existem
+      // dois caminhos, e os dois restauram (o catch do try, ou a navegação do sucesso).
 
       const venda = {
         itens: carrinho.map(i => ({ variacao_id: i.variacao_id, qtd: i.qtd })),
@@ -1246,6 +1250,12 @@
           }
         }
       }
+      // Validação passou: a venda VAI ser enviada. SÓ AGORA liga o spinner (ver o
+      // comentário no topo de finalizar()).
+      document.getElementById('areasBotoesFinalizar').style.display = 'none';
+      document.getElementById('spinnerFinalizando').style.display = 'flex';
+      document.querySelectorAll('#areasBotoesFinalizar button').forEach(b => b.disabled = true);
+
       try {
         // O vale (se houver) ja foi debitado pelo backend, dentro da mesma transacao
         // da venda. Nao chamar /vales/usar aqui: debitaria duas vezes.
