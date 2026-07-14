@@ -200,19 +200,45 @@ function validarTenantAtivo(req, res, next) {
   }
 
   // Verificar se trial venceu ou assinatura está vencida (bloqueia acesso)
-  // NOTA: trial ativo NÃO bloqueia — cliente pode usar normalmente e fazer upgrade quando quiser
+  // NOTA: trial ATIVO não bloqueia — o cliente usa o Growth completo nos 14 dias.
+  // Quando o trial VENCE, cai aqui: o acesso trava e ele é levado à tela de planos
+  // pra escolher e pagar. É bloqueio de porta, não punição — quem punia era o
+  // cobranca-scheduler marcando status='bloqueado' ("conta bloqueada pelo
+  // administrador"), o que foi corrigido em lib/stripe.js.
   const statusAssinatura = ehInterno ? { status: 'ativa', bloqueado: false } : obterStatusAssinatura(req.session.tenant_id);
   if (statusAssinatura.status === 'vencida' || statusAssinatura.bloqueado) {
-    // Se for uma requisição API, retornar erro
-    if (req.path.startsWith('/api')) {
+    // ⚠️ Este middleware é montado com app.use('/api', ...), então req.path é RELATIVO
+    // ao mount: numa chamada a /api/produtos, req.path é '/produtos'. O teste antigo
+    // (`req.path.startsWith('/api')`) era SEMPRE FALSO — nenhuma rota de API era
+    // barrada, e o trial vencido continuava usando o sistema inteiro. Caía no redirect
+    // logo abaixo, que um fetch() de API não sabe seguir.
+    // O exigirLogin (acima) já tinha aprendido isso: ele reconstrói com '/api' + req.path.
+    const rota = req.baseUrl + req.path;   // baseUrl='/api' quando montado assim
+
+    // O cliente bloqueado precisa conseguir SAIR do bloqueio. Barrar tudo o prenderia
+    // numa tela de planos que não carrega e num botão de pagar que não funciona.
+    // Estas são as rotas que a própria /planos.html usa pra ele escolher e pagar.
+    const ROTAS_DE_SAIDA = [
+      '/api/me',                      // quem sou eu (a tela monta o cabeçalho com isso)
+      '/api/assinaturas/planos',      // o catálogo de preços
+      '/api/assinaturas/checkout',    // o botão de pagar
+      '/api/assinaturas/minha',       // status da própria assinatura
+      '/api/assinaturas/portal',      // portal do Stripe (trocar cartão)
+      '/api/logout',
+    ];
+    if (ROTAS_DE_SAIDA.some((r) => rota === r || rota.startsWith(r + '/'))) {
+      return next();
+    }
+
+    if (rota.startsWith('/api')) {
       return res.status(403).json({
-        erro: 'Assinatura vencida ou bloqueada',
+        erro: 'Seu teste grátis terminou. Escolha um plano para continuar.',
         redirecionar: '/planos.html',
         trial_expirado: true
       });
     }
-    // Se for uma requisição de página, redirecionar (servidor-side)
-    if (!req.path.startsWith('/planos.html') && !req.path.startsWith('/login.html') && !req.path.startsWith('/logout')) {
+    // Requisição de página: redireciona pro checkout de planos.
+    if (!rota.startsWith('/planos.html') && !rota.startsWith('/login.html') && !rota.startsWith('/logout')) {
       return res.redirect('/planos.html');
     }
   }
