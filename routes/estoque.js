@@ -145,7 +145,7 @@ router.post('/ajuste', (req, res) => {
   const nova = parseInt(nova_quantidade, 10);
   const diff = nova - v.quantidade;
   const tx = db.transaction(() => {
-    db.prepare('UPDATE variacoes SET quantidade = ? WHERE id = ?').run(nova, variacao_id);
+    db.prepare(`UPDATE variacoes SET quantidade = ? WHERE id = ? AND produto_id IN (SELECT id FROM produtos WHERE tenant_id = ?)`).run(nova, variacao_id, req.tenantId);
     db.prepare("INSERT INTO movimentos_estoque (variacao_id, tipo, qtd, motivo) VALUES (?, 'ajuste', ?, ?)")
       .run(variacao_id, diff, motivo || 'ajuste manual');
   });
@@ -168,7 +168,7 @@ router.post('/entrada', (req, res) => {
   if (!valQtd.valido) return res.status(400).json({ erro: valQtd.erro });
   const add = valQtd.valor;
   const tx = db.transaction(() => {
-    db.prepare('UPDATE variacoes SET quantidade = quantidade + ? WHERE id = ?').run(add, variacao_id);
+    db.prepare(`UPDATE variacoes SET quantidade = quantidade + ? WHERE id = ? AND produto_id IN (SELECT id FROM produtos WHERE tenant_id = ?)`).run(add, variacao_id, req.tenantId);
     db.prepare("INSERT INTO movimentos_estoque (variacao_id, tipo, qtd, motivo) VALUES (?, 'entrada', ?, ?)")
       .run(variacao_id, add, motivo || 'entrada de mercadoria');
   });
@@ -291,7 +291,7 @@ router.post('/lote', (req, res) => {
 
       // adiciona ao estoque
       try {
-        db.prepare('UPDATE variacoes SET quantidade = quantidade + ? WHERE id = ?').run(qtd, v.id);
+        db.prepare(`UPDATE variacoes SET quantidade = quantidade + ? WHERE id = ? AND produto_id IN (SELECT id FROM produtos WHERE tenant_id = ?)`).run(qtd, v.id, req.tenantId);
         db.prepare("INSERT INTO movimentos_estoque (variacao_id, tipo, qtd, motivo) VALUES (?, 'entrada', ?, ?)")
           .run(v.id, qtd, motivo || 'entrada em lote');
         processados.push({ codigo: v.codigo, nome: v.nome, cor: v.cor, tamanho, quantidade: qtd });

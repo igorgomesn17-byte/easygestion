@@ -114,16 +114,24 @@ function proximoCodigo(prefixo, tenantId) {
 
 // Le a grade (matriz cor x tamanho) de um ou mais produtos de uma vez.
 // Uma query so pros N produtos: o padrao N+1 aqui ja tinha sido corrigido antes.
-function gradeDe(produtoIds, { somenteComEstoque = false } = {}) {
+//
+// tenantId OBRIGATORIO. Era a unica funcao deste arquivo sem guarda — as irmas
+// (fotosExtrasDe, salvarFotosExtras) ja lancavam. Hoje os 6 chamadores passam ids que
+// vieram de um SELECT ja filtrado, entao nao ha furo; mas basta UMA rota nova aceitar
+// um produto_id do body pra virar o mesmo IDOR que o routes/trocas.js acabou de ter.
+function gradeDe(produtoIds, tenantId, { somenteComEstoque = false } = {}) {
+  const t = exigirTenant(tenantId, 'produtos.gradeDe');
   const porProduto = new Map();
   if (!produtoIds.length) return porProduto;
   const ph = produtoIds.map(() => '?').join(',');
   const filtro = somenteComEstoque ? 'AND quantidade > 0' : '';
   const linhas = db.prepare(
     `SELECT id, produto_id, cor, tamanho, quantidade, codigo_barras
-     FROM variacoes WHERE produto_id IN (${ph}) ${filtro}
+     FROM variacoes
+     WHERE produto_id IN (${ph}) ${filtro}
+       AND produto_id IN (SELECT id FROM produtos WHERE tenant_id = ?)
      ORDER BY produto_id, cor, id`
-  ).all(...produtoIds);
+  ).all(...produtoIds, t);
   for (const v of linhas) {
     if (!porProduto.has(v.produto_id)) porProduto.set(v.produto_id, []);
     porProduto.get(v.produto_id).push({
@@ -159,7 +167,7 @@ router.get('/', (req, res) => {
   const ehAdmin = req.session && req.session.papel === 'admin';
   const produtos = db.prepare(sql).all(...params);
 
-  const gradePorProduto = gradeDe(produtos.map((p) => p.id));
+  const gradePorProduto = gradeDe(produtos.map((p) => p.id), req.tenantId);
 
   for (const p of produtos) {
     p.grade = gradePorProduto.get(p.id) || [];
@@ -198,7 +206,7 @@ router.get('/vitrine', (req, res) => {
   const produtos = db.prepare(sql).all(...params);
 
   const produtoIds = produtos.map(p => p.id);
-  const gradePorProduto = gradeDe(produtoIds, { somenteComEstoque: true });
+  const gradePorProduto = gradeDe(produtoIds, req.tenantId, { somenteComEstoque: true });
   const fotosPorProduto = new Map();
 
   if (produtoIds.length > 0) {
@@ -260,7 +268,7 @@ router.get('/etiquetas', (req, res) => {
     `SELECT ${COLUNAS_ETIQUETA} FROM produtos WHERE id IN (${ph}) AND tenant_id = ?`
   ).all(...ids, req.tenantId);
 
-  const grades = gradeDe(produtos.map((p) => p.id));
+  const grades = gradeDe(produtos.map((p) => p.id), req.tenantId);
   const etiquetas = produtos.flatMap((p) => etiquetasDe(p, grades.get(p.id) || []));
   res.json({
     produtos: produtos.map((p) => ({ id: p.id, nome: p.nome, codigo: p.codigo })),
@@ -273,7 +281,7 @@ router.get('/:id', (req, res) => {
   const tenantId = req.tenantId;
   const p = db.prepare('SELECT * FROM produtos WHERE id = ? AND tenant_id = ?').get(req.params.id, tenantId);
   if (!p) return res.status(404).json({ erro: 'Produto nao encontrado' });
-  p.grade = gradeDe([p.id]).get(p.id) || [];
+  p.grade = gradeDe([p.id], req.tenantId).get(p.id) || [];
   p.cores = coresDaGrade(p.grade);
   p.tamanhos = [...new Set(p.grade.map((g) => g.tamanho))];
   p.estoque_total = p.grade.reduce((s, v) => s + v.quantidade, 0);
@@ -446,8 +454,9 @@ router.put('/:id', limiteUploadPorTenant, limiteUploadFrequencia, (req, res, nex
 
     if (!Array.isArray(grade)) return;   // grade ausente = nao mexer na matriz
 
-    const existentes = db.prepare('SELECT id, cor, tamanho, quantidade, codigo_barras FROM variacoes WHERE produto_id = ?')
-      .all(p.id);
+    const existentes = db.prepare(`SELECT id, cor, tamanho, quantidade, codigo_barras FROM variacoes
+      WHERE produto_id = ? AND produto_id IN (SELECT id FROM produtos WHERE tenant_id = ?)`)
+      .all(p.id, req.tenantId);
     const porChave = new Map(existentes.map((v) => [`${v.cor}|${v.tamanho}`, v]));
     const insertVar = db.prepare('INSERT INTO variacoes (produto_id, cor, tamanho, quantidade, codigo_barras, tenant_id) VALUES (?, ?, ?, ?, ?, ?)');
     const insertMov = db.prepare("INSERT INTO movimentos_estoque (variacao_id, tipo, qtd, motivo) VALUES (?, 'ajuste', ?, ?)");
@@ -577,7 +586,7 @@ router.get('/:id/etiquetas', (req, res) => {
     .get(req.params.id, req.tenantId);
   if (!p) return res.status(404).json({ erro: 'Produto nao encontrado' });
 
-  const grade = gradeDe([p.id]).get(p.id) || [];
+  const grade = gradeDe([p.id], req.tenantId).get(p.id) || [];
   res.json({
     produto: { id: p.id, nome: p.nome, codigo: p.codigo },
     grade,                                   // a tela usa pra deixar ajustar a qtd por SKU

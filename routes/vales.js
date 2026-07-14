@@ -1,16 +1,24 @@
 // ============================================================
 // API de VALES / CRÉDITOS
 // Validação e utilização de vales gerados em trocas
+//
+// 🔒 O GATE DE PLANO NÃO MORA AQUI — mora no `app.use` do server.js:
+//     app.use('/api/vales', pdvOuAdmin, exigirFeature('vale_credito'), ...)
+//
+// Antes o exigirFeature estava rota a rota, e o `GET /` (listar vales) tinha ficado
+// de fora — o Starter listava os vales normalmente. É essa a armadilha do gate rota a
+// rota: quem esquece uma, libera uma. No mount, rota nova nasce protegida.
+//
+// A geração (troca a favor da cliente) e o uso (pagamento na venda) têm gates
+// próprios, inline, porque aquelas rotas precisam funcionar em TODO plano — só o
+// pedaço do vale é que não. Ver routes/trocas.js e o passo do vale em routes/vendas.js.
 // ============================================================
 const express = require('express');
 const router = express.Router();
 const { db } = require('../db/database');
-const { exigirFeature } = require('../middleware/seguranca');
 
 // GET /api/vales/:codigo -> consulta vale (valida e retorna saldo)
-// Gated no Growth: o Starter não emite nem consome vale guardado (ver routes/trocas.js
-// e o passo do vale em routes/vendas.js). O PDV do Starter nem mostra o campo de vale.
-router.get('/:codigo', exigirFeature('vale_credito'), (req, res) => {
+router.get('/:codigo', (req, res) => {
   try {
     const codigo = req.params.codigo.toUpperCase();
 
@@ -59,7 +67,7 @@ router.get('/:codigo', exigirFeature('vale_credito'), (req, res) => {
 // depois da venda ja gravada: se falhasse, a venda existia e o vale continuava com saldo.
 // Manter as duas ativas permitiria debito em dobro. Responde 410 em vez de sumir, pra que
 // qualquer chamador antigo receba um erro explicito em vez de um 404 confuso.
-router.post('/:codigo/usar', exigirFeature('vale_credito'), (req, res) => {
+router.post('/:codigo/usar', (req, res) => {
   res.status(410).json({
     erro: 'Rota descontinuada: o vale e debitado automaticamente ao registrar a venda (POST /api/vendas com vale_codigo).'
   });

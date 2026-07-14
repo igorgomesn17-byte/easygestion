@@ -54,7 +54,7 @@ router.patch('/:id/ativo', (req, res) => {
   const ativo = req.body.ativo ? 1 : 0;
   const user = db.prepare('SELECT id FROM usuarios WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenantId);
   if (!user) return res.status(403).json({ erro: 'Usuário não encontrado ou acesso negado' });
-  db.prepare('UPDATE usuarios SET ativo = ? WHERE id = ?').run(ativo, req.params.id);
+  db.prepare('UPDATE usuarios SET ativo = ? WHERE id = ? AND tenant_id = ?').run(ativo, req.params.id, req.tenantId);
   res.json({ ok: true, ativo });
 });
 
@@ -75,7 +75,7 @@ router.patch('/:id/senha', (req, res) => {
     return res.status(400).json({ erro: naoReutilizada.erro });
   }
 
-  db.prepare('UPDATE usuarios SET senha_hash = ? WHERE id = ?').run(hashSenha(senha), req.params.id);
+  db.prepare('UPDATE usuarios SET senha_hash = ? WHERE id = ? AND tenant_id = ?').run(hashSenha(senha), req.params.id, req.tenantId);
   res.json({ ok: true });
 });
 
@@ -83,7 +83,7 @@ router.patch('/:id/senha', (req, res) => {
 router.delete('/:id', (req, res) => {
   const user = db.prepare('SELECT id FROM usuarios WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenantId);
   if (!user) return res.status(403).json({ erro: 'Usuário não encontrado ou acesso negado' });
-  db.prepare('DELETE FROM usuarios WHERE id = ?').run(req.params.id);
+  db.prepare('DELETE FROM usuarios WHERE id = ? AND tenant_id = ?').run(req.params.id, req.tenantId);
   res.json({ ok: true });
 });
 

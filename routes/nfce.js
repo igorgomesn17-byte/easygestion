@@ -15,7 +15,13 @@ const { db, getConfig, FOCUS } = require('../db/database');
 const { emitirNfce, consultarNfce, cancelarNfce } = require('../lib/focusNfe');
 
 // grava/atualiza a linha da nfce no banco a partir do retorno interpretado
-function salvarNfce({ venda_id, ref, ambiente, valor_total, info, tenant_id = 1 }) {
+//
+// O `tenant_id = 1` que estava aqui era a mesma armadilha de sempre: um chamador que
+// esquecesse o tenant gravaria a NOTA FISCAL de uma loja no CNPJ de outra — e sem
+// erro nenhum. Documento fiscal na conta errada não é bug de dado, é problema com a
+// Receita. Agora exige o tenant e derruba se faltar (lib/tenant.js).
+function salvarNfce({ venda_id, ref, ambiente, valor_total, info, tenant_id }) {
+  const t = exigirTenant(tenant_id, 'nfce.salvarNfce');
   db.prepare(`
     INSERT INTO nfce (venda_id, ref, ambiente, status, numero, serie, chave, protocolo,
                       caminho_danfe, caminho_xml, qrcode_url, mensagem_sefaz, valor_total, tenant_id)
@@ -25,8 +31,10 @@ function salvarNfce({ venda_id, ref, ambiente, valor_total, info, tenant_id = 1 
       protocolo=excluded.protocolo, caminho_danfe=excluded.caminho_danfe, caminho_xml=excluded.caminho_xml,
       qrcode_url=excluded.qrcode_url, mensagem_sefaz=excluded.mensagem_sefaz
   `).run(venda_id, ref, ambiente, info.status, info.numero, info.serie, info.chave, info.protocolo,
-         info.caminho_danfe, info.caminho_xml, info.qrcode_url, info.mensagem_sefaz, valor_total || 0, tenant_id);
-  return db.prepare('SELECT * FROM nfce WHERE ref = ?').get(ref);
+         info.caminho_danfe, info.caminho_xml, info.qrcode_url, info.mensagem_sefaz, valor_total || 0, t);
+  // `AND tenant_id = ?`: a `ref` é única globalmente, então sem o filtro esta leitura
+  // alcançaria a nota de qualquer loja.
+  return db.prepare('SELECT * FROM nfce WHERE ref = ? AND tenant_id = ?').get(ref, t);
 }
 
 // monta a URL absoluta do DANFE/XML na Focus (os caminhos vêm relativos)
@@ -306,8 +314,11 @@ router.delete('/cancelar/:vendaId', async (req, res) => {
   try {
     const r = await cancelarNfce(linha.ref, ambiente, justificativa, tokenCliente);
     if (r.status === 'cancelado') {
-      db.prepare("UPDATE nfce SET status='cancelado', cancelado_em=datetime('now','localtime'), mensagem_sefaz=? WHERE id=?")
-        .run(r.mensagem_sefaz || 'Cancelada', linha.id);
+      // `AND tenant_id = ?` mesmo com a checagem prévia acima: cancelamento de nota
+      // fiscal é irreversível, e a tranca no próprio UPDATE sobrevive a um refactor
+      // que mova ou remova a checagem.
+      db.prepare("UPDATE nfce SET status='cancelado', cancelado_em=datetime('now','localtime'), mensagem_sefaz=? WHERE id=? AND tenant_id=?")
+        .run(r.mensagem_sefaz || 'Cancelada', linha.id, req.tenantId);
       return res.json({ ok: true, status: 'cancelado' });
     }
     res.status(422).json({ erro: r.mensagem_sefaz || 'Não foi possível cancelar', status: r.status });

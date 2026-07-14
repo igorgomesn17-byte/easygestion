@@ -350,7 +350,10 @@ app.use('/api/vendas',        pdvOuAdmin, require('./routes/vendas'));   // vend
 app.use('/api/vendedores',    pdvOuAdmin, require('./routes/vendedores')); // PDV precisa da lista
 app.use('/api/caixa',         pdvOuAdmin, require('./routes/caixa'));      // vendedor opera o caixa
 app.use('/api/trocas',        apenasAdmin, require('./routes/trocas'));     // trocas e devoluções
-app.use('/api/vales',         pdvOuAdmin, require('./routes/vales'));       // vales usados no PDV
+// Vale-crédito é feature do Growth. O gate mora AQUI, no mount, e não rota a rota:
+// o GET / (listar) tinha ficado de fora justamente por isso. No app.use, rota nova
+// nasce protegida sem ninguém precisar lembrar — mesmo padrão do /api/relacionamento.
+app.use('/api/vales',         pdvOuAdmin, exigirFeature('vale_credito'), require('./routes/vales'));
 // Cupom da régua: consulta pro PDV. SEM exigirFeature de propósito — a vendedora
 // precisa fechar a venda, e POST /api/vendas também não tem gate. Quem não tem o
 // Relacionamento simplesmente não tem cupom no banco; não há o que barrar.
