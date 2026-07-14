@@ -1608,6 +1608,86 @@ function executarMigrations(db) {
         // schema.sql ele rodaria ANTES da coluna existir e derrubaria o boot.
         db.exec(`CREATE INDEX IF NOT EXISTS idx_crm_acoes_cupom ON crm_acoes(tenant_id, cupom_id);`);
       }
+    },
+    {
+      nome: '038_maquininha_integrada',
+      hash: 'v38-maquininha-mercadopago-point',
+      exec: (db) => {
+        // A MAQUININHA DEIXA DE SER UMA CAIXA PRETA AO LADO DO COMPUTADOR.
+        //
+        // Ate aqui a taxa de cartao era um PALPITE: a lojista digitava
+        // `taxa_credito_vista: 3.15` na config e o sistema calculava lucro, margem e
+        // DRE em cima disso — sem NUNCA confrontar com o que a adquirente cobrou de
+        // verdade. Nao tinha com o que confrontar: venda_pagamentos nao guardava nem
+        // NSU, nem bandeira, nem taxa real. Se a taxa real fosse 3,49% e ela digitou
+        // 3,15%, todo o resultado da loja estava errado — em silencio, pra sempre.
+        //
+        // Bench test com cobranca REAL na Point da DS (14/07) provou que da' pra saber:
+        // a API devolve fee_details (a taxa) e net_received_amount (o liquido).
+        //
+        // -- O ESTIMADO CONTINUA, AO LADO DO REAL --
+        //
+        // taxa_pct/valor_taxa/valor_liquido (o estimado) NAO saem. Venda digitada
+        // continua funcionando identica — as colunas novas sao NULL nela. A COMPARACAO
+        // entre os dois e' que e' a feature: "voce acha que paga 3,15%, voce paga 3,49%".
+        const cols = db.prepare('PRAGMA table_info(venda_pagamentos)').all().map((c) => c.name);
+        const add = (nome, tipo) => {
+          if (!cols.includes(nome)) db.exec(`ALTER TABLE venda_pagamentos ADD COLUMN ${nome} ${tipo};`);
+        };
+
+        add('adquirente', 'TEXT');          // 'mercadopago' (prepara p/ outros)
+        add('nsu', 'TEXT');                 // reference_id do MP (o id numerico classico)
+        add('autorizacao', 'TEXT');         // authorization_code — o que resolve disputa no balcao
+        add('bandeira', 'TEXT');            // 'master', 'visa', 'elo'...
+        add('cartao_final', 'TEXT');        // ultimos 4 digitos
+        add('mp_order_id', 'TEXT');         // ORD01K... (rastreio)
+        add('mp_payment_id', 'TEXT');       // PAY01K... (rastreio)
+        add('status_transacao', 'TEXT');    // aprovado | recusado | cancelado
+        // O PAR QUE VALE OURO: o real ao lado do estimado.
+        add('taxa_real_pct', 'REAL');       // % efetivo cobrado (derivado do liquido)
+        add('valor_taxa_real', 'REAL');     // fee_details[].amount somado
+        // net_received_amount: o que DE FATO cai na conta. Gravamos ELE, nunca
+        // (valor - taxa): no bench test R$1,00 - R$0,02 dava 0,98, mas o liquido
+        // real era 0,96. So o MP sabe compor a conta dele.
+        add('valor_liquido_real', 'REAL');
+
+        // Busca por NSU (conferir com o extrato da adquirente) e por order (webhook).
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_vpag_nsu   ON venda_pagamentos(tenant_id, nsu);`);
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_vpag_order ON venda_pagamentos(mp_order_id);`);
+
+        // ------------------------------------------------------------
+        // CREDENCIAL DA ADQUIRENTE — por tenant, cifrada.
+        //
+        // NAO vai na tabela `config` de proposito: la o token da Focus esta em
+        // PLAINTEXT (routes/config.js:271, com TODO admitindo). Um token que move o
+        // dinheiro da loja nao repete esse erro.
+        //
+        // Hoje o token e' COLADO (plano interno, so a DS usa). Quando a feature virar
+        // produto, a lojista nao pode manusear um Access Token — entra OAuth, e os
+        // campos refresh_token/expires_at (ja aqui, vazios) passam a ser usados. O que
+        // muda e' COMO o token entra; nao onde ele mora. Por isso a tabela ja nasce
+        // com o formato final.
+        // ------------------------------------------------------------
+        db.exec(`
+          CREATE TABLE IF NOT EXISTS integracoes_pagamento (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            tenant_id     INTEGER NOT NULL,          -- SEM DEFAULT: default de tenant e' o bug
+            adquirente    TEXT NOT NULL,             -- 'mercadopago'
+            access_token  TEXT NOT NULL,             -- CIFRADO (AES-256-CBC, CERT_CIPHER_KEY)
+            refresh_token TEXT,                      -- OAuth (vazio enquanto for token colado)
+            expires_at    TEXT,                      -- OAuth: token do MP dura 180 dias
+            mp_user_id    TEXT,                      -- id do lojista no MP
+            terminal_id   TEXT,                      -- 'PAX_A910__SMARTPOS...'
+            terminal_nome TEXT,                      -- rotulo amigavel p/ a tela
+            ativo         INTEGER NOT NULL DEFAULT 1,
+            criado_em     TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+            atualizado_em TEXT,
+            -- uma credencial por adquirente por loja (reconectar faz UPSERT, nao duplica)
+            UNIQUE(tenant_id, adquirente),
+            FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+          );
+        `);
+      }
     }
   ];
 

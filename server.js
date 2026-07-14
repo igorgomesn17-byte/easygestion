@@ -374,6 +374,14 @@ app.use('/api/auditoria',     apenasAdmin, require('./routes/auditoria'));  // L
 // não rota a rota: rota nova nasce protegida sem ninguém precisar lembrar. É admin
 // porque a tela expõe a base de clientes com telefone — não é tela de vendedora.
 app.use('/api/relacionamento', apenasAdmin, exigirFeature('relacionamento'), require('./routes/relacionamento'));
+// Maquininha integrada (Mercado Pago Point): manda a cobrança pro aparelho e traz de
+// volta NSU, bandeira e a TAXA REAL. Gate no mount, como os de cima.
+// ⚠️ A feature é `maquininha_integrada`, NÃO `maquininha` — esta última já existe, é
+// true no Growth, e significa só "ver a tela de percentuais de taxa". Trocar uma pela
+// outra libera cobrança real no cartão pra quem nunca testou. Ver lib/planos.js.
+// pdvOuAdmin: quem cobra é a vendedora. As rotas de configuração são apenasAdmin
+// dentro do router — vendedora não mexe na credencial que move o dinheiro da loja.
+app.use('/api/maquininha',    pdvOuAdmin, exigirFeature('maquininha_integrada'), require('./routes/maquininha'));
 app.use('/api/assinaturas',   require('./routes/assinaturas'));  // cliente pode ver sua, admin vê todas
 
 // ---------- Arquivos estáticos (telas + fotos no disco persistente) ----------

@@ -376,6 +376,42 @@
 
         <!-- SEÇÃO 8: MAQUININHA -->
         <section class="config-secao" id="secaoMaquininha" data-secao="maquininha" style="display:none;">
+
+          <!-- CONECTAR A MAQUININHA (feature maquininha_integrada — só no plano interno
+               por enquanto). Some sozinho pra quem não tem: o /status devolve 403. -->
+          <div class="card" id="cardMaqIntegrada" style="display:none;">
+            <h2 style="margin-top:0;">Cobrar direto na maquininha</h2>
+            <p class="texto-cinza" style="margin-top:0; font-size:0.9rem;">
+              O valor da venda vai direto pro aparelho — ninguém digita duas vezes. E o
+              sistema passa a saber a <strong>taxa que você paga de verdade</strong>, em vez
+              de usar o percentual estimado aqui embaixo.
+            </p>
+
+            <div id="maqDesconectada">
+              <div class="campo">
+                <label>Access Token do Mercado Pago (produção)</label>
+                <input type="password" id="mpToken" placeholder="APP_USR-..." autocomplete="off">
+                <span class="texto-cinza" style="font-size:0.82rem;">
+                  Mercado Pago → Suas integrações → sua aplicação → Credenciais de produção.
+                </span>
+              </div>
+              <button class="btn btn-verde" onclick="conectarMaquininha()">Conectar</button>
+            </div>
+
+            <div id="maqConectada" style="display:none;">
+              <p style="margin:0 0 10px;">
+                <strong style="color:var(--verde,#2d5a3d);">Conectada</strong>
+                — maquininha: <span id="maqTerminalNome" style="font-family:monospace;"></span>
+              </p>
+              <div class="campo" id="maqEscolhaTerminal" style="display:none;">
+                <label>Qual maquininha usar neste caixa?</label>
+                <select id="maqTerminais"></select>
+                <button class="btn mt" onclick="salvarTerminal()">Usar esta</button>
+              </div>
+              <button class="btn" style="background:#A99;" onclick="desconectarMaquininha()">Desconectar</button>
+            </div>
+          </div>
+
           <div class="card">
             <h2 style="margin-top:0;">Taxas da maquininha (%)</h2>
             <div class="linha">

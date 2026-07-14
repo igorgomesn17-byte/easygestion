@@ -36,7 +36,9 @@ router.use((req, res, next) => {
 //   itens: [{ variacao_id, qtd }],
 //   forma_pagamento, parcelas, desconto, cliente_id, observacao
 // }
-router.post('/', (req, res) => {
+// async por causa da maquininha: buscar a taxa REAL no Mercado Pago e' uma chamada de
+// rede (fora da transacao — ver o passo da maquininha mais abaixo).
+router.post('/', async (req, res) => {
   try {
     // Itens: o cliente manda so variacao_id + qtd. O preco vem do banco
     // (preco_unit = v.preco_venda, mais abaixo), nunca do payload.
@@ -80,7 +82,7 @@ router.post('/', (req, res) => {
   }
 
   // Prosseguir com a lógica original
-  const { itens, forma_pagamento, parcelas = 1, desconto = 0, cliente_id = null, vendedor_id = null, observacao = null, origem = 'loja', pagamentos = null, comprovante = null, troco = 0, troco_forma = null, repassar_taxa = true, estado = 'default', categoria = 'default', vale_codigo = null, cupom_codigo = null, crediario = null } = req.body;
+  const { itens, forma_pagamento, parcelas = 1, desconto = 0, cliente_id = null, vendedor_id = null, observacao = null, origem = 'loja', pagamentos = null, comprovante = null, troco = 0, troco_forma = null, repassar_taxa = true, estado = 'default', categoria = 'default', vale_codigo = null, cupom_codigo = null, crediario = null, maquininha_order = null } = req.body;
   if (!Array.isArray(itens) || itens.length === 0) return res.status(400).json({ erro: 'Venda sem itens' });
   // pagamento: aceita split (array `pagamentos`) ou forma unica (compatibilidade).
   const temSplit = Array.isArray(pagamentos) && pagamentos.length > 0;
@@ -319,6 +321,39 @@ router.post('/', (req, res) => {
     return res.status(400).json({ erro: 'Crediario informado mas nenhum pagamento em crediario' });
   }
 
+  // ----- MAQUININHA (Mercado Pago Point) -----
+  // A cobranca ja foi APROVADA no aparelho (o PDV so' chega aqui depois disso) e nos
+  // manda o order_id. Buscamos os dados REAIS — NSU, autorizacao, bandeira e, o que
+  // importa de verdade, a TAXA QUE O MP COBROU.
+  //
+  // Fica FORA da transacao de proposito: chamada de rede dentro de um BEGIN segura o
+  // banco inteiro refem da latencia do Mercado Pago.
+  //
+  // E o `catch` e' deliberado: se o MP nao responder, a VENDA NAO PODE CAIR. O cartao
+  // ja foi passado, o dinheiro ja saiu da cliente — perder a venda aqui seria o pior
+  // dos mundos. A taxa real e' ENRIQUECIMENTO; a venda e' o fato.
+  let dadosMaquininha = null;
+  if (maquininha_order) {
+    try {
+      const mp = require('../lib/mercadopago');
+      const cred = mp.credencialDe(req.tenantId);
+      if (cred) {
+        const order = await mp.consultarOrder(cred.access_token, maquininha_order);
+        const d = mp.extrairDaOrder(order);
+        if (d.status_transacao === 'aprovado') {
+          if (d.nsu) {
+            const det = await mp.detalhesPagamento(cred.access_token, d.nsu);
+            if (det) Object.assign(d, det);
+          }
+          dadosMaquininha = { adquirente: 'mercadopago', ...d };
+        }
+      }
+    } catch (e) {
+      console.error('[MAQUININHA] nao consegui buscar os dados da cobranca:', e.message);
+      // segue sem: a venda vale mais que o enriquecimento
+    }
+  }
+
   // salva o comprovante (se veio) ANTES da transacao — escrita em disco fora do BEGIN/COMMIT
   const comprovantePath = comprovante ? salvarComprovanteBase64(comprovante) : null;
 
@@ -341,10 +376,28 @@ router.post('/', (req, res) => {
     const vendaId = info.lastInsertRowid;
 
     // 1b. grava as formas de pagamento (1 linha por forma; forma unica tambem cai aqui)
-    const insPgto = db.prepare(`INSERT INTO venda_pagamentos (venda_id, tenant_id, forma, parcelas, valor, taxa_pct, valor_taxa, valor_liquido)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
+    //
+    // O ESTIMADO E O REAL, LADO A LADO. taxa_pct/valor_taxa/valor_liquido continuam
+    // sendo o PALPITE (o % que a lojista digitou na config). As colunas *_real so' sao
+    // preenchidas quando a cobranca passou na maquininha integrada. A COMPARACAO entre
+    // os dois e' a feature: "voce acha que paga 3,15%; voce paga 3,49%".
+    const insPgto = db.prepare(`INSERT INTO venda_pagamentos
+      (venda_id, tenant_id, forma, parcelas, valor, taxa_pct, valor_taxa, valor_liquido,
+       adquirente, nsu, autorizacao, bandeira, cartao_final, mp_order_id, mp_payment_id,
+       status_transacao, taxa_real_pct, valor_taxa_real, valor_liquido_real)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
     for (const p of partes) {
-      insPgto.run(vendaId, req.tenantId, p.forma, p.parcelas, p.valor, p.taxaPct, p.valorTaxa, p.liquido);
+      // Os dados da maquininha pertencem a UMA parte: a que foi paga no cartao. Num
+      // split (metade pix, metade credito), colar o NSU na linha do pix seria mentira.
+      const ehCartao = p.forma === 'debito' || p.forma === 'credito_vista' || p.forma === 'credito_parcelado';
+      const m = (dadosMaquininha && ehCartao) ? dadosMaquininha : null;
+      insPgto.run(
+        vendaId, req.tenantId, p.forma, p.parcelas, p.valor, p.taxaPct, p.valorTaxa, p.liquido,
+        m?.adquirente || null, m?.nsu || null, m?.autorizacao || null, m?.bandeira || null,
+        m?.cartao_final || null, m?.mp_order_id || null, m?.mp_payment_id || null,
+        m?.status_transacao || null, m?.taxa_real_pct ?? null, m?.valor_taxa_real ?? null,
+        m?.valor_liquido_real ?? null,
+      );
     }
 
     // 2. itens + baixa de estoque + movimento

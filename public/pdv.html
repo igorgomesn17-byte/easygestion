@@ -220,6 +220,17 @@
             <button id="btnFinalizarSemNfce" class="btn btn-bloco mt" style="background:var(--marrom-taupe,#8a7a6d);" onclick="finalizar(false)">Finalizar (sem nota)</button>
             <button class="btn btn-bloco mt" style="background:#A99;" onclick="limparCarrinho()">Cancelar</button>
           </div>
+          <!-- MAQUININHA: a espera do cartão. Só aparece se a loja conectou o aparelho
+               e a forma escolhida for débito/crédito. A venda ainda NÃO existe aqui —
+               ela só é gravada depois que a maquininha aprovar. -->
+          <div id="esperaMaquininha" style="display:none; text-align:center; padding:24px 16px; border:2px dashed var(--verde,#2d5a3d); border-radius:12px; margin-top:12px;">
+            <div class="spinner" style="margin:0 auto 14px;"></div>
+            <div id="maqTitulo" style="font-weight:600; font-size:1.05rem;">Passe o cartão na maquininha</div>
+            <div id="maqValor" style="font-size:1.6rem; font-weight:700; margin:8px 0; color:var(--verde,#2d5a3d);"></div>
+            <div id="maqAviso" style="font-size:0.85rem; color:var(--tinta-2,#666);">Esperando a cliente pagar…</div>
+            <button id="btnCancelarCobranca" class="btn mt" style="background:#A99;" onclick="cancelarCobranca()">Cancelar cobrança</button>
+          </div>
+
           <div id="spinnerFinalizando" style="display:none; text-align:center; padding:20px; gap:12px; flex-direction:column; align-items:center;">
             <div class="spinner"></div>
             <div style="font-size:0.9rem; color:var(--tinta-2);">Finalizando venda...</div>
@@ -953,6 +964,21 @@
       return +(subtotal - calcDescontoReais()).toFixed(2);
     }
 
+    // O que a CLIENTE realmente paga: totalVenda() + acréscimo de parcelamento (quando
+    // a loja repassa a taxa). É este o valor que vai pra maquininha.
+    //
+    // Usar totalVenda() aqui seria um bug de dinheiro: numa venda parcelada com repasse,
+    // a maquininha cobraria MENOS que a venda registrada, e o caixa nunca fecharia.
+    // Mesma conta da linha do total na tela (renderResumo).
+    function totalACobrar() {
+      const base = totalVenda();
+      if (formaSel === 'credito_parcelado' && repassarTaxaAtivo()) {
+        const parcelas = parseInt(document.getElementById('parcelas')?.value, 10) || 1;
+        return +(base + (base * obterTaxaParcelada(parcelas) / 100)).toFixed(2);
+      }
+      return base;
+    }
+
     function abrirSplit() {
       if (carrinho.length === 0) { toast('Carrinho vazio','erro'); return; }
       splitAtivo = true;
@@ -1143,19 +1169,91 @@
       document.querySelectorAll('#areasBotoesFinalizar button').forEach(b => b.disabled = false);
     }
 
+    // ============================================================
+    // MAQUININHA (Mercado Pago Point)
+    // A cobrança vai pro aparelho ANTES da venda existir. Se a cliente não pagar,
+    // não há venda — é o oposto do fluxo antigo, em que a vendedora digitava o valor
+    // na maquininha por fora e no sistema por dentro (e os dois podiam divergir).
+    // ============================================================
+    let maqPronta = false;         // a loja conectou o aparelho?
+    let cobrancaAtual = null;      // order_id em andamento
+    let cancelouCobranca = false;
+
+    async function verificarMaquininha() {
+      try {
+        const s = await api('/maquininha/status');
+        maqPronta = !!s.pronta;
+      } catch (_) {
+        maqPronta = false;   // plano sem a feature dá 403 — simplesmente não existe pra ele
+      }
+    }
+
+    const FORMAS_CARTAO = ['debito', 'credito_vista', 'credito_parcelado'];
+
+    // Cobra e ESPERA o cartão. Devolve o order_id se aprovar, null se não.
+    // Lança erro só quando a venda não deve seguir.
+    async function cobrarNaMaquininha(valor, forma, parcelas) {
+      cancelouCobranca = false;
+      const r = await api('/maquininha/cobrar', { method:'POST', body:{ valor, forma, parcelas } });
+      cobrancaAtual = r.order_id;
+
+      document.getElementById('areasBotoesFinalizar').style.display = 'none';
+      document.getElementById('maqValor').textContent = valor.toLocaleString('pt-BR', { style:'currency', currency:'BRL' });
+      document.getElementById('esperaMaquininha').style.display = 'block';
+
+      try {
+        // Espera até 3 min. O polling é só pra TELA reagir — quem grava é o backend.
+        for (let i = 0; i < 90; i++) {
+          if (cancelouCobranca) return null;
+          await new Promise(s => setTimeout(s, 2000));
+
+          const st = await api('/maquininha/cobranca/' + cobrancaAtual);
+
+          if (st.status_transacao === 'aprovado') {
+            document.getElementById('maqTitulo').textContent = 'Pagamento aprovado!';
+            document.getElementById('maqAviso').textContent =
+              (st.bandeira ? st.bandeira.toUpperCase() : 'Cartão') +
+              (st.cartao_final ? ' •••• ' + st.cartao_final : '') + ' — registrando a venda…';
+            document.getElementById('btnCancelarCobranca').style.display = 'none';
+            return cobrancaAtual;
+          }
+          if (st.status_transacao === 'recusado') { throw new Error('A maquininha recusou o cartão. Tente de novo ou escolha outra forma.'); }
+          if (st.status_transacao === 'cancelado') { throw new Error('A cobrança foi cancelada na maquininha.'); }
+        }
+        throw new Error('A cobrança expirou. Tente de novo.');
+      } finally {
+        document.getElementById('esperaMaquininha').style.display = 'none';
+        document.getElementById('btnCancelarCobranca').style.display = '';
+        document.getElementById('maqTitulo').textContent = 'Passe o cartão na maquininha';
+        document.getElementById('maqAviso').textContent = 'Esperando a cliente pagar…';
+      }
+    }
+
+    async function cancelarCobranca() {
+      if (!cobrancaAtual) return;
+      try {
+        await api('/maquininha/cobranca/' + cobrancaAtual + '/cancelar', { method:'POST' });
+        cancelouCobranca = true;
+        toast('Cobrança cancelada', 'sucesso');
+      } catch (e) {
+        // Já foi pro aparelho: o cancelamento TEM que ser nele. Dizer isso é o que
+        // impede a vendedora de ficar clicando num botão que não faz nada.
+        toast(e.message || 'Cancele pela maquininha (tecla vermelha)', 'erro');
+      }
+      restaurarBotoesFinalizar();
+    }
+
     async function finalizar(comNfce) {
       if (carrinho.length === 0) { toast('Carrinho vazio','erro'); return; }
 
       // ⚠️ O SPINNER SÓ LIGA DEPOIS DE TODA VALIDAÇÃO (logo antes do try, lá embaixo).
       //
-      // Ele era ligado AQUI, no topo. Mas as validações abaixo saem com
+      // Antes ele era ligado AQUI, no topo. Mas as validações abaixo saem com
       // `toast(...); return;` — e 6 delas não restauravam a UI. Qualquer erro banal
-      // ("Escolha a forma de pagamento", "Os pagamentos precisam somar o total")
-      // deixava o spinner girando PARA SEMPRE: o toast some em segundos e a lojista
-      // fica olhando um "carregando" eterno, achando que o sistema travou — e a venda
-      // nunca era enviada (o POST /api/vendas nem saía do navegador).
-      // Ligar o spinner tarde torna impossível prendê-lo: daqui pra frente só existem
-      // dois caminhos, e os dois restauram (o catch do try, ou a navegação do sucesso).
+      // ("escolha a forma de pagamento", "os pagamentos precisam somar o total") deixava
+      // o spinner girando PARA SEMPRE: o toast some em segundos e a lojista fica olhando
+      // um "carregando" eterno, achando que o sistema travou. Spinner ligado tarde não
+      // tem como ficar preso — e o catch do try já restaura no erro de servidor.
 
       const venda = {
         itens: carrinho.map(i => ({ variacao_id: i.variacao_id, qtd: i.qtd })),
@@ -1250,8 +1348,32 @@
           }
         }
       }
-      // Validação passou: a venda VAI ser enviada. SÓ AGORA liga o spinner (ver o
-      // comentário no topo de finalizar()).
+      // ----- MAQUININHA: cobra ANTES de gravar a venda -----
+      // Se a maquininha está conectada e a forma é cartão, o valor vai pro aparelho e
+      // esperamos a cliente pagar. Sem aprovação, não há venda. Isso mata a digitação
+      // dupla (valor na maquininha + valor no sistema) e traz de volta NSU, bandeira e
+      // a TAXA REAL — que hoje é um palpite digitado na config.
+      //
+      // Split não passa por aqui (ainda): cobrar 2 formas exigiria orquestrar duas
+      // cobranças e desfazer a primeira se a segunda falhar. Fica pra depois; hoje o
+      // split segue digitado, como sempre foi.
+      if (maqPronta && !splitAtivo && FORMAS_CARTAO.includes(venda.forma_pagamento)) {
+        try {
+          // totalACobrar() = o que a cliente paga de verdade (com o acréscimo de
+          // parcelamento, quando a loja repassa). Cobrar totalVenda() aqui faria a
+          // maquininha receber MENOS que a venda registrada — e o caixa não fecharia.
+          const orderId = await cobrarNaMaquininha(totalACobrar(), venda.forma_pagamento, venda.parcelas || 1);
+          if (!orderId) { restaurarBotoesFinalizar(); return; }   // cancelada: não vende
+          venda.maquininha_order = orderId;
+        } catch (e) {
+          toast(e.message, 'erro');
+          restaurarBotoesFinalizar();
+          return;   // cartão recusado/expirado: a venda NÃO acontece
+        }
+      }
+
+      // Validação passou: a venda VAI ser enviada. Só agora liga o spinner — daqui pra
+      // frente todo caminho de saída restaura (o catch abaixo, ou a navegação do sucesso).
       document.getElementById('areasBotoesFinalizar').style.display = 'none';
       document.getElementById('spinnerFinalizando').style.display = 'flex';
       document.querySelectorAll('#areasBotoesFinalizar button').forEach(b => b.disabled = true);
@@ -1442,6 +1564,9 @@
     carregarVendedores();
     mascaraAniversario(document.getElementById('cliAniv'));
     carregarCatalogo('');   // catálogo já aparece ao abrir o PDV (busca só filtra)
+    // A maquininha está conectada? Se não (ou se o plano não tem a feature), o PDV
+    // segue exatamente como sempre foi — a vendedora digita e cobra por fora.
+    verificarMaquininha();
   </script>
 </body>
 </html>

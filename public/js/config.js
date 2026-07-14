@@ -581,6 +581,7 @@ window.addEventListener('DOMContentLoaded', () => {
   carregar();
   checarCertificado();
   verificarTokensFocus();
+  carregarMaquininha();
 
   // Restaurar seção anterior ou defaultar para "marca"
   const secaoSalva = localStorage.getItem('config-secao-ativa') || 'marca';
@@ -592,3 +593,79 @@ window.addEventListener('DOMContentLoaded', () => {
     inputNomeLoja.addEventListener('change', atualizarSlugAutomatico);
   }
 });
+
+// ============================================================
+// MAQUININHA INTEGRADA (Mercado Pago Point)
+// Feature `maquininha_integrada` — hoje só no plano interno. Quem não tem, recebe 403
+// no /status e o card nem aparece: esconder é melhor que mostrar bloqueado (o upgrade
+// levaria a um checkout que não entrega a feature).
+// ============================================================
+async function carregarMaquininha() {
+  let s;
+  try {
+    s = await api('/maquininha/status');
+  } catch (_) {
+    return;   // 403 (plano sem a feature) — o card fica escondido, e está certo
+  }
+
+  document.getElementById('cardMaqIntegrada').style.display = '';
+  document.getElementById('maqDesconectada').style.display = s.conectada ? 'none' : '';
+  document.getElementById('maqConectada').style.display = s.conectada ? '' : 'none';
+
+  if (s.conectada) {
+    document.getElementById('maqTerminalNome').textContent = s.terminal_nome || s.terminal_id || '(escolher)';
+    // Sem terminal escolhido a cobrança não sai — força a escolha na cara da lojista.
+    if (!s.terminal_id) await listarTerminaisMaquininha();
+  }
+}
+
+async function listarTerminaisMaquininha() {
+  try {
+    const r = await api('/maquininha/terminais');
+    const sel = document.getElementById('maqTerminais');
+    sel.innerHTML = r.terminais.map(t =>
+      `<option value="${esc(t.id)}"${t.id === r.escolhido ? ' selected' : ''}>${esc(t.id)} (${esc(t.modo)})</option>`
+    ).join('');
+    document.getElementById('maqEscolhaTerminal').style.display = r.terminais.length ? '' : 'none';
+  } catch (e) {
+    toast(e.message || 'Não consegui listar as maquininhas', 'erro');
+  }
+}
+
+async function conectarMaquininha() {
+  const token = document.getElementById('mpToken').value.trim();
+  if (!token) { toast('Cole o Access Token', 'erro'); return; }
+  try {
+    const r = await api('/maquininha/conectar', { method: 'POST', body: { access_token: token } });
+    document.getElementById('mpToken').value = '';   // não deixa o segredo na tela
+    toast(r.escolhido ? 'Maquininha conectada e pronta!' : 'Conectado. Agora escolha a maquininha.', 'sucesso');
+    await carregarMaquininha();
+    if (!r.escolhido) await listarTerminaisMaquininha();
+  } catch (e) {
+    toast(e.message || 'Não consegui conectar', 'erro');
+  }
+}
+
+async function salvarTerminal() {
+  const id = document.getElementById('maqTerminais').value;
+  try {
+    // O backend já liga o modo PDV aqui. Sem isso a maquininha ignora as cobranças —
+    // e não avisa. Nunca deixar esse passo pro usuário.
+    await api('/maquininha/terminal', { method: 'POST', body: { terminal_id: id } });
+    toast('Maquininha pronta pra cobrar', 'sucesso');
+    await carregarMaquininha();
+  } catch (e) {
+    toast(e.message || 'Não consegui configurar', 'erro');
+  }
+}
+
+async function desconectarMaquininha() {
+  if (!confirm('Desconectar a maquininha? O PDV volta a cobrar do jeito antigo (digitando no aparelho).')) return;
+  try {
+    await api('/maquininha/conectar', { method: 'DELETE' });
+    toast('Maquininha desconectada', 'sucesso');
+    await carregarMaquininha();
+  } catch (e) {
+    toast(e.message || 'Erro', 'erro');
+  }
+}
