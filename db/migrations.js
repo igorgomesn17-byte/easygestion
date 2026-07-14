@@ -1540,6 +1540,74 @@ function executarMigrations(db) {
       nome: '036_vales_codigo_unico_por_tenant',
       hash: 'v36-vales-unique-tenant-codigo',
       exec: migration036
+    },
+    {
+      nome: '037_crm_cupons',
+      hash: 'v37-crm-cupons-nominais',
+      exec: (db) => {
+        // O CUPOM DA REGUA — o que transforma "mandei 40 mensagens" em
+        // "6 clientes voltaram e trouxeram R$ 2.400".
+        //
+        // Ate aqui o VOLTE20 era so TEXTO na mensagem: nao existia tabela, nao
+        // validava no PDV, nao descontava. Era combinado verbal com a cliente — e,
+        // pior, era CEGO: nao dava pra saber se a regua funcionava.
+        //
+        // -- POR QUE NOMINAL (um codigo por cliente, nao um por campanha) --
+        //
+        // Codigo fixo (VOLTE20 pra todo mundo) tem dois furos: vaza (uma cliente
+        // posta no grupo do WhatsApp e vira desconto geral) e nao atribui — nao da'
+        // pra saber se a Maria voltou por causa DA mensagem dela ou porque ouviu
+        // falar. Nominal (VOLTE20-K3P9, so da Maria, uso unico) fecha os dois.
+        //
+        // -- CUPOM NAO E' VALE --
+        //
+        // Cupom = DESCONTO (reduz o total da venda antes do pagamento; entra em
+        // vendas.desconto e e' distribuido nos itens). Vale = DINHEIRO (forma de
+        // pagamento, taxa 0, entra em caixa_dia.total_vale). Sao canos diferentes e
+        // podem coexistir na mesma venda.
+        db.exec(`
+          CREATE TABLE IF NOT EXISTS crm_cupons (
+            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            tenant_id      INTEGER NOT NULL,      -- SEM DEFAULT: default de tenant e' o bug
+            codigo         TEXT NOT NULL,         -- 'VOLTE20-K3P9' (sempre maiusculo)
+            cliente_id     INTEGER NOT NULL,      -- NOMINAL: so ELA usa
+            acao_id        INTEGER,               -- crm_acoes.id que gerou (a cadeia de atribuicao)
+            tipo           TEXT NOT NULL,         -- REAT_2 | REAT_3 | ANIVERSARIO | PRE_ANIV | manual
+            pct            REAL NOT NULL,         -- 20 = 20% de desconto
+            min_compra     REAL NOT NULL DEFAULT 0,
+            validade       TEXT NOT NULL,         -- YYYY-MM-DD (inclusivo)
+            emitido_em     TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+            -- rascunho: nasceu com a acao mas a lojista ainda nao enviou -> NAO vale no PDV
+            -- ativo:    foi enviado, a cliente pode usar
+            -- usado:    consumido numa venda
+            -- cancelado: a lojista ignorou o contato
+            -- (NAO existe 'expirado': expirado e' ativo + validade < hoje. Estado
+            --  derivado, nao gravado — assim nenhum job precisa rodar pra ele valer.)
+            status         TEXT NOT NULL DEFAULT 'rascunho',
+            venda_id       INTEGER,               -- venda que consumiu
+            valor_desconto REAL,                  -- R$ concedido (congelado no uso)
+            usado_em       TEXT,
+            UNIQUE (tenant_id, codigo),           -- por TENANT: duas lojas podem ter o mesmo sufixo
+            FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE CASCADE
+          );
+        `);
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_crm_cupons_lookup  ON crm_cupons(tenant_id, codigo);`);
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_crm_cupons_cliente ON crm_cupons(tenant_id, cliente_id, status);`);
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_crm_cupons_tipo    ON crm_cupons(tenant_id, tipo, emitido_em);`);
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_crm_cupons_venda   ON crm_cupons(tenant_id, venda_id);`);
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_crm_cupons_acao    ON crm_cupons(tenant_id, acao_id);`);
+
+        // crm_acoes.cupom (migration 031) ja existe e guardava o prefixo fixo
+        // ('VOLTE20'). Passa a guardar o codigo NOMINAL ('VOLTE20-K3P9'). O cupom_id
+        // e' o ponteiro forte — a coluna de texto fica pra tela exibir sem JOIN.
+        const cols = db.prepare('PRAGMA table_info(crm_acoes)').all().map((c) => c.name);
+        if (!cols.includes('cupom_id')) {
+          db.exec(`ALTER TABLE crm_acoes ADD COLUMN cupom_id INTEGER;`);
+        }
+        // Indice sobre a coluna nova mora AQUI, na mesma migration do ALTER: no
+        // schema.sql ele rodaria ANTES da coluna existir e derrubaria o boot.
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_crm_acoes_cupom ON crm_acoes(tenant_id, cupom_id);`);
+      }
     }
   ];
 
