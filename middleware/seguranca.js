@@ -103,13 +103,35 @@ function exigirLogin(req, res, next) {
 }
 
 // --- Middleware: injeta tenant_id em req.tenantId ---
-// Admin do .env → sempre tenant 1
-// Usuários de tabela → tenant_id da sessão
+// Usuários de loja → tenant_id da sessão (gravado no login, routes/auth.js)
+// Admin do backoffice → NÃO tem loja. Não entra aqui (ver o guard abaixo).
 // Rotas públicas (sem login) → não injeta, deixa passar
 function injetarTenant(req, res, next) {
   // Se não está logado, deixar passar (rotas públicas)
   if (!req.session?.logado) {
     return next();
+  }
+
+  // ⚠️ O ADMIN DO BACKOFFICE NÃO TEM LOJA.
+  //
+  // O login dele (routes/admin.js) grava `logado=true` na MESMA sessão do navegador
+  // que o sistema da loja usa. Antes, ele também gravava `tenant_id = 1` — e o
+  // fallback logo abaixo completava o estrago: ao voltar pro sistema depois de abrir
+  // o /admin, o navegador entrava na LOJA DO TENANT 1 (uma conta-fantasma vazia).
+  //
+  // Aconteceu de verdade em 14/07/2026: o Igor abriu o backoffice, voltou pro sistema
+  // e viu "a loja vazia, tudo sumiu". Nada tinha sumido — ele estava vendo outra conta.
+  //
+  // E o risco maior nem era esse: com tenantId=1 injetado, o admin podia CADASTRAR
+  // PRODUTO ou LANÇAR VENDA no tenant 1 sem perceber.
+  //
+  // Sessão de backoffice serve só pro /api/admin/* (que tem seu próprio guard,
+  // exigirAdminBackoffice, e não usa req.tenantId). Nas rotas da loja, ela não passa.
+  if (req.session.admin_id) {
+    return res.status(403).json({
+      erro: 'Você está logado como administrador do sistema. Para usar uma loja, entre com a conta dela.',
+      admin_backoffice: true,
+    });
   }
 
   // Sessao criada ANTES de o login passar a gravar usuario_id: reidrata o id aqui,
@@ -123,21 +145,22 @@ function injetarTenant(req, res, next) {
     if (u) req.session.usuario_id = u.id;
   }
 
-  // Se é admin do .env e ainda não tem tenant_id, assume tenant 1
-  if (req.session?.papel === 'admin' && !req.session?.tenant_id) {
-    req.tenantId = 1;
-    return next();
-  }
-
-  // Se tem tenant_id na sessão, injetar
+  // O tenant vem SEMPRE da sessão, gravado no login (routes/auth.js).
+  //
+  // Não há mais fallback pro tenant 1. O que existia aqui —
+  //   if (papel === 'admin' && !tenant_id) { req.tenantId = 1; }
+  // — parecia inofensivo, mas TODO dono de loja tem papel='admin' (é o admin da loja
+  // DELE). Qualquer sessão sem tenant caía silenciosamente na loja do tenant 1, em vez
+  // de falhar. Um default de tenant é a mesma classe de bug do
+  // getConfig(chave, fallback, tenantId = 1): ele não quebra — ele mente.
   const tid = req.session?.tenant_id;
   if (tid) {
     req.tenantId = tid;
     return next();
   }
 
-  // Se chegou aqui, é logado mas sem tenant_id (erro)
-  return res.status(401).json({ erro: 'Tenant não identificado' });
+  // Logado mas sem tenant: estado inválido. Falha alto, não adivinha.
+  return res.status(401).json({ erro: 'Sessão inválida. Entre novamente.' });
 }
 
 // --- Middleware: valida se tenant está bloqueado ou trial vencido ---

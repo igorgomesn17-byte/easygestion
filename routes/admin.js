@@ -1003,7 +1003,9 @@ router.post('/2fa-confirm', (req, res) => {
     req.session.nome = pendente.nome;
     req.session.email = pendente.email;
     req.session.papel = 'admin';
-    req.session.tenant_id = 1;
+    // NÃO grava tenant_id: o admin do backoffice NÃO tem loja. Gravava 1 aqui, e como
+    // o /admin divide a sessão do navegador com o sistema, abrir o backoffice fazia o
+    // usuário entrar na loja do tenant 1 ao voltar. Ver injetarTenant.
     req.session.login_em = new Date().toISOString();
 
     // ✅ AUDITORIA: registrar setup de 2FA
@@ -1095,7 +1097,7 @@ router.post('/2fa-verify', limiteAdminPassword, (req, res) => {
     req.session.nome = admin.nome;
     req.session.email = admin.email;
     req.session.papel = admin.papel;
-    req.session.tenant_id = 1;
+    // NÃO grava tenant_id — ver a nota no /2fa-confirm acima e em injetarTenant.
     req.session.login_em = new Date().toISOString();
 
     // Atualizar último login
