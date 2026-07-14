@@ -28,15 +28,19 @@ const limiteUploadPorTenant = (() => {
       store.set(chave, { bytes: 0, resetTime: Date.now() + 24 * 60 * 60 * 1000 });
     }
 
-    // Calcular tamanho total de arquivos na requisição
+    // Calcular tamanho total de arquivos na requisição.
+    // Conta a CAPA (`foto`) e a galeria (`fotos`) — a capa estava de fora, então o
+    // maior upload do cadastro não era contabilizado. Requisição sem foto soma 0 e
+    // passa direto (o que é o caso da maioria: cadastrar peça não é upload).
+    const bytesDe = (f) => (typeof f === 'string' && f.startsWith('data:'))
+      ? Buffer.byteLength(f, 'utf8') * 0.75   // base64 é ~4/3 do binário
+      : 0;
+
     let totalBytes = 0;
-    if (req.body && req.body.fotos && Array.isArray(req.body.fotos)) {
-      for (const foto of req.body.fotos) {
-        if (typeof foto === 'string' && foto.startsWith('data:')) {
-          // Tamanho aproximado: base64 é ~4/3 do tamanho do binário
-          const size = Buffer.byteLength(foto, 'utf8') * 0.75;
-          totalBytes += size;
-        }
+    if (req.body) {
+      totalBytes += bytesDe(req.body.foto);
+      if (Array.isArray(req.body.fotos)) {
+        for (const f of req.body.fotos) totalBytes += bytesDe(f);
       }
     }
 
@@ -172,16 +176,38 @@ const limiteCálculoCustoso = rateLimit({
 });
 
 // --- Rate Limit: Upload (mais agressivo) ---
-// 10 uploads por hora por tenant
+// Uma requisição só é "upload" se traz FOTO NOVA (base64) no corpo.
+//
+// Este middleware está montado no POST e no PUT de /api/produtos — que é por onde a
+// lojista cadastra e edita peça, com ou sem foto. Sem esta checagem ele contava TODA
+// requisição: cadastrar 10 peças sem foto nenhuma estourava a cota de "upload" e a
+// tela devolvia "Muitos uploads neste período" no meio do cadastro.
+//
+// Ou seja: o limite punia exatamente o comportamento que o sistema mais quer — a
+// lojista subindo o catálogo dela. Aconteceu de verdade em 14/07/2026.
+//
+// `foto` é a capa e `fotos` a galeria. Caminho que já existe ('img/produtos/...')
+// significa foto MANTIDA, não enviada de novo — não conta.
+function temFotoNova(req) {
+  const b = req.body || {};
+  const ehNova = (f) => typeof f === 'string' && f.startsWith('data:');
+  if (ehNova(b.foto)) return true;
+  if (Array.isArray(b.fotos) && b.fotos.some(ehNova)) return true;
+  return false;
+}
+
+// 30 uploads de foto por hora por tenant. O teto era 10 — apertado demais pra quem
+// está montando o catálogo (o momento em que a lojista mais precisa que funcione).
 const limiteUploadFrequencia = rateLimit({
   keyGenerator: (req, _res) => {
     return `${req.tenantId || 'anon'}-upload`;
   },
   windowMs: 60 * 60 * 1000, // 1 hora
-  max: 10,
+  max: 30,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { erro: 'Muitos uploads neste período. Máx 10 por hora.' },
+  skip: (req) => !temFotoNova(req),   // sem foto nova, não é upload
+  message: { erro: 'Muitas fotos enviadas neste período. Aguarde um pouco e continue.' },
 });
 
 // --- Função para invalidar cache quando dados mudam ---
