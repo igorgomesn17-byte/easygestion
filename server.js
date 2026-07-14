@@ -351,6 +351,10 @@ app.use('/api/vendedores',    pdvOuAdmin, require('./routes/vendedores')); // PD
 app.use('/api/caixa',         pdvOuAdmin, require('./routes/caixa'));      // vendedor opera o caixa
 app.use('/api/trocas',        apenasAdmin, require('./routes/trocas'));     // trocas e devoluções
 app.use('/api/vales',         pdvOuAdmin, require('./routes/vales'));       // vales usados no PDV
+// Cupom da régua: consulta pro PDV. SEM exigirFeature de propósito — a vendedora
+// precisa fechar a venda, e POST /api/vendas também não tem gate. Quem não tem o
+// Relacionamento simplesmente não tem cupom no banco; não há o que barrar.
+app.use('/api/cupons',        pdvOuAdmin, require('./routes/cupons'));
 // Crediario (o carne): a vendedora vende no carne e recebe parcela no balcao — e' ela
 // que esta la quando a cliente chega pra pagar. Cancelar carne e' so do admin (trava
 // dentro do router). SEM exigirFeature: crediario esta nos DOIS planos, de proposito —

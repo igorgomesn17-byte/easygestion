@@ -16,6 +16,7 @@ const { z } = require('zod');
 const { exigirFeature } = require('../middleware/seguranca');
 const { rotuloSku } = require('../lib/sku');
 const { emitirPremioClube, registrarGastoSemSelo } = require('../lib/clube');
+const { validarCupom, descontoDe, baixarCupom, devolverCupomDaVenda } = require('../lib/cupons');
 const { temFeature, planoDoTenant } = require('../lib/planos');
 
 // O vendedor só pode CRIAR venda (POST /). Toda leitura/edição (histórico com
@@ -78,7 +79,7 @@ router.post('/', (req, res) => {
   }
 
   // Prosseguir com a lógica original
-  const { itens, forma_pagamento, parcelas = 1, desconto = 0, cliente_id = null, vendedor_id = null, observacao = null, origem = 'loja', pagamentos = null, comprovante = null, troco = 0, troco_forma = null, repassar_taxa = true, estado = 'default', categoria = 'default', vale_codigo = null, crediario = null } = req.body;
+  const { itens, forma_pagamento, parcelas = 1, desconto = 0, cliente_id = null, vendedor_id = null, observacao = null, origem = 'loja', pagamentos = null, comprovante = null, troco = 0, troco_forma = null, repassar_taxa = true, estado = 'default', categoria = 'default', vale_codigo = null, cupom_codigo = null, crediario = null } = req.body;
   if (!Array.isArray(itens) || itens.length === 0) return res.status(400).json({ erro: 'Venda sem itens' });
   // pagamento: aceita split (array `pagamentos`) ou forma unica (compatibilidade).
   const temSplit = Array.isArray(pagamentos) && pagamentos.length > 0;
@@ -132,7 +133,31 @@ router.post('/', (req, res) => {
   // Validar desconto
   const valDesc = validarDesconto(desconto, subtotal);
   if (!valDesc.valido) return res.status(400).json({ erro: valDesc.erro });
-  const desc = parseFloat(desconto) || 0;
+  const descManual = parseFloat(desconto) || 0;
+
+  // ----- CUPOM DA REGUA -----
+  // O cupom e' NOMINAL (VOLTE20-K3P9, so daquela cliente, uso unico). Ele nao e' um
+  // cano novo: vira parte do `desc` que ja existe — e portanto ja e' distribuido
+  // proporcionalmente entre os itens (passo 2), ja entra no lucro, no imposto e no
+  // DRE. Um campo separado teria que replicar tudo isso.
+  //
+  // CUPOM NAO E' VALE: cupom desconta (reduz o total ANTES do pagamento); vale e'
+  // forma de pagamento (nao mexe no total). Podem coexistir na mesma venda.
+  //
+  // Valida AQUI FORA (pra devolver erro claro pra atendente) e baixa DENTRO da
+  // transacao (passo 2d) — a licao que a baixa do vale ja ensinou neste arquivo.
+  let cupomParaBaixar = null, descCupom = 0;
+  if (cupom_codigo) {
+    const v = validarCupom(req.tenantId, cupom_codigo, cliente_id, subtotal, hojeLocal());
+    if (!v.ok) return res.status(v.http || 422).json({ erro: v.erro });
+    cupomParaBaixar = v.cupom;
+    descCupom = descontoDe(v.cupom, subtotal);
+  }
+
+  // Desconto manual + cupom podem somar (a lojista da' "mais uns R$10" e nao vai
+  // entender uma recusa). Mas o clamp em `subtotal` e' obrigatorio: 90% na mao + 25%
+  // de cupom daria total NEGATIVO.
+  const desc = +Math.min(descManual + descCupom, subtotal).toFixed(2);
 
   // Validar parcelas
   const valParc = validarParcelas(parcelas);
@@ -339,6 +364,19 @@ router.post('/', (req, res) => {
       }
     }
 
+    // 2d. queima o cupom (mesma transacao da venda). O UPDATE de baixarCupom carrega
+    // `AND status='ativo' AND validade >= ?` no proprio WHERE — e' isso que fecha a
+    // janela de corrida entre duas vendas simultaneas com o mesmo codigo, do mesmo
+    // jeito que o `AND saldo >= ?` faz pro vale, logo acima.
+    //
+    // O throw derruba a transacao INTEIRA: a venda nao existe sem a baixa do cupom.
+    // A alternativa (baixar depois, no front) ja custou caro neste sistema — era assim
+    // que o vale ficava reutilizavel pra sempre quando o navegador nao chamava.
+    if (cupomParaBaixar) {
+      const ok = baixarCupom(req.tenantId, cupomParaBaixar.id, vendaId, cliente_id, descCupom, hoje);
+      if (!ok) throw new Error('Cupom indisponivel, expirado ou ja utilizado');
+    }
+
     // 2c. cria o carne do crediario (mesma transacao da venda: ou os dois, ou nenhum).
     // A entrada e' tudo que NAO foi crediario — a cliente pode ter dado 100 em dinheiro
     // e financiado 300; as duas coisas ja estao em venda_pagamentos como partes normais.
@@ -361,6 +399,17 @@ router.post('/', (req, res) => {
     }
 
     // 3. atualiza cliente (se informado)
+    //
+    // O `total` aqui ja vem COM o desconto do cupom. Ou seja: cupom reduz o total_gasto
+    // e portanto reduz os selos do clube. Isso e' CORRETO e nao deve ser compensado —
+    // e' o oposto do gasto_sem_selo (o anti-farming do vale), e a diferenca importa:
+    //   - o vale do clube e' dinheiro da LOJA voltando; se gerasse selo, o clube
+    //     financiaria a si mesmo (premio virando premio).
+    //   - o cupom e' dinheiro que a loja NAO recebeu. Ela comprou R$400 e pagou R$320:
+    //     o faturamento dela e' 320. Dar selo sobre 400 seria a loja pagar DUAS VEZES
+    //     pelo mesmo incentivo (o desconto E o progresso no cartao).
+    // E total_gasto e' o historico de faturamento que a RFM e os relatorios leem —
+    // infla-lo com desconto concedido corromperia os dois.
     if (cliente_id) {
       db.prepare(`UPDATE clientes SET total_gasto = total_gasto + ?, num_compras = num_compras + 1, ultima_compra = ?
                   WHERE id = ? AND tenant_id = ?`).run(total, hoje, cliente_id, req.tenantId);
@@ -402,7 +451,13 @@ router.post('/', (req, res) => {
     const vendaId = tx();
     const mes = hoje.substring(0, 7); // YYYY-MM para invalidar DRE daquele mês
     cacheRelatorioPorTenant.invalidarTudo(req.tenantId);
-    res.status(201).json({ id: vendaId, total, crediario_id: crediarioIdCriado, vale_clube: valeClubeCriado, ...r });
+    res.status(201).json({
+      id: vendaId, total,
+      crediario_id: crediarioIdCriado,
+      vale_clube: valeClubeCriado,
+      cupom: cupomParaBaixar ? { codigo: cupomParaBaixar.codigo, pct: cupomParaBaixar.pct, desconto: descCupom } : null,
+      ...r,
+    });
   } catch (e) {
     res.status(500).json({ erro: e.message });
   }
@@ -657,6 +712,14 @@ router.delete('/:id', (req, res) => {
           .run(valeDoClube, v.cliente_id, req.tenantId);
       }
     }
+
+    // O cupom VOLTA a valer — a venda deixou de existir, o desconto tambem. Queimar
+    // deixaria a cliente sem a peca E sem o beneficio. E' o oposto da regra do premio
+    // do clube (que NAO volta: aquele vale ja esta na mao dela, e premio entregue e'
+    // compromisso). A validade nao e' estendida: se venceu no meio tempo, ele volta
+    // 'ativo' mas vencido, e o PDV recusa na hora.
+    devolverCupomDaVenda(req.tenantId, v.id);
+
     // Marcar como deletado em vez de apagar (auditoria)
     db.prepare('UPDATE vendas SET deletado = 1 WHERE id = ? AND tenant_id = ?').run(v.id, req.tenantId);
     atualizarCaixaDia(hoje, req.tenantId);
