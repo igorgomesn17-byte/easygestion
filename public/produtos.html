@@ -48,7 +48,10 @@
       <div class="campo">
         <label>Fotos da peça <span class="texto-cinza" style="font-weight:400;">(até 5 — a 1ª é a capa)</span></label>
         <div id="galeria" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;"></div>
-        <input type="file" id="fotoInput" accept="image/*" capture="environment" multiple style="display:none;" onchange="lerFotos(event)">
+        <!-- SEM capture: `capture="environment"` FORÇAVA a câmera traseira e o celular
+             nem oferecia a galeria. Sem ele, o aparelho mostra o menu normal
+             (Galeria / Câmera / Arquivos) e a lojista escolhe a foto que já tirou. -->
+        <input type="file" id="fotoInput" accept="image/*" multiple style="display:none;" onchange="lerFotos(event)">
         <div class="texto-cinza mt" style="font-size:0.78rem;">Dica: a primeira foto é a capa (aparece na lista e no PDV). Arraste pra reordenar não — use o pra remover e adicione na ordem que quiser. Frente, costas e detalhes ajudam a vender</div>
       </div>
 
@@ -155,23 +158,41 @@
     const MAX_FOTOS = 5;
     let galeriaFotos = []; // cada item: base64 (nova) OU caminho 'img/produtos/...' (existente)
 
-    // redimensiona uma imagem (File) pra max 800px e retorna base64 jpeg
+    // Redimensiona uma imagem (File) pra max 800px e devolve base64 JPEG.
+    //
+    // ⚠️ POR QUE ISTO PRECISOU FICAR ROBUSTO (a foto que "não vai" no celular):
+    // A versão antiga fazia `img.src = base64; img.onload = ...` e NÃO tratava erro.
+    // No celular isso falha calado em dois casos comuns:
+    //   1. HEIC/HEIF — o formato padrão da câmera do iPhone. O <img> não decodifica,
+    //      `onload` NUNCA dispara, a Promise NUNCA resolve, e o `await` trava pra sempre.
+    //      A foto some sem mensagem nenhuma.
+    //   2. Foto gigante (12+ MP) que estoura a memória do canvas do navegador.
+    // Agora: rejeita em erro, tem timeout (não trava a tela), e o chamador avisa.
     function redimensionar(file) {
-      return new Promise(resolve => {
+      return new Promise((resolve, reject) => {
         const reader = new FileReader();
+        reader.onerror = () => reject(new Error('não consegui ler o arquivo'));
         reader.onload = e => {
           const img = new Image();
+          // Se a decodificação não terminar em 15s (imagem travada/formato não suportado),
+          // desiste em vez de deixar a tela "pensando" pra sempre.
+          const timer = setTimeout(() => reject(new Error('a imagem demorou demais (formato não suportado?)')), 15000);
+          img.onerror = () => { clearTimeout(timer); reject(new Error('formato de imagem não suportado (HEIC do iPhone?)')); };
           img.onload = () => {
-            const max = 800;
-            let { width, height } = img;
-            if (width > max || height > max) {
-              if (width > height) { height = height*max/width; width = max; }
-              else { width = width*max/height; height = max; }
-            }
-            const canvas = document.createElement('canvas');
-            canvas.width = width; canvas.height = height;
-            canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-            resolve(canvas.toDataURL('image/jpeg', 0.82));
+            clearTimeout(timer);
+            try {
+              const max = 800;
+              let { width, height } = img;
+              if (!width || !height) return reject(new Error('imagem inválida'));
+              if (width > max || height > max) {
+                if (width > height) { height = height*max/width; width = max; }
+                else { width = width*max/height; height = max; }
+              }
+              const canvas = document.createElement('canvas');
+              canvas.width = width; canvas.height = height;
+              canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+              resolve(canvas.toDataURL('image/jpeg', 0.82));
+            } catch (err) { reject(err); }
           };
           img.src = e.target.result;
         };
@@ -179,12 +200,46 @@
       });
     }
 
+    // É uma foto HEIC/HEIF do iPhone? O navegador não decodifica HEIC (o <img>/canvas não
+    // abre), então NÃO dá pra redimensionar no front. Mandamos o arquivo CRU pro servidor,
+    // que converte pra JPEG (routes/produtos.js, via heic-convert). É por isso que a foto
+    // do iPhone travava antes: o código tentava desenhar HEIC no canvas e a Promise nunca
+    // resolvia.
+    function ehHeic(file) {
+      const t = (file.type || '').toLowerCase();
+      const n = (file.name || '').toLowerCase();
+      return t === 'image/heic' || t === 'image/heif' || n.endsWith('.heic') || n.endsWith('.heif');
+    }
+
+    // Lê o arquivo como base64 SEM tentar decodificar (pro HEIC, que o navegador não abre).
+    function lerCru(file) {
+      return new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onerror = () => reject(new Error('não consegui ler o arquivo'));
+        r.onload = e => resolve(e.target.result);
+        r.readAsDataURL(file);
+      });
+    }
+
     async function lerFotos(ev) {
       const files = Array.from(ev.target.files || []);
-      for (const file of files) {
+      let algumaFalhou = false;
+      for (let file of files) {
         if (galeriaFotos.length >= MAX_FOTOS) { toast('Máximo de '+MAX_FOTOS+' fotos','erro'); break; }
-        const b64 = await redimensionar(file);
-        galeriaFotos.push(b64);
+        try {
+          // HEIC do iPhone: manda cru; o servidor converte e redimensiona.
+          // Foto normal (JPG/PNG): redimensiona aqui no front (economiza upload).
+          const b64 = ehHeic(file) ? await lerCru(file) : await redimensionar(file);
+          galeriaFotos.push(b64);
+        } catch (err) {
+          // ANTES isto travava em silêncio: a lojista selecionava a foto e nada acontecia.
+          // Agora ela recebe um aviso com o motivo, em vez de ficar no escuro.
+          console.error('[foto] falhou:', file && file.name, err.message);
+          algumaFalhou = true;
+        }
+      }
+      if (algumaFalhou) {
+        toast('Não consegui usar uma das fotos. Tente outra, ou uma foto mais leve.', 'erro');
       }
       ev.target.value = ''; // permite re-selecionar o mesmo arquivo
       renderGaleria();
@@ -192,11 +247,17 @@
 
     function fonteFoto(f) { return f.startsWith('data:') ? f : '/' + f; }
 
+    // HEIC não renderiza no <img> do navegador. Enquanto não salva (o servidor converte),
+    // mostra um cartãozinho no lugar da miniatura quebrada, pra lojista não achar que deu erro.
+    function ehHeicB64(f) { return typeof f === 'string' && /^data:image\/hei[cf]/i.test(f); }
+
     function renderGaleria() {
       const el = document.getElementById('galeria');
       const fotos = galeriaFotos.map((f, i) => `
         <div style="position:relative; width:80px; height:80px; border-radius:10px; overflow:hidden; border:1.5px solid ${i===0?'var(--dourado)':'var(--dourado-claro)'};">
-          <img src="${fonteFoto(f)}" style="width:100%; height:100%; object-fit:cover;">
+          ${ehHeicB64(f)
+            ? `<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--cinza-claro,#F4F5F7);color:var(--marrom,#6B5849);font-size:0.6rem;text-align:center;gap:2px;"><span style="font-size:1.3rem;">📷</span>foto do<br>iPhone</div>`
+            : `<img src="${fonteFoto(f)}" style="width:100%; height:100%; object-fit:cover;">`}
           ${i===0?'<span style="position:absolute; bottom:0; left:0; right:0; background:rgba(107,88,73,.85); color:#fff; font-size:0.62rem; text-align:center; padding:1px;">CAPA</span>':''}
           <button type="button" onclick="removerFoto(${i})" title="Remover" style="position:absolute; top:2px; right:2px; width:20px; height:20px; border:none; border-radius:50%; background:rgba(0,0,0,.6); color:#fff; cursor:pointer; font-size:0.8rem; line-height:1;"></button>
           ${i>0?`<button type="button" onclick="tornarCapa(${i})" title="Tornar capa" style="position:absolute; top:2px; left:2px; width:20px; height:20px; border:none; border-radius:50%; background:rgba(201,162,75,.9); color:#fff; cursor:pointer; font-size:0.7rem; line-height:1;"></button>`:''}

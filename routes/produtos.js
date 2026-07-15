@@ -37,9 +37,46 @@ const DIR_FOTOS = process.env.UPLOADS_DIR || path.join(__dirname, '..', 'public'
 if (!fs.existsSync(DIR_FOTOS)) fs.mkdirSync(DIR_FOTOS, { recursive: true });
 
 const MAX_FOTO_BYTES = 2 * 1024 * 1024; // 2MB por foto
+// HEIC do iPhone chega CRU e é bem maior que 2MB antes de virar JPEG; o teto de 2MB
+// vale pro JPEG final, não pro HEIC de entrada. 12MP de iPhone raramente passa disto.
+const MAX_HEIC_BYTES = 25 * 1024 * 1024;
+
+const heicConvert = require('heic-convert');
+
+// O navegador do iPhone não decodifica HEIC, então a foto chega CRUA
+// (data:image/heic;base64,...). Aqui, no servidor, convertemos pra JPEG antes de
+// qualquer coisa — daí pra frente o fluxo (validação, redimensionamento, salvar) é o
+// mesmo de sempre. Foto que já é PNG/JPG/WEBP passa reto, sem custo.
+//
+// Async e SEPARADA de salvarFotoBase64 (que é síncrona e roda dentro de transação):
+// o handler chama isto ANTES da transação, deixando só JPEG/PNG entrar na parte síncrona.
+async function normalizarFotoParaJpeg(dataUrl) {
+  if (!dataUrl || typeof dataUrl !== 'string') return dataUrl;
+  const m = dataUrl.match(/^data:image\/(heic|heif)(;[^,]*)?;base64,([A-Za-z0-9+/=]+)$/i);
+  if (!m) return dataUrl; // não é HEIC: segue igual
+  const buf = Buffer.from(m[3], 'base64');
+  if (buf.length === 0) throw Object.assign(new Error('Imagem vazia'), { status: 400 });
+  if (buf.length > MAX_HEIC_BYTES) throw Object.assign(new Error('Imagem do iPhone grande demais.'), { status: 400 });
+  const jpg = await heicConvert({ buffer: buf, format: 'JPEG', quality: 0.85 });
+  return 'data:image/jpeg;base64,' + Buffer.from(jpg).toString('base64');
+}
+
+// Converte todas as fotos HEIC de uma requisição (capa + galeria) em JPEG, de uma vez.
+// Devolve { foto, fotos } prontos pro fluxo síncrono. Só toca nas HEIC.
+async function normalizarFotosDoBody(body) {
+  const foto = await normalizarFotoParaJpeg(body.foto);
+  let fotos = body.fotos;
+  if (Array.isArray(fotos)) {
+    fotos = await Promise.all(fotos.map(f =>
+      (typeof f === 'string' && f.startsWith('data:image')) ? normalizarFotoParaJpeg(f) : f
+    ));
+  }
+  return { foto, fotos };
+}
 
 // Salva uma foto base64 (data URL) com validação de segurança.
 // Aceita SÓ raster (png/jpg/webp) — BLOQUEIA svg (pode conter script) e limita tamanho.
+// HEIC já foi convertido pra JPEG antes daqui (normalizarFotoParaJpeg no handler).
 function salvarFotoBase64(dataUrl, codigo) {
   if (!dataUrl || typeof dataUrl !== 'string') return { ok: false, erro: 'Imagem inválida' };
   const m = dataUrl.match(/^data:image\/(png|jpe?g|webp);base64,([A-Za-z0-9+/=]+)$/i);
@@ -341,9 +378,17 @@ router.post('/rapido', exigirDentroDoLimite('produtos', contarProdutos), (req, r
 // Cada celula preenchida da matriz vira uma variacao (um SKU) com estoque e codigo
 // de barras proprios. Celula vazia (qtd 0 e sem codigo) nao vira SKU: cadastrar
 // "Vermelho / GG = 0" polui a arara com peca que a loja nem comprou.
-router.post('/', exigirDentroDoLimite('produtos', contarProdutos), limiteUploadPorTenant, (req, res, next) => {
+router.post('/', exigirDentroDoLimite('produtos', contarProdutos), limiteUploadPorTenant, async (req, res, next) => {
   const tenantId = req.tenantId;
-  const { nome, categoria, descricao, custo, preco_venda, foto, fotos, grade, colecao } = req.body;
+  const { nome, categoria, descricao, custo, preco_venda, grade, colecao } = req.body;
+
+  // HEIC do iPhone → JPEG, ANTES da transação (é async; a transação é síncrona).
+  let foto, fotos;
+  try {
+    ({ foto, fotos } = await normalizarFotosDoBody(req.body));
+  } catch (e) {
+    return res.status(e.status || 400).json({ erro: e.message || 'Falha ao processar a imagem' });
+  }
 
   const prefixo = (categoria || 'PRD').slice(0, 3).toUpperCase();
   const codigo = proximoCodigo(prefixo, tenantId);
@@ -422,11 +467,19 @@ router.post('/', exigirDentroDoLimite('produtos', contarProdutos), limiteUploadP
 // A grade enviada e' o estado DESEJADO: SKU novo e' criado, SKU existente tem a
 // quantidade/codigo atualizados. SKU que sumiu da matriz e' ZERADO, nao apagado —
 // ver o porque logo abaixo.
-router.put('/:id', limiteUploadPorTenant, (req, res, next) => {
+router.put('/:id', limiteUploadPorTenant, async (req, res, next) => {
   const tenantId = req.tenantId;
-  const { nome, categoria, descricao, custo, preco_venda, foto, fotos, grade, colecao } = req.body;
+  const { nome, categoria, descricao, custo, preco_venda, grade, colecao } = req.body;
   const p = db.prepare('SELECT id, codigo, foto FROM produtos WHERE id = ? AND tenant_id = ?').get(req.params.id, tenantId);
   if (!p) return res.status(404).json({ erro: 'Produto nao encontrado' });
+
+  // HEIC do iPhone → JPEG, antes de tudo (ver o handler POST).
+  let foto, fotos;
+  try {
+    ({ foto, fotos } = await normalizarFotosDoBody(req.body));
+  } catch (e) {
+    return res.status(e.status || 400).json({ erro: e.message || 'Falha ao processar a imagem' });
+  }
 
   // foto: se vier base64 nova, salva; se vier caminho existente, mantem; se vazio, mantem o atual
   let fotoPath = p.foto;
