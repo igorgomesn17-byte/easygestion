@@ -14,7 +14,7 @@
 const express = require('express');
 const { db, getConfig, setConfig } = require('../db/database');
 const {
-  segmentarRFM, urlWhatsApp, clubeCfg, selosDe, SEGMENTOS, campanhaSegmento, templateDe,
+  segmentarRFM, urlWhatsApp, clubeCfg, clubeAtivo, selosDe, SEGMENTOS, campanhaSegmento, templateDe,
 } = require('../lib/crm');
 const { ativarCupomDaAcao, cancelarCupomDaAcao, MAX_PCT } = require('../lib/cupons');
 const { DEFAULT_TEMPLATES, ROTULOS, VARIAVEIS_DISPONIVEIS } = require('../lib/crm-templates');
@@ -343,6 +343,47 @@ router.get('/clube/cliente/:id', (req, res) => {
     total_selos: s.totalSelos, valor_selo: s.valorSelo, valor_premio: s.valorPremio,
     premios_ganhos: s.premiosGanhos,
     vales_ativos: valesAtivos,
+  });
+});
+
+// GET /clube/clientes -> lista de clientes com quantos selos cada um tem, ordenada
+// por quem está MAIS PERTO do prêmio (o topo é quem vale a pena cutucar pra voltar).
+//
+// Os selos são DERIVADOS do gasto (não há tabela de pontos — selosDe faz a conta),
+// então calculamos por cliente aqui. Só quem tem pelo menos 1 selo no cartão atual
+// entra: quem nunca acumulou não é alvo de "falta pouco pro prêmio".
+router.get('/clube/clientes', (req, res) => {
+  const cfg = clubeCfg(req.tenantId);
+  const clientes = db.prepare(`
+    SELECT id, nome, telefone, total_gasto, gasto_sem_selo
+    FROM clientes
+    WHERE tenant_id = ? AND (arquivado IS NULL OR arquivado = 0)
+  `).all(req.tenantId);
+
+  const lista = [];
+  for (const c of clientes) {
+    const s = selosDe(req.tenantId, c);
+    if (s.noCiclo < 1) continue; // sem selo no cartão atual: fora da lista
+    lista.push({
+      id: c.id,
+      nome: c.nome,
+      telefone: c.telefone || '',
+      no_cartao: s.noCiclo,        // selos no cartão de agora (0..total)
+      total_selos: s.totalSelos,   // quantos completam um cartão
+      faltam: s.faltam,            // quantos faltam pro prêmio
+      premios_ganhos: s.premiosGanhos,
+    });
+  }
+
+  // Mais perto do prêmio primeiro (menos falta). Empate: quem tem mais selos no cartão.
+  lista.sort((a, b) => a.faltam - b.faltam || b.no_cartao - a.no_cartao);
+
+  res.json({
+    ativo: clubeAtivo(req.tenantId),
+    nome: cfg.nome,
+    total_selos: cfg.totalSelos,
+    valor_premio: cfg.valorPremio,
+    clientes: lista,
   });
 });
 

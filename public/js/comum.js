@@ -195,7 +195,7 @@ const NAV = [
     { id:'relacionamento', href:'relacionamento.html', ico:'clientes', txt:'Contatos do dia', feature:'relacionamento' },
     { id:'resultados',     href:'resultados.html',     ico:'fluxo',    txt:'Deu resultado?',  feature:'relacionamento' },
     { id:'segmentos',      href:'segmentos.html',      ico:'vendas',   txt:'Segmentos',       feature:'relacionamento' },
-    { id:'clube',          href:'clube.html',          ico:'config',   txt:'Clube de selos',  feature:'relacionamento' },
+    { id:'clube',          href:'clube.html',          ico:'config',   txt:'Fidelidade',  feature:'relacionamento' },
   ]},
   { grupo: 'Pessoas', itens: [
     { id:'clientes',   href:'clientes.html',   ico:'clientes', txt:'Clientes' },
@@ -219,7 +219,7 @@ const TITULOS = {
   nfce:'Notas fiscais (NFC-e)', produtos:'Produtos',
   estoque:'Estoque', clientes:'Clientes',
   relacionamento:'Contatos do dia', resultados:'A régua deu resultado?',
-  segmentos:'Segmentos de clientes', clube:'Clube de selos',
+  segmentos:'Segmentos de clientes', clube:'Programa de fidelidade',
   usuarios:'Usuários', vendedores:'Comissões',
   assinatura:'Minha Assinatura', planos:'Escolha seu Plano', config:'Configurações',
 };

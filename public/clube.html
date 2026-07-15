@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Clube de selos • EasyGestão</title>
+  <title>Programa de fidelidade • EasyGestão</title>
   <link rel="stylesheet" href="css/ds.css">
   <style>
     .regra { background:var(--marca-clara); border-radius:var(--radius-sm); padding:14px 16px;
@@ -29,11 +29,25 @@
     .vars code { background:var(--surface-2); padding:2px 6px; border-radius:4px; cursor:pointer;
                  font-family:ui-monospace, monospace; }
     .vars code:hover { background:var(--marca-clara); color:var(--marca-escura); }
+
+    /* Lista de clientes com selos */
+    .cli-linha { display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--linha); flex-wrap:wrap; }
+    .cli-linha:last-child { border-bottom:0; }
+    .cli-info { flex:1; min-width:150px; }
+    .cli-nome { font-weight:700; }
+    .cli-selos { font-size:0.82rem; color:var(--tinta-2); margin-top:2px; }
+    .cli-quase { color:var(--dourado-escuro); font-weight:700; }  /* falta pouco: destaca */
+    /* barrinha de progresso do cartão */
+    .selo-barra { display:flex; gap:3px; margin-top:6px; flex-wrap:wrap; }
+    .selo-pt { width:14px; height:14px; border-radius:50%; border:1.5px solid var(--marca); }
+    .selo-pt.cheio { background:var(--marca); }
+    .cli-busca { width:100%; margin-bottom:14px; }
+    .cli-vazio { color:var(--tinta-2); padding:8px 0; }
   </style>
 </head>
 <body>
   <div class="conteudo">
-    <h1>Clube de selos</h1>
+    <h1>Programa de fidelidade</h1>
     <p class="subtitulo">O cartão de carimbo da sua loja, digital. A cliente gasta, acumula selo, completa o cartão e ganha um vale — que o sistema emite sozinho, na hora da venda.</p>
 
     <!-- Config do clube -->
@@ -87,6 +101,17 @@
       </p>
     </div>
 
+    <!-- Clientes e seus selos: a lista pra ver quem está perto do prêmio e cutucar -->
+    <div class="card">
+      <h2 style="margin:0 0 4px;">Quem está no cartão</h2>
+      <p class="subtitulo" style="margin-bottom:14px;">
+        Cada cliente e quantos selos já tem. Quem está <strong>mais perto do prêmio</strong> aparece no topo —
+        é quem vale a pena chamar pra voltar e fechar o cartão. Toque em <strong>Chamar no WhatsApp</strong>
+        pra abrir a conversa com a mensagem já escrita.
+      </p>
+      <div id="listaSelos"><p class="texto-cinza">Carregando…</p></div>
+    </div>
+
     <!-- Templates -->
     <div class="card">
       <h2 style="margin:0 0 4px;">As mensagens que você manda</h2>
@@ -120,6 +145,78 @@
       const t = await api('/relacionamento/templates');
       TEMPLATES = t.itens; VARIAVEIS = t.variaveis;
       renderTemplates();
+
+      carregarClientes();
+    }
+
+    // ---------- Clientes e seus selos ----------
+    let CLIENTES_SELOS = [];
+    async function carregarClientes() {
+      try {
+        const r = await api('/relacionamento/clube/clientes');
+        CLIENTES_SELOS = r.clientes || [];
+        renderClientes();
+      } catch (e) {
+        document.getElementById('listaSelos').innerHTML =
+          `<p class="cli-vazio">Não consegui carregar a lista agora.</p>`;
+      }
+    }
+
+    function renderClientes(filtro = '') {
+      const el = document.getElementById('listaSelos');
+      const f = filtro.trim().toLowerCase();
+      const lista = f
+        ? CLIENTES_SELOS.filter(c => (c.nome || '').toLowerCase().includes(f))
+        : CLIENTES_SELOS;
+
+      const busca = `<input class="cli-busca" id="buscaCli" placeholder="Buscar cliente…"
+        oninput="renderClientes(this.value)" value="${esc(filtro)}">`;
+
+      if (!CLIENTES_SELOS.length) {
+        el.innerHTML = `<p class="cli-vazio">Nenhuma cliente com selo ainda. Assim que a primeira compra acumular selo, ela aparece aqui.</p>`;
+        return;
+      }
+      if (!lista.length) { el.innerHTML = busca + `<p class="cli-vazio">Ninguém com esse nome.</p>`; return; }
+
+      const linhas = lista.map(c => {
+        // barrinha: bolinhas cheias = selos no cartão, vazias = o que falta
+        const pts = Array.from({ length: c.total_selos }, (_, i) =>
+          `<span class="selo-pt ${i < c.no_cartao ? 'cheio' : ''}"></span>`).join('');
+        const quase = c.faltam > 0 && c.faltam <= 2;
+        const faltamTxt = c.faltam > 0
+          ? `<span class="${quase ? 'cli-quase' : ''}">faltam ${c.faltam} pro prêmio</span>`
+          : `<span class="cli-quase">cartão completo! prêmio liberado</span>`;
+        const btn = c.telefone
+          ? `<button class="btn btn-verde btn-fino" onclick="chamarCliente(${c.id})">Chamar no WhatsApp</button>`
+          : `<span class="texto-cinza" style="font-size:0.78rem;">sem telefone</span>`;
+        return `
+          <div class="cli-linha">
+            <div class="cli-info">
+              <div class="cli-nome">${esc(c.nome)}</div>
+              <div class="cli-selos">${c.no_cartao} de ${c.total_selos} selos • ${faltamTxt}${c.premios_ganhos>0?` • já ganhou ${c.premios_ganhos}`:''}</div>
+              <div class="selo-barra">${pts}</div>
+            </div>
+            ${btn}
+          </div>`;
+      }).join('');
+      el.innerHTML = busca + linhas;
+    }
+
+    // Abre o WhatsApp da cliente com a mensagem já escrita sobre os selos dela.
+    function chamarCliente(id) {
+      const c = CLIENTES_SELOS.find(x => x.id === id);
+      if (!c || !c.telefone) return;
+      const nome = (c.nome || '').split(' ')[0]; // só o primeiro nome, mais natural
+      const loja = CFG.nome || 'nosso clube';
+      let msg;
+      if (c.faltam <= 0) {
+        msg = `Oi, ${nome}! 🎉 Você completou o cartão do ${loja} e tem um prêmio te esperando. Passa aqui pra aproveitar!`;
+      } else {
+        msg = `Oi, ${nome}! 😊 No ${loja} você já tem ${c.no_cartao} de ${c.total_selos} selos — faltam só ${c.faltam} pro seu prêmio. Te espero pra fechar o cartão!`;
+      }
+      const tel = c.telefone.replace(/\D/g, '');
+      const full = tel.length <= 11 ? '55' + tel : tel;
+      window.open(`https://wa.me/${full}?text=${encodeURIComponent(msg)}`, '_blank');
     }
 
     // A frase em português é o que a lojista realmente lê — os campos acima são o
