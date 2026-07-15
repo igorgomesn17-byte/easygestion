@@ -603,7 +603,9 @@ window.addEventListener('DOMContentLoaded', () => {
 async function carregarMaquininha() {
   let s;
   try {
-    s = await api('/maquininha/status');
+    // semUpgrade: sonda ("tem maquininha?"). Sem isso o 403 de quem não tem a feature
+    // dispararia o redirect pra planos.html no meio da tela de config. Ver comum.js api().
+    s = await api('/maquininha/status', { semUpgrade: true });
   } catch (_) {
     return;   // 403 (plano sem a feature) — o card fica escondido, e está certo
   }

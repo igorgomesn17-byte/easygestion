@@ -92,7 +92,13 @@ async function api(caminho, opcoes = {}) {
   const dados = await resp.json().catch(() => ({}));
   // Bloqueio por plano (limite ou feature indisponível): mostra convite de upgrade
   // e leva pra tela de planos. Centralizado aqui pra valer em todas as telas.
-  if (resp.status === 403 && dados.upgrade) {
+  //
+  // opcoes.semUpgrade: pra chamadas OPCIONAIS que só querem SABER se a feature existe
+  // (ex: "a maquininha está conectada?" no load do PDV). Sem isto, um 403 dessas sondas
+  // disparava tratarBloqueioDePlano → redirect pra planos.html, EXPULSANDO o trial do
+  // PDV inteiro por causa de uma feature que ele nem tentou usar. Com semUpgrade o 403
+  // vira erro comum, o try/catch local trata, e a tela segue de pé.
+  if (resp.status === 403 && dados.upgrade && !opcoes.semUpgrade) {
     tratarBloqueioDePlano(dados);
     const err = new Error(dados.erro || 'Recurso indisponível no seu plano');
     err.upgrade = true;

@@ -1181,7 +1181,10 @@
 
     async function verificarMaquininha() {
       try {
-        const s = await api('/maquininha/status');
+        // semUpgrade: é uma SONDA ("a maquininha existe pra essa loja?"). Sem isso, o 403
+        // de quem não tem a feature disparava o redirect pra planos.html e EXPULSAVA a
+        // pessoa do PDV inteiro. Agora o 403 só significa "não tem maquininha", e segue.
+        const s = await api('/maquininha/status', { semUpgrade: true });
         maqPronta = !!s.pronta;
       } catch (_) {
         maqPronta = false;   // plano sem a feature dá 403 — simplesmente não existe pra ele
