@@ -36,7 +36,10 @@
 
     <div class="acoes">
       <button class="btn btn-bloco" onclick="window.print()">Imprimir cupom</button>
-      <button class="btn btn-bloco btn-verde" id="btnWhats" onclick="enviarWhats()" style="display:none;">Enviar recibo no WhatsApp</button>
+      <button class="btn btn-bloco btn-verde" id="btnWhats" onclick="enviarWhats()" style="display:none;">Enviar cupom no WhatsApp</button>
+      <div id="passoImagem" class="texto-cinza nao-imprime" style="display:none; font-size:0.82rem; text-align:center; line-height:1.4; background:var(--marca-clara,#e7f3ef); padding:10px; border-radius:8px;">
+        📸 O cupom foi salvo como imagem. No WhatsApp que abriu, toque no <strong>clipe 📎</strong> → <strong>Galeria/Fotos</strong> e escolha o cupom (é o mais recente).
+      </div>
       <a class="btn btn-bloco btn-escuro" href="pdv.html">+ Nova venda</a>
     </div>
   </div>
@@ -116,16 +119,76 @@
       if (venda.cliente_tel) document.getElementById('btnWhats').style.display = 'flex';
     }
 
-    function enviarWhats() {
-      const data = venda.data_hora.slice(0,10).split('-').reverse().join('/');
-      const itens = venda.itens.map(i => `• ${i.qtd}x ${i.descricao} - ${moeda(i.preco_unit*i.qtd)}`).join('\n');
-      let txt = `*${loja.loja_nome||'EasyGestão'}* \nRecibo da sua compra\n\n`;
-      txt += `${itens}\n\n`;
-      if (venda.desconto>0) txt += `Desconto: -${moeda(venda.desconto)}\n`;
-      txt += `*Total: ${moeda(venda.total)}*\n`;
-      txt += `Pagamento: ${textoPagamentoVenda(venda)}\n\n`;
-      txt += `${loja.cupom_mensagem_rodape||'Obrigada por comprar conosco'} Volte sempre \n${loja.loja_instagram||''}`;
-      abrirWhatsappComTexto(venda.cliente_tel, txt);
+    // Carrega o html2canvas sob demanda (200KB — só quando a lojista de fato clica em
+    // enviar). Servido do próprio servidor porque o CSP bloqueia CDN.
+    let _h2cPromise = null;
+    function carregarHtml2canvas() {
+      if (window.html2canvas) return Promise.resolve(window.html2canvas);
+      if (_h2cPromise) return _h2cPromise;
+      _h2cPromise = new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'js/html2canvas.min.js';
+        s.onload = () => window.html2canvas ? resolve(window.html2canvas) : reject(new Error('html2canvas não carregou'));
+        s.onerror = () => reject(new Error('não consegui carregar o gerador de imagem'));
+        document.head.appendChild(s);
+      });
+      return _h2cPromise;
+    }
+
+    // "Fotografa" o cupom (o elemento #cupom, aquele recibo bonito) e devolve um File PNG.
+    async function cupomComoImagem() {
+      const html2canvas = await carregarHtml2canvas();
+      const canvas = await html2canvas(document.getElementById('cupom'), {
+        backgroundColor: '#ffffff',
+        scale: 2,   // 2x = imagem nítida, boa de ler no celular
+      });
+      const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+      const nome = `cupom-${(loja.loja_nome||'loja').replace(/[^a-z0-9]/gi,'')}-${vendaId}.png`;
+      return new File([blob], nome, { type: 'image/png' });
+    }
+
+    // Mensagem curta que acompanha o cupom.
+    function textoAcompanha() {
+      const nome = loja.loja_nome || 'EasyGestão';
+      return `*${nome}* — segue o cupom da sua compra 🧾\n${loja.cupom_mensagem_rodape||'Obrigada por comprar conosco'}, volte sempre! ${loja.loja_instagram||''}`.trim();
+    }
+
+    async function enviarWhats() {
+      const btn = document.getElementById('btnWhats');
+      const txtOriginal = btn.textContent;
+      btn.disabled = true; btn.textContent = 'Gerando cupom…';
+      try {
+        const arquivo = await cupomComoImagem();
+
+        // MELHOR CAMINHO (celular): compartilhamento nativo — manda a IMAGEM direto pro
+        // WhatsApp num toque, sem baixar nem anexar à mão. Só existe em https + celular.
+        if (navigator.canShare && navigator.canShare({ files: [arquivo] })) {
+          await navigator.share({ files: [arquivo], text: textoAcompanha() });
+          return;   // o menu do sistema abre; a lojista escolhe WhatsApp → a cliente
+        }
+
+        // FALLBACK (PC ou navegador sem share): baixa a imagem e abre o WhatsApp com o
+        // texto. A lojista anexa a imagem que acabou de baixar (o passo aparece na tela).
+        const url = URL.createObjectURL(arquivo);
+        const a = document.createElement('a');
+        a.href = url; a.download = arquivo.name; a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+        document.getElementById('passoImagem').style.display = 'block';
+        abrirWhatsappComTexto(venda.cliente_tel, textoAcompanha());
+      } catch (e) {
+        console.error('[cupom] falha ao gerar imagem:', e);
+        // Se o gerador de imagem falhar, não deixa a lojista na mão: manda o texto (o
+        // comportamento antigo) como último recurso.
+        const itens = venda.itens.map(i => `• ${i.qtd}x ${i.descricao} - ${moeda(i.preco_unit*i.qtd)}`).join('\n');
+        let txt = `*${loja.loja_nome||'EasyGestão'}*\nRecibo da sua compra\n\n${itens}\n\n`;
+        if (venda.desconto>0) txt += `Desconto: -${moeda(venda.desconto)}\n`;
+        txt += `*Total: ${moeda(venda.total)}*\nPagamento: ${textoPagamentoVenda(venda)}\n\n`;
+        txt += textoAcompanha();
+        abrirWhatsappComTexto(venda.cliente_tel, txt);
+        toast('Mandei em texto (não consegui gerar a imagem do cupom).', 'erro');
+      } finally {
+        btn.disabled = false; btn.textContent = txtOriginal;
+      }
     }
 
     carregar();
