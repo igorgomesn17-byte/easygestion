@@ -283,7 +283,11 @@
     function anel(elAnel, elPct, valor, meta) {
       const arco = document.getElementById(elAnel);
       const txt = document.getElementById(elPct);
-      if (meta || meta <= 0) {
+      // SEM meta definida: anel vazio e "—". Aqui faltava o `!` (`if (meta || meta <= 0)`),
+      // então QUEM TINHA meta caía neste return e o anel nunca era pintado — as linhas
+      // que calculam a % abaixo jamais rodavam. Mesmo estrago do commit que dropou `!`
+      // de condições em ~40 telas.
+      if (!meta || meta <= 0) {
         arco.style.strokeDashoffset = ANEL_CIRC; // vazio
         arco.classList.remove('batida');
         txt.textContent = '—';
@@ -352,7 +356,9 @@
         document.getElementById('metaMesTxt').textContent = `${moeda(d.mes.bruto)} de ${moeda(d.meta.mensal)}`;
         temMeta = true;
       } else { anel('anelMes','pctMes', 0, 0); document.getElementById('metaMesTxt').textContent = 'não definida'; }
-      if (temMeta) document.getElementById('semMeta').style.display = 'block';
+      // O convite "Defina suas metas" é pra quem NÃO tem meta. Aqui faltava o `!` também:
+      // o aviso aparecia justamente pra quem já tinha definido.
+      if (!temMeta) document.getElementById('semMeta').style.display = 'block';
 
       // Aniversariantes
       document.getElementById('aniversariantes').innerHTML = d.aniversariantes.length === 0

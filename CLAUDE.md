@@ -1430,4 +1430,45 @@ O scheduler roda às 06:00 **e** no catch-up de 10s do boot. Se ele emitisse o c
 
 ---
 
-**Documento versão 1.8 — Atualizado em 14 de julho de 2026. Relacionamento (régua + RFM), Clube de selos e Motor de cupom nominal no ar, gated no plano `interno`. A régua deixou de ser cega: `resultados.html` responde "ela se paga?". Landing v2 é a oficial. PDV em cards. Stripe em modo LIVE (ver memória `stripe-live-no-ar-2026-07-08`).**
+## Últimas Mudanças (14–15 de julho de 2026) — Auditoria de isolamento multi-tenant + correções de campo
+
+O sistema nasceu de UMA loja (a DS Store) e virou SaaS. Esta sessão varreu os pontos onde o código ainda "pensava" que só existe uma loja — a dívida que impedia ter uma segunda loja pagante com segurança. **Os quatro críticos foram fechados, todos com teste que reproduz o bug antes de provar o conserto.** Detalhes nas memórias `auditoria-multitenant-14-07`, `unique-global-legado-pre-multitenant`.
+
+### 🔴 Segurança / isolamento (o mais importante)
+
+- **UNIQUE global legado (pré-multi-tenant).** Tabelas antigas tinham `codigo TEXT UNIQUE` (global, entre TODAS as lojas) em vez de `UNIQUE(tenant_id, codigo)`. O `schema.sql` já estava certo, mas `CREATE TABLE IF NOT EXISTS` não altera tabela existente — produção nunca migrou. Efeito: **uma loja travava a outra** com 500 genérico (o registro que bloqueava estava na base de OUTRA loja). Foi o bug do "Erro interno ao cadastrar produto". Varrido: `produtos.codigo`/`codigo_barras` (migration **034**), `usuarios.nome` (**035**), `vales.codigo` (**036**) — todos recriados com UNIQUE composto, no molde da 034 (`foreign_keys=OFF` fora do BEGIN, id copiado explicitamente). `usuarios.email` continua único GLOBAL de propósito (o login é só email+senha, sem seletor de loja). `caixa_dia` já tinha sido fechado na 024.
+- **Sequestro de senha entre lojas.** `PATCH /me/senha` e `DELETE /me/conta` buscavam o usuário logado por `nome` sem tenant — funcionava só porque `nome` era único global. Ao relaxar isso (035), a Maria da loja B trocaria a senha da Maria da loja A. Agora a sessão guarda `usuario_id` e a busca é por id. De brinde, isso preenche o `usuario_id` da auditoria LGPD, que gravava NULL. (memória `busca-de-usuario-logado-por-id`)
+- **Backoffice acessível por dono de loja.** `exigirAdminBackoffice` checava `papel==='admin'` — mas TODO dono de loja tem `papel='admin'` (o admin da loja dele). Qualquer cliente logado alcançava `/api/admin/*`: mudava o próprio plano pra Growth de graça, lia a base de clientes de todas as lojas, via o MRR. Agora exige `session.admin_id` (só o login de backoffice, após 2FA, o grava). **`apenasAdmin` continua correto** onde "admin" = dono da loja (estoque/financeiro/usuários). (memória `backoffice-so-com-admin-id`)
+- **Backoffice carimbava tenant 1.** Abrir `/admin` gravava `tenant_id=1` na mesma sessão do sistema → voltar pro sistema entrava na loja-fantasma vazia ("tudo sumiu"), e o admin podia até LANÇAR VENDA nela. Removido o fallback pra tenant 1 em `injetarTenant`. (memória `backoffice-carimbava-tenant-1`)
+- **IDOR na troca.** `POST /api/trocas` aceitava `variacao_id` no body sem validar o dono → uma loja baixava o estoque da outra (provado: 30 peças). Corrigido com `AND tenant_id` na resolução do SKU. E 7 rotas de DELETE/UPDATE respondiam `{ok:true}` sem checar `changes` (mentiam "apagado" pra id de outra loja — o isolamento estava intacto, mas a resposta não) → agora 404. (memória `idor-trocas-estoque-alheio`)
+- **Taxa e imposto vinham da loja 1.** TODA venda usava a taxa de cartão da loja 1 e imposto chumbado 7,3% (via `getConfig` sem o 3º arg → cai no tenant 1). Corrigido. (memória `taxa-e-imposto-da-loja-1`)
+
+### 💳 Cobrança / Stripe
+
+- **Webhook casava o pagamento com o tenant errado.** Os eventos de renovação (`invoice.payment_succeeded` etc.) liam `subscription.metadata.tenant_id`, que NUNCA era gravado (só ia pra Session e Customer). Cliente pagante era ignorado na renovação e bloqueado como inadimplente em ~31 dias. Agora `tenantDaSubscription()` casa por metadata OU por `stripe_customer_id`, e o checkout carimba `subscription_data.metadata`. Idempotência virou atômica: reserva o `event_id` ANTES de processar (o UNIQUE é o lock) — antes um retry do Stripe dava +30 dias grátis. (memória `webhook-stripe-casa-pelo-customer`)
+- **Fim do trial faz o que foi desenhado.** O trial NÃO vira Starter (é design): trava o sistema e leva pra tela de planos pra escolher/pagar. Três pernas estavam quebradas: (1) o cobrança-scheduler marcava `status='bloqueado'` no trial vencido → "conta bloqueada pelo administrador" na cara, sem ver planos (trial não é inadimplência: `em_teste=1` nunca vira bloqueado); (2) `validarTenantAtivo` testava `req.path.startsWith('/api')` mas o path é relativo ao mount → nunca barrava, o trial vencido usava tudo de graça (usa `req.baseUrl+req.path`; e as rotas de SAÍDA — `/me`, `/assinaturas/*` — passam, senão prende numa tela de planos que não carrega); (3) o renovacao-scheduler não filtrava `em_teste` → cobrança fantasma de R$119,90 por um teste grátis (filtra `em_teste=0`). Bônus: `criarAlerta()` era chamado pelo scheduler mas nunca existiu em `lib/alertas.js` — toda renovação estourava depois de já cobrar. (memória `fim-do-trial-trava-e-convida`)
+
+### ✂️ Gate do vale-crédito
+
+- **Vale-crédito guardado virou feature do Growth de verdade.** O gate só existia numa rota desativada; `POST /trocas` (gera) e `POST /vendas` (consome) não tinham gate — Starter usava de graça. Corte: **devolver na hora é básico** (fica no Starter — a diferença a favor da cliente é resolvida em dinheiro, sem emitir vale); **vale guardado sobe pro Growth**. Gate em 3 pontos (trocas/vendas/vales), não num `app.use`. (memória `gate-vale-credito-so-growth`)
+
+### 🐛 Correções de campo (bugs que o Igor viu usando)
+
+- **Crédito parcelado: clicar em Finalizar não fazia NADA.** `finalizar()` usava `LIMITE_LOJA_ABSORVE`, variável que nunca existiu (a real é `limiteAbsorve`). `ReferenceError` matava a função em silêncio — sem toast, sem spinner. Só o parcelado passava por essa linha. (memória `erro-de-js-mata-o-clique-em-silencio`)
+- **Foto do iPhone (HEIC) não subia + abria a câmera.** O input tinha `capture="environment"` (forçava câmera; removido). E HEIC não é decodificado pelo navegador → a conversão no canvas travava em silêncio. Agora o front manda o HEIC cru e o SERVIDOR converte pra JPEG (`heic-convert`, JS puro, em `routes/produtos.js`, antes da transação). Descartado converter no navegador: exigiria `unsafe-eval` no CSP. (memória `foto-do-iphone-heic-e-camera`)
+- **Texto sumia no "tema escuro".** Não há tema escuro no projeto — era o dark automático do navegador escurecendo fundos claros sem ajustar os textos. `color-scheme: light` no `:root` do `ds.css` (vale pras 43 telas) desliga o dark forçado. (memória `tema-escuro-e-cupom-imagem`)
+- **Cupom no WhatsApp vai como IMAGEM.** O botão em `cupom.html` mandava um resumo em texto; agora "fotografa" o recibo com `html2canvas` (servido local, sob demanda) e usa `navigator.share` no celular pra mandar a imagem direto. `wa.me` só aceita texto — não dá pra anexar num clique. (memória `tema-escuro-e-cupom-imagem`)
+
+### 🤝 Programa de fidelidade (antes "Clube de selos")
+
+- Renomeado pra **"Programa de fidelidade"** (título) / **"Fidelidade"** (menu). As mensagens da régua continuam editáveis DENTRO dessa tela ("As mensagens que você manda").
+- Nova seção **"Quem está no cartão"**: lista de clientes com quantos selos cada um tem, ordenada por quem falta menos pro prêmio, com barrinha de progresso, busca e botão **"Chamar no WhatsApp"** (mensagem pronta com nome + selos). Rota `GET /api/relacionamento/clube/clientes` (selos DERIVADOS do gasto via `selosDe`; só entra quem tem ≥1 selo). Gated no plano `interno` como o resto do relacionamento. (memória `relacionamento-e-clube-no-plano-interno`)
+
+### 🟠 Ainda aberto (não crítico)
+
+- **Chave AWS vazada (23/06) ainda ativa no S3** — rotação nunca concluída. É o item de segurança nº1 pendente. (memória `chave-aws-vazada-ainda-ativa-2026-07-07`)
+- Rotacionar a `sk_live` do Stripe que passou pelo chat. 4 rotas `/admin/assinaturas` mortas em `assinaturas.js` (já atrás do guard). `DELETE /me/conta` usa `session.tenantId` (camelCase) inexistente → deleção LGPD falha em silêncio. Varredura de IDOR de LEITURA (GET) não foi 100% concluída.
+
+---
+
+**Documento versão 1.9 — Atualizado em 15 de julho de 2026. Auditoria de isolamento multi-tenant: os 4 críticos (backoffice, webhook, trial, IDOR + gate de vale) fechados e provados por teste — o sistema aguenta a 2ª loja pagante. Fidelidade ganhou lista de clientes por selos. Foto do iPhone (HEIC) convertida no servidor; cupom vai como imagem no zap. Relacionamento/Clube/Cupom gated no plano `interno`. Stripe em modo LIVE. Pendência de segurança nº1: rotacionar a chave AWS vazada.**
