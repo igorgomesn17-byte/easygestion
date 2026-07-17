@@ -160,7 +160,9 @@
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
             <div>
               <strong style="color:#666; font-size:0.85rem;">Cliente</strong>
-              <div style="margin-top:4px;">${v.cliente_nome ? esc(v.cliente_nome) : '—'}</div>
+              <div style="margin-top:4px;">${v.cliente_id && v.cliente_nome
+                ? `<a href="clientes.html?cliente=${v.cliente_id}" title="Abrir ficha da cliente" style="color:var(--marca,#143f37); font-weight:600; text-decoration:underline; text-underline-offset:2px;">${esc(v.cliente_nome)}</a>`
+                : (v.cliente_nome ? esc(v.cliente_nome) : '—')}</div>
             </div>
             <div>
               <strong style="color:#666; font-size:0.85rem;">Vendedor</strong>

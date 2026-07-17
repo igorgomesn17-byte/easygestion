@@ -158,6 +158,15 @@
 
     document.getElementById('modal').addEventListener('click', e=>{ if(e.target.id==='modal') fechar(); });
     carregar();
+
+    // Abertura direta por link (ex.: vindo do histórico de vendas: clientes.html?cliente=123).
+    // Abre a ficha da cliente já pronta pra observação. Limpa o parâmetro da URL depois
+    // pra um F5 não reabrir o modal sem querer.
+    const clienteParam = new URLSearchParams(location.search).get('cliente');
+    if (clienteParam) {
+      history.replaceState(null, '', location.pathname);
+      ver(clienteParam).catch(()=>toast('Cliente não encontrado','erro'));
+    }
   </script>
 </body>
 </html>
