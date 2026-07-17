@@ -1042,10 +1042,17 @@
         const valorRestante = +(tot - somaAntes - linhasSplit[i].valor).toFixed(2);
         if (valorRestante > 0) {
           linhasSplit[i+1].valor = valorRestante;
+          // Atualiza SÓ o campo da próxima linha, sem redesenhar o HTML.
+          //
+          // ⚠️ NÃO chamar renderSplit() aqui. Ele faz innerHTML = ... e RECRIA todos os
+          // inputs — inclusive o que a lojista está digitando NESTE instante. O campo
+          // morria a cada tecla: digitar "99,9" parava em "99" (o resto ia pra outra
+          // forma) porque o input era substituído antes de ela terminar de escrever.
+          const prox = document.getElementById('splitVal' + (i+1));
+          if (prox) prox.value = valorRestante;
         }
       }
-      renderSplit();
-      renderSplitResumo();
+      renderSplitResumo();   // só o texto do resumo — não mexe nos campos
     }
 
     function renderSplit() {
@@ -1056,9 +1063,11 @@
           ? `<select onchange="setSplitParcelas(${i}, this.value)" style="max-width:70px;">${
               [2,3,4,5,6].map(n=>`<option value="${n}" ${n===l.parcelas?'selected':''}>${n}x</option>`).join('')}</select>` : '';
         // Vale: valor fica desabilitado (é o saldo disponível)
+        // id estável: permite atualizar o VALOR de uma linha sem redesenhar o HTML —
+        // ver setSplitValor(). Redesenhar enquanto a lojista digita destruía o campo.
         const inputValor = l.forma === 'vale'
-          ? `<input type="number" step="0.01" value="${l.valor||''}" placeholder="0,00" disabled style="max-width:100px; background:#f0f0f0; color:#666;">`
-          : `<input type="number" step="0.01" value="${l.valor||''}" placeholder="0,00" oninput="setSplitValor(${i}, this.value)" style="max-width:100px;">`;
+          ? `<input type="number" step="0.01" id="splitVal${i}" value="${l.valor||''}" placeholder="0,00" disabled style="max-width:100px; background:#f0f0f0; color:#666;">`
+          : `<input type="number" step="0.01" id="splitVal${i}" value="${l.valor||''}" placeholder="0,00" oninput="setSplitValor(${i}, this.value)" style="max-width:100px;">`;
         return `<div style="display:flex; gap:6px; align-items:center; margin-bottom:8px;">
           <select onchange="setSplitForma(${i}, this.value)" style="flex:1;">${opts}</select>
           ${parc}
