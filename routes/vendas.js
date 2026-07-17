@@ -17,6 +17,7 @@ const { z } = require('zod');
 const { exigirFeature } = require('../middleware/seguranca');
 const { rotuloSku } = require('../lib/sku');
 const { emitirPremioClube, registrarGastoSemSelo } = require('../lib/clube');
+const { obsoletarAcoesDeAusencia } = require('../lib/crm');
 const { validarCupom, descontoDe, baixarCupom, devolverCupomDaVenda } = require('../lib/cupons');
 const { temFeature, planoDoTenant } = require('../lib/planos');
 
@@ -495,6 +496,12 @@ router.post('/', async (req, res) => {
       // Depende do UPDATE acima: o calculo le o total_gasto JA somado.
       if (temFeature(planoDoTenant(req.tenantId), 'relacionamento')) {
         valeClubeCriado = emitirPremioClube(req.tenantId, cliente_id, vendaId);
+
+        // A cliente ACABOU de comprar: qualquer acao de "sentimos sua falta / X dias sem
+        // comprar" pendente na regua perdeu o motivo. Marca como obsoleta na MESMA
+        // transacao — senao ela continuaria na fila de contatos falando de uma ausencia
+        // que esta compra acabou de encerrar. Pos-venda/aniversario NAO sao afetados.
+        obsoletarAcoesDeAusencia(req.tenantId, cliente_id);
       }
     }
 
