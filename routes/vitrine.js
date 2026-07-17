@@ -12,10 +12,11 @@ function resolverTenantPorSlug(slug) {
   return db.prepare('SELECT id, nome_loja, email, slug, plano FROM tenants WHERE slug = ?').get(slug.toLowerCase());
 }
 
-// Vitrine pública é exclusiva do Growth+ (feature 'vitrine_publica'). Como esta é
-// uma API pública por slug (sem sessão do dono), o gate é slug→tenant→plano, não
-// via middleware de sessão. Starter cai aqui e é tratado como loja inexistente
-// (404 — não revela que a loja existe mas está num plano inferior).
+// Vitrine pública é liberada a partir do Starter (feature 'vitrine_publica' — desde
+// 17/07/2026 vitrine desceu pro Starter como canal de aquisição). Como esta é uma API
+// pública por slug (sem sessão do dono), o gate é slug→tenant→plano, não via middleware
+// de sessão. Quem NÃO tem a feature (ex.: um tenant legado sem vitrine) cai aqui e é
+// tratado como loja inexistente (404 — não revela que a loja existe num plano inferior).
 function vitrineLiberadaParaPlano(tenant) {
   return !!tenant && temFeature(tenant.plano, 'vitrine_publica');
 }

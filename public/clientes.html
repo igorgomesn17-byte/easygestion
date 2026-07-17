@@ -31,6 +31,8 @@
         <label>Como conheceu a loja?</label>
         <select id="origem"><option value="">— selecione —</option></select>
       </div>
+      <div class="campo"><label>Instagram</label><input type="text" id="instagram" placeholder="@usuario"></div>
+      <div class="campo"><label>Observações</label><textarea id="observacoes" rows="3" placeholder="Tamanho que veste, prefere entrega, deve fiado…"></textarea></div>
       <div id="acoesCliente" style="display:none; gap:8px; margin-bottom:10px; flex-wrap:wrap;"></div>
       <button class="btn btn-bloco" onclick="salvar()">Salvar</button>
       <div id="historico"></div>
@@ -84,7 +86,7 @@
     function abrir() {
       editId = null;
       document.getElementById('titulo').textContent = 'Novo cliente';
-      ['nome','tel','cidade','aniv'].forEach(i=>document.getElementById(i).value='');
+      ['nome','tel','cidade','aniv','instagram','observacoes'].forEach(i=>document.getElementById(i).value='');
       document.getElementById('origem').selectedIndex = 0;
       document.getElementById('acoesCliente').style.display = 'none';
       document.getElementById('historico').innerHTML = '';
@@ -102,6 +104,8 @@
       document.getElementById('cidade').value = c.cidade||'';
       document.getElementById('aniv').value = c.aniversario||'';
       document.getElementById('origem').value = c.origem||'';
+      document.getElementById('instagram').value = c.instagram||'';
+      document.getElementById('observacoes').value = c.observacoes||'';
       // ações de cliente (arquivar) — só na edição
       const acoes = document.getElementById('acoesCliente');
       acoes.style.display = 'flex';
@@ -131,7 +135,9 @@
       if (!nome){ toast('Informe o nome','erro'); return; }
       const body = { nome, telefone:document.getElementById('tel').value,
         cidade:document.getElementById('cidade').value, aniversario:document.getElementById('aniv').value,
-        origem:document.getElementById('origem').value };
+        origem:document.getElementById('origem').value,
+        instagram:document.getElementById('instagram').value.trim(),
+        observacoes:document.getElementById('observacoes').value.trim() };
       if (editId) await api('/clientes/'+editId, { method:'PUT', body });
       else await api('/clientes', { method:'POST', body });
       toast('Cliente salvo','sucesso'); fechar(); carregar();

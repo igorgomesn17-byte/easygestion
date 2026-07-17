@@ -169,7 +169,7 @@ router.get('/:id/situacao-credito', (req, res) => {
 // Anti-duplicado: se já existe cliente com o MESMO telefone (comparando só dígitos),
 // não cria de novo — devolve o existente com a flag `ja_existia` pro PDV já selecioná-lo.
 router.post('/', (req, res) => {
-  const { nome, telefone, cidade, aniversario, origem, indicada_por, email, cpf_cnpj } = req.body;
+  const { nome, telefone, cidade, aniversario, origem, indicada_por, email, cpf_cnpj, instagram, observacoes } = req.body;
   if (!nome) return res.status(400).json({ erro: 'Nome obrigatorio' });
 
   // Validar email (se fornecido)
@@ -202,14 +202,14 @@ router.post('/', (req, res) => {
     }
   }
 
-  const info = db.prepare('INSERT INTO clientes (tenant_id, nome, telefone, cidade, aniversario, origem, indicada_por, email, email_verificado, cpf_cnpj) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-    .run(req.tenantId, nome, telefone || null, cidade || null, aniversario || null, origem || null, indicada_por || null, email ? email.toLowerCase() : null, 0, cpf_cnpj_limpo);
+  const info = db.prepare('INSERT INTO clientes (tenant_id, nome, telefone, cidade, aniversario, origem, indicada_por, email, email_verificado, cpf_cnpj, instagram, observacoes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    .run(req.tenantId, nome, telefone || null, cidade || null, aniversario || null, origem || null, indicada_por || null, email ? email.toLowerCase() : null, 0, cpf_cnpj_limpo, instagram || null, observacoes || null);
   res.status(201).json({ id: info.lastInsertRowid, nome, email: email || null, cpf_cnpj: cpf_cnpj_limpo || null, ja_existia: false });
 });
 
 // PUT /api/clientes/:id
 router.put('/:id', (req, res) => {
-  const { nome, telefone, cidade, aniversario, origem, indicada_por, email, cpf_cnpj } = req.body;
+  const { nome, telefone, cidade, aniversario, origem, indicada_por, email, cpf_cnpj, instagram, observacoes } = req.body;
 
   // Validar email (se fornecido)
   const valEmail = validarEmail(email);
@@ -230,8 +230,8 @@ router.put('/:id', (req, res) => {
     }
   }
 
-  const r = db.prepare('UPDATE clientes SET nome=?, telefone=?, cidade=?, aniversario=?, origem=?, indicada_por=?, email=?, cpf_cnpj=? WHERE id=? AND tenant_id=?')
-    .run(nome, telefone || null, cidade || null, aniversario || null, origem || null, indicada_por || null, email ? email.toLowerCase() : null, cpf_cnpj_limpo, req.params.id, req.tenantId);
+  const r = db.prepare('UPDATE clientes SET nome=?, telefone=?, cidade=?, aniversario=?, origem=?, indicada_por=?, email=?, cpf_cnpj=?, instagram=?, observacoes=? WHERE id=? AND tenant_id=?')
+    .run(nome, telefone || null, cidade || null, aniversario || null, origem || null, indicada_por || null, email ? email.toLowerCase() : null, cpf_cnpj_limpo, instagram || null, observacoes || null, req.params.id, req.tenantId);
   if (r.changes === 0) return res.status(404).json({ erro: 'Cliente não encontrado' });
   res.json({ ok: true });
 });

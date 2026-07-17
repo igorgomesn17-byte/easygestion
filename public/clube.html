@@ -43,6 +43,10 @@
     .selo-pt.cheio { background:var(--marca); }
     .cli-busca { width:100%; margin-bottom:14px; }
     .cli-vazio { color:var(--tinta-2); padding:8px 0; }
+    /* Card recolhível "Quem está no cartão": esconde o marcador nativo do <details>
+       (o triângulo) — usamos o "toque pra ver ▾" no summary no lugar. */
+    #cardSelos > summary::-webkit-details-marker { display:none; }
+    #cardSelos[open] > summary .texto-cinza:last-child { display:none; }  /* some o "toque pra ver" quando aberto */
   </style>
 </head>
 <body>
@@ -101,16 +105,22 @@
       </p>
     </div>
 
-    <!-- Clientes e seus selos: a lista pra ver quem está perto do prêmio e cutucar -->
-    <div class="card">
-      <h2 style="margin:0 0 4px;">Quem está no cartão</h2>
-      <p class="subtitulo" style="margin-bottom:14px;">
+    <!-- Clientes e seus selos: a lista pra ver quem está perto do prêmio e cutucar.
+         Recolhida por padrão (<details> sem `open`) — a lista cresce e empurraria o
+         editor de mensagens pra baixo. Fechada, as mensagens ficam logo abaixo. -->
+    <details class="card" id="cardSelos">
+      <summary style="cursor:pointer; list-style:none; display:flex; align-items:center; gap:8px;">
+        <h2 style="margin:0; display:inline;">Quem está no cartão</h2>
+        <span id="contadorSelos" class="texto-cinza" style="font-size:0.9rem; font-weight:600;"></span>
+        <span class="texto-cinza" style="margin-left:auto; font-size:0.82rem;">toque pra ver ▾</span>
+      </summary>
+      <p class="subtitulo" style="margin:12px 0 14px;">
         Cada cliente e quantos selos já tem. Quem está <strong>mais perto do prêmio</strong> aparece no topo —
         é quem vale a pena chamar pra voltar e fechar o cartão. Toque em <strong>Chamar no WhatsApp</strong>
         pra abrir a conversa com a mensagem já escrita.
       </p>
       <div id="listaSelos"><p class="texto-cinza">Carregando…</p></div>
-    </div>
+    </details>
 
     <!-- Templates -->
     <div class="card">
@@ -155,11 +165,20 @@
       try {
         const r = await api('/relacionamento/clube/clientes');
         CLIENTES_SELOS = r.clientes || [];
+        atualizarContadorSelos();
         renderClientes();
       } catch (e) {
         document.getElementById('listaSelos').innerHTML =
           `<p class="cli-vazio">Não consegui carregar a lista agora.</p>`;
       }
+    }
+
+    // Contador no título do card recolhido: dá o número sem precisar abrir.
+    function atualizarContadorSelos() {
+      const el = document.getElementById('contadorSelos');
+      if (!el) return;
+      const n = CLIENTES_SELOS.length;
+      el.textContent = n === 0 ? '· ninguém ainda' : (n === 1 ? '· 1 cliente' : `· ${n} clientes`);
     }
 
     function renderClientes(filtro = '') {

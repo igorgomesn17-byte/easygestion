@@ -54,9 +54,11 @@
     async function carregar() {
       loja = await api('/config');
       venda = await api('/vendas/' + vendaId);
-      // selos do clube (se houver cliente e clube ativo)
+      // selos do clube (se houver cliente e clube ativo). A rota vive em
+      // /relacionamento/clube/cliente/:id (gated no Growth) — no Starter dá 403 e o
+      // catch silencioso segue sem o bloco de selos, sem erro na cara da vendedora.
       if (venda.cliente_id) {
-        try { const s = await api('/crm/selos/' + venda.cliente_id); if (s.ativo) selosCliente = s; } catch(e) {}
+        try { const s = await api('/relacionamento/clube/cliente/' + venda.cliente_id); if (s.ativo) selosCliente = s; } catch(e) {}
       }
       // Buscar troca associada (se houver)
       try {
@@ -103,7 +105,7 @@
         ${troca?`<hr><div class="centro sub" style="font-weight:700;">VENDA COM TROCA</div><div class="sub">Devolvido: ${moeda(troca.valor_devolvido)}</div><div class="sub">Levado: ${moeda(troca.valor_levado)}</div>${troca.diferenca !== 0 ? `<div class="sub">Diferença ${troca.diferenca > 0 ? '(pago)' : '(vale)'}: ${moeda(Math.abs(troca.diferenca))}</div>` : ''}`:''}
         ${venda.comprovante?`<div class="sub nao-imprime"><a href="${venda.comprovante}" target="_blank">Ver comprovante</a></div>`:''}
         <hr>
-        ${selosCliente ? `<div class="centro sub">${loja.clube_nome||'Clube Fidelidade'}: <strong>${selosCliente.noCiclo}/${selosCliente.totalSelos} selos</strong>${selosCliente.faltam>0?` • faltam ${selosCliente.faltam} pro prêmio `:` • prêmio liberado `}</div><hr>`:''}
+        ${selosCliente ? `<div class="centro sub">${loja.clube_nome||'Clube Fidelidade'}: <strong>${selosCliente.selos_no_cartao}/${selosCliente.total_selos} selos</strong>${selosCliente.faltam>0?` • faltam ${selosCliente.faltam} pro prêmio `:` • prêmio liberado `}</div><hr>`:''}
         <div class="centro sub" style="font-weight:700;">
           ${(loja.cupom_politica_troca||'TROCAS EM ATÉ 7 DIAS\ncom a peça e este cupom').split('\n')[0]}<br>
           <span style="font-weight:400;">${(loja.cupom_politica_troca||'TROCAS EM ATÉ 7 DIAS\ncom a peça e este cupom').split('\n').slice(1).join('<br>')}</span>

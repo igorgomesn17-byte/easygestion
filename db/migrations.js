@@ -1704,6 +1704,19 @@ function executarMigrations(db) {
           );
         `);
       }
+    },
+    {
+      nome: '039_clientes_instagram_observacoes',
+      hash: 'v39-clientes-instagram-observacoes',
+      exec: (db) => {
+        // A ficha da cliente ganha dois campos que a lojista pedia: o @ do Instagram
+        // (o canal real por onde ela fala com a cliente no varejo de moda) e um espaco
+        // livre de OBSERVACOES (tamanho que veste, prefere entrega, deve fiado, etc).
+        // ALTER idempotente no molde das outras — checa antes pra nao quebrar rerun.
+        const cols = db.prepare('PRAGMA table_info(clientes)').all().map((c) => c.name);
+        if (!cols.includes('instagram'))   db.exec(`ALTER TABLE clientes ADD COLUMN instagram TEXT;`);
+        if (!cols.includes('observacoes')) db.exec(`ALTER TABLE clientes ADD COLUMN observacoes TEXT;`);
+      }
     }
   ];
 
