@@ -1,7 +1,7 @@
 # EasyGestão (DRE Express) — Documentação Técnica Oficial
 
-**Última atualização:** 7 de julho de 2026 (auditoria doc × código)  
-**Status:** ✅ No ar em produção — **2 planos** (Starter/Growth), Enterprise congelado, Stripe em modo TEST
+**Última atualização:** 17 de julho de 2026 (Stripe em LIVE)  
+**Status:** ✅ No ar em produção — **2 planos** (Starter/Growth), Enterprise congelado, **Stripe em modo LIVE (faturando)**
 
 ---
 
@@ -11,20 +11,19 @@
 
 | Plano | Preço/mês | Preço/ano | Público | Limite | Diferencial |
 |---|---|---|---|---|---|
-| **STARTER** | R$ 69,90 | R$ 699,00 | Loja começando | 1.000 produtos, 1 usuário | PDV + estoque com grade + caixa + clientes + **lançamento de despesas** + NFC-e |
-| **GROWTH** | R$ 119,90 | R$ 1.199,00 | Loja crescendo | 5.000 produtos, 5 usuários | **+ DRE + fluxo + relatórios avançados + vitrine online** + vale-crédito + despesas recorrentes + exportação |
+| **STARTER** | R$ 69,90 | R$ 699,00 | Loja começando | 1.000 produtos, 1 usuário | PDV + estoque com grade + caixa + clientes + **lançamento de despesas** + **vitrine pública** + **precificação (custo→preço)** + personalização (logo/cor) + NFC-e |
+| **GROWTH** | R$ 119,90 | R$ 1.199,00 | Loja crescendo | 5.000 produtos, 5 usuários | **+ relacionamento (RFM + régua + clube de fidelidade) + DRE + fluxo + relatórios avançados** + vale-crédito + despesas recorrentes + exportação |
 
-**Régua de corte Starter↔Growth (o que sobe pro Growth):**
-- **DRE, fluxo de caixa e relatórios avançados** (curva ABC, por canal, por coleção, por vendedor) — corte seco: no Starter o lojista LANÇA despesas mas NÃO vê o resultado.
-- **Vitrine pública** (loja online por slug) — exclusiva do Growth.
-- Vale-crédito, despesas recorrentes automáticas, exportação CSV, 5 usuários, 5.000 produtos.
+**Régua de corte Starter↔Growth (atualizada 17/07/2026 — o Starter faz VENDER, o Growth faz LUCRAR/RETER):**
+- **No Starter (vender):** PDV, estoque, caixa, clientes, lançamento de despesas, **precificação** (custo→preço com taxa/imposto), **vitrine pública** (loja online por slug — canal de aquisição) e **personalização** (logo/cor, que a vitrine usa).
+- **Sobe pro Growth (lucrar/reter):** **Relacionamento** (RFM + régua de contato + clube de fidelidade — a bandeira do plano); **DRE, fluxo de caixa e relatórios avançados** (curva ABC, por canal, por coleção, por vendedor — no Starter o lojista LANÇA despesas mas NÃO vê o resultado); vale-crédito guardado, despesas recorrentes automáticas, exportação CSV.
 
 **Enterprise:** congelado. Existe em `lib/planos.js` (preços/limites/features + `multiplas_lojas`/`api`) mas fora de `PLANOS_PUBLICOS`. Pra religar, adicionar `'enterprise'` em `PLANOS_PUBLICOS`.
 
 **Mudanças importantes:**
 - ❌ **Inbox:** Removido completamente (não é prioridade)
 - ⚠️ **NFC-e:** Opcional externo (cliente contrata com Focus, custo não é absorvido por Igor)
-- 🟡 **Stripe em TEST:** o sistema está no ar mas com chaves `sk_test_`/`pk_test_` — ninguém paga de verdade. Pra faturar, virar chaves + Prices pra LIVE (ver seção Stripe abaixo).
+- ✅ **Stripe em LIVE:** produção roda com chaves `sk_live_`/`pk_live_` e Prices em modo live — o cliente paga de verdade. **O `.env` de produção mora FORA do repositório** (por segurança) e é a única fonte da verdade sobre o que está no ar. O `.env` dentro da pasta é de desenvolvimento e continua em `sk_test_` — não conclua o modo do sistema a partir dele.
 
 **MRR esperado (100 clientes, mix 60/40):** ~R$ 89,90/cliente médio → ~R$ 8.990/mês
 
@@ -70,14 +69,16 @@
 | Trial | 14 dias (sem cartão) | 14 dias | — |
 | Usuários | 1 | 5 | ~~Ilimitados~~ |
 | Produtos | 1.000 | 5.000 | ~~Ilimitado~~ |
-| Vale-crédito | ❌ | ✅ | — |
+| Vitrine pública (loja online) | ✅ | ✅ | — |
+| Precificação (custo→preço) + personalização | ✅ | ✅ | — |
+| Relacionamento (RFM + régua + clube) | ❌ | ✅ | — |
 | DRE + fluxo + relatórios | ❌ | ✅ | — |
-| Vitrine pública (loja online) | ❌ | ✅ | — |
+| Vale-crédito | ❌ | ✅ | — |
 | Despesas recorrentes / exportação | ❌ | ✅ | — |
 | Múltiplas lojas / API | ❌ | ❌ | ~~✅~~ |
 | Suporte | Email (72h) | Email (72h) | — |
 
-> **Gating implementado** (06/07/2026): as travas acima são reais no código, não só marketing. Backend: `exigirFeature('relatorios_avancados')` em `routes/financeiro.js` (DRE/fluxo/curva-abc/por-canal/por-colecao/por-vendedor); vitrine por slug→plano em `routes/vitrine.js`; `exigirDentroDoLimite` em produtos/usuários; `exigirFeature('vale_credito'|'recorrentes'|'export')` nas respectivas rotas. Front: 403 `{upgrade:true}` tratado por `tratarBloqueioDePlano` em `comum.js`; config.html esconde vitrine no Starter.
+> **Gating implementado** (atualizado 17/07/2026): as travas acima são reais no código, não só marketing. Backend: `exigirFeature('relatorios_avancados')` em `routes/financeiro.js` (DRE/fluxo/curva-abc/por-canal/por-colecao/por-vendedor); **relacionamento** via `exigirFeature('relacionamento')` no `app.use('/api/relacionamento', …)` (`server.js`); **vitrine por slug→plano em `routes/vitrine.js` (agora liberada a partir do Starter)**; **precificação** via `exigirFeature('precificacao')` em `routes/produtos.js`/`routes/config.js`; `exigirDentroDoLimite` em produtos/usuários; `exigirFeature('vale_credito'|'recorrentes'|'export')` nas respectivas rotas. Front: 403 `{upgrade:true}` tratado por `tratarBloqueioDePlano` em `comum.js`; menu e config.html escondem por feature via `me.features` (a aba Vitrine agora aparece no Starter; a de Relacionamento só no Growth).
 
 **Política geral:**
 - Trial: 14 dias sem cartão
@@ -679,8 +680,8 @@ POST   /api/deploy                   Webhook de deploy (git pull + restart)
 - `stripe.subscriptions.cancel()` — Cancelar assinatura
 
 **Variáveis de ambiente:**
-- `STRIPE_SECRET_KEY` — Chave secreta (test/live). **Atualmente em produção usa `sk_test_`.**
-- `STRIPE_PUBLISHABLE_KEY` — Chave pública (`pk_test_` em produção)
+- `STRIPE_SECRET_KEY` — Chave secreta (test/live). **Produção usa `sk_live_`.**
+- `STRIPE_PUBLISHABLE_KEY` — Chave pública (`pk_live_` em produção)
 - `STRIPE_WEBHOOK_SECRET` — Assinatura do webhook
 - `STRIPE_PRICE_STARTER_MENSAL` / `STRIPE_PRICE_STARTER_ANUAL` — Price IDs do Starter (69,90 / 699,00)
 - `STRIPE_PRICE_GROWTH_MENSAL` / `STRIPE_PRICE_GROWTH_ANUAL` — Price IDs do Growth (119,90 / 1.199,00)
@@ -688,7 +689,7 @@ POST   /api/deploy                   Webhook de deploy (git pull + restart)
 
 **Matriz de Price IDs:** `lib/stripe.js` resolve `PRICE_IDS[tier][ciclo]` via `priceIdDe(tier, ciclo)`. Enterprise tem `STRIPE_PRICE_ENTERPRISE_*` (não configurado — plano congelado).
 
-**⚠️ Modo test vs live:** um Price criado no modo LIVE não é visível por uma chave `sk_test_` (e vice-versa). Erro típico: *"a similar object exists in live mode, but a test mode key was used"*. Ao virar pra live, recriar os 4 Prices no modo live e trocar as 3 chaves juntas.
+**⚠️ Modo test vs live:** um Price criado no modo LIVE não é visível por uma chave `sk_test_` (e vice-versa). Erro típico: *"a similar object exists in live mode, but a test mode key was used"*. Chaves e Prices andam juntos — ao alternar de modo, os 4 Prices e as 3 chaves mudam no mesmo movimento. **Produção já está em live.** Se esse erro aparecer, quase sempre é ambiente de dev usando Price de live (ou o inverso), não um problema de produção.
 
 **Webhook esperado:** evento `checkout.session.completed` → cria assinatura no banco
 
@@ -793,8 +794,8 @@ ADMIN_EMAIL=admin@easygestao.com  # Email do admin inicial (opcional, usa fallba
 ### Assinaturas/Stripe
 
 ```env
-STRIPE_SECRET_KEY=sk_live_...        # produção atual usa sk_test_
-STRIPE_PUBLISHABLE_KEY=pk_live_...   # produção atual usa pk_test_
+STRIPE_SECRET_KEY=sk_live_...        # produção em live
+STRIPE_PUBLISHABLE_KEY=pk_live_...   # produção em live
 STRIPE_WEBHOOK_SECRET=whsec_...
 STRIPE_PRICE_STARTER_MENSAL=price_xxx   # 69,90/mês
 STRIPE_PRICE_STARTER_ANUAL=price_xxx    # 699,00/ano
@@ -1140,11 +1141,11 @@ pm2 delete easygestion
 
 ## Roadmap Recomendado
 
-> **Nota:** o sistema JÁ está no ar em produção (www.easygestao.com). O bloqueio pra faturar de verdade é virar o Stripe de TEST pra LIVE (ver seção Stripe). Roadmap abaixo é o que falta pra maturidade.
+> **Nota:** o sistema JÁ está no ar em produção (www.easygestao.com) **com Stripe em LIVE** — não há bloqueio técnico pra faturar. Roadmap abaixo é o que falta pra maturidade.
 
 ### Phase 1 — Faturar de verdade
 
-- [ ] **Virar Stripe pra LIVE** (chaves `sk_live_`/`pk_live_` + recriar os 4 Prices em modo live)
+- [x] **Virar Stripe pra LIVE** (chaves `sk_live_`/`pk_live_` + Prices em modo live) — concluído
 - [ ] Testar fluxo completo em produção com pagamento real (trial → checkout → pago)
 - [ ] Backup restauração (testar restore de S3)
 - [ ] Monitorar logs em produção (erro patterns)
@@ -1471,4 +1472,27 @@ O sistema nasceu de UMA loja (a DS Store) e virou SaaS. Esta sessão varreu os p
 
 ---
 
-**Documento versão 1.9 — Atualizado em 15 de julho de 2026. Auditoria de isolamento multi-tenant: os 4 críticos (backoffice, webhook, trial, IDOR + gate de vale) fechados e provados por teste — o sistema aguenta a 2ª loja pagante. Fidelidade ganhou lista de clientes por selos. Foto do iPhone (HEIC) convertida no servidor; cupom vai como imagem no zap. Relacionamento/Clube/Cupom gated no plano `interno`. Stripe em modo LIVE. Pendência de segurança nº1: rotacionar a chave AWS vazada.**
+## Últimas Mudanças (17 de julho de 2026) — Régua nova: vitrine desce pro Starter, relacionamento vira Growth
+
+**Commit:** `e991431` — no ar em produção (health 200; migration 039 rodou; 379 vendas preservadas).
+
+**Princípio novo:** o Starter faz a loja **vender**; o Growth faz a loja **lucrar e reter cliente**. O R$ 50 de diferença deixa de ser "relatório bonito" e passa a ser "cliente voltando".
+
+- **Fonte da verdade `lib/planos.js`** (front e endpoint seguem sozinhos — só virei os booleanos):
+  - Starter ganhou `vitrine_publica`, `personalizacao` (logo+cor) e `precificacao` = `true`. Vitrine = página indexável apontando pro domínio → **canal de aquisição**. Personalização desceu JUNTO senão a vitrine do Starter sairia sem logo/cor. Precificação (custo→preço) é operação básica de vender.
+  - Growth ganhou `relacionamento: true` — a **bandeira** do plano (RFM + régua de contato + clube de fidelidade). Antes só existia no `interno`. O comentário do bloco `interno` foi ajustado: agora só `maquininha_integrada` é exclusiva dele.
+  - **DRE/fluxo/relatórios (`relatorios_avancados`) continuam no Growth** — não mexidos.
+- **Sem migração de dados:** descer feature só CONCEDE acesso (não quebra Starter existente); subir relacionamento não afeta ninguém (era `false` nos dois públicos). Puramente aditivo.
+- **Gates de back não precisaram de mudança de código** (já liam as feature flags): `routes/vitrine.js`, `routes/produtos.js` (precificacao), `routes/config.js`, `server.js:376` (relacionamento). Só atualizei comentários. `GET /api/assinaturas/planos` reflete a régua automaticamente (só devolve `planosPublicos()`).
+- **Copy hardcoded ajustada** (marketing, não source of truth): `public/planos.html` (mapa `RECURSOS`) e `public/landing-v2.html` — vitrine agora aparece como Starter, relacionamento como Growth vendendo o **mecanismo** ("o sistema diz quem sumiu e escreve a mensagem, você só clica"), NÃO número inventado.
+
+**Outras 3 mudanças no mesmo deploy:**
+- **`public/clube.html` — lista "Quem está no cartão" recolhida por padrão.** A lista de clientes por selos crescia e empurrava o editor de mensagens pra baixo. Virou um `<details>` fechado (sem `open`) com contador no `<summary>` ("· 12 clientes"). As mensagens ficam alcançáveis sem rolar.
+- **`public/cupom.html` — selos voltaram ao cupom não fiscal.** O bloco existia mas nunca pintava por um triplo descasamento: chamava `GET /crm/selos/:id` (**rota fantasma** — não existe `/api/crm/*`); a real é `GET /api/relacionamento/clube/cliente/:id` e devolve **snake_case** (`selos_no_cartao`/`total_selos`), não o camelCase que o cupom lia; e o gate `relacionamento` (agora Growth) faz o Starter cair no `catch` silencioso — degrada bem. Conserto 100% no front. (memória `cupom-selos-apontava-rota-fantasma`)
+- **Ficha da cliente ganhou Instagram + Observações.** `routes/clientes.js` (POST/PUT lê e grava `instagram`, `observacoes`), modal em `public/clientes.html` (campo @ + textarea), **migration 039** (`db/migrations.js`, ALTER idempotente). GET (list e detail) já eram `SELECT *`, então os campos fluem sozinhos pro front.
+
+Ver memórias `regua-planos-vitrine-starter-relacionamento-growth` e `cupom-selos-apontava-rota-fantasma`.
+
+---
+
+**Documento versão 2.0 — Atualizado em 17 de julho de 2026. Régua nova: vitrine + personalização + precificação DESCERAM pro Starter (canal de aquisição + operação básica de vender); relacionamento (RFM + régua + clube) SUBIU pro Growth como bandeira do plano; DRE/relatórios seguem Growth. Fonte da verdade `lib/planos.js` — front e endpoint seguem sozinhos. Clube: lista de selos recolhida por padrão. Cupom não fiscal voltou a mostrar selos (rota `/crm/selos` era fantasma). Ficha da cliente ganhou Instagram + Observações (migration 039). Stripe em modo LIVE. Pendência de segurança nº1: rotacionar a chave AWS vazada.**
