@@ -34,6 +34,7 @@ router.get('/acoes', (req, res) => {
   const hoje = hojeLocal();
   const acoes = db.prepare(`
     SELECT a.*, c.nome, c.telefone, c.nao_perturbe,
+           c.total_gasto, c.num_compras, c.ultima_compra,
            cp.pct AS cupom_pct, cp.validade AS cupom_validade
     FROM crm_acoes a
     JOIN clientes c ON c.id = a.cliente_id AND c.tenant_id = a.tenant_id
@@ -61,6 +62,12 @@ router.get('/acoes', (req, res) => {
       // textarea: se a lojista apagar o codigo do texto sem querer, ela precisa ver
       // que ele existe (e o sistema avisa antes de enviar).
       cupom: a.cupom, cupom_pct: a.cupom_pct, cupom_validade: a.cupom_validade,
+      // Contexto de VALOR: a lojista precisa saber com quem esta falando ANTES de
+      // apertar enviar. "Gastou R$2.400 em 11 compras" muda o cuidado da conversa —
+      // e e' o que justifica o desconto maior que essa cliente esta recebendo.
+      total_gasto: a.total_gasto || 0,
+      num_compras: a.num_compras || 0,
+      ultima_compra: a.ultima_compra,
       segmento: a.segmento,
       segmento_nome: a.segmento && SEGMENTOS[a.segmento] ? SEGMENTOS[a.segmento].nome : null,
       segmento_cor: a.segmento && SEGMENTOS[a.segmento] ? SEGMENTOS[a.segmento].cor : null,

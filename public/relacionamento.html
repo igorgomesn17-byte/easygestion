@@ -15,6 +15,9 @@
     .acao-topo { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
     .acao-quem { font-weight:700; font-size:1.02rem; color:var(--tinta); }
     .acao-por  { color:var(--tinta-2); font-size:0.85rem; margin-top:2px; }
+    /* Valor da cliente: discreto, mas presente. Sem ele a lojista manda a mesma
+       mensagem pra quem gastou R$3.000 e pra quem gastou R$49. */
+    .acao-valor { color:var(--tinta-3,#8a9a92); font-size:0.78rem; margin-top:3px; font-variant-numeric:tabular-nums; }
     .acao-msg  { width:100%; min-height:104px; margin:12px 0 10px; resize:vertical;
                  font-family:inherit; font-size:0.88rem; line-height:1.5; }
     .acao-btns { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
@@ -101,6 +104,10 @@
             <div>
               <div class="acao-quem">${esc(a.nome)}</div>
               <div class="acao-por">${esc(a.label)} • ${esc(a.detalhe || '')}</div>
+              ${a.num_compras > 0 ? `
+                <div class="acao-valor">
+                  ${moeda(a.total_gasto)} em ${a.num_compras} ${a.num_compras === 1 ? 'compra' : 'compras'}
+                </div>` : ''}
             </div>
             ${a.segmento_nome ? `<span class="selo-seg" style="background:${a.segmento_cor}">${esc(a.segmento_nome)}</span>` : ''}
           </div>
