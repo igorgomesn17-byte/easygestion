@@ -1549,4 +1549,27 @@ Ver memória `nem-todo-cliente-e-pessoa-a-contatar`.
 
 ---
 
+## Últimas Mudanças (18 de julho de 2026 — tarde) — Reativação da base importada + 2 bugs de campo
+
+### Reativação da base importada (commit `c2eae1c`, migration **041**)
+
+A base migrada de outro sistema (`clientes.tipo='importado'`) saiu da régua diária na 040, mas ficou sem ferramenta. Esta é ela: **campanha, não régua** — tem começo e fim, e ataca por **ondas de valor** (o dinheiro é concentrado: na DS, 15% dos clientes = 50% do faturamento histórico).
+
+- **Feature `base_importada` — SÓ no plano `interno`.** Decisão do Igor, explícita: *"isso é só no perfil da DS, pra depois você não fazer para todo o sistema"*. Uma lojista Growth ganharia uma aba sem sentido pra loja dela. A tela e as mensagens são **genéricas** (nunca citam a cidade ou a loja da campanha) — virar produto é só ligar a feature no growth, sem texto pra reescrever. Há teste que falha se "Camacan" aparecer no código.
+- **`routes/reativacao.js`** (mount com `exigirFeature('base_importada')`): ondas por faixa de gasto, lista ordenada por valor, mensagem de **reencontro** pronta, cupom **nominal** por cliente (nasce `'ativo'` — aqui o envio É o clique, não há passo posterior).
+- **Migration 041 `reativacao_contatos`** com `UNIQUE(tenant_id, cliente_id)`. Tabela **separada de `crm_acoes` de propósito**: misturar poluiria a fila diária que a 040 acabou de limpar. Registra também `respondeu` — a taxa de resposta é o número que decide se a campanha continua.
+- **Tela `public/reativacao.html`** + item no menu gated por feature.
+- Teste: `npm run test:reativacao` (22 asserts — gate, base certa, idempotência, cupom nominal, isolamento).
+
+### Dois bugs de campo (commit `dea0793`)
+
+- **Venda cancelada contava no faturamento.** Cancelar faz soft delete (`deletado=1`) e recalcula o caixa — mas o recálculo somava TODAS as vendas do dia, inclusive as canceladas. O mesmo furo estava em **9 queries** (caixa, DRE, fluxo, dashboard, por-canal, por-vendedor, conciliação, comissão, histórico da cliente). Na DS: caixa mostrando R$ 1.369,50 quando o real era R$ 899,60. **Corrigir o código não conserta o passado** — precisou recalcular os dias afetados reusando a própria `atualizarCaixaDia`. Teste: `npm run test:cancelada`.
+- **Cliente contatada voltava pra fila no dia seguinte.** `existeAcaoAtiva` só via `'pendente'`/`'adiada'`; ao enviar a ação vira `'enviada'`, e às 06:00 o scheduler recriava tudo. Agora `enviada`/`ignorada` **silenciam o gatilho por 45 dias** (`DIAS_SILENCIO`). `'obsoleta'` não silencia: ela comprou, o ciclo reiniciou.
+
+### PDV: peça esgotada sai do catálogo (commit `ed26100`)
+
+No balcão cheio, card de peça que não dá pra vender é ruído. O catálogo mostra só quem tem estoque — **exceto na busca**: se a vendedora digitou o nome ou bipou o código, a esgotada aparece (sumir faria parecer que saiu do sistema).
+
+---
+
 **Documento versão 2.2 — Atualizado em 18 de julho de 2026. Régua nova: vitrine + personalização + precificação DESCERAM pro Starter (canal de aquisição + operação básica de vender); relacionamento (RFM + régua + clube) SUBIU pro Growth como bandeira do plano; DRE/relatórios seguem Growth. Fonte da verdade `lib/planos.js` — front e endpoint seguem sozinhos. Clube: lista de selos recolhida por padrão. Cupom não fiscal voltou a mostrar selos (rota `/crm/selos` era fantasma). Ficha da cliente ganhou Instagram + Observações (migration 039). Histórico: nome da cliente vira link pra ficha. Régua reconciliada: quem compra sai da fila e a janela de reativação não multiplica o mesmo cliente (`npm run test:regua`). Stripe em modo LIVE. Pendência de segurança nº1: rotacionar a chave AWS vazada.**
