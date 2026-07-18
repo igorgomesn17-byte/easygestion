@@ -1511,4 +1511,28 @@ Ver memória `regua-materializada-precisa-reconciliar`.
 
 ---
 
-**Documento versão 2.1 — Atualizado em 17 de julho de 2026. Régua nova: vitrine + personalização + precificação DESCERAM pro Starter (canal de aquisição + operação básica de vender); relacionamento (RFM + régua + clube) SUBIU pro Growth como bandeira do plano; DRE/relatórios seguem Growth. Fonte da verdade `lib/planos.js` — front e endpoint seguem sozinhos. Clube: lista de selos recolhida por padrão. Cupom não fiscal voltou a mostrar selos (rota `/crm/selos` era fantasma). Ficha da cliente ganhou Instagram + Observações (migration 039). Histórico: nome da cliente vira link pra ficha. Régua reconciliada: quem compra sai da fila e a janela de reativação não multiplica o mesmo cliente (`npm run test:regua`). Stripe em modo LIVE. Pendência de segurança nº1: rotacionar a chave AWS vazada.**
+## Últimas Mudanças (18 de julho de 2026) — Cliente na venda: o gargalo real do CRM
+
+**Commit:** `35536c0`. Migration **040** rodou em produção (388 vendas preservadas).
+
+Fui avaliar "régua por comportamento" (diferenciar por *o que* a cliente compra) e o diagnóstico apontou um gargalo mais básico: **70% das vendas saíam sem cliente** (387 vendas, 117 vinculadas). Venda sem cliente some do CRM inteiro — não entra na régua, não junta selo, não vira recompra. **Régua sofisticada sobre 30% da base rende menos que régua simples sobre 100%.**
+
+- **PDV pergunta ao finalizar** (`public/pdv.html`): sem cliente selecionado, aparece "Quem está comprando?" com duas saídas de 1 clique — *Escolher a cliente* (leva ao campo de busca) ou *Vender sem identificar*. **Não trava a venda:** a causa é esquecimento na correria (loja cheia, um vendedor só), e travar o balcão no sábado criaria problema pior. Pra esquecimento, o que funciona é tornar o caminho certo mais rápido que o errado.
+- **`clientes.tipo` (migration 040)** — nem todo registro em `clientes` é pessoa a contatar. Cada tipo sai de um lugar **diferente**:
+  | tipo | Régua | RFM | Por quê |
+  |---|---|---|---|
+  | `'balcao'` | ❌ | ❌ | Acumula as vendas de toda a loja; no RFM viraria "campeã" fantasma e distorceria os segmentos |
+  | `'importado'` | ❌ | ✅ fica | Valor real orienta a campanha, mas `ultima_compra` é do sistema antigo — a régua diria "28 dias" pra quem sumiu há um ano |
+  | `NULL` | ✅ | ✅ | Cliente normal |
+- **"Consumidor não identificado"** (`clienteBalcao()` em `lib/crm.js`, `POST /api/clientes/balcao`): um por loja, nasce sob demanda, sem telefone. Preserva a distinção entre "esqueci" (recuperável) e "ela não quis" — que antes viravam o mesmo `NULL`.
+- **Camacan fora da fila diária:** backfill **condicional** (`origem LIKE '%Camacan%'` **E** sem venda real). As 3 clientes de Camacan que já voltaram a comprar seguem normais e na régua. 1.116 marcadas; a régua passou a varrer 112 pessoas em vez de 1.228, e o RFM segue com 1.222.
+- **Vínculo retroativo:** `PATCH /api/vendas/:id/cliente` + botão "+ Vincular cliente" no histórico. Ajusta os totais das duas pontas (tira da antiga, soma na nova) e obsoleta as ações de ausência. **Não** mexe em estoque, caixa nem cupom — o dinheiro já entrou e continua igual.
+- **Teste:** `npm run test:balcao` (13 asserts; o crítico é o balcão com 300 compras e 30 dias parado gerando ZERO ações e ficando fora do RFM). `test:crm`, `test:regua`, `test:cupom`, `test:clube` seguem verdes.
+
+**Adiado com razão:** régua por comportamento. A base não sustenta hoje — 33 itens de venda no sistema, categorias inconsistentes (`calça`/`calca`), e 11 intervalos de recompra medidos (mediana 3 dias, que são vendas de teste). Revisitar quando o vínculo de cliente tiver gerado histórico real. **Próximo da fila:** RFM modular a mensagem e o desconto (hoje só muda a ordem da fila), que funciona com o dado que já existe.
+
+Ver memória `nem-todo-cliente-e-pessoa-a-contatar`.
+
+---
+
+**Documento versão 2.2 — Atualizado em 18 de julho de 2026. Régua nova: vitrine + personalização + precificação DESCERAM pro Starter (canal de aquisição + operação básica de vender); relacionamento (RFM + régua + clube) SUBIU pro Growth como bandeira do plano; DRE/relatórios seguem Growth. Fonte da verdade `lib/planos.js` — front e endpoint seguem sozinhos. Clube: lista de selos recolhida por padrão. Cupom não fiscal voltou a mostrar selos (rota `/crm/selos` era fantasma). Ficha da cliente ganhou Instagram + Observações (migration 039). Histórico: nome da cliente vira link pra ficha. Régua reconciliada: quem compra sai da fila e a janela de reativação não multiplica o mesmo cliente (`npm run test:regua`). Stripe em modo LIVE. Pendência de segurança nº1: rotacionar a chave AWS vazada.**
