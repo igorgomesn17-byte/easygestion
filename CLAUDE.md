@@ -1533,6 +1533,20 @@ Fui avaliar "régua por comportamento" (diferenciar por *o que* a cliente compra
 
 Ver memória `nem-todo-cliente-e-pessoa-a-contatar`.
 
+### RFM tempera a régua (commit `82e003e`)
+
+**A régua decide QUANDO falar; o RFM passa a decidir COMO falar e QUANTO oferecer.** Antes, a campeã que gastou R$ 3.000 e sumiu recebia exatamente a mesma mensagem e o mesmo desconto da cliente de uma compra de R$ 49 — e perder uma dessas custa muito mais que a outra. O RFM só mexia na ORDEM da fila (3 linhas de prioridade).
+
+- **`VARIANTES_SEGMENTO`** (`lib/crm-templates.js`): variantes de texto por `${tipo}:${segmento}`. **Propositalmente esparso** — variante pra todo (tipo × segmento) seriam 40 textos dizendo quase a mesma coisa. Só existe onde o tom muda de verdade (campeã/risco/fiel na reativação). Sem variante, cai no texto padrão.
+- **Precedência do texto:** template que a **LOJISTA editou** > variante do segmento > padrão do tipo. `templateDe()` marca `__editado` quando ela escreveu o texto. Trocar o que ela escreveu seria o pior tipo de "inteligência": ela edita, salva, e o sistema manda outra coisa.
+- **`MULT_SEGMENTO`** — desconto modulado (decisão do Igor: mais pra quem vale mais). campeas/risco 1.25×, perdidas 1.15×, hibernando 0.75×. Racional de **margem**: vale pagar mais caro pra trazer a campeã; queimar 25% com quem gasta R$ 50 destrói margem sem resultado.
+- **Duas guardas:** `0% continua 0%` (gatilho sem cupom NÃO ganha cupom por causa do segmento) e **teto próprio de 35%** (`PCT_TETO_REGUA`), abaixo do `MAX_PCT` global de 50.
+- **O pct modulado vale nos DOIS lados:** o cupom é emitido com ele **e** a mensagem diz o mesmo número. Senão a mensagem promete 20% e o caixa aceita 25% (ou o contrário) — o teste trava isso.
+- **Card mostra o valor da cliente** ("R$ 2.400 em 11 compras") antes de enviar: é o que justifica o desconto maior e muda o cuidado da conversa.
+- **Teste:** `npm run test:segmento` (19 asserts).
+
+> **Nota de rollout:** ações já materializadas em `crm_acoes` carregam o texto/pct antigos (a régua congela no momento da geração). A modulação vale para as ações geradas a partir da próxima rodada das 06:00.
+
 ---
 
 **Documento versão 2.2 — Atualizado em 18 de julho de 2026. Régua nova: vitrine + personalização + precificação DESCERAM pro Starter (canal de aquisição + operação básica de vender); relacionamento (RFM + régua + clube) SUBIU pro Growth como bandeira do plano; DRE/relatórios seguem Growth. Fonte da verdade `lib/planos.js` — front e endpoint seguem sozinhos. Clube: lista de selos recolhida por padrão. Cupom não fiscal voltou a mostrar selos (rota `/crm/selos` era fantasma). Ficha da cliente ganhou Instagram + Observações (migration 039). Histórico: nome da cliente vira link pra ficha. Régua reconciliada: quem compra sai da fila e a janela de reativação não multiplica o mesmo cliente (`npm run test:regua`). Stripe em modo LIVE. Pendência de segurança nº1: rotacionar a chave AWS vazada.**
