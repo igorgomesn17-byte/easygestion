@@ -382,16 +382,38 @@
     let mapaProdutos = {};   // id -> produto (pra recuperar no clique do card sem serializar JSON no HTML)
 
     // Renderiza a lista como grade de cards quadrados com foto.
-    function renderCatalogo(lista) {
+    //
+    // `buscando` = a vendedora digitou algo (ou bipou um código). Isso muda o que
+    // fazemos com as peças ESGOTADAS:
+    //
+    //   catálogo (sem busca) -> esconde as esgotadas. No balcão cheio, card de peça
+    //                           que não dá pra vender é ruído: ocupa o lugar do que
+    //                           ela PODE vender e atrasa o atendimento.
+    //   busca ativa          -> MOSTRA a esgotada. Se ela procurou "cinto" ou bipou o
+    //                           código, sumir a peça faria parecer que saiu do sistema
+    //                           — ela precisa ver "existe, mas está esgotada" pra
+    //                           responder a cliente.
+    function renderCatalogo(lista, buscando) {
       const div = document.getElementById('resultados');
       mapaProdutos = {};
-      if (!lista || lista.length === 0) {
+
+      const todas = lista || [];
+      const visiveis = buscando ? todas : todas.filter(p => (p.estoque_total || 0) > 0);
+      const ocultas = todas.length - visiveis.length;
+
+      if (visiveis.length === 0) {
         div.className = 'resultado-busca';
-        div.innerHTML = '<div class="vazio" style="padding:24px;">Nada encontrado — use o botão "+" pra cadastrar uma peça nova</div>';
+        div.innerHTML = ocultas > 0
+          // Não é "nada encontrado": há peças, todas sem estoque. Dizer a verdade evita
+          // a vendedora achar que o catálogo quebrou.
+          ? `<div class="vazio" style="padding:24px;">Nenhuma peça com estoque no momento.<br><span class="texto-cinza" style="font-size:0.85rem;">${ocultas} ${ocultas === 1 ? 'peça esgotada está oculta' : 'peças esgotadas estão ocultas'} — busque pelo nome ou código pra encontrá-la.</span></div>`
+          : '<div class="vazio" style="padding:24px;">Nada encontrado — use o botão "+" pra cadastrar uma peça nova</div>';
         return;
       }
+
       div.className = 'resultado-busca cat-grid';
-      div.innerHTML = lista.map(p => {
+      div.innerHTML = visiveis.map(p => {
+
         mapaProdutos[p.id] = p;
         const semEstoque = (p.estoque_total || 0) <= 0;
         const foto = p.foto
@@ -431,7 +453,9 @@
     async function carregarCatalogo(termo) {
       const q = (termo || '').trim();
       const lista = await api('/produtos' + (q ? '?busca=' + encodeURIComponent(q) : ''));
-      renderCatalogo(lista);
+      // com termo = busca ativa: a esgotada aparece (ela procurou por ela).
+      // sem termo = vitrine do balcão: só o que dá pra vender.
+      renderCatalogo(lista, q.length > 0);
     }
 
     // Busca com debounce; sem termo mostra o catálogo inteiro, com termo filtra.
