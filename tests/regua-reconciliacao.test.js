@@ -111,5 +111,40 @@ const aniv = db.prepare(
 ok('aniversario continua pendente apos a compra', aniv === 'pendente', aniv);
 
 // ============================================================
+secao('5. ENVIADA silencia o gatilho (bug visto em producao 18/07)');
+// ============================================================
+// A lojista mandou a mensagem; a acao virou 'enviada'. No dia seguinte o scheduler
+// NAO pode recriar a mesma acao — a cliente reapareceria na fila como se nunca
+// tivesse sido contatada, e levaria a mesma mensagem 2 dias seguidos.
+const carla = cliente('Carla Contatada', 29);
+gerarAcoesDoTenant(T, hojeMenos(1));
+const acaoCarla = db.prepare(
+  `SELECT id FROM crm_acoes WHERE tenant_id = ? AND cliente_id = ? AND tipo = 'REAT_1'`
+).get(T, carla);
+ok('nasceu a acao de ontem', !!acaoCarla);
+
+// simula o clique em "Enviar no WhatsApp"
+db.prepare(`UPDATE crm_acoes SET status = 'enviada', resolvido_em = datetime('now','localtime') WHERE id = ?`)
+  .run(acaoCarla.id);
+
+// o scheduler roda hoje (ela continua na janela: 30 dias)
+gerarAcoesDoTenant(T, hoje);
+const totalCarla = db.prepare(
+  `SELECT COUNT(*) n FROM crm_acoes WHERE tenant_id = ? AND cliente_id = ? AND tipo = 'REAT_1'`
+).get(T, carla).n;
+ok('NAO recria a acao no dia seguinte (segue 1 so)', totalCarla === 1, `tinha ${totalCarla}`);
+ok('e ela nao volta pra fila como pendente',
+   db.prepare(`SELECT COUNT(*) n FROM crm_acoes WHERE tenant_id=? AND cliente_id=? AND status='pendente'`).get(T, carla).n === 0);
+
+// IGNORADA tambem silencia: "nao contatar" e' uma decisao, nao um adiamento de 1 dia
+const dora = cliente('Dora Ignorada', 29);
+gerarAcoesDoTenant(T, hojeMenos(1));
+db.prepare(`UPDATE crm_acoes SET status = 'ignorada' WHERE tenant_id = ? AND cliente_id = ? AND tipo = 'REAT_1'`)
+  .run(T, dora);
+gerarAcoesDoTenant(T, hoje);
+ok('IGNORADA tambem nao ressuscita no dia seguinte',
+   db.prepare(`SELECT COUNT(*) n FROM crm_acoes WHERE tenant_id=? AND cliente_id=? AND tipo='REAT_1'`).get(T, dora).n === 1);
+
+// ============================================================
 console.log(`\n${falhas === 0 ? '✅ REGUA OK — nao multiplica e a compra tira da fila' : `❌ ${falhas} falha(s)`}`);
 process.exit(falhas === 0 ? 0 : 1);

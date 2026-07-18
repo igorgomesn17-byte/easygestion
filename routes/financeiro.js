@@ -23,7 +23,7 @@ router.get('/fluxo', exigirPapel('admin'), exigirFeature('relatorios_avancados')
   // ENTRADAS: vendas do mes (valor liquido = o que efetivamente cai, ja sem taxa)
   const vendas = db.prepare(`
     SELECT COALESCE(SUM(total),0) AS bruto, COALESCE(SUM(valor_liquido),0) AS liquido, COUNT(*) AS n
-    FROM vendas WHERE substr(data_hora,1,7) = ? AND tenant_id = ?
+    FROM vendas WHERE substr(data_hora,1,7) = ? AND tenant_id = ? AND (deletado IS NULL OR deletado = 0)
   `).get(mes, req.tenantId);
 
   // SAIDAS: despesas do mes (competencia)
@@ -144,7 +144,7 @@ router.get('/por-canal', exigirFeature('relatorios_avancados'), (req, res) => {
   const { de, ate } = req.query;
   let sql = `SELECT COALESCE(origem,'loja') AS canal, COUNT(*) AS n,
                     SUM(total) AS faturamento, SUM(lucro) AS lucro
-             FROM vendas WHERE tenant_id = ?`;
+             FROM vendas WHERE tenant_id = ? AND (deletado IS NULL OR deletado = 0)`;
   const params = [req.tenantId];
   if (de)  { sql += ' AND date(data_hora) >= ?'; params.push(de); }
   if (ate) { sql += ' AND date(data_hora) <= ?'; params.push(ate); }
@@ -189,7 +189,7 @@ router.get('/por-vendedor', exigirFeature('relatorios_avancados'), (req, res) =>
            SUM(v.lucro) AS lucro,
            SUM(v.comissao_valor) AS comissao
     FROM vendas v LEFT JOIN vendedores vd ON vd.id = v.vendedor_id AND vd.tenant_id = v.tenant_id
-    WHERE v.tenant_id = ?`;
+    WHERE v.tenant_id = ? AND (v.deletado IS NULL OR v.deletado = 0)`;
   const params = [req.tenantId];
   if (de)  { sql += ' AND date(v.data_hora) >= ?'; params.push(de); }
   if (ate) { sql += ' AND date(v.data_hora) <= ?'; params.push(ate); }
@@ -220,7 +220,7 @@ router.get('/conciliacao', exigirPapel('admin'), (req, res) => {
     SELECT
       COALESCE(SUM(CASE WHEN forma_pagamento IN ('pix','pix_chave') THEN total END),0) AS pix,
       COALESCE(SUM(CASE WHEN forma_pagamento IN ('debito','credito_vista','credito_parcelado') THEN total END),0) AS cartao
-    FROM vendas WHERE date(data_hora) = ? AND tenant_id = ?
+    FROM vendas WHERE date(data_hora) = ? AND tenant_id = ? AND (deletado IS NULL OR deletado = 0)
   `).get(data, req.tenantId);
   // pagamentos divididos (venda 'misto'): soma por forma a partir de venda_pagamentos
   const splitConta = db.prepare(`

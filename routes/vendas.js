@@ -563,7 +563,13 @@ function acumularForma(acc, forma, valor) {
 // Recalcula o caixa do dia a partir das vendas (idempotente)
 function atualizarCaixaDia(data, tenantId) {
   tenantId = exigirTenant(tenantId, 'vendas.atualizarCaixaDia');
-  const vendas = db.prepare("SELECT * FROM vendas WHERE date(data_hora) = ? AND tenant_id = ?").all(data, tenantId);
+  // `deletado = 0` NAO e' detalhe: cancelar uma venda faz soft delete (deletado=1,
+  // pra auditoria) e chama esta funcao pra recalcular o dia. Sem o filtro, o recalculo
+  // somava a venda cancelada de novo — o estoque voltava, o cliente era estornado, mas
+  // o FATURAMENTO DO DIA continuava contando a venda que nao existe mais.
+  const vendas = db.prepare(
+    "SELECT * FROM vendas WHERE date(data_hora) = ? AND tenant_id = ? AND (deletado IS NULL OR deletado = 0)"
+  ).all(data, tenantId);
   const acc = { pix: 0, debito: 0, credito: 0, dinheiro: 0, vale: 0, crediario: 0, bruto: 0, liquido: 0, lucro: 0, n: 0 };
   // soma por forma a partir das partes de pagamento (cobre vendas 'misto' corretamente)
   const partesDe = db.prepare('SELECT forma, valor FROM venda_pagamentos WHERE venda_id = ? AND tenant_id = ?');

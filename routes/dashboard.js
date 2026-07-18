@@ -73,7 +73,7 @@ router.get('/', (req, res) => {
   // Vendas por canal no mês (origem da venda)
   const vendasPorCanal = db.prepare(`
     SELECT COALESCE(origem,'loja') AS canal, COUNT(*) AS n, COALESCE(SUM(total),0) AS valor
-    FROM vendas WHERE date(data_hora) LIKE ? AND tenant_id = ?
+    FROM vendas WHERE date(data_hora) LIKE ? AND tenant_id = ? AND (deletado IS NULL OR deletado = 0)
     GROUP BY canal ORDER BY valor DESC
   `).all(mesPrefixo + '%', req.tenantId);
 

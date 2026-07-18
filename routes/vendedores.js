@@ -13,7 +13,7 @@ router.get('/', (req, res) => {
   const mesPrefixo = hojeLocal().slice(0, 7);
   const desemp = db.prepare(`
     SELECT vendedor_id, COUNT(*) AS vendas, COALESCE(SUM(total),0) AS total, COALESCE(SUM(comissao_valor),0) AS comissao
-    FROM vendas WHERE date(data_hora) LIKE ? AND vendedor_id IS NOT NULL AND tenant_id = ? GROUP BY vendedor_id
+    FROM vendas WHERE date(data_hora) LIKE ? AND vendedor_id IS NOT NULL AND tenant_id = ? AND (deletado IS NULL OR deletado = 0) GROUP BY vendedor_id
   `).all(mesPrefixo + '%', req.tenantId);
   const map = {}; desemp.forEach(d => map[d.vendedor_id] = d);
   for (const v of lista) {

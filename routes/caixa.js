@@ -85,7 +85,7 @@ router.get('/hoje', (req, res) => {
   caixa.vendas = db.prepare(`
     SELECT v.id, v.data_hora, v.total, v.forma_pagamento, v.origem, v.valor_liquido, v.lucro, c.nome AS cliente_nome
     FROM vendas v LEFT JOIN clientes c ON c.id = v.cliente_id AND c.tenant_id = v.tenant_id
-    WHERE date(v.data_hora) = ? AND v.tenant_id = ? ORDER BY v.data_hora DESC
+    WHERE date(v.data_hora) = ? AND v.tenant_id = ? AND (v.deletado IS NULL OR v.deletado = 0) ORDER BY v.data_hora DESC
   `).all(data, req.tenantId);
   // movimentos (abertura/sangria/suprimento) do dia
   caixa.movimentos = db.prepare(

@@ -96,7 +96,7 @@ router.get('/:id', (req, res) => {
   const c = db.prepare('SELECT * FROM clientes WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenantId);
   if (!c) return res.status(404).json({ erro: 'Cliente nao encontrado' });
   c.compras = db.prepare(`
-    SELECT id, data_hora, total, forma_pagamento, origem FROM vendas WHERE cliente_id = ? AND tenant_id = ? ORDER BY data_hora DESC
+    SELECT id, data_hora, total, forma_pagamento, origem FROM vendas WHERE cliente_id = ? AND tenant_id = ? AND (deletado IS NULL OR deletado = 0) ORDER BY data_hora DESC
   `).all(c.id, req.tenantId);
 
   // Buscar itens de todas as compras de uma vez (N+1 fix)
