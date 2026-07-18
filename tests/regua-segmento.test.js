@@ -22,7 +22,8 @@ if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
 fs.mkdirSync(dir, { recursive: true });
 
 const { db } = require('../db/database');
-const { mensagemDe, pctDoSegmento, PCT_TETO_REGUA, acoesDoDia } = require('../lib/crm');
+const { mensagemDe, pctDoSegmento, PCT_TETO_REGUA, acoesDoDia, varsDe } = require('../lib/crm');
+const { DEFAULT_TEMPLATES, interpolar } = require('../lib/crm-templates');
 
 let falhas = 0;
 const ok = (d, c, x = '') => { if (c) console.log(`  ✅ ${d}`); else { console.log(`  ❌ ${d}${x ? ' → ' + x : ''}`); falhas++; } };
@@ -72,7 +73,13 @@ const msgComum  = mensagemDe(T, 'REAT_1', buscar(comum),  { segmento: 'novas' })
 
 ok('campea recebe texto DIFERENTE do padrao', msgCampea.texto !== msgComum.texto);
 ok('e o texto dela reconhece que ela e especial', /especiais|👑/.test(msgCampea.texto), msgCampea.texto.slice(0, 60));
-ok('cliente comum segue com o texto padrao', /Sentimos sua falta/.test(msgComum.texto));
+// Compara com o DEFAULT_TEMPLATES em vez de uma frase literal: o teste trava o
+// COMPORTAMENTO (sem variante -> cai no texto padrao do tipo), nao a redacao.
+// Antes ele procurava a string "Sentimos sua falta", e por isso quebrava toda vez
+// que alguem melhorava a copy — falha de teste sem falha de sistema.
+ok('cliente comum segue com o texto padrao',
+   msgComum.texto === interpolar(DEFAULT_TEMPLATES.REAT_1.texto, varsDe(T, buscar(comum))),
+   msgComum.texto.slice(0, 60));
 
 // ============================================================
 secao('3. O texto da LOJISTA nunca e trocado por variante');

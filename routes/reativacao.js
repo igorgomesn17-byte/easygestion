@@ -21,7 +21,7 @@
 // ============================================================
 const express = require('express');
 const router = express.Router();
-const { db } = require('../db/database');
+const { db, getConfig } = require('../db/database');
 const { urlWhatsApp, varsDe, exigirTenant } = require('../lib/crm');
 const { interpolar } = require('../lib/crm-templates');
 const { emitirCupom } = require('../lib/cupons');
@@ -37,13 +37,34 @@ const ONDAS = {
   baixa: { nome: 'Baixa',  min: 0,    max: 200,      desc: 'Só depois de as anteriores darem retorno' },
 };
 
-// Mensagem padrao de REENCONTRO. Editavel por loja em config (chave propria) pra a
-// lojista ajustar sem deploy — o default ja e' utilizavel.
+// Mensagem padrao de REENCONTRO.
+//
+// -- O GANCHO E' O QUE FAZ ESTA CAMPANHA FUNCIONAR --
+//
+// Uma base importada raramente "esqueceu" a loja: ela parou por um MOTIVO concreto
+// (a loja da cidade dela fechou, mudou de endereco, parou de entregar). Uma mensagem
+// que so diz "chegou colecao nova, quer ver?" bate direto na objecao que ela ja tem
+// pronta: "ver como, se voces sairam daqui?". A copy morre ali, por mais bonita
+// que seja.
+//
+// Por isso existe {gancho}: a frase que derruba essa objecao especifica — tipicamente
+// a entrega ("continuamos pertinho de voce: entregamos ai"). Vem da config
+// `reativacao_gancho`, entao o codigo continua GENERICO (nenhuma cidade chumbada,
+// ver tests/reativacao.test.js) e cada loja escreve o gancho dela sem deploy.
+//
+// Sem gancho configurado a frase simplesmente nao aparece: a mensagem continua
+// valida, so mais fraca. O /resumo devolve `gancho` pra tela poder avisar.
 const MSG_PADRAO =
   'Oi {nome}! 🤎 Aqui é a {loja}!\n\n' +
-  'Faz um tempo que a gente não se vê e lembrei de você! Chegou coleção nova linda e ' +
-  'separei algumas peças pensando no seu estilo.\n\n' +
+  'Faz um tempo que a gente não se vê e lembrei de você!{gancho} ' +
+  'Chegou coleção nova e separei algumas peças pensando no seu estilo.\n\n' +
   'Quer dar uma olhadinha no que chegou? 😍';
+
+// O gancho ja vem com o espacamento pronto pra encaixar na frase (ou vazio).
+function ganchoDe(tenantId) {
+  const g = (getConfig('reativacao_gancho', '', tenantId) || '').trim();
+  return g ? ` ${g}` : '';
+}
 
 function ondaDe(gasto) {
   const g = Number(gasto) || 0;
@@ -81,6 +102,9 @@ router.get('/resumo', (req, res) => {
     total: tot,
     contatados: linhas.filter(l => l.contatado).length,
     responderam: linhas.filter(l => l.respondeu).length,
+    // A tela usa isto pra avisar antes do primeiro disparo: sem o gancho, a
+    // mensagem nao responde "por que voce sumiu", que e' a objecao real da base.
+    gancho: (getConfig('reativacao_gancho', '', t) || '').trim() || null,
   });
 });
 
@@ -108,8 +132,9 @@ router.get('/clientes', (req, res) => {
   if (soPendentes) sql += ' AND rc.id IS NULL';
   sql += ' ORDER BY c.total_gasto DESC LIMIT 400';
 
+  const gancho = ganchoDe(t);
   const lista = db.prepare(sql).all(...params).map(c => {
-    const texto = interpolar(MSG_PADRAO, varsDe(t, c));
+    const texto = interpolar(MSG_PADRAO, { ...varsDe(t, c), gancho });
     return {
       ...c,
       onda: ondaDe(c.total_gasto),
