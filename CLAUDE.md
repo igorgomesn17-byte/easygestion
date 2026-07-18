@@ -1495,4 +1495,20 @@ Ver memórias `regua-planos-vitrine-starter-relacionamento-growth` e `cupom-selo
 
 ---
 
-**Documento versão 2.0 — Atualizado em 17 de julho de 2026. Régua nova: vitrine + personalização + precificação DESCERAM pro Starter (canal de aquisição + operação básica de vender); relacionamento (RFM + régua + clube) SUBIU pro Growth como bandeira do plano; DRE/relatórios seguem Growth. Fonte da verdade `lib/planos.js` — front e endpoint seguem sozinhos. Clube: lista de selos recolhida por padrão. Cupom não fiscal voltou a mostrar selos (rota `/crm/selos` era fantasma). Ficha da cliente ganhou Instagram + Observações (migration 039). Stripe em modo LIVE. Pendência de segurança nº1: rotacionar a chave AWS vazada.**
+## Últimas Mudanças (17 de julho de 2026 — noite) — Régua: comprou sai da fila, reativação não multiplica
+
+**Commit:** `914dd1b` — no ar. Dois bugs que o Igor viu usando a tela de Contatos do dia.
+
+A régua **materializa** as ações em `crm_acoes` e as **congela** (mensagem, "X dias sem comprar" e motivo nascem no dia da geração). Isso conserta o gatilho de dia exato se perder, mas cria dívida de reconciliação: nada olhava a linha parada depois que o mundo mudou.
+
+- **Comprou e não saiu da fila.** A cliente comprava e a ação "sentimos sua falta, 28 dias sem comprar" continuava `pendente`, falando de uma ausência que a compra encerrou (`routes/vendas.js` não tocava `crm_acoes`). → `obsoletarAcoesDeAusencia()` em `lib/crm.js`, chamada **na transação da venda**; marca `status='obsoleta'` (não apaga — histórico auditável, e é distinto de 'enviada'/'ignorada': ninguém contatou, a compra resolveu).
+- **Mesmo cliente repetido várias vezes.** O UNIQUE é `(tenant_id, data, cliente_id, tipo)` — inclui a **data**. Como os gatilhos de ausência têm **janela larga** (REAT_1 = 28..32 dias), o gerador criava UMA linha por dia dentro da janela pro mesmo cliente. Em produção havia clientes com 3 cópias. → guarda `existeAcaoAtiva()` em `lib/relacionamento-scheduler.js`: não materializa se já há pendente/adiada do mesmo tipo em QUALQUER data (e apaga o cupom órfão da rodada).
+- **Só os tipos de AUSÊNCIA** entram nas duas regras (`TIPOS_DE_AUSENCIA`: RECOMPRA, REAT_1/2/3, SELOS_PARADOS). Aniversário e pós-venda **não** — uma compra não invalida "parabéns pelo aniversário".
+- **Limpeza one-off em produção:** 58 → 35 ações pendentes (2 da cliente que já havia comprado + 29 duplicatas obsoletadas). Zero duplicatas restantes.
+- **Teste de regressão:** `npm run test:regua` (`tests/regua-reconciliacao.test.js`) reproduz os dois bugs e trava. `test:crm` e `test:cupom` seguem verdes.
+
+Ver memória `regua-materializada-precisa-reconciliar`.
+
+---
+
+**Documento versão 2.1 — Atualizado em 17 de julho de 2026. Régua nova: vitrine + personalização + precificação DESCERAM pro Starter (canal de aquisição + operação básica de vender); relacionamento (RFM + régua + clube) SUBIU pro Growth como bandeira do plano; DRE/relatórios seguem Growth. Fonte da verdade `lib/planos.js` — front e endpoint seguem sozinhos. Clube: lista de selos recolhida por padrão. Cupom não fiscal voltou a mostrar selos (rota `/crm/selos` era fantasma). Ficha da cliente ganhou Instagram + Observações (migration 039). Histórico: nome da cliente vira link pra ficha. Régua reconciliada: quem compra sai da fila e a janela de reativação não multiplica o mesmo cliente (`npm run test:regua`). Stripe em modo LIVE. Pendência de segurança nº1: rotacionar a chave AWS vazada.**
