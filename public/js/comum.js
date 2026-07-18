@@ -196,6 +196,10 @@ const NAV = [
     { id:'resultados',     href:'resultados.html',     ico:'fluxo',    txt:'Deu resultado?',  feature:'relacionamento' },
     { id:'segmentos',      href:'segmentos.html',      ico:'vendas',   txt:'Segmentos',       feature:'relacionamento' },
     { id:'clube',          href:'clube.html',          ico:'config',   txt:'Fidelidade',  feature:'relacionamento' },
+    // Base importada de outro sistema: campanha à parte, não entra na fila do dia.
+    // Feature PRÓPRIA (`base_importada`, só no interno) — quem não tem base migrada
+    // não precisa ver esta aba.
+    { id:'reativacao',     href:'reativacao.html',     ico:'clientes', txt:'Reativação',  feature:'base_importada' },
   ]},
   { grupo: 'Pessoas', itens: [
     { id:'clientes',   href:'clientes.html',   ico:'clientes', txt:'Clientes' },

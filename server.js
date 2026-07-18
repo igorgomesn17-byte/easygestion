@@ -374,6 +374,10 @@ app.use('/api/auditoria',     apenasAdmin, require('./routes/auditoria'));  // L
 // não rota a rota: rota nova nasce protegida sem ninguém precisar lembrar. É admin
 // porque a tela expõe a base de clientes com telefone — não é tela de vendedora.
 app.use('/api/relacionamento', apenasAdmin, exigirFeature('relacionamento'), require('./routes/relacionamento'));
+// Reativação da base IMPORTADA (campanha, não régua). Gate próprio: `base_importada`
+// existe só no plano `interno` — é ferramenta da campanha da loja do dono, não
+// produto. Mesmo padrão de mount: rota nova nasce protegida.
+app.use('/api/reativacao', apenasAdmin, exigirFeature('base_importada'), require('./routes/reativacao'));
 // Maquininha integrada (Mercado Pago Point): manda a cobrança pro aparelho e traz de
 // volta NSU, bandeira e a TAXA REAL. Gate no mount, como os de cima.
 // ⚠️ A feature é `maquininha_integrada`, NÃO `maquininha` — esta última já existe, é

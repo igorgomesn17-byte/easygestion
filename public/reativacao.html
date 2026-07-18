@@ -1,0 +1,209 @@
+<DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reativação • EasyGestão</title>
+  <link rel="stylesheet" href="css/ds.css">
+  <style>
+    /* Ondas: o painel de onde atacar primeiro. O dinheiro da base importada é
+       concentrado — a onda VIP costuma ser poucas pessoas e metade do valor. */
+    .ondas { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:12px; margin-bottom:18px; }
+    .onda { background:var(--surface,#fff); border:1px solid var(--linha); border-radius:10px;
+            padding:14px 16px; cursor:pointer; transition:border-color .15s, transform .15s; }
+    .onda:hover { border-color:var(--marca); transform:translateY(-2px); }
+    .onda.on { border-color:var(--marca); border-width:2px; background:var(--marca-clara,#e7f3ef); }
+    .onda-nome { font-weight:700; font-size:1rem; color:var(--tinta); }
+    .onda-n { font-size:1.5rem; font-weight:800; color:var(--marca); line-height:1.1; font-variant-numeric:tabular-nums; }
+    .onda-desc { font-size:0.76rem; color:var(--tinta-2); margin-top:4px; line-height:1.35; }
+    .onda-prog { font-size:0.78rem; color:var(--tinta-3,#8a9a92); margin-top:6px; font-variant-numeric:tabular-nums; }
+
+    .barra { height:5px; background:var(--linha); border-radius:3px; overflow:hidden; margin-top:5px; }
+    .barra i { display:block; height:100%; background:var(--marca); }
+
+    .cli { border-left:3px solid var(--dourado); }
+    .cli.feito { border-left-color:var(--verde,#1e8a5a); opacity:.62; }
+    .cli-topo { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
+    .cli-nome { font-weight:700; font-size:1.02rem; color:var(--tinta); }
+    .cli-meta { color:var(--tinta-2); font-size:0.84rem; margin-top:2px; font-variant-numeric:tabular-nums; }
+    .cli-msg { width:100%; min-height:92px; margin-top:10px; padding:10px 12px; font-size:0.9rem;
+               border:1px solid var(--linha); border-radius:8px; font-family:inherit; resize:vertical; }
+    .cli-btns { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; align-items:center; }
+    .selo-feito { font-size:0.75rem; font-weight:700; color:var(--verde,#1e8a5a);
+                  background:#e8f5ee; border-radius:999px; padding:4px 10px; white-space:nowrap; }
+    .chip-cupom { background:var(--dourado-suave,#f3ead6); border-radius:8px; padding:8px 11px;
+                  font-size:0.82rem; margin-top:8px; color:#6a5426; }
+    .topo-acoes { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:14px; }
+  </style>
+</head>
+<body>
+  <div class="conteudo">
+    <h1>Reativação da base antiga</h1>
+    <p class="texto-cinza" style="margin-bottom:16px;">
+      Clientes que vieram de outro sistema e ainda não compraram aqui. Não entram nos
+      contatos do dia — esta é uma campanha à parte, no seu ritmo.
+    </p>
+
+    <div id="resumo" class="ondas"></div>
+
+    <div class="topo-acoes">
+      <label style="display:flex; align-items:center; gap:7px; font-size:0.9rem;">
+        <input type="checkbox" id="soPendentes" checked onchange="carregarLista()">
+        Esconder quem eu já contatei
+      </label>
+      <label style="display:flex; align-items:center; gap:7px; font-size:0.9rem;">
+        Cupom de
+        <select id="cupomPct" style="padding:5px 8px; border-radius:6px; border:1px solid var(--linha);">
+          <option value="0">sem cupom</option>
+          <option value="10">10%</option>
+          <option value="15" selected>15%</option>
+          <option value="20">20%</option>
+          <option value="25">25%</option>
+        </select>
+        por 15 dias
+      </label>
+    </div>
+
+    <div id="lista"></div>
+  </div>
+
+  <script src="js/comum.js"></script>
+  <script>
+    let ONDA = null;      // null = todas
+    let CLIENTES = [];
+
+    async function carregarResumo() {
+      const d = await api('/reativacao/resumo');
+      document.getElementById('resumo').innerHTML = d.ondas.map(o => {
+        const pct = o.total ? Math.round(o.contatados / o.total * 100) : 0;
+        return `
+        <div class="onda ${ONDA === o.id ? 'on' : ''}" onclick="selecionarOnda('${o.id}')">
+          <div class="onda-nome">${esc(o.nome)}</div>
+          <div class="onda-n">${o.total}</div>
+          <div class="onda-desc">${esc(o.desc)}</div>
+          <div class="onda-prog">${o.contatados} de ${o.total} contatadas${o.responderam ? ` • ${o.responderam} responderam` : ''}</div>
+          <div class="barra"><i style="width:${pct}%"></i></div>
+        </div>`;
+      }).join('') + `
+        <div class="onda ${ONDA === null ? 'on' : ''}" onclick="selecionarOnda(null)">
+          <div class="onda-nome">Todas</div>
+          <div class="onda-n">${d.total}</div>
+          <div class="onda-desc">A base importada inteira</div>
+          <div class="onda-prog">${d.contatados} contatadas • ${d.responderam} responderam</div>
+          <div class="barra"><i style="width:${d.total ? Math.round(d.contatados / d.total * 100) : 0}%"></i></div>
+        </div>`;
+    }
+
+    function selecionarOnda(o) { ONDA = o; carregarResumo(); carregarLista(); }
+
+    async function carregarLista() {
+      const box = document.getElementById('lista');
+      box.innerHTML = '<div class="card">Carregando…</div>';
+      const q = [];
+      if (ONDA) q.push('onda=' + ONDA);
+      if (document.getElementById('soPendentes').checked) q.push('pendentes=1');
+      const d = await api('/reativacao/clientes' + (q.length ? '?' + q.join('&') : ''));
+      CLIENTES = d.clientes;
+
+      if (!CLIENTES.length) {
+        box.innerHTML = `<div class="card" style="text-align:center; padding:28px;">
+          <strong>Nenhuma cliente aqui.</strong><br>
+          <span class="texto-cinza">${document.getElementById('soPendentes').checked
+            ? 'Você já contatou todo mundo desta onda. 👏' : 'Esta onda está vazia.'}</span></div>`;
+        return;
+      }
+
+      box.innerHTML = CLIENTES.map(c => `
+        <div class="card cli ${c.contatado ? 'feito' : ''}" id="cli-${c.id}">
+          <div class="cli-topo">
+            <div>
+              <div class="cli-nome">${esc(c.nome)}</div>
+              <div class="cli-meta">
+                ${moeda(c.total_gasto)} em ${c.num_compras} ${c.num_compras === 1 ? 'compra' : 'compras'}
+                ${c.dias ? ` • sumiu há ${Math.round(c.dias / 30)} meses` : ''}
+              </div>
+            </div>
+            ${c.contatado ? `<span class="selo-feito">✓ contatada</span>` : ''}
+          </div>
+
+          ${c.cupom_enviado ? `<div class="chip-cupom">🎟️ Cupom enviado: <strong>${esc(c.cupom_enviado)}</strong></div>` : ''}
+
+          ${c.contatado ? '' : `<textarea class="cli-msg" id="msg-${c.id}">${esc(c.mensagem)}</textarea>`}
+
+          <div class="cli-btns">
+            ${c.contatado ? `
+              <button class="btn btn-fino" onclick="desmarcar(${c.id})">Desmarcar</button>
+              <button class="btn btn-fino ${c.respondeu ? 'btn-escuro' : ''}" onclick="marcarResposta(${c.id}, ${c.respondeu ? 0 : 1})">
+                ${c.respondeu ? '✓ respondeu' : 'Marcar que respondeu'}
+              </button>
+            ` : `
+              <button class="btn btn-zap" onclick="enviar(${c.id})">Enviar no WhatsApp</button>
+              <button class="btn btn-sec" onclick="copiar(${c.id})">Copiar</button>
+            `}
+          </div>
+        </div>`).join('');
+    }
+
+    const textoDe = (id) => {
+      const el = document.getElementById('msg-' + id);
+      return el ? el.value : (CLIENTES.find(c => c.id === id) || {}).mensagem || '';
+    };
+
+    async function enviar(id) {
+      const c = CLIENTES.find(x => x.id === id);
+      const msg = textoDe(id);
+      const pct = parseInt(document.getElementById('cupomPct').value, 10) || 0;
+
+      // Marca ANTES de abrir o WhatsApp: o cupom nominal precisa existir pra entrar na
+      // mensagem. Se marcasse depois, o código iria faltando no texto que ela enviou.
+      let r;
+      try {
+        r = await api(`/reativacao/contatos/${id}`, {
+          method: 'POST',
+          body: { mensagem: msg, onda: c.onda, cupom_pct: pct, cupom_dias: 15 },
+        });
+      } catch (e) { toast(e.message || 'Erro ao registrar o contato', 'erro'); return; }
+
+      let texto = msg;
+      if (r.cupom) {
+        const val = r.cupom_validade ? r.cupom_validade.slice(8, 10) + '/' + r.cupom_validade.slice(5, 7) : '';
+        texto += `\n\n🎁 E preparei um cupom de ${pct}% só pra você voltar:\n🎟️ *${r.cupom}*${val ? `\n⏳ Vale até ${val}` : ''}`;
+      }
+
+      const tel = (c.telefone || '').replace(/\D/g, '');
+      const full = tel.length <= 11 ? '55' + tel : tel;
+      window.open(`https://wa.me/${full}?text=${encodeURIComponent(texto)}`, '_blank');
+
+      await carregarResumo();
+      await carregarLista();
+    }
+
+    async function copiar(id) {
+      try { await navigator.clipboard.writeText(textoDe(id)); toast('Mensagem copiada','sucesso'); }
+      catch (e) { toast('Não consegui copiar','erro'); }
+    }
+
+    async function desmarcar(id) {
+      try {
+        await api(`/reativacao/contatos/${id}`, { method: 'DELETE' });
+        await carregarResumo(); await carregarLista();
+      } catch (e) { toast(e.message || 'Erro','erro'); }
+    }
+
+    async function marcarResposta(id, valor) {
+      try {
+        await api(`/reativacao/contatos/${id}/respondeu`, { method: 'PATCH', body: { respondeu: !!valor } });
+        await carregarResumo(); await carregarLista();
+      } catch (e) { toast(e.message || 'Erro','erro'); }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      montarLayout('reativacao');
+      carregarResumo().then(carregarLista).catch(e => {
+        document.getElementById('lista').innerHTML =
+          `<div class="card">Não consegui carregar. ${esc(e.message || '')}</div>`;
+      });
+    });
+  </script>
+</body>
+</html>

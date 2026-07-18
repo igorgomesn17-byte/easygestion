@@ -1761,6 +1761,38 @@ function executarMigrations(db) {
             );
         `);
       }
+    },
+    {
+      nome: '041_reativacao_contatos',
+      hash: 'v41-reativacao-contatos',
+      exec: (db) => {
+        // Registro de quem JA foi contatada na campanha de reativacao da base
+        // importada. Tabela propria em vez de reusar crm_acoes de proposito:
+        //
+        //   - crm_acoes e' a FILA DO DIA (o scheduler cria e limpa). A campanha de
+        //     reativacao e' manual, sem gatilho de data, e roda no ritmo da lojista —
+        //     misturar as duas faria a base importada poluir a fila diaria, que e'
+        //     exatamente o que a migration 040 acabou de separar.
+        //   - aqui o que importa e' "ja falei com ela?", nao "quando o sistema mandou".
+        //
+        // UNIQUE(tenant_id, cliente_id): uma cliente e' contatada uma vez por campanha.
+        // Reabordar e' decisao consciente (a tela permite desmarcar), nao acidente.
+        db.exec(`
+          CREATE TABLE IF NOT EXISTS reativacao_contatos (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            tenant_id   INTEGER NOT NULL,
+            cliente_id  INTEGER NOT NULL,
+            onda        TEXT,                  -- vip | alta | media | baixa
+            mensagem    TEXT,                  -- o texto REAL que foi enviado
+            cupom       TEXT,                  -- codigo nominal, se houve
+            respondeu   INTEGER NOT NULL DEFAULT 0,
+            contatado_em TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+            UNIQUE (tenant_id, cliente_id),
+            FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE CASCADE
+          );
+        `);
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_reativacao_tenant ON reativacao_contatos(tenant_id, contatado_em);`);
+      }
     }
   ];
 
