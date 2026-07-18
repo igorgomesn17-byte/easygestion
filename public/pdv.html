@@ -287,7 +287,21 @@
     </div>
   </div>
 
-  
+  <!-- Lembrete de cliente na venda. Aparece só quando vai fechar SEM cliente.
+       Não trava a venda: as duas saídas são de 1 clique. -->
+  <div class="modal-fundo" id="modalSemCliente" style="z-index:210;">
+    <div class="modal" style="max-width:420px;">
+      <h2 style="margin-bottom:6px;">Quem está comprando?</h2>
+      <p class="texto-cinza" style="font-size:0.92rem; margin-bottom:18px;">
+        Com a cliente vinculada, a venda entra no histórico dela, junta selo e o sistema
+        avisa você quando ela sumir.
+      </p>
+      <button class="btn btn-bloco" id="btnEscolherCli" style="margin-bottom:10px;">Escolher a cliente</button>
+      <button class="btn btn-bloco btn-fino" id="btnSemCli">Vender sem identificar</button>
+    </div>
+  </div>
+
+
   <div class="modal-fundo" id="modalCaixa" style="z-index:200;">
     <div class="modal">
       <h2>Abrir o caixa do dia</h2>
@@ -1139,6 +1153,43 @@
       limparCupom();
       cupomHabilitado();
     }
+    // Pergunta quem está comprando quando a venda vai fechar sem cliente.
+    // Resolve 'cancelar' (a lojista vai escolher a cliente) ou 'balcao' (vender sem
+    // identificar). Promise porque o finalizar() precisa ESPERAR a decisão — sem isso
+    // a venda seguiria enquanto o modal ainda está aberto.
+    function perguntarCliente() {
+      return new Promise((resolve) => {
+        const modal = document.getElementById('modalSemCliente');
+        const bEscolher = document.getElementById('btnEscolherCli');
+        const bSem = document.getElementById('btnSemCli');
+
+        const fechar = (r) => {
+          modal.classList.remove('aberto');
+          // Remove os listeners: sem isto, cada venda empilharia um handler novo e a
+          // segunda venda resolveria a promise da primeira.
+          bEscolher.removeEventListener('click', onEscolher);
+          bSem.removeEventListener('click', onSem);
+          modal.removeEventListener('click', onFundo);
+          resolve(r);
+        };
+        const onEscolher = () => {
+          fechar('cancelar');
+          // Leva a lojista direto pro campo de busca — o próximo passo óbvio.
+          const busca = document.getElementById('buscaCli');
+          if (busca) { busca.focus(); busca.scrollIntoView({ block:'center', behavior:'smooth' }); }
+        };
+        const onSem = () => fechar('balcao');
+        // Clicar fora = desistir da venda por ora (mesma semântica de "escolher"):
+        // é o caminho seguro, não fecha venda sem a decisão ter sido tomada.
+        const onFundo = (e) => { if (e.target.id === 'modalSemCliente') onEscolher(); };
+
+        bEscolher.addEventListener('click', onEscolher);
+        bSem.addEventListener('click', onSem);
+        modal.addEventListener('click', onFundo);
+        modal.classList.add('aberto');
+      });
+    }
+
     function abrirNovoCliente(){ document.getElementById('modalCli').classList.add('aberto'); }
     // popula o select "Como conheceu a loja?" a partir do config (origens)
     async function carregarOrigensCliente(){
@@ -1257,6 +1308,30 @@
 
     async function finalizar(comNfce) {
       if (carrinho.length === 0) { toast('Carrinho vazio','erro'); return; }
+
+      // ---- CLIENTE NA VENDA: pergunta uma vez, com saída em 1 clique ----
+      // 70% das vendas estavam saindo sem cliente — não por escolha, mas por
+      // esquecimento na correria. Cliente sem vínculo some do CRM inteiro: não entra
+      // na régua, não junta selo, não vira recompra.
+      //
+      // Isto NÃO bloqueia a venda (o balcão cheio no sábado não pode esperar): é uma
+      // decisão consciente de um clique. Quem não quer/não dá tempo cai no
+      // "Consumidor não identificado", que preserva o dado ("foi anônima de verdade")
+      // em vez de gravar NULL e perder a distinção entre "esqueci" e "ela não quis".
+      if (!document.getElementById('clienteId').value) {
+        const escolha = await perguntarCliente();
+        if (escolha === 'cancelar') return;            // vai escolher a cliente
+        if (escolha === 'balcao') {
+          try {
+            const b = await api('/clientes/balcao', { method:'POST' });
+            document.getElementById('clienteId').value = b.id;
+          } catch (e) {
+            // Se o balcão falhar, a venda NÃO pode cair por causa disso: segue sem
+            // cliente (comportamento antigo). Perder a venda seria pior que perder o dado.
+            console.error('[pdv] balcão falhou:', e);
+          }
+        }
+      }
 
       // ⚠️ O SPINNER SÓ LIGA DEPOIS DE TODA VALIDAÇÃO (logo antes do try, lá embaixo).
       //

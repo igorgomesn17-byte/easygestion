@@ -163,6 +163,11 @@
               <div style="margin-top:4px;">${v.cliente_id && v.cliente_nome
                 ? `<a href="clientes.html?cliente=${v.cliente_id}" title="Abrir ficha da cliente" style="color:var(--marca,#143f37); font-weight:600; text-decoration:underline; text-underline-offset:2px;">${esc(v.cliente_nome)}</a>`
                 : (v.cliente_nome ? esc(v.cliente_nome) : '—')}</div>
+              <!-- Venda que saiu sem cliente (a correria do balcão) pode ser corrigida
+                   aqui, sem cancelar e refazer. O histórico dela passa a existir. -->
+              <div id="vincCli" style="margin-top:6px;">
+                ${!v.cliente_id ? `<button class="btn btn-fino" style="font-size:0.8rem; padding:4px 10px;" onclick="abrirVincular(${v.id})">+ Vincular cliente</button>` : ''}
+              </div>
             </div>
             <div>
               <strong style="color:#666; font-size:0.85rem;">Vendedor</strong>
@@ -316,6 +321,48 @@
 
     function fecharModal() {
       document.getElementById('modalVenda').classList.remove('aberto');
+    }
+
+    // ---- Vincular cliente numa venda já fechada ----
+    // Recupera a venda que saiu sem cliente na correria. Não mexe em estoque, caixa
+    // nem cupom: só o vínculo (e os totais da cliente, que o backend ajusta).
+    function abrirVincular(vendaId) {
+      const div = document.getElementById('vincCli');
+      div.innerHTML = `
+        <input type="search" id="buscaVinc" placeholder="Buscar cliente pelo nome…" autocomplete="off"
+               style="width:100%; padding:7px 10px; border:1px solid #ddd; border-radius:6px; font-size:0.88rem;">
+        <div id="resVinc" style="margin-top:4px;"></div>`;
+      const input = document.getElementById('buscaVinc');
+      input.focus();
+      let t;
+      input.addEventListener('input', () => {
+        clearTimeout(t);
+        // debounce: sem isto cada tecla dispara uma busca
+        t = setTimeout(async () => {
+          const b = input.value.trim();
+          const res = document.getElementById('resVinc');
+          if (b.length < 2) { res.innerHTML = ''; return; }
+          try {
+            const lista = await api('/clientes?busca=' + encodeURIComponent(b));
+            res.innerHTML = lista.length
+              ? lista.slice(0, 6).map(c => `
+                  <div onclick="vincular(${vendaId}, ${c.id})"
+                       style="padding:6px 9px; cursor:pointer; border-bottom:1px solid #f0f0f0; font-size:0.87rem;">
+                    ${esc(c.nome)} ${c.telefone ? `<span class="texto-cinza">• ${esc(c.telefone)}</span>` : ''}
+                  </div>`).join('')
+              : '<div class="texto-cinza" style="padding:6px 9px; font-size:0.85rem;">Nenhum cliente encontrado.</div>';
+          } catch (e) { res.innerHTML = ''; }
+        }, 250);
+      });
+    }
+
+    async function vincular(vendaId, clienteId) {
+      try {
+        await api('/vendas/' + vendaId + '/cliente', { method:'PATCH', body:{ cliente_id: clienteId } });
+        toast('Cliente vinculado à venda','sucesso');
+        await verDetalhes(vendaId);   // redesenha o modal já com o nome e o link
+        carregar();                    // e a lista por trás
+      } catch (e) { toast(e.message || 'Não consegui vincular','erro'); }
     }
 
     async function emitirNfce(vendaId) {

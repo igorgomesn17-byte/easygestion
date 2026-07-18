@@ -52,8 +52,20 @@ router.use((req, res, next) => {
   if (papel !== 'vendedor') return next(); // admin e relacionamento: acesso pleno
   const ehBusca = req.method === 'GET';
   const ehCadastro = req.method === 'POST' && (req.path === '/' || req.path === '');
-  if (ehBusca || ehCadastro) return next();
+  // O balcao e' o caminho de saida do PDV ("a cliente nao quis se cadastrar"): a
+  // vendedora PRECISA alcancar, senao a venda trava justamente no caso que este
+  // recurso existe pra destravar.
+  const ehBalcao = req.method === 'POST' && req.path === '/balcao';
+  if (ehBusca || ehCadastro || ehBalcao) return next();
   return res.status(403).json({ erro: 'Sem permissão para esta área' });
+});
+
+// POST /api/clientes/balcao -> devolve (criando na primeira vez) o "Consumidor nao
+// identificado" desta loja. O PDV chama quando a lojista escolhe fechar a venda sem
+// identificar a cliente. Idempotente: sempre o MESMO registro por tenant.
+router.post('/balcao', (req, res) => {
+  const { clienteBalcao } = require('../lib/crm');
+  res.json(clienteBalcao(req.tenantId));
 });
 
 // GET /api/clientes?busca=&arquivados=1

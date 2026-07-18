@@ -1717,6 +1717,50 @@ function executarMigrations(db) {
         if (!cols.includes('instagram'))   db.exec(`ALTER TABLE clientes ADD COLUMN instagram TEXT;`);
         if (!cols.includes('observacoes')) db.exec(`ALTER TABLE clientes ADD COLUMN observacoes TEXT;`);
       }
+    },
+    {
+      nome: '040_clientes_tipo',
+      hash: 'v40-clientes-tipo',
+      exec: (db) => {
+        // Nem todo registro em `clientes` e' uma pessoa que a loja contata. Duas
+        // excecoes precisavam ser distinguidas, e ate agora nao havia como:
+        //
+        //   'balcao'    -> o "Consumidor nao identificado": UM registro por loja que
+        //                  recebe as vendas de quem nao quis (ou nao deu tempo de)
+        //                  cadastrar. Sem ele, esse caso vira cliente_id NULL e some
+        //                  do CRM inteiro — e "esqueci" fica indistinguivel de "ela
+        //                  nao quis". Ele NAO e' pessoa: fora da regua E fora do RFM
+        //                  (senao viraria uma "campea" com centenas de compras,
+        //                  envenenando os segmentos).
+        //
+        //   'importado' -> base migrada de outro sistema com o historico AGREGADO
+        //                  (num_compras/total_gasto vieram, as vendas individuais nao).
+        //                  Fica no RFM e nos segmentos (o valor dela e' real), mas fora
+        //                  da fila diaria: a regua leria `ultima_compra` e diria
+        //                  "28 dias sem comprar" pra quem sumiu ha um ano. Essa base
+        //                  merece campanha de REENCONTRO, nao a regua do dia a dia.
+        //
+        //   NULL        -> cliente normal. O default preserva todo mundo que ja existe.
+        const cols = db.prepare('PRAGMA table_info(clientes)').all().map((c) => c.name);
+        if (!cols.includes('tipo')) db.exec(`ALTER TABLE clientes ADD COLUMN tipo TEXT;`);
+
+        // Indice: a regua e o RFM filtram por tipo em toda varredura.
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_clientes_tipo ON clientes(tenant_id, tipo);`);
+
+        // Backfill da base importada. Marca por ORIGEM (o importador gravou
+        // 'Cliente Camacan') E por ausencia de venda real no sistema — as duas
+        // condicoes juntas, pra nao marcar quem veio de Camacan mas ja voltou a
+        // comprar aqui (essa e' cliente ativa e DEVE seguir na regua normal).
+        db.exec(`
+          UPDATE clientes SET tipo = 'importado'
+          WHERE tipo IS NULL
+            AND origem LIKE '%Camacan%'
+            AND NOT EXISTS (
+              SELECT 1 FROM vendas v
+              WHERE v.cliente_id = clientes.id AND v.tenant_id = clientes.tenant_id
+            );
+        `);
+      }
     }
   ];
 

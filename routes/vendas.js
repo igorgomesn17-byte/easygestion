@@ -721,6 +721,63 @@ router.get('/export.csv', exigirFeature('export'), (req, res) => {
   res.send(csv);
 });
 
+// PATCH /api/vendas/:id/cliente -> vincula (ou troca) a cliente de uma venda JA fechada.
+//
+// Existe porque no balcao cheio a venda sai sem cliente e a lojista so percebe depois.
+// Sem este caminho, o unico jeito de corrigir seria cancelar e refazer a venda — que
+// mexe em estoque, caixa e cupom. Aqui nada disso e' tocado: o dinheiro ja entrou e
+// continua igual. So o VINCULO muda.
+//
+// O que precisa andar junto (senao a RFM e o clube ficam mentindo):
+//   - a cliente NOVA recebe o valor da venda (total_gasto/num_compras) e a data vira
+//     ultima_compra se for mais recente que a que ela ja tinha;
+//   - a cliente ANTIGA (se a venda ja tinha uma) devolve o valor.
+// `ultima_compra` da antiga NAO e' recalculada: exigiria varrer as vendas dela, e o
+// erro (uma data mais recente do que a real) e' conservador — no maximo atrasa uma
+// mensagem de reativacao, nunca dispara uma errada.
+router.patch('/:id/cliente', (req, res) => {
+  const v = db.prepare('SELECT * FROM vendas WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenantId);
+  if (!v) return res.status(404).json({ erro: 'Venda não encontrada' });
+
+  const novoId = req.body.cliente_id || null;
+  if (novoId) {
+    const cli = db.prepare('SELECT id FROM clientes WHERE id = ? AND tenant_id = ?').get(novoId, req.tenantId);
+    if (!cli) return res.status(400).json({ erro: 'Cliente inválido' });
+  }
+  if (String(v.cliente_id || '') === String(novoId || '')) return res.json({ ok: true, inalterado: true });
+
+  const dataVenda = v.data_hora.slice(0, 10);
+
+  db.transaction(() => {
+    // Tira da antiga
+    if (v.cliente_id) {
+      db.prepare(`UPDATE clientes SET total_gasto = MAX(total_gasto - ?, 0),
+                         num_compras = MAX(num_compras - 1, 0)
+                  WHERE id = ? AND tenant_id = ?`).run(v.total, v.cliente_id, req.tenantId);
+    }
+    // Soma na nova
+    if (novoId) {
+      db.prepare(`UPDATE clientes SET total_gasto = total_gasto + ?,
+                         num_compras = num_compras + 1,
+                         ultima_compra = CASE
+                           WHEN ultima_compra IS NULL OR ultima_compra < ? THEN ? ELSE ultima_compra END
+                  WHERE id = ? AND tenant_id = ?`)
+        .run(v.total, dataVenda, dataVenda, novoId, req.tenantId);
+    }
+    db.prepare('UPDATE vendas SET cliente_id = ? WHERE id = ? AND tenant_id = ?')
+      .run(novoId, v.id, req.tenantId);
+
+    // A venda agora e' de alguem: se essa cliente estava na fila de "sumiu", a compra
+    // (que sempre existiu, so nao estava vinculada) encerra a ausencia. Mesmo racional
+    // do POST /vendas.
+    if (novoId && temFeature(planoDoTenant(req.tenantId), 'relacionamento')) {
+      obsoletarAcoesDeAusencia(req.tenantId, novoId);
+    }
+  })();
+
+  res.json({ ok: true, cliente_id: novoId });
+});
+
 router.patch('/:id/vendedor', (req, res) => {
   const v = db.prepare('SELECT * FROM vendas WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenantId);
   if (!v) return res.status(404).json({ erro: 'Venda não encontrada' });
