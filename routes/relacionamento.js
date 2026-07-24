@@ -15,6 +15,7 @@ const express = require('express');
 const { db, getConfig, setConfig } = require('../db/database');
 const {
   segmentarRFM, urlWhatsApp, clubeCfg, clubeAtivo, selosDe, SEGMENTOS, campanhaSegmento, templateDe,
+  reescreverAcoesPendentes,
 } = require('../lib/crm');
 const { ativarCupomDaAcao, cancelarCupomDaAcao, MAX_PCT } = require('../lib/cupons');
 const { DEFAULT_TEMPLATES, ROTULOS, VARIAVEIS_DISPONIVEIS } = require('../lib/crm-templates');
@@ -466,13 +467,25 @@ router.put('/templates/:tipo', (req, res) => {
     req.tenantId, tipo, texto, prefixo, pct, dias,
     b.ativo === undefined ? 1 : (b.ativo ? 1 : 0)
   );
-  res.json({ ok: true, tipo });
+  // A regua CONGELA a mensagem no momento da geracao. Sem isto, a lojista edita, ve
+  // "salvo", e os contatos JA na fila continuam com o texto ANTIGO — foi exatamente o
+  // que aconteceu com o link do Google (bug de campo, 24/07/2026). O botao "Atualizar
+  // lista" tambem nao resolvia: /gerar so materializa acoes que FALTAM, nunca reescreve
+  // as que existem. Entao a reescrita mora aqui, no proprio salvar.
+  //
+  // So as PENDENTES/ADIADAS: o que ja foi enviado e' historico e nao se reescreve.
+  const atualizadas = reescreverAcoesPendentes(req.tenantId, tipo);
+
+  res.json({ ok: true, tipo, acoes_atualizadas: atualizadas });
 });
 
 // DELETE = "voltar ao padrao": apaga o override, e o default do codigo volta a valer.
 router.delete('/templates/:tipo', (req, res) => {
   db.prepare('DELETE FROM crm_templates WHERE tenant_id = ? AND tipo = ?').run(req.tenantId, req.params.tipo);
-  res.json({ ok: true, tipo: req.params.tipo });
+  // Voltar ao padrao tambem precisa alcancar a fila: senao a lojista "reseta" e os
+  // contatos pendentes seguem com a versao dela.
+  const atualizadas = reescreverAcoesPendentes(req.tenantId, req.params.tipo);
+  res.json({ ok: true, tipo: req.params.tipo, acoes_atualizadas: atualizadas });
 });
 
 module.exports = router;

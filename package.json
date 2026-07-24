@@ -20,6 +20,7 @@
     "test:segmento": "node tests/regua-segmento.test.js",
     "test:cancelada": "node tests/venda-cancelada.test.js",
     "test:reativacao": "node tests/reativacao.test.js",
+    "test:reescrever": "node tests/reescrever-fila.test.js",
     "backup": "node scripts/backup.js",
     "backup-s3": "node scripts/backup-s3.js",
     "test:calculos": "node tests/calculos-tenant.test.js",

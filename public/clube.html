@@ -343,8 +343,13 @@
         body.cupom_dias = el('dia').value;
       }
       try {
-        await api('/relacionamento/templates/' + tipo, { method: 'PUT', body });
-        toast('Mensagem salva');
+        const r = await api('/relacionamento/templates/' + tipo, { method: 'PUT', body });
+        // Dizer que a fila foi atualizada é metade do conserto: antes a lojista salvava,
+        // via "Mensagem salva", e os contatos do dia continuavam com o texto antigo —
+        // sem nenhum sinal de que aquilo ia acontecer.
+        toast(r && r.acoes_atualizadas
+          ? `Mensagem salva — ${r.acoes_atualizadas} ${r.acoes_atualizadas === 1 ? 'contato do dia atualizado' : 'contatos do dia atualizados'}`
+          : 'Mensagem salva');
         await carregar();
       } catch (e) { toast(e.message || 'Erro ao salvar', 'erro'); }
     }
