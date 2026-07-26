@@ -104,10 +104,23 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
       fontSrc: ["'self'", 'https://fonts.gstatic.com'],
-      scriptSrc: ["'self'", "'unsafe-inline'", 'https://js.stripe.com'],
+      // Meta/Google entram aqui pro pixel da VITRINE funcionar. CSP GLOBAL, e não
+      // por rota, de propósito: dois headers de CSP fazem o navegador aplicar a
+      // INTERSEÇÃO — js.stripe.com sumiria da segunda e o checkout quebraria.
+      // Com Stripe em LIVE, esse bug custa dinheiro real.
+      // Permitir a origem sem nunca carregar o script tem custo ~zero: o snippet
+      // só é emitido quando a loja tem ID configurado (e validado por regex).
+      scriptSrc: ["'self'", "'unsafe-inline'", 'https://js.stripe.com',
+        'https://connect.facebook.net', 'https://www.googletagmanager.com', 'https://www.google-analytics.com'],
       scriptSrcAttr: ["'unsafe-inline'"],
-      imgSrc: ["'self'", 'data:', 'blob:'],
-      connectSrc: ["'self'", 'https://api.stripe.com', 'https://checkout.stripe.com', 'https://js.stripe.com'],
+      imgSrc: ["'self'", 'data:', 'blob:',
+        'https://www.facebook.com', 'https://www.google-analytics.com', 'https://www.googletagmanager.com'],
+      // ⚠️ region1.google-analytics.com é o esquecido: o GA4 no Brasil manda os
+      // hits pro endpoint REGIONAL. Sem ele nenhum evento sai, e a lojista jura
+      // que o recurso não funciona.
+      connectSrc: ["'self'", 'https://api.stripe.com', 'https://checkout.stripe.com', 'https://js.stripe.com',
+        'https://www.facebook.com', 'https://www.google-analytics.com', 'https://region1.google-analytics.com',
+        'https://analytics.google.com', 'https://stats.g.doubleclick.net'],
       frameSrc: ['https://checkout.stripe.com', 'https://js.stripe.com'],
       childSrc: ['https://checkout.stripe.com', 'https://js.stripe.com'],
       frameAncestors: ["'self'"],
@@ -387,6 +400,9 @@ app.use('/api/reativacao', apenasAdmin, exigirFeature('base_importada'), require
 // dentro do router — vendedora não mexe na credencial que move o dinheiro da loja.
 app.use('/api/maquininha',    pdvOuAdmin, exigirFeature('maquininha_integrada'), require('./routes/maquininha'));
 app.use('/api/assinaturas',   require('./routes/assinaturas'));  // cliente pode ver sua, admin vê todas
+// Pedidos que chegaram pela loja online. exigirFeature no app.use (e não rota a
+// rota) pra que rota nova nasça protegida.
+app.use('/api/vitrine-pedidos', exigirFeature('vitrine_site'), require('./routes/vitrine-pedidos'));
 
 // ---------- Arquivos estáticos (telas + fotos no disco persistente) ----------
 // CACHE LONGO: o nome do arquivo já é único e imutável

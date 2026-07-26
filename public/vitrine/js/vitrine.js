@@ -33,6 +33,7 @@ async function inicializar() {
       colecoes = window.__VITRINE__.colecoes || [];
       preencherHeader();
       preencherFiltros(categorias, colecoes);
+      montarChips();
       // A grade JÁ está pintada pelo servidor — repintar aqui só causaria um
       // flash. Só ligamos o clique nos cards que já existem.
       ligarCliqueNosCards();
@@ -176,7 +177,7 @@ function preencherBotoesContato() {
   }
 }
 
-function enviarNewsletter(event) {
+async function enviarNewsletter(event) {
   event.preventDefault();
 
   const nome = document.getElementById('inputNomeNewsletter').value.trim();
@@ -187,21 +188,29 @@ function enviarNewsletter(event) {
     return;
   }
 
-  // Montar mensagem para WhatsApp
+  // GRAVA o lead. Antes isto só abria o wa.me: a cliente deixava o contato, a
+  // lojista via a mensagem chegar e pronto — ninguém ficava registrado. Quem
+  // preencheu o formulário nunca entrava na base.
+  let gravou = false;
+  try {
+    const r = await fetch(`${API_BASE}/${slug}/lead`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      // Preencher o formulário de "quero receber novidades" É o consentimento.
+      body: JSON.stringify({ nome, telefone: whatsapp, fonte: 'newsletter', consentiu: 1 }),
+    });
+    gravou = r.ok;
+  } catch (e) { /* segue pro WhatsApp mesmo assim */ }
+
   const numeroLoja = (dadosLoja.loja_whatsapp || '').replace(/\D/g, '');
-  if (!numeroLoja) {
-    alert('Erro: WhatsApp da loja não configurado');
+  if (numeroLoja) {
+    const mensagem = `Olá! Meu nome é ${nome} e gostaria de receber novidades, promoções e lançamentos.`;
+    window.open(`https://wa.me/${numeroLoja}?text=${encodeURIComponent(mensagem)}`, '_blank');
+  } else if (!gravou) {
+    alert('Não foi possível enviar agora. Tente novamente.');
     return;
   }
 
-  const mensagem = `Olá! Meu nome é ${nome} e gostaria de receber novidades, promoções e lançamentos. Meu WhatsApp: ${whatsapp}`;
-  const urlEncoded = encodeURIComponent(mensagem);
-  const linkWhatsApp = `https://wa.me/${numeroLoja}?text=${urlEncoded}`;
-
-  // Abrir WhatsApp
-  window.open(linkWhatsApp, '_blank');
-
-  // Limpar formulário
   document.getElementById('inputNomeNewsletter').value = '';
   document.getElementById('inputWhatsAppNewsletter').value = '';
 }
@@ -246,6 +255,11 @@ function preencherFiltros(categorias, colecoes) {
   });
 }
 
+// Filtros ativos de tamanho e cor (chips). Set porque a cliente pode marcar
+// mais de um tamanho ("vejo P e M").
+const filtroTam = new Set();
+const filtroCor = new Set();
+
 function filtrar() {
   const categoria = document.getElementById('filtroCategoria').value;
   let colecao = document.getElementById('filtroColecao').value;
@@ -258,14 +272,78 @@ function filtrar() {
 
   const busca = document.getElementById('filtroBusca').value.toLowerCase();
 
-  const filtrados = todosProdutos.filter(p => {
+  let filtrados = todosProdutos.filter(p => {
     const passaCategoria = !categoria || p.categoria === categoria;
     const passaColecao = !colecao || p.colecao === colecao;
     const passaBusca = !busca || p.nome.toLowerCase().includes(busca);
-    return passaCategoria && passaColecao && passaBusca;
+    // O filtro olha a GRADE, não a lista de tamanhos: só passa a peça que tem
+    // aquele tamanho COM ESTOQUE. Filtrar por tamanho e devolver peça esgotada
+    // seria pior que não ter filtro.
+    const passaTam = !filtroTam.size || (p.grade || []).some(g => filtroTam.has(String(g.tamanho)) && g.quantidade > 0);
+    const passaCor = !filtroCor.size || (p.grade || []).some(g => filtroCor.has(g.cor) && g.quantidade > 0);
+    return passaCategoria && passaColecao && passaBusca && passaTam && passaCor;
   });
 
+  const ordem = document.getElementById('filtroOrdem')?.value;
+  if (ordem === 'menor') filtrados = [...filtrados].sort((a, b) => a.preco_venda - b.preco_venda);
+  else if (ordem === 'maior') filtrados = [...filtrados].sort((a, b) => b.preco_venda - a.preco_venda);
+  // "Novidades" usa o campo `destaque` (1 = novidade) e, empatando, o id mais
+  // alto — que é a peça cadastrada mais recentemente.
+  else if (ordem === 'novidades') filtrados = [...filtrados].sort((a, b) => (b.destaque - a.destaque) || (b.id - a.id));
+
   renderizarProdutos(filtrados);
+}
+
+// Monta os chips a partir do que a loja REALMENTE tem em estoque. Tamanho que
+// não existe não vira botão — filtro que devolve vazio é armadilha.
+function montarChips() {
+  const barra = document.getElementById('barraFiltros');
+  if (!barra) return;
+
+  const tamanhos = [...new Set(todosProdutos.flatMap(p => (p.grade || []).filter(g => g.quantidade > 0).map(g => String(g.tamanho))))];
+  const cores = [...new Set(todosProdutos.flatMap(p => (p.grade || []).filter(g => g.quantidade > 0).map(g => g.cor)))]
+    .filter(c => c && c !== COR_PADRAO);
+
+  // Com 1 tamanho só (ou nenhum), o filtro não separa nada e vira ruído.
+  if (tamanhos.length < 2 && cores.length < 2) return;
+  barra.hidden = false;
+
+  pintarChips('filtroTamanhos', ordenarTamanhos(tamanhos), filtroTam);
+  pintarChips('filtroCores', cores, filtroCor);
+  document.getElementById('filtroOrdem')?.addEventListener('change', filtrar);
+}
+
+function pintarChips(idContainer, valores, conjunto) {
+  const box = document.getElementById(idContainer);
+  if (!box || !valores.length) return;
+  box.innerHTML = '';
+  valores.forEach(v => {
+    const b = document.createElement('button');
+    b.className = 'chip-filtro';
+    b.textContent = v;
+    b.addEventListener('click', () => {
+      if (conjunto.has(v)) { conjunto.delete(v); b.classList.remove('on'); }
+      else { conjunto.add(v); b.classList.add('on'); }
+      filtrar();
+    });
+    box.appendChild(b);
+  });
+}
+
+// P/M/G/GG antes de 36/38/40: ordem alfabética colocaria "GG" antes de "P",
+// que não é como ninguém procura roupa.
+const ORDEM_LETRA = ['PP', 'P', 'M', 'G', 'GG', 'XG', 'XGG', 'U', 'UNICO'];
+function ordenarTamanhos(lista) {
+  return [...lista].sort((a, b) => {
+    const na = Number(a), nb = Number(b);
+    if (!isNaN(na) && !isNaN(nb)) return na - nb;
+    const ia = ORDEM_LETRA.indexOf(String(a).toUpperCase());
+    const ib = ORDEM_LETRA.indexOf(String(b).toUpperCase());
+    if (ia !== -1 && ib !== -1) return ia - ib;
+    if (ia !== -1) return -1;
+    if (ib !== -1) return 1;
+    return String(a).localeCompare(String(b));
+  });
 }
 
 // ============================================================
@@ -546,7 +624,7 @@ function renderizarCarrinho() {
 // WhatsApp
 // ============================================================
 
-function finalizarWhatsApp() {
+async function finalizarWhatsApp() {
   if (carrinhoLocal.length === 0) {
     alert('Seu carrinho está vazio');
     return;
@@ -558,8 +636,28 @@ function finalizarWhatsApp() {
     return;
   }
 
-  // Montar mensagem
-  let mensagem = `Olá! Gostaria de fazer um pedido:\n\n`;
+  // Grava o pedido ANTES de abrir o zap, pra lojista ter o registro (e o número
+  // que prova que a vitrine funciona). Se a gravação falhar, o pedido segue
+  // assim mesmo: perder a venda porque o registro caiu seria o pior dos mundos.
+  let codigo = '';
+  if (dadosLoja.tem_site) {
+    try {
+      const r = await fetch(`${API_BASE}/${slug}/pedido`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          itens: carrinhoLocal.map(i => ({ produto_id: i.id, cor: i.cor, tamanho: i.tamanho, qtd: i.qtd })),
+        }),
+      });
+      if (r.ok) codigo = (await r.json()).codigo || '';
+    } catch (e) { /* segue sem código */ }
+  }
+
+  // O código curto (#A7K2) permite a lojista achar o pedido no painel sem que a
+  // mensagem precise carregar tudo. URL muito longa quebra no navegador interno
+  // do Instagram, de onde vem boa parte do tráfego.
+  let mensagem = `Olá! Quero fazer um pedido na ${dadosLoja.loja_nome || 'loja'}\n\n`;
+  if (codigo) mensagem += `*Pedido #${codigo}*\n\n`;
   let total = 0;
 
   carrinhoLocal.forEach(item => {
@@ -567,18 +665,16 @@ function finalizarWhatsApp() {
     // loja — é por ela que a peça é separada. "Vestido Amanda (M)" não diz se a
     // cliente quer o preto ou o vermelho.
     const detalhe = [item.cor, item.tamanho].filter(Boolean).join(' / ');
-    mensagem += `${item.nome}${detalhe ? ` (${detalhe})` : ''} x ${item.qtd} = R$ ${formatarMoeda(item.total)}\n`;
+    mensagem += `${item.qtd}x ${item.nome}${detalhe ? ` (${detalhe})` : ''} — R$ ${formatarMoeda(item.total)}\n`;
     total += item.total;
   });
 
-  mensagem += `\n*Total: R$ ${formatarMoeda(total)}*\n\nPor favor, confirme a disponibilidade e os dados de entrega.`;
+  mensagem += `\n*Total: R$ ${formatarMoeda(total)}*`;
 
   // Montar link (wa.me espera número sem formatação)
   const numeroLimpo = whatsappNumber.replace(/\D/g, '');
-  const urlEncoded = encodeURIComponent(mensagem);
-  const linkWhatsApp = `https://wa.me/${numeroLimpo}?text=${urlEncoded}`;
+  const linkWhatsApp = `https://wa.me/${numeroLimpo}?text=${encodeURIComponent(mensagem)}`;
 
-  // Abrir em nova aba
   window.open(linkWhatsApp, '_blank');
 
   // Limpar carrinho após envio

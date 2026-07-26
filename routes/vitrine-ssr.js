@@ -18,7 +18,7 @@ const {
   urlAbsoluta, urlProduto, idDoProdutoNaUrl, urlFoto,
 } = require('../lib/vitrine-publica');
 const {
-  blocoHead, blocoDados, gradeProdutos,
+  blocoHead, blocoDados, gradeProdutos, blocosPixel, eventoPixel,
   schemaLoja, schemaProduto, schemaBreadcrumb, moeda,
 } = require('../lib/vitrine-html');
 
@@ -77,7 +77,7 @@ function ssrHome(req, res, next) {
       noindex: !loja.temSite,
       canonical: loja.temSite ? url : '',
       jsonLd: loja.temSite ? schemaLoja(loja) : null,
-    }),
+    }) + (loja.temSite ? '\n  ' + blocosPixel(c) : ''),
     grade: loja.temSite ? gradeProdutos(catalogo.produtos, { slug: loja.slug, temSite: true }) : '',
     dados: loja.temSite
       ? blocoDados({
@@ -134,7 +134,17 @@ function ssrProduto(req, res, next) {
       loja,
       canonical: url,
       jsonLd: schemaProduto(p, { slug: loja.slug, loja }),
-    }),
+    })
+      + '\n  ' + blocosPixel(c)
+      // ViewContent: é o evento que alimenta retargeting de peça ("você viu
+      // este vestido"). Sem ele, anúncio de produto específico não tem público.
+      + '\n  ' + eventoPixel('ViewContent', {
+        content_ids: [String(p.id)],
+        content_name: p.titulo,
+        content_type: 'product',
+        value: Number(p.preco_venda || 0),
+        currency: 'BRL',
+      }),
     breadcrumbJson: `<script type="application/ld+json">${require('../lib/vitrine-render').jsonSeguro(
       schemaBreadcrumb([
         { nome: nomeLoja, url: '/' + loja.slug },

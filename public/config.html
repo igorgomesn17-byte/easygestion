@@ -225,6 +225,58 @@
             </div>
           </div>
 
+          <!-- Campos do SITE COMPLETO. Só aparecem pra quem tem a feature
+               `vitrine_site` (hoje o plano interno) — escondidos, não bloqueados:
+               não existe checkout que entregue essa feature ainda. -->
+          <div id="blocoSite" style="display:none">
+            <h3 style="margin-top:22px">Site da loja</h3>
+            <p class="subtitulo" style="margin-bottom:12px">
+              O que aparece na página de cada peça e no preview do link quando você manda no WhatsApp.
+            </p>
+
+            <div class="campo">
+              <label>Política de troca</label>
+              <input type="text" id="vitrine_politica_troca" placeholder="Troca em até 7 dias, na loja ou pelos Correios">
+              <small class="subtitulo">Aparece na página da peça. É o que a cliente procura antes de decidir.</small>
+            </div>
+
+            <div class="linha">
+              <div class="campo">
+                <label>Prazo de entrega</label>
+                <input type="text" id="vitrine_prazo_entrega" placeholder="Entrega no mesmo dia em Itabuna">
+              </div>
+              <div class="campo">
+                <label>Parcelamos em até (x)</label>
+                <input type="number" id="vitrine_parcelas_max" min="1" max="12" placeholder="3">
+              </div>
+            </div>
+
+            <div class="campo">
+              <label>Tabela de medidas</label>
+              <textarea id="vitrine_tabela_medidas" rows="4" placeholder="P — Busto 88cm / Cintura 70cm&#10;M — Busto 92cm / Cintura 74cm"></textarea>
+              <small class="subtitulo">Medidas em cm. Cada peça também pode ter as medidas dela no cadastro do produto.</small>
+            </div>
+
+            <div class="campo">
+              <label>Imagem de compartilhamento (1200 × 630)</label>
+              <input type="text" id="vitrine_og_imagem" placeholder="/img/marca/capa.png">
+              <small class="subtitulo">A imagem que aparece quando alguém cola o link da loja no WhatsApp. Máx. 300KB.</small>
+            </div>
+
+            <h3 style="margin-top:22px">Anúncios</h3>
+            <div class="linha">
+              <div class="campo">
+                <label>Pixel do Meta (ID)</label>
+                <input type="text" id="pixel_meta_id" placeholder="1234567890">
+                <small class="subtitulo">Só os números do ID. Nunca cole código aqui.</small>
+              </div>
+              <div class="campo">
+                <label>Google Analytics / Ads</label>
+                <input type="text" id="pixel_google_id" placeholder="G-XXXXXXXXXX">
+              </div>
+            </div>
+          </div>
+
           <div style="display:flex; gap:10px; align-items:center; margin-top:16px;">
             <button class="btn btn-fino btn-verde" onclick="salvarSecaoVitrine()">Salvar</button>
             <button type="button" class="btn btn-fino btn-fantasma" id="btnVerVitrine" onclick="abrirVitrine()">Ver minha vitrine →</button>
@@ -507,6 +559,13 @@
       const CAMPOS_SECAO = {
         'marca': ['marca_cor'],
         'loja': ['loja_nome','loja_endereco','loja_telefone','loja_instagram','vitrine_frase','loja_whatsapp','loja_whatsapp_link','loja_instagram_url','loja_maps'],
+        // A seção Vitrine salva os mesmos campos de contato de 'loja' MAIS os do
+        // site completo. Os do site só existem no DOM de quem tem a feature, e
+        // o loop abaixo ignora id que não existe — quem não tem a feature
+        // simplesmente não envia essas chaves (que o backend recusaria de todo jeito).
+        'vitrine': ['vitrine_frase','loja_whatsapp','loja_whatsapp_link','loja_instagram_url','loja_maps',
+                    'vitrine_politica_troca','vitrine_prazo_entrega','vitrine_parcelas_max',
+                    'vitrine_tabela_medidas','vitrine_og_imagem','pixel_meta_id','pixel_google_id'],
         'cupom': ['cupom_auto_imprimir','cupom_mensagem_rodape','cupom_politica_troca'],
         'fiscal': ['loja_razao_social','loja_nome_fantasia','loja_cnpj','loja_ie','loja_regime','loja_cep','loja_cidade','loja_uf',
                    'nfce_ativo','nfce_ambiente','nfce_serie','nfce_csc_id','nfce_ncm_padrao','nfce_cfop_padrao','nfce_csosn_padrao',
@@ -523,7 +582,11 @@
         'marca_cor','regime_fiscal','prazo_debito_tipo','prazo_credito_vista_tipo','prazo_credito_parc_tipo',
         'nfce_ambiente','nfce_serie','nfce_csc_id','nfce_ncm_padrao','nfce_cfop_padrao','nfce_csosn_padrao',
         'nfce_origem_padrao','nfce_unidade_padrao','loja_codigo_municipio',
-        'cupom_mensagem_rodape','cupom_politica_troca'];
+        'cupom_mensagem_rodape','cupom_politica_troca',
+        // Campos do site da loja. FORA desta lista o `else` final os enviaria
+        // como '0' quando vazios — a politica de troca viraria literalmente "0".
+        'vitrine_politica_troca','vitrine_prazo_entrega','vitrine_tabela_medidas',
+        'vitrine_og_imagem','pixel_meta_id','pixel_google_id'];
 
       const campos = CAMPOS_SECAO[secao] || [];
       campos.forEach(c => {
@@ -561,14 +624,25 @@
         'nfce_ativo','nfce_ambiente','nfce_serie','nfce_csc_id','nfce_ncm_padrao','nfce_cfop_padrao','nfce_csosn_padrao',
         'nfce_origem_padrao','nfce_unidade_padrao','loja_codigo_municipio',
         'prazo_debito_dias','prazo_debito_tipo','prazo_credito_vista_dias','prazo_credito_vista_tipo','prazo_credito_parc_dias','prazo_credito_parc_tipo',
-        'cupom_mensagem_rodape','cupom_politica_troca'];
+        'cupom_mensagem_rodape','cupom_politica_troca',
+        'vitrine_frase','loja_whatsapp','loja_whatsapp_link','loja_instagram_url','loja_maps',
+        'vitrine_politica_troca','vitrine_prazo_entrega','vitrine_parcelas_max',
+        'vitrine_tabela_medidas','vitrine_og_imagem','pixel_meta_id','pixel_google_id',
+        // Campos do site da loja. FORA desta lista o `else` final os enviaria
+        // como '0' quando vazios — a politica de troca viraria literalmente "0".
+        'vitrine_politica_troca','vitrine_prazo_entrega','vitrine_tabela_medidas',
+        'vitrine_og_imagem','pixel_meta_id','pixel_google_id'];
       const CAMPOS_TEXTO = ['loja_nome','loja_endereco','loja_telefone','loja_instagram','vitrine_frase',
         'loja_whatsapp','loja_whatsapp_link','loja_instagram_url','loja_maps',
         'loja_razao_social','loja_nome_fantasia','loja_cnpj','loja_ie','loja_regime','loja_cep','loja_cidade','loja_uf',
         'marca_cor','regime_fiscal','prazo_debito_tipo','prazo_credito_vista_tipo','prazo_credito_parc_tipo',
         'nfce_ambiente','nfce_serie','nfce_csc_id','nfce_ncm_padrao','nfce_cfop_padrao','nfce_csosn_padrao',
         'nfce_origem_padrao','nfce_unidade_padrao','loja_codigo_municipio',
-        'cupom_mensagem_rodape','cupom_politica_troca'];
+        'cupom_mensagem_rodape','cupom_politica_troca',
+        // Campos do site da loja. FORA desta lista o `else` final os enviaria
+        // como '0' quando vazios — a politica de troca viraria literalmente "0".
+        'vitrine_politica_troca','vitrine_prazo_entrega','vitrine_tabela_medidas',
+        'vitrine_og_imagem','pixel_meta_id','pixel_google_id'];
 
       const body = {};
       CAMPOS.forEach(c => {
@@ -598,7 +672,12 @@
         'nfce_ativo','nfce_ambiente','nfce_serie','nfce_csc_id','nfce_ncm_padrao','nfce_cfop_padrao','nfce_csosn_padrao',
         'nfce_origem_padrao','nfce_unidade_padrao','loja_codigo_municipio',
         'prazo_debito_dias','prazo_debito_tipo','prazo_credito_vista_dias','prazo_credito_vista_tipo','prazo_credito_parc_dias','prazo_credito_parc_tipo',
-        'cupom_mensagem_rodape','cupom_politica_troca'
+        'cupom_mensagem_rodape','cupom_politica_troca',
+        // Sem estes aqui, o campo salva mas volta VAZIO ao recarregar a tela —
+        // e a lojista acha que não salvou e digita de novo.
+        'vitrine_frase','loja_whatsapp','loja_whatsapp_link','loja_instagram_url','loja_maps',
+        'vitrine_politica_troca','vitrine_prazo_entrega','vitrine_parcelas_max',
+        'vitrine_tabela_medidas','vitrine_og_imagem','pixel_meta_id','pixel_google_id'
       ].forEach(c => { if (document.getElementById(c) && cfg[c] != null) document.getElementById(c).value = cfg[c]; });
 
       const cor = cfg.marca_cor || '#1a6f5e';
@@ -933,6 +1012,13 @@
             .find(s => !SECOES_POR_FEATURE[s.dataset.secao] || features[SECOES_POR_FEATURE[s.dataset.secao]]);
           if (primeira) trocarSecaoConfig(primeira.dataset.secao);
         }
+
+        // Gate de BLOCO (não de seção inteira): os campos do site completo moram
+        // DENTRO da seção Vitrine, que todo plano tem. Esconder, não bloquear:
+        // `vitrine_site` ainda não é vendável, então não há checkout pra onde
+        // mandar a lojista — card de upgrade aqui seria promessa sem entrega.
+        const blocoSite = document.getElementById('blocoSite');
+        if (blocoSite) blocoSite.style.display = features.vitrine_site ? '' : 'none';
       } catch (e) { /* em erro, não esconde — degradação segura no front (back ainda barra) */ }
     }
 

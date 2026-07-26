@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pedidos da loja online • EasyGestão</title>
+  <link rel="stylesheet" href="css/ds.css">
+  <style>
+    .ped { border-left: 3px solid var(--linha-forte); margin-bottom: 14px; }
+    .ped.novo       { border-left-color: var(--marca); }
+    .ped.respondido { border-left-color: var(--dourado); }
+    .ped.fechado    { border-left-color: var(--verde); }
+    .ped.perdido    { border-left-color: var(--linha-forte); opacity: .7; }
+    .ped-topo { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
+    .ped-codigo { font-family: ui-monospace, monospace; font-weight:700; font-size:1.05rem; color:var(--tinta);
+                  letter-spacing:.5px; }
+    .ped-quando { color:var(--tinta-3); font-size:.78rem; margin-top:2px; }
+    .ped-total  { font-size:1.15rem; font-weight:700; color:var(--marca); font-variant-numeric: tabular-nums; }
+    .ped-itens  { margin:12px 0; padding:10px 12px; background:var(--surface-2); border-radius:var(--radius-sm); }
+    .ped-item   { display:flex; justify-content:space-between; gap:12px; font-size:.88rem; padding:3px 0; }
+    .ped-item-nome { color:var(--tinta); }
+    .ped-item-det  { color:var(--tinta-2); font-size:.82rem; }
+    /* O estoque de AGORA, não o de quando a cliente pediu. Entre o clique e a
+       conversa a peça pode ter sido vendida no balcão — a lojista precisa saber
+       antes de prometer. */
+    .selo-estoque { font-size:.7rem; padding:2px 7px; border-radius:999px; font-weight:700; white-space:nowrap; }
+    .selo-tem  { background:var(--verde-bg); color:var(--verde); }
+    .selo-sem  { background:var(--vermelho-bg); color:var(--vermelho); }
+    .ped-btns { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .btn-zap { background:#25D366; border-color:#25D366; color:#fff; }
+    .btn-zap:hover { background:#1eb356; border-color:#1eb356; }
+    .filtros { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+    .pill { padding:6px 12px; border:1px solid var(--linha); border-radius:999px; background:var(--surface);
+            cursor:pointer; font-size:.84rem; font-weight:600; color:var(--tinta-2); }
+    .pill.on { background:var(--marca); border-color:var(--marca); color:#fff; }
+    .vazio { text-align:center; padding:56px 20px; color:var(--tinta-2); }
+    .vazio-emoji { font-size:2.4rem; display:block; margin-bottom:10px; }
+    .selo-status { font-size:.7rem; padding:2px 8px; border-radius:999px; font-weight:700; white-space:nowrap; }
+    .st-novo{background:var(--marca-clara);color:var(--marca-escura)}
+    .st-respondido{background:var(--amarelo-bg);color:var(--amarelo)}
+    .st-fechado{background:var(--verde-bg);color:var(--verde)}
+    .st-perdido{background:var(--surface-2);color:var(--tinta-3)}
+  </style>
+</head>
+<body>
+  <div class="conteudo">
+    <div class="flex-entre">
+      <div>
+        <h1>Pedidos da loja online</h1>
+        <p class="subtitulo">O que as clientes montaram na vitrine antes de chamar no WhatsApp.</p>
+      </div>
+    </div>
+
+    <div class="cards-grid" id="resumo" style="margin:18px 0"></div>
+
+    <div class="filtros" id="filtros">
+      <button class="pill on" data-status="todos">Todos</button>
+      <button class="pill" data-status="novo">Novos</button>
+      <button class="pill" data-status="respondido">Respondidos</button>
+      <button class="pill" data-status="fechado">Fechados</button>
+      <button class="pill" data-status="perdido">Perdidos</button>
+    </div>
+
+    <div id="lista"></div>
+  </div>
+
+  <script src="js/comum.js"></script>
+  <script>
+    let PEDIDOS = [];
+    let FILTRO = 'todos';
+
+    const brl = (v) => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    async function carregar() {
+      try {
+        const r = await api('/vitrine-pedidos?status=' + FILTRO);
+        PEDIDOS = r.pedidos || [];
+        pintarResumo(r.resumo || {});
+        render();
+      } catch (e) {
+        document.getElementById('lista').innerHTML =
+          `<div class="vazio">Não foi possível carregar os pedidos.</div>`;
+      }
+    }
+
+    // O resumo responde "a loja online se paga?" — é o número que não existia
+    // quando o carrinho simplesmente abria o WhatsApp e sumia.
+    function pintarResumo(r) {
+      document.getElementById('resumo').innerHTML = `
+        <div class="card card-metrica"><span class="subtitulo">Pedidos (30 dias)</span><strong>${r.ultimos_30 || 0}</strong></div>
+        <div class="card card-metrica"><span class="subtitulo">Aguardando resposta</span><strong>${r.novos || 0}</strong></div>
+        <div class="card card-metrica destaque"><span class="subtitulo">Fechados</span><strong>${r.fechados || 0}</strong></div>
+        <div class="card card-metrica"><span class="subtitulo">Valor fechado</span><strong>${brl(r.valor_fechado)}</strong></div>
+      `;
+    }
+
+    function render() {
+      const el = document.getElementById('lista');
+      if (!PEDIDOS.length) {
+        el.innerHTML = `<div class="vazio">
+          <span class="vazio-emoji">🛍️</span>
+          Nenhum pedido ${FILTRO === 'todos' ? 'ainda' : 'com esse status'}.
+          <br><span class="subtitulo">Os pedidos feitos na sua loja online aparecem aqui.</span>
+        </div>`;
+        return;
+      }
+
+      el.innerHTML = PEDIDOS.map(p => {
+        const itens = (p.itens || []).map(i => {
+          const det = [i.cor, i.tamanho].filter(Boolean).join(' / ');
+          // disponivel_agora vem de um JOIN com variacoes na hora da leitura
+          const temEstoque = i.disponivel_agora === null || i.disponivel_agora >= i.qtd;
+          return `<div class="ped-item">
+            <div>
+              <span class="ped-item-nome">${i.qtd}x ${esc(i.produto_nome)}</span>
+              ${det ? `<span class="ped-item-det"> · ${esc(det)}</span>` : ''}
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;white-space:nowrap">
+              ${i.disponivel_agora === null ? '' :
+                `<span class="selo-estoque ${temEstoque ? 'selo-tem' : 'selo-sem'}">${
+                  temEstoque ? 'em estoque' : 'sem estoque'}</span>`}
+              <span class="ped-item-det">${brl(i.preco_unit * i.qtd)}</span>
+            </div>
+          </div>`;
+        }).join('');
+
+        const tel = (p.cliente_tel || '').replace(/\D/g, '');
+        return `<div class="card ped ${p.status}">
+          <div class="ped-topo">
+            <div>
+              <div class="ped-codigo">#${esc(p.codigo)}</div>
+              <div class="ped-quando">${esc(p.criado_em || '')}${
+                p.cliente_nome ? ' · ' + esc(p.cliente_nome) : ''}${
+                p.cliente_cadastrado ? ' · <em>já é cliente</em>' : ''}</div>
+            </div>
+            <div style="text-align:right">
+              <div class="ped-total">${brl(p.total)}</div>
+              <span class="selo-status st-${p.status}">${p.status}</span>
+            </div>
+          </div>
+          <div class="ped-itens">${itens}</div>
+          <div class="ped-btns">
+            ${tel ? `<a class="btn btn-fino btn-zap" target="_blank" rel="noopener"
+                       href="https://wa.me/55${tel}">Chamar no WhatsApp</a>` : ''}
+            ${p.status !== 'respondido' ? `<button class="btn btn-fino btn-fantasma" onclick="mudar(${p.id},'respondido')">Marcar respondido</button>` : ''}
+            ${p.status !== 'fechado' ? `<button class="btn btn-fino btn-verde" onclick="mudar(${p.id},'fechado')">Fechou a venda</button>` : ''}
+            ${p.status !== 'perdido' ? `<button class="btn btn-fino btn-fantasma" onclick="mudar(${p.id},'perdido')">Não fechou</button>` : ''}
+            ${!p.cliente_id && p.cliente_nome ? `<button class="btn btn-fino" onclick="virarCliente(${p.id})">Cadastrar cliente</button>` : ''}
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    async function mudar(id, status) {
+      try {
+        await api('/vitrine-pedidos/' + id, { method: 'PATCH', body: { status } });
+        toast('Atualizado');
+        carregar();
+      } catch (e) { toast(e.message || 'Erro ao atualizar', 'erro'); }
+    }
+
+    // Promover a cliente é decisão da lojista, não automático: assim a base do
+    // CRM (e o RFM) continua falando só de quem ela quis cadastrar.
+    async function virarCliente(id) {
+      const p = PEDIDOS.find(x => x.id === id);
+      const nome = prompt('Nome da cliente:', p?.cliente_nome || '');
+      if (!nome) return;
+      try {
+        await api(`/vitrine-pedidos/${id}/cliente`, { method: 'POST', body: { nome } });
+        toast('Cliente cadastrada');
+        carregar();
+      } catch (e) { toast(e.message || 'Erro', 'erro'); }
+    }
+
+    document.getElementById('filtros').addEventListener('click', (e) => {
+      const b = e.target.closest('.pill');
+      if (!b) return;
+      document.querySelectorAll('.pill').forEach(x => x.classList.remove('on'));
+      b.classList.add('on');
+      FILTRO = b.dataset.status;
+      carregar();
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+      montarLayout('pedidos-vitrine');
+      carregar();
+    });
+  </script>
+</body>
+</html>

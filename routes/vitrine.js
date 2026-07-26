@@ -9,6 +9,8 @@ const { temFeature } = require('../lib/planos');
 // normalização de URL de foto). Antes disso a CHAVES_PUBLICAS vivia duplicada aqui
 // e em routes/config.js, e o gate era local — com o SSR seriam três cópias.
 const { resolverLojaPublica, urlFoto, catalogoPublico } = require('../lib/vitrine-publica');
+const { criarPedido, registrarLead } = require('../lib/vitrine-pedidos');
+const rateLimit = require('express-rate-limit');
 
 // Resolver tenant pelo slug (público, sem autenticação)
 function resolverTenantPorSlug(slug) {
@@ -101,6 +103,90 @@ router.get('/:slug/produtos', (req, res) => {
   } catch (err) {
     console.error('[VITRINE] Erro em GET /:slug/produtos:', err);
     res.status(500).json({ erro: 'Erro ao carregar produtos' });
+  }
+});
+
+// ============================================================
+// ESCRITA PÚBLICA (sem sessão) — pedido e lead
+//
+// Estas rotas moram AQUI, e não num router novo, porque /api/vitrine já está
+// montado antes do exigirLogin e já consta em PUBLICAS (middleware/seguranca.js).
+// Router novo exigiria mexer nos dois lugares — e esquecer o segundo daria 401
+// silencioso pra cliente tentando comprar.
+// ============================================================
+
+// Limite por IP: rota pública de ESCRITA sem autenticação. O limiteGlobal cobre
+// /api, mas gravar pedido merece teto próprio — sem isso um script enche a tela
+// da lojista de pedido falso e o sinal (quantos pedidos a vitrine gerou) morre.
+const limiteEscritaPublica = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { erro: 'Muitas tentativas. Aguarde alguns minutos.' },
+});
+
+// POST /api/vitrine/:slug/pedido — grava a intenção ANTES de abrir o WhatsApp
+router.post('/:slug/pedido', limiteEscritaPublica, (req, res) => {
+  try {
+    const loja = resolverLojaPublica(req.params.slug);
+    // Pedido gravado é do plano com SITE. Sem ele, o carrinho segue funcionando
+    // como sempre (abre o wa.me direto) — o front trata a falha e não trava a venda.
+    if (!loja || !loja.temSite) return res.status(404).json({ erro: 'Loja não encontrada' });
+
+    const r = criarPedido(loja.tenant.id, {
+      itens: req.body?.itens,
+      cliente_nome: req.body?.cliente_nome,
+      cliente_tel: req.body?.cliente_tel,
+      origem: req.body?.origem,
+      obs: req.body?.obs,
+    });
+    if (!r.ok) return res.status(400).json({ erro: r.erro });
+
+    // Se a cliente se identificou, o telefone vira lead — é o único momento em
+    // que temos contato de quem comprou pela vitrine.
+    if (req.body?.cliente_tel) {
+      try {
+        registrarLead(loja.tenant.id, {
+          nome: req.body?.cliente_nome,
+          telefone: req.body.cliente_tel,
+          fonte: 'pedido',
+          consentiu: 1,   // mandar o próprio contato pra fechar pedido é consentimento
+          ip: req.ip,
+        });
+      } catch (e) { /* lead é bônus: nunca derruba o pedido */ }
+    }
+
+    res.status(201).json({ ok: true, codigo: r.codigo, total: r.total });
+  } catch (err) {
+    console.error('[VITRINE] Erro em POST /:slug/pedido:', err);
+    res.status(500).json({ erro: 'Não foi possível registrar o pedido' });
+  }
+});
+
+// POST /api/vitrine/:slug/lead — newsletter e "avise-me"
+//
+// LIBERADO EM TODOS OS PLANOS de propósito: o formulário de newsletter já existe
+// na vitrine de quem paga e hoje não grava ninguém (só abre o wa.me). Corrigir
+// isso só no plano com site seria manter um bug conhecido em quem paga.
+router.post('/:slug/lead', limiteEscritaPublica, (req, res) => {
+  try {
+    const loja = resolverLojaPublica(req.params.slug);
+    if (!loja) return res.status(404).json({ erro: 'Loja não encontrada' });
+
+    const r = registrarLead(loja.tenant.id, {
+      nome: req.body?.nome,
+      telefone: req.body?.telefone,
+      email: req.body?.email,
+      fonte: req.body?.fonte || 'newsletter',
+      consentiu: req.body?.consentiu ? 1 : 0,
+      ip: req.ip,
+    });
+    if (!r.ok) return res.status(400).json({ erro: r.erro });
+    res.status(201).json({ ok: true });
+  } catch (err) {
+    console.error('[VITRINE] Erro em POST /:slug/lead:', err);
+    res.status(500).json({ erro: 'Não foi possível registrar' });
   }
 });
 

@@ -188,6 +188,10 @@ const NAV = [
   { grupo: 'Catálogo', itens: [
     { id:'produtos', href:'produtos.html', ico:'produtos', txt:'Produtos' },
     { id:'estoque',  href:'estoque.html',  ico:'estoque',  txt:'Estoque' },
+    // Pedidos que chegaram pela loja online. `vitrine_site` hoje é só do plano
+    // interno — o item some do menu de quem não tem (esconder, não bloquear:
+    // não há checkout que entregue a feature ainda).
+    { id:'pedidos-vitrine', href:'pedidos.html', ico:'vendas', txt:'Pedidos do site', feature:'vitrine_site' },
   ]},
   // Relacionamento é feature de plano (hoje só no interno). Os itens carregam
   // `feature`, e montarLayout esconde do menu quem não tem — ver o filtro lá.
