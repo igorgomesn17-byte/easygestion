@@ -1572,4 +1572,61 @@ No balcão cheio, card de peça que não dá pra vender é ruído. O catálogo m
 
 ---
 
+## Últimas Mudanças (26 de julho de 2026) — A vitrine virou site (SSR, página por peça, pedido gravado)
+
+**Commits:** `b2e8e42` (fundação), `3cf937d` (SSR + PDP), `49ba65e` (pedidos + pixel + filtros). **Não deployado ainda.**
+
+### O bug que valia mais que o resto somado
+
+As meta tags de Open Graph eram injetadas por JavaScript (`atualizarMetaTags` em `vitrine.js`). **Crawler não executa JS** — nem o do WhatsApp, nem o do Google. Na prática, **todo link de loja compartilhado saía sem preview**: sem foto, sem nome, sem preço. Ninguém notava porque no navegador funcionava. A função foi deletada; o `<head>` agora sai montado do servidor.
+
+**Regra que fica:** o que precisa ser visto por crawler (OG, JSON-LD, título, conteúdo indexável) tem que sair **pronto do servidor**. Abrir no navegador não prova nada — use `curl` e o Sharing Debugger do Facebook.
+
+### Feature `vitrine_site` — só no plano `interno`
+
+Em `lib/planos.js`: `true` **apenas no `interno`**, `false` em starter/growth/enterprise. Mesmo caminho da `base_importada` — a DS Store é cliente-zero. **Pra virar produto: ligar `vitrine_site: true` no growth.** Uma linha; a lib nasce genérica (há teste que falha se nome de loja aparecer no código).
+
+`vitrine_publica` **não mudou** (continua `true` em todos): é o direito de *ter loja online*. `vitrine_site` é o direito de ter um *site*. Quem não tem recebe a **mesma página de sempre**, só com o `<head>` preenchido — o caminho de quem paga não foi reescrito, e é por isso que o risco é baixo. Rotas exclusivas dão **404, nunca 403** (403 revelaria que a loja existe num plano inferior).
+
+### O que entrou
+
+| | Arquivo |
+|---|---|
+| Motor de SSR (escape, jsonSeguro, corHexSegura, render) | `lib/vitrine-render.js` |
+| Gate único + allowlist + urlFoto/urlAbsoluta + catálogo | `lib/vitrine-publica.js` |
+| Blocos de HTML (head/OG/JSON-LD, card, pixel) | `lib/vitrine-html.js` |
+| Pedidos e leads (código `#A7K2`) | `lib/vitrine-pedidos.js` |
+| Páginas públicas (home, PDP, sitemap, robots) | `routes/vitrine-ssr.js` |
+| Tela da lojista | `routes/vitrine-pedidos.js`, `public/pedidos.html` |
+| Migrations **042-044** | pedidos+itens, leads, campos de PDP |
+
+**URL da peça: `/:loja/p/:nome-slug-:id`** — o **ID no fim é quem resolve**; o slug é decorativo. Renomear a peça não quebra o link que circula no zap (301 pro canônico). Sem coluna `slug` de produto de propósito.
+
+### Decisões que não são óbvias (e o porquê)
+
+- **Caminho de foto normalizado na SAÍDA, nunca no banco.** `produtos.foto` é `img/produtos/x` (sem barra) e só funciona por *acidente* em URL de 1 segmento — quebraria 100% das fotos na PDP. Mexer na coluna quebraria `salvarFotosExtras` (`routes/produtos.js:112`), que só reconhece foto mantida por `startsWith('img/produtos/')`: a foto **sumiria da galeria sem erro nenhum**.
+- **Preço do pedido vem do BANCO, nunca do body.** Aceitar preço do cliente = vestido por R$ 1 na tela da lojista.
+- **Snapshot × leitura:** nome/preço do item são congelados (a cliente viu aquilo); `disponivel_agora` é calculado **na leitura** — o estoque muda entre o clique e a conversa.
+- **Pedido NÃO reserva estoque** — reservar sem pagamento trava peça de quem nunca fecha.
+- **Lead NÃO vira cliente sozinho** — poluiria RFM e régua com quem nunca comprou (o mesmo que a migration 040 resolveu). Vira cliente quando a lojista promove. Mas `POST /lead` é liberado em **todos os planos**: o formulário já existe em quem paga e não gravava ninguém.
+- **CSP global, nunca por rota.** Dois headers de CSP → o navegador aplica a **interseção** → `js.stripe.com` some e o checkout quebra. **Stripe está em LIVE.**
+- **`region1.google-analytics.com`** é obrigatório no `connectSrc`: o GA4 no Brasil manda hits pro endpoint regional. Sem ele, nenhum evento sai.
+- **Pixel: banco guarda ID, nunca script.** Regex coladinho na interpolação — e sem `esc()`, porque escape de HTML dentro de `<script>` quebra o JS.
+- **Tamanho esgotado fica VISÍVEL riscado.** Sumir com ele faz a cliente achar que a peça nunca teve aquele tamanho, que é informação diferente de "acabou".
+
+### Armadilhas encontradas no caminho
+
+- **`public/config.html` tem TRÊS cópias de `CAMPOS_TEXTO`** e não tinha entrada `'vitrine'` em `CAMPOS_SECAO`. Campo fora dessas listas salva como `'0'` ou volta vazio ao recarregar.
+- **Template com token não pode ser servido cru** — o `express.static` entregaria `/vitrine/index.html` com `{{head}}` na cara da cliente. `server.js` bloqueia `.html` sob `/vitrine`.
+- **`immutable` + `?t=Date.now()` = cache miss garantido** (o timestamp da logo foi removido junto com o cache longo).
+- **O card do SSR e o do JS têm que gerar HTML idêntico**, senão a página "pula" no primeiro filtro.
+
+### Performance
+
+`immutable` nas fotos (nome de arquivo já é único) — antes **toda foto era rebaixada a cada visita**. Card em 2:3 retrato no lugar da altura fixa de 250px, que cortava vestido na cintura. Grade de 2 colunas no celular. N+1 morto: 2 queries por produto viraram 3 no total.
+
+**Testes:** `npm run test:vitrine` (74 asserts), `npm run test:vitrine-pedidos` (58), + E2E de 60 verificações contra servidor real. Regressão verde. Migrations idempotentes contra cópia do banco, zero perda de dado.
+
+---
+
 **Documento versão 2.2 — Atualizado em 18 de julho de 2026. Régua nova: vitrine + personalização + precificação DESCERAM pro Starter (canal de aquisição + operação básica de vender); relacionamento (RFM + régua + clube) SUBIU pro Growth como bandeira do plano; DRE/relatórios seguem Growth. Fonte da verdade `lib/planos.js` — front e endpoint seguem sozinhos. Clube: lista de selos recolhida por padrão. Cupom não fiscal voltou a mostrar selos (rota `/crm/selos` era fantasma). Ficha da cliente ganhou Instagram + Observações (migration 039). Histórico: nome da cliente vira link pra ficha. Régua reconciliada: quem compra sai da fila e a janela de reativação não multiplica o mesmo cliente (`npm run test:regua`). Stripe em modo LIVE. Pendência de segurança nº1: rotacionar a chave AWS vazada.**
