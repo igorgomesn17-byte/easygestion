@@ -191,7 +191,16 @@ body {
   border-color: var(--marca);
   box-shadow: var(--sombra);
 }
-.card-produto-foto { width: 100%; height: 250px; object-fit: cover; background-color: var(--surface-2); }
+/* 2:3 retrato — o enquadramento de moda. A altura fixa de 250px que havia aqui
+   cortava vestido e look de corpo inteiro na cintura. aspect-ratio tambem reserva
+   o espaco antes da foto carregar, o que segura o CLS (layout que "pula"). */
+.card-produto-foto {
+  width: 100%; aspect-ratio: 2 / 3; height: auto;
+  object-fit: cover; background-color: var(--surface-2);
+}
+/* O card virou <a> quando a loja tem site: tira o sublinhado e a cor de link */
+a.card-produto { text-decoration: none; color: inherit; }
+.vitrine-vazio { grid-column: 1 / -1; text-align: center; color: var(--tinta-3); padding: 2.5rem 1rem; }
 .card-produto-info { padding: 1rem; flex-grow: 1; display: flex; flex-direction: column; }
 .card-produto-nome {
   font-weight: 600; font-size: 0.98rem; margin: 0 0 0.35rem 0; color: var(--tinta);
@@ -373,7 +382,133 @@ body {
   .btn { width: 100%; }
 }
 @media (max-width: 480px) {
-  .vitrine-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  /* 2 COLUNAS FIXAS, nao auto-fill: abaixo de 500px o auto-fill caia pra 1
+     coluna e o card ficava gigante. Duas colunas e' o padrao que a consumidora
+     brasileira espera de loja de moda no celular. */
+  .vitrine-grid { grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
   .carrinho-floating { bottom: 1rem; right: 1rem; }
   .btn-carrinho { width: 48px; height: 48px; }
+  .card-produto-info { padding: 0.7rem; }
+  .card-produto-nome { font-size: 0.9rem; }
+  .card-produto-preco { font-size: 1.05rem; }
+}
+
+/* ============================================================
+   PÁGINA DE PRODUTO (PDP)
+   ============================================================ */
+.pdp-body { background: var(--bg); padding-bottom: 5rem; }
+
+.pdp-header {
+  position: sticky; top: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 1rem; padding: 0.75rem 1rem;
+  background: var(--surface); border-bottom: 1px solid var(--linha);
+}
+.pdp-voltar {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  color: var(--tinta); text-decoration: none; font-weight: 600; font-size: 0.95rem;
+  min-width: 0;
+}
+.pdp-voltar svg { width: 20px; height: 20px; flex-shrink: 0; }
+.pdp-voltar span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pdp-carrinho {
+  position: relative; background: none; border: none; cursor: pointer;
+  color: var(--tinta); padding: 0.35rem; flex-shrink: 0;
+}
+.pdp-carrinho svg { width: 24px; height: 24px; }
+
+.pdp {
+  max-width: 1100px; margin: 0 auto; padding: 1.5rem 1rem;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 2.5rem; align-items: start;
+}
+.pdp-galeria { display: flex; flex-direction: column; gap: 0.6rem; }
+.pdp-foto {
+  width: 100%; aspect-ratio: 2 / 3; object-fit: cover;
+  border-radius: var(--v-radius); background: var(--surface-2);
+}
+.pdp-miniatura {
+  width: 68px; height: 92px; object-fit: cover; cursor: pointer;
+  border-radius: var(--v-radius-sm); border: 1px solid var(--linha); background: var(--surface-2);
+}
+.pdp-miniatura.ativa { border-color: var(--marca); }
+.pdp-galeria > .pdp-miniatura { display: inline-block; }
+.pdp-galeria { flex-flow: row wrap; }
+.pdp-galeria > .pdp-foto { flex: 1 0 100%; }
+
+.pdp-categoria { font-size: 0.82rem; color: var(--tinta-2); text-transform: capitalize; margin-bottom: 0.3rem; }
+.pdp-titulo { font-size: 1.5rem; line-height: 1.25; margin-bottom: 0.9rem; }
+.pdp-precos { margin-bottom: 1.5rem; }
+.pdp-preco { font-size: 1.9rem; font-weight: 700; color: var(--marca); font-variant-numeric: tabular-nums; }
+.pdp-parcelas { font-size: 0.9rem; color: var(--tinta-2); margin-top: 0.15rem; }
+
+.pdp-opcao { margin-bottom: 1.25rem; }
+.pdp-label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--tinta); margin-bottom: 0.5rem; }
+.pdp-label-linha { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+/* O link da tabela de medidas fica COLADO no seletor de tamanho: e' exatamente
+   ali que a duvida nasce. Enterrar numa aba distante e' o erro que a maioria comete. */
+.pdp-link-medidas {
+  background: none; border: none; padding: 0; cursor: pointer;
+  color: var(--marca); font-size: 0.82rem; font-weight: 600;
+  text-decoration: underline; text-underline-offset: 2px;
+}
+/* Tamanho ESGOTADO continua visivel, riscado. Sumir com ele faz a cliente achar
+   que a peca nunca teve aquele tamanho — informacao diferente de "acabou". */
+.btn-tamanho.esgotado {
+  opacity: 0.4; cursor: not-allowed; text-decoration: line-through;
+  background: var(--surface-2);
+}
+.pdp-qtd .qty-control { justify-content: flex-start; }
+
+.pdp-cta { width: 100%; padding: 0.95rem; font-size: 1rem; margin-top: 0.4rem; }
+.pdp-cta-2 { width: 100%; padding: 0.8rem; margin-top: 0.6rem; }
+
+.pdp-confianca { list-style: none; margin: 1.5rem 0 0; padding: 0; display: grid; gap: 0.6rem; }
+.pdp-confianca li {
+  display: flex; align-items: flex-start; gap: 0.55rem;
+  font-size: 0.87rem; color: var(--tinta-2); line-height: 1.45;
+}
+.pdp-confianca svg { width: 16px; height: 16px; flex-shrink: 0; margin-top: 0.15rem; color: var(--marca); }
+
+.pdp-detalhes { margin-top: 1.75rem; padding-top: 1.5rem; border-top: 1px solid var(--linha); }
+.pdp-descricao { font-size: 0.93rem; line-height: 1.6; color: var(--tinta-2); white-space: pre-line; }
+.pdp-modelo, .pdp-composicao { font-size: 0.87rem; color: var(--tinta-2); margin-top: 0.7rem; }
+
+.pdp-barra-fixa {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  padding: 0.7rem 1rem; background: var(--surface);
+  border-top: 1px solid var(--linha); box-shadow: var(--sombra-lg);
+  transform: translateY(110%); transition: transform 0.2s ease;
+}
+.pdp-barra-fixa.visivel { transform: translateY(0); }
+.pdp-barra-preco { font-size: 1.1rem; font-weight: 700; color: var(--marca); font-variant-numeric: tabular-nums; }
+.pdp-barra-parcelas { font-size: 0.76rem; color: var(--tinta-2); }
+.pdp-barra-fixa .btn { white-space: nowrap; }
+
+.pdp-dialog {
+  border: none; border-radius: var(--v-radius); padding: 1.5rem;
+  max-width: 460px; width: 90%; box-shadow: var(--sombra-lg); color: var(--tinta);
+}
+.pdp-dialog::backdrop { background: rgba(20, 36, 32, 0.45); }
+.pdp-dialog h2 { margin-bottom: 0.9rem; }
+.pdp-medidas {
+  font-family: inherit; font-size: 0.9rem; line-height: 1.7; white-space: pre-wrap;
+  background: var(--surface-2); padding: 0.9rem; border-radius: var(--v-radius-sm);
+}
+.pdp-medidas-nota { font-size: 0.84rem; color: var(--tinta-2); margin: 0.8rem 0 1.2rem; }
+.pdp-ver-mais { color: rgba(255,255,255,0.85); font-size: 0.9rem; display: inline-block; margin: 0.5rem 0 1rem; }
+
+.pdp-toast {
+  position: fixed; left: 50%; bottom: 5.5rem; transform: translate(-50%, 1rem);
+  background: var(--tinta); color: #fff; padding: 0.7rem 1.1rem;
+  border-radius: var(--v-radius); font-size: 0.9rem; z-index: 200;
+  opacity: 0; pointer-events: none; transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.pdp-toast.visivel { opacity: 1; transform: translate(-50%, 0); }
+
+@media (max-width: 768px) {
+  .pdp { grid-template-columns: 1fr; gap: 1.5rem; padding: 1rem; }
+  .pdp-titulo { font-size: 1.25rem; }
+  .pdp-preco { font-size: 1.6rem; }
+  .pdp-miniatura { width: 56px; height: 76px; }
 }

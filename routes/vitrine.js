@@ -8,7 +8,7 @@ const { temFeature } = require('../lib/planos');
 // Fonte ÚNICA da resolução pública (gate slug→tenant→plano, allowlist de config,
 // normalização de URL de foto). Antes disso a CHAVES_PUBLICAS vivia duplicada aqui
 // e em routes/config.js, e o gate era local — com o SSR seriam três cópias.
-const { resolverLojaPublica, urlFoto } = require('../lib/vitrine-publica');
+const { resolverLojaPublica, urlFoto, catalogoPublico } = require('../lib/vitrine-publica');
 
 // Resolver tenant pelo slug (público, sem autenticação)
 function resolverTenantPorSlug(slug) {
@@ -94,78 +94,10 @@ router.get('/:slug/produtos', (req, res) => {
       return res.status(403).json({ erro: 'Vitrine não está ativa' });
     }
 
-    // Buscar produtos ativos com estoque (mesmo padrão do GET /api/produtos/vitrine,
-    // mas FILTRADO por tenant_id do slug + sem expor código/SKU)
-    // p.cor esta DEPRECADA (a cor mora na variacao) — nao selecionada.
-    // descricao/medidas/modelo_veste/composicao alimentam a pagina de produto.
-    // `descricao` ja existia no schema desde sempre e NUNCA era lida aqui — a peca
-    // aparecia na vitrine so com nome e preco. Os outros 3 vieram na migration 044.
-    const produtos = db.prepare(`
-      SELECT
-        p.id, p.nome, p.categoria, p.preco_venda, p.foto, p.colecao,
-        p.descricao, p.medidas, p.modelo_veste, p.composicao, p.destaque
-      FROM produtos p
-      WHERE p.ativo = 1 AND p.tenant_id = ?
-      ORDER BY p.nome ASC
-    `).all(tenant.id);
-
-    // Para cada produto, buscar a grade (cor x tamanho) + galeria
-    const produtosCompletos = produtos.map(p => {
-      // A grade so com o que tem em estoque: a cliente nao pode escolher o que nao existe.
-      // codigo_barras NAO sai daqui — e' rota publica, e o SKU e' informacao interna.
-      const grade = db.prepare(`
-        SELECT cor, tamanho, quantidade
-        FROM variacoes
-        WHERE produto_id = ? AND tenant_id = ? AND quantidade > 0
-        ORDER BY cor, CAST(tamanho AS TEXT)
-      `).all(p.id, tenant.id);
-
-      // Galeria de fotos. Rota PUBLICA (sem login): o filtro de tenant e' obrigatorio.
-      const galeria = db.prepare(`
-        SELECT caminho FROM produto_fotos WHERE produto_id = ? AND tenant_id = ? ORDER BY id
-      `).all(p.id, tenant.id);
-
-      const cores = [...new Set(grade.map(g => g.cor))];
-
-      return {
-        id: p.id,
-        titulo: p.nome,
-        nome: p.nome,
-        categoria: p.categoria,
-        // uma peca pode existir em varias cores: a vitrine mostra todas e a cliente
-        // escolhe. `cor` (singular) segue preenchida quando so ha uma, pro layout antigo.
-        cores,
-        cor: cores.length === 1 ? cores[0] : null,
-        preco_venda: p.preco_venda,
-        // urlFoto normaliza 'img/produtos/x' -> '/img/produtos/x'. Sem a barra, o
-        // caminho e' relativo a URL ATUAL: funciona em /minhaloja por acidente e
-        // quebra em /minhaloja/p/vestido-142 (a pagina de produto). Corrigir aqui
-        // conserta o front atual sem tocar em vitrine.js.
-        foto: urlFoto(p.foto),
-        colecao: p.colecao,
-        descricao: p.descricao || '',
-        medidas: p.medidas || '',
-        modelo_veste: p.modelo_veste || '',
-        composicao: p.composicao || '',
-        destaque: p.destaque || 0,
-        grade: grade.map(g => ({ cor: g.cor, tamanho: g.tamanho, quantidade: g.quantidade })),
-        tamanhos: [...new Set(grade.map(g => g.tamanho))].map(t => ({ tamanho: t })),
-        galeria: galeria.map(g => urlFoto(g.caminho))
-      };
-    });
-
-    // Filtrar apenas produtos com pelo menos uma peça em estoque
-    const produtosComEstoque = produtosCompletos.filter(p => p.grade.length > 0);
-
-    // Categorias e coleções
-    const categorias = [...new Set(produtosComEstoque.filter(p => p.categoria).map(p => p.categoria))];
-    const colecoes = [...new Set(produtosComEstoque.filter(p => p.colecao).map(p => p.colecao))];
-
-    res.json({
-      produtos: produtosComEstoque,
-      categorias: categorias.sort(),
-      colecoes: colecoes.sort()
-    });
+    // Catálogo: a MESMA função que o SSR usa (lib/vitrine-publica.js). Se fossem
+    // duas implementações, a página mostraria um catálogo e este JSON outro — e
+    // ninguém descobriria até a cliente reclamar que a peça do link não existe.
+    res.json(catalogoPublico(tenant.id));
   } catch (err) {
     console.error('[VITRINE] Erro em GET /:slug/produtos:', err);
     res.status(500).json({ erro: 'Erro ao carregar produtos' });

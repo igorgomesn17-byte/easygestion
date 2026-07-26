@@ -3,12 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Vitrine</title>
-  <link rel="stylesheet" href="/css/ds.css">
-  <link rel="stylesheet" href="/vitrine/css/vitrine.css">
+  <!-- {{{head}}} traz title, description, Open Graph, JSON-LD e o tema da loja,
+       tudo montado NO SERVIDOR (lib/vitrine-html.js). Antes isso era injetado por
+       JS — e o crawler do WhatsApp não executa JS, então todo link compartilhado
+       saía sem preview. Este é o conserto.
 
-  <!-- Tema dinâmico: será atualizado pelo JS quando carregar dados da loja -->
-  <style id="temaLoja"></style>
+       ⚠️ Este arquivo NUNCA é servido cru: mesmo a loja sem `vitrine_site` passa
+       pelo motor de render (que aí preenche só o title e o tema). Servido cru,
+       os tokens apareceriam literalmente na cara da cliente — por isso
+       server.js bloqueia /vitrine/*.html no static. -->
+  {{{head}}}
+  <link rel="stylesheet" href="/css/ds.css?v=2">
+  <link rel="stylesheet" href="/vitrine/css/vitrine.css?v=2">
 </head>
 <body>
   <!-- Header da loja -->
@@ -98,9 +104,9 @@
       </div>
     </div>
 
-    <div id="gridProdutos" class="vitrine-grid">
-      <!-- Produtos aqui -->
-    </div>
+    <!-- A grade sai PRONTA do servidor (o Google e o WhatsApp veem as peças sem
+         executar JS). O front reassume a partir do primeiro filtro. -->
+    <div id="gridProdutos" class="vitrine-grid">{{{grade}}}</div>
   </main>
 
   <!-- CTA: Newsletter/WhatsApp -->
@@ -200,6 +206,9 @@
     </div>
   </div>
 
-  <script src="/vitrine/js/vitrine.js"></script>
+  <!-- Dados já prontos: mata os 2 fetches em cascata do boot (HTML → JS →
+       fetch loja → fetch produtos → render). O JS tem fallback pro fetch. -->
+  {{{dados}}}
+  <script src="/vitrine/js/vitrine.js?v=2"></script>
 </body>
 </html>

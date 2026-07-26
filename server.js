@@ -389,13 +389,21 @@ app.use('/api/maquininha',    pdvOuAdmin, exigirFeature('maquininha_integrada'),
 app.use('/api/assinaturas',   require('./routes/assinaturas'));  // cliente pode ver sua, admin vê todas
 
 // ---------- Arquivos estáticos (telas + fotos no disco persistente) ----------
+// CACHE LONGO: o nome do arquivo já é único e imutável
+// (`codigo-timestamp-random.jpg`, routes/produtos.js) — trocar a foto gera nome
+// novo, então nunca há versão velha em cache. Sem isso, TODA foto era rebaixada
+// a cada visita (o default do express.static é max-age=0), e a vitrine é a
+// página que vai receber tráfego de anúncio.
+// `immutable` dispensa até a revalidação condicional — importante aqui porque o
+// middleware de cima remove o ETag de todas as respostas.
+const CACHE_IMAGEM = { maxAge: '365d', immutable: true };
 const UPLOADS_DIR = process.env.UPLOADS_DIR || path.join(__dirname, 'public', 'img', 'produtos');
-app.use('/img/produtos', express.static(UPLOADS_DIR));
+app.use('/img/produtos', express.static(UPLOADS_DIR, CACHE_IMAGEM));
 // logo da loja (personalização da marca) — disco persistente em produção
 const MARCA_DIR = process.env.UPLOADS_DIR
   ? path.join(process.env.UPLOADS_DIR, 'marca')
   : path.join(__dirname, 'public', 'img', 'marca');
-app.use('/img/marca', express.static(MARCA_DIR));
+app.use('/img/marca', express.static(MARCA_DIR, CACHE_IMAGEM));
 
 // comprovantes (print do Pix por chave) — disco persistente em produção
 const COMPROVANTES_DIR = process.env.UPLOADS_DIR
@@ -459,11 +467,27 @@ app.get('/painel', (req, res, next) => {
   });
 });
 
+// ⚠️ Os .html de public/vitrine/ são TEMPLATES (contêm tokens {{ }}) e nunca
+// podem ser servidos crus — apareceriam com "{{head}}" na cara da cliente.
+// Quem os entrega é o SSR abaixo. CSS/JS de lá continuam sendo servidos normal.
+app.use('/vitrine', (req, res, next) => {
+  if (req.path.endsWith('.html')) return next('router');
+  next();
+});
+
 // HTML/JS sem cache (garante que o navegador sempre pegue a versão nova das telas)
 // IMPORTANTE: index=false para nao servir index.html automaticamente na raiz
 app.use(express.static(path.join(__dirname, 'public'), {
   index: false,
   setHeaders: (res, filePath) => {
+    // Assets da VITRINE (loja pública) têm cache longo: são versionados por
+    // query string (?v=2) nos templates, e a vitrine recebe tráfego de anúncio —
+    // rebaixar CSS e JS a cada visita custa LCP, que custa conversão.
+    // As telas do painel seguem sem cache (o lojista tem que ver a versão nova).
+    if (filePath.includes(path.sep + 'vitrine' + path.sep)) {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      return;
+    }
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
@@ -474,30 +498,28 @@ app.use(express.static(path.join(__dirname, 'public'), {
   },
 }));
 
-// ---------- Rota pública da vitrine: /:slug (SPA) ----------
+// ---------- Páginas públicas da loja (SSR) ----------
+// Montadas DEPOIS do static (preserva a precedência de arquivo já existente) e
+// ANTES da catch-all de 1 segmento. Não passam por exigirLogin — ele só existe
+// sob /api. O gate de plano mora no próprio handler (slug→tenant→plano).
 const { SLUGS_RESERVADOS } = require('./lib/helpers');
-app.get('/:slug([a-z0-9-]+)', (req, res, next) => {
+const vitrineSsr = require('./routes/vitrine-ssr');
+
+app.get('/robots.txt', vitrineSsr.robots);
+
+// Guarda comum: slug reservado ou inexistente cai no 404 padrão, sem tocar no banco duas vezes.
+function lojaExiste(req, res, next) {
   const { slug } = req.params;
+  if (SLUGS_RESERVADOS.has(slug)) return next('router');
+  if (!db.prepare('SELECT 1 FROM tenants WHERE slug = ?').get(slug)) return next('router');
+  next();
+}
 
-  // Blacklist: se é nome reservado, deixa cair no 404 padrão
-  if (SLUGS_RESERVADOS.has(slug)) {
-    return next();
-  }
-
-  // Verificar se slug existe no banco
-  const tenant = db.prepare('SELECT id FROM tenants WHERE slug = ?').get(slug);
-  if (!tenant) {
-    return next(); // Deixa cair no 404 padrão
-  }
-
-  // Servir a página da vitrine (SPA que busca dados via /api/vitrine/:slug)
-  res.sendFile(path.join(__dirname, 'public', 'vitrine', 'index.html'), (err) => {
-    if (err) {
-      console.error('[VITRINE] Erro ao servir vitrine/index.html:', err);
-      next(err);
-    }
-  });
-});
+app.get('/:slug([a-z0-9-]+)/sitemap.xml', lojaExiste, vitrineSsr.sitemap);
+// A peça: /:slug/p/:nome-slug-:id — o ID no fim é quem resolve, o slug é
+// decorativo (renomear a peça não pode quebrar link que já circula no zap).
+app.get('/:slug([a-z0-9-]+)/p/:produto', lojaExiste, vitrineSsr.ssrProduto);
+app.get('/:slug([a-z0-9-]+)', lojaExiste, vitrineSsr.ssrHome);
 
 // ---------- Tratamento de erro centralizado (NÃO vaza stack/detalhe) ----------
 app.use((err, req, res, next) => {

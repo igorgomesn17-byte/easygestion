@@ -20,39 +20,48 @@ let carrinhoLocal = [];
 
 async function inicializar() {
   try {
-    // 1. Buscar dados da loja
-    const resLoja = await fetch(`${API_BASE}/${slug}`);
-    if (!resLoja.ok) {
-      exibirMensagemVitrinaIndisponivel();
-      return;
+    let categorias, colecoes;
+
+    // CAMINHO RÁPIDO — o servidor já mandou tudo pronto (window.__VITRINE__).
+    // Mata os DOIS fetches em cascata do boot (HTML → JS → fetch loja → fetch
+    // produtos → render), que eram o que atrasava a primeira pintura. O fetch
+    // continua como fallback: loja sem `vitrine_site` recebe o HTML sem dados.
+    if (window.__VITRINE__ && window.__VITRINE__.loja) {
+      dadosLoja = window.__VITRINE__.loja;
+      todosProdutos = window.__VITRINE__.produtos || [];
+      categorias = window.__VITRINE__.categorias || [];
+      colecoes = window.__VITRINE__.colecoes || [];
+      preencherHeader();
+      preencherFiltros(categorias, colecoes);
+      // A grade JÁ está pintada pelo servidor — repintar aqui só causaria um
+      // flash. Só ligamos o clique nos cards que já existem.
+      ligarCliqueNosCards();
+    } else {
+      const resLoja = await fetch(`${API_BASE}/${slug}`);
+      if (!resLoja.ok) {
+        exibirMensagemVitrinaIndisponivel();
+        return;
+      }
+      dadosLoja = await resLoja.json();
+
+      if (!dadosLoja.vitrineAtiva) {
+        exibirMensagemVitrinaIndisponivel();
+        return;
+      }
+
+      aplicarTemasPersonalizados();
+      preencherHeader();
+
+      const resProdutos = await fetch(`${API_BASE}/${slug}/produtos`);
+      if (!resProdutos.ok) {
+        console.error('Erro ao carregar produtos');
+        return;
+      }
+      ({ produtos: todosProdutos, categorias, colecoes } = await resProdutos.json());
+
+      preencherFiltros(categorias, colecoes);
+      renderizarProdutos(todosProdutos);
     }
-    dadosLoja = await resLoja.json();
-
-    if (!dadosLoja.vitrineAtiva) {
-      exibirMensagemVitrinaIndisponivel();
-      return;
-    }
-
-    // 2. Aplicar cores do sistema
-    aplicarTemasPersonalizados();
-
-    // 3. Preencher header
-    preencherHeader();
-
-    // 3. Buscar produtos
-    const resProdutos = await fetch(`${API_BASE}/${slug}/produtos`);
-    if (!resProdutos.ok) {
-      console.error('Erro ao carregar produtos');
-      return;
-    }
-    const { produtos, categorias, colecoes } = await resProdutos.json();
-    todosProdutos = produtos;
-
-    // 4. Preencher filtros
-    preencherFiltros(categorias, colecoes);
-
-    // 5. Renderizar grid inicial
-    renderizarProdutos(todosProdutos);
 
     // 6. Listeners
     document.getElementById('filtroCategoria').addEventListener('change', filtrar);
@@ -88,21 +97,21 @@ function preencherHeader() {
   lojafrase.textContent = dadosLoja.vitrine_frase || '';
 
   if (dadosLoja.loja_logo) {
-    // Adicionar timestamp para forçar reload (cache busting)
-    const urlLogo = dadosLoja.loja_logo + '?t=' + Date.now();
-    lojaLogo.src = urlLogo;
-    lojaLogo.style.display = 'block'; // Garantir que não está escondida
+    // SEM `?t=Date.now()`: o nome do arquivo da logo já muda a cada upload
+    // (`logo-<timestamp>.png`), então não há versão velha pra furar. Com o
+    // cache `immutable` do servidor, o timestamp aqui viraria um cache miss a
+    // cada visita — pagando download de logo em toda pageview.
+    lojaLogo.src = dadosLoja.loja_logo;
+    lojaLogo.style.display = 'block';
   }
 
   // Preencher botões de contato
   preencherBotoesContato();
 
-  // Meta tags OpenGraph (dinâmico)
-  atualizarMetaTags(
-    dadosLoja.loja_nome || 'Vitrine',
-    dadosLoja.vitrine_frase || 'Conheça nossos produtos',
-    dadosLoja.loja_logo || ''
-  );
+  // As meta tags (title/OG) são montadas NO SERVIDOR (lib/vitrine-html.js).
+  // Havia aqui uma `atualizarMetaTags()` que as injetava por JS — inútil: o
+  // crawler do WhatsApp e o do Google não executam JavaScript, então todo link
+  // de loja compartilhado saía sem preview. Foi removida junto com a chamada.
 }
 
 function preencherBotoesContato() {
@@ -197,36 +206,6 @@ function enviarNewsletter(event) {
   document.getElementById('inputWhatsAppNewsletter').value = '';
 }
 
-function atualizarMetaTags(title, description, image) {
-  document.title = title;
-
-  let ogTitle = document.querySelector('meta[property="og:title"]');
-  if (!ogTitle) {
-    ogTitle = document.createElement('meta');
-    ogTitle.setAttribute('property', 'og:title');
-    document.head.appendChild(ogTitle);
-  }
-  ogTitle.setAttribute('content', title);
-
-  let ogDesc = document.querySelector('meta[property="og:description"]');
-  if (!ogDesc) {
-    ogDesc = document.createElement('meta');
-    ogDesc.setAttribute('property', 'og:description');
-    document.head.appendChild(ogDesc);
-  }
-  ogDesc.setAttribute('content', description);
-
-  if (image) {
-    let ogImage = document.querySelector('meta[property="og:image"]');
-    if (!ogImage) {
-      ogImage = document.createElement('meta');
-      ogImage.setAttribute('property', 'og:image');
-      document.head.appendChild(ogImage);
-    }
-    ogImage.setAttribute('content', image);
-  }
-}
-
 // ============================================================
 // FILTROS
 // ============================================================
@@ -293,34 +272,86 @@ function filtrar() {
 // RENDERIZAÇÃO DA GRADE
 // ============================================================
 
+// Escape de HTML. A vitrine NÃO carrega public/js/comum.js (onde mora o esc() do
+// resto do sistema), e este arquivo injeta nome/categoria de produto via
+// innerHTML. Sem isso, uma peça chamada `<img onerror=...>` executa script na
+// cara da cliente. O servidor tem o equivalente em lib/vitrine-render.js.
+function esc(s) {
+  if (s === null || s === undefined) return '';
+  return String(s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// A legenda do card: cores vendem mais que contagem de tamanhos — a cliente
+// escolhe pela cor. Espelha `cardProduto` em lib/vitrine-html.js.
+function legendaDoCard(p) {
+  const cores = (p.cores || []).filter(c => c && c !== COR_PADRAO);
+  if (!cores.length) return `${(p.tamanhos || []).length} tamanho(s)`;
+  return `${cores.slice(0, 3).join(' • ')}${cores.length > 3 ? ' +' + (cores.length - 3) : ''}`;
+}
+
+// ⚠️ ESTE HTML TEM QUE SER IGUAL ao de cardProduto() em lib/vitrine-html.js.
+// O servidor pinta a grade uma vez; a partir do primeiro filtro quem repinta é
+// esta função. Se divergir, a página "pula" no primeiro clique de busca.
+// Mudou o layout do card? Mude nos DOIS.
+function htmlDoCard(p, i) {
+  const nome = p.titulo || p.nome || '';
+  const attrs = i === 0
+    ? 'fetchpriority="high" decoding="async"'
+    : 'loading="lazy" decoding="async"';
+  return `
+      <img src="${esc(p.foto || '/img/placeholder.png')}" alt="${esc(nome)}" class="card-produto-foto" ${attrs}>
+      <div class="card-produto-info">
+        <h3 class="card-produto-nome">${esc(nome)}</h3>
+        <p class="card-produto-categoria">${esc(p.categoria || '')}</p>
+        <p class="card-produto-preco">R$ ${formatarMoeda(p.preco_venda)}</p>
+        <p class="card-produto-tamanhos">${esc(legendaDoCard(p))}</p>
+      </div>`;
+}
+
 function renderizarProdutos(produtos) {
   const grid = document.getElementById('gridProdutos');
   grid.innerHTML = '';
 
   if (produtos.length === 0) {
-    grid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: #999;">Nenhum produto encontrado</p>';
+    grid.innerHTML = '<p class="vitrine-vazio">Nenhuma peça encontrada.</p>';
     return;
   }
 
-  produtos.forEach(p => {
-    const card = document.createElement('div');
+  const temSite = !!(dadosLoja && dadosLoja.tem_site);
+
+  produtos.forEach((p, i) => {
+    // Com site, o card é um LINK de verdade pra página da peça (endereço que a
+    // lojista manda no zap e que o Google segue). Sem site, abre o modal.
+    const card = document.createElement(temSite ? 'a' : 'div');
     card.className = 'card-produto';
-    card.innerHTML = `
-      <img src="${p.foto || 'img/placeholder.png'}" alt="${p.nome}" class="card-produto-foto" onerror="this.src='img/placeholder.png'">
-      <div class="card-produto-info">
-        <h3 class="card-produto-nome">${p.titulo || p.nome}</h3>
-        <p class="card-produto-categoria">${p.categoria || ''}</p>
-        <p class="card-produto-preco">R$ ${formatarMoeda(p.preco_venda)}</p>
-        <p class="card-produto-tamanhos">${(() => {
-          // as cores vendem mais que a contagem de tamanhos: a cliente escolhe pela cor
-          const cores = (p.cores || []).filter(c => c && c !== COR_PADRAO);
-          const tam = `${(p.tamanhos || []).length} tamanho(s)`;
-          return cores.length ? `${cores.slice(0, 3).join(' • ')}${cores.length > 3 ? ' +' + (cores.length - 3) : ''}` : tam;
-        })()}</p>
-      </div>
-    `;
-    card.addEventListener('click', () => abrirModalProduto(p));
+    card.dataset.id = p.id;
+    if (temSite) card.href = urlDaPeca(p);
+    card.innerHTML = htmlDoCard(p, i);
+    if (!temSite) card.addEventListener('click', () => abrirModalProduto(p));
     grid.appendChild(card);
+  });
+}
+
+// Espelha urlProduto() do backend: /:slug/p/:nome-slug-:id
+function urlDaPeca(p) {
+  const nomeSlug = String(p.titulo || p.nome || '')
+    .toLowerCase().trim()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .substring(0, 50);
+  return `/${slug}/p/${nomeSlug ? nomeSlug + '-' : ''}${p.id}`;
+}
+
+// Cards que vieram PRONTOS do servidor: sem site viram clique de modal.
+// Com site já são <a href> e não precisam de listener nenhum.
+function ligarCliqueNosCards() {
+  if (dadosLoja && dadosLoja.tem_site) return;
+  document.querySelectorAll('#gridProdutos .card-produto').forEach(card => {
+    const p = todosProdutos.find(x => String(x.id) === card.dataset.id);
+    if (p) card.addEventListener('click', () => abrirModalProduto(p));
   });
 }
 

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- head montado no servidor: title, OG (foto+preço no preview do zap), JSON-LD -->
+  {{{head}}}
+  {{{breadcrumbJson}}}
+  <link rel="stylesheet" href="/css/ds.css?v=2">
+  <link rel="stylesheet" href="/vitrine/css/vitrine.css?v=2">
+</head>
+<body class="pdp-body">
+
+  <header class="pdp-header">
+    <a href="/{{slugLoja}}" class="pdp-voltar" aria-label="Voltar para a loja">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      <span>{{nomeLoja}}</span>
+    </a>
+    <button id="btnCarrinho" class="pdp-carrinho" aria-label="Ver sacola">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle>
+        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+      </svg>
+      <span id="carrinhoQtd" class="carrinho-badge">0</span>
+    </button>
+  </header>
+
+  <main class="pdp">
+    <!-- Galeria. A 1ª foto é o LCP: fetchpriority alto, sem lazy. -->
+    <section class="pdp-galeria">
+      {{{galeriaHtml}}}
+    </section>
+
+    <section class="pdp-info">
+      <p class="pdp-categoria">{{categoriaPeca}}</p>
+      <h1 class="pdp-titulo">{{tituloPeca}}</h1>
+
+      <div class="pdp-precos">
+        <p class="pdp-preco">{{precoPeca}}</p>
+        <p class="pdp-parcelas">{{parcelamento}}</p>
+      </div>
+
+      <!-- A cor vem ANTES do tamanho: os tamanhos mostrados são os DAQUELA cor,
+           então a cliente nunca escolhe uma combinação que a loja não tem. -->
+      <div class="pdp-opcao" {{temCor}}>
+        <label class="pdp-label">Cor</label>
+        <div id="coresPeca" class="tamanhos-grid">{{{coresHtml}}}</div>
+      </div>
+
+      <div class="pdp-opcao">
+        <div class="pdp-label-linha">
+          <label class="pdp-label">Tamanho</label>
+          <!-- Tabela de medidas COLADA no seletor, não numa aba distante: é aqui
+               que a dúvida nasce. 82% das lojas de moda falham nisso. -->
+          <button id="btnMedidas" class="pdp-link-medidas" {{temMedidas}}>Tabela de medidas</button>
+        </div>
+        <div id="tamanhosPeca" class="tamanhos-grid">{{{tamanhosHtml}}}</div>
+      </div>
+
+      <div class="pdp-opcao pdp-qtd">
+        <label class="pdp-label">Quantidade</label>
+        <div class="qty-control">
+          <button id="btnQtyMenos" class="btn-qty-control" type="button">-</button>
+          <input id="inputQty" type="number" min="1" value="1" class="input-qty">
+          <button id="btnQtyMais" class="btn-qty-control" type="button">+</button>
+        </div>
+      </div>
+
+      <button id="btnPedir" class="btn btn-primary pdp-cta">Pedir pelo WhatsApp</button>
+      <button id="btnSacola" class="btn btn-fantasma pdp-cta-2">Adicionar à sacola</button>
+
+      <!-- Faixa de confiança: o que a cliente de uma loja que ela não conhece
+           precisa saber antes de mandar mensagem. -->
+      <ul class="pdp-confianca">
+        <li {{temPrazo}}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>
+          {{prazoEntrega}}
+        </li>
+        <li {{temPolitica}}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+          {{politicaTroca}}
+        </li>
+      </ul>
+
+      <div class="pdp-detalhes">
+        <p class="pdp-descricao">{{descricaoPeca}}</p>
+        <p class="pdp-modelo" {{temModelo}}><strong>Modelo:</strong> {{modeloVeste}}</p>
+        <p class="pdp-composicao" {{temComposicao}}><strong>Composição:</strong> {{composicaoPeca}}</p>
+      </div>
+    </section>
+  </main>
+
+  <!-- Barra fixa: reaparece quando o CTA principal sai da tela -->
+  <div id="barraFixa" class="pdp-barra-fixa">
+    <div>
+      <p class="pdp-barra-preco">{{precoPeca}}</p>
+      <p class="pdp-barra-parcelas">{{parcelamento}}</p>
+    </div>
+    <button id="btnPedirFixo" class="btn btn-primary">Pedir no WhatsApp</button>
+  </div>
+
+  <!-- Medidas: <dialog> nativo, sem lib -->
+  <dialog id="modalMedidas" class="pdp-dialog">
+    <h2>Tabela de medidas</h2>
+    <pre class="pdp-medidas">{{medidasPeca}}</pre>
+    <p class="pdp-medidas-nota" {{temModelo}}>{{modeloVeste}}</p>
+    <button class="btn btn-fantasma" onclick="document.getElementById('modalMedidas').close()">Fechar</button>
+  </dialog>
+
+  <footer class="vitrine-footer">
+    <div class="footer-content">
+      <h3>{{nomeLoja}}</h3>
+      <a href="/{{slugLoja}}" class="pdp-ver-mais">Ver todas as peças</a>
+      <a href="https://www.easygestao.com" target="_blank" rel="noopener" class="footer-selo">
+        <span>Loja feita com</span>
+        <img src="/img/logo-sidebar.svg" alt="EasyGestão">
+      </a>
+    </div>
+  </footer>
+
+  {{{dados}}}
+  <script src="/vitrine/js/produto.js?v=2"></script>
+</body>
+</html>
