@@ -68,11 +68,26 @@ router.get('/', (req, res) => {
 // "Preços e Metas" -> precificacao. embalagem_unit/frete_unit/comissao_padrao moram na
 // seção de preços e vão junto pro Growth; entram no lucro da venda, mas têm default
 // (embalagem R$1, comissão 0), então o Starter calcula certo sem poder ajustar.
+// As chaves que só fazem sentido quando a loja tem site (banner, política de troca,
+// tabela de medidas, imagem de compartilhamento, prazo, parcelas).
+// Declarada ANTES de featureDaChave: `const` tem temporal dead zone, e deixá-la
+// depois só funciona porque a função roda em request. É pegadinha à espera.
+const CHAVES_SITE = new Set([
+  'vitrine_banner', 'vitrine_og_imagem', 'vitrine_politica_troca',
+  'vitrine_tabela_medidas', 'vitrine_prazo_entrega', 'vitrine_parcelas_max',
+]);
+
 function featureDaChave(chave) {
   if (chave === 'marca_cor' || chave === 'loja_logo') return 'personalizacao';
   if (chave.startsWith('taxa_') || chave.startsWith('prazo_') || chave === 'parcelas_loja_absorve') return 'maquininha';
   if (chave.startsWith('markup') || chave.startsWith('meta_') || chave.startsWith('imposto')
       || chave === 'regime_fiscal' || chave === 'embalagem_unit' || chave === 'frete_unit' || chave === 'comissao_padrao') return 'precificacao';
+  // Chaves do SITE (loja online completa) — vitrine_site, hoje só no plano interno.
+  // ⚠️ NÃO confundir com `vitrine_frase`/`vitrine_ativa`, que são da vitrine simples
+  // e continuam SEM gate (todo plano tem). O prefixo 'vitrine_' sozinho não decide:
+  // por isso a lista é explícita.
+  if (chave.startsWith('pixel_')) return 'vitrine_site';
+  if (CHAVES_SITE.has(chave)) return 'vitrine_site';
   return null;
 }
 

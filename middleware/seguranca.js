@@ -81,9 +81,13 @@ const PUBLICAS = [
   '/api/forgot-password',       // redefinir senha
   '/api/reset-senha',           // confirmar redefinição
   '/api/loja-publica',
-  '/api/lead-vitrine',          // captura de lead na vitrine (POST público)
   '/api/produtos/vitrine',
-  '/api/vitrine',               // vitrine pública por slug (GET /:slug, GET /:slug/produtos)
+  // Vitrine pública por slug. Prefixo (startsWith), então cobre GET /:slug,
+  // GET /:slug/produtos e o que vier depois (POST /:slug/pedido, /:slug/lead).
+  // Havia aqui um '/api/lead-vitrine' que NUNCA teve rota — entrada pública sem
+  // destino é superfície inútil, e um dia alguém monta ali achando que já está
+  // gateado. A captura de lead nasce dentro de /api/vitrine.
+  '/api/vitrine',
   '/api/codigo-barras',         // imagens dos códigos (prefixo)
   '/api/admin',                 // backoffice admin (protegido por password/sessão)
   '/api/assinaturas/checkout',  // iniciar checkout Stripe (requer autenticação mas é chamada via fetch)

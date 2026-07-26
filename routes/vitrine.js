@@ -5,6 +5,10 @@ const express = require('express');
 const router = express.Router();
 const { db, getConfig } = require('../db/database');
 const { temFeature } = require('../lib/planos');
+// Fonte ÚNICA da resolução pública (gate slug→tenant→plano, allowlist de config,
+// normalização de URL de foto). Antes disso a CHAVES_PUBLICAS vivia duplicada aqui
+// e em routes/config.js, e o gate era local — com o SSR seriam três cópias.
+const { resolverLojaPublica, urlFoto } = require('../lib/vitrine-publica');
 
 // Resolver tenant pelo slug (público, sem autenticação)
 function resolverTenantPorSlug(slug) {
@@ -45,27 +49,24 @@ router.get('/:slug', (req, res) => {
       });
     }
 
-    // Buscar dados públicos da loja (mesmo padrão de /api/loja-publica, mas filtrado)
-    // Defaults por chave para quando o tenant ainda não preencheu (nunca herda de outro tenant).
-    const CHAVES_PUBLICAS = [
-      'loja_nome', 'loja_endereco', 'loja_instagram', 'loja_telefone',
-      'vitrine_frase', 'loja_whatsapp', 'loja_whatsapp_link', 'loja_instagram_url',
-      'loja_maps', 'loja_logo', 'marca_cor'
-    ];
-    const DEFAULTS_PUBLICOS = { marca_cor: '#1a6f5e' };
+    // Dados públicos vêm da allowlist única em lib/vitrine-publica.js (antes esta
+    // lista vivia duplicada aqui e em routes/config.js). resolverLojaPublica já
+    // refez o gate e o vitrine_ativa acima — aqui não pode dar null, mas se der,
+    // trata como loja inexistente em vez de estourar.
+    const loja = resolverLojaPublica(slug);
+    if (!loja) return res.status(404).json({ erro: 'Loja não encontrada' });
 
     const dados = {
       slug: tenant.slug,
       vitrineAtiva: true,
-      email: tenant.email
+      email: tenant.email,
+      // O front usa isto pra decidir se o card vira link pra pagina de produto
+      // ou continua abrindo o modal (loja online x site completo).
+      tem_site: loja.temSite,
+      ...loja.config,
+      // Logo normalizada: sem a barra inicial ela quebraria em /:slug/p/:peca.
+      loja_logo: loja.config.loja_logo ? urlFoto(loja.config.loja_logo) : '',
     };
-
-    for (const chave of CHAVES_PUBLICAS) {
-      // SEMPRE filtrado por tenant_id; sem registro usa default local, nunca de outro tenant.
-      const config = db.prepare('SELECT valor FROM config WHERE chave = ? AND tenant_id = ?')
-        .get(chave, tenant.id);
-      dados[chave] = config?.valor || DEFAULTS_PUBLICOS[chave] || '';
-    }
 
     res.json(dados);
   } catch (err) {
@@ -96,9 +97,13 @@ router.get('/:slug/produtos', (req, res) => {
     // Buscar produtos ativos com estoque (mesmo padrão do GET /api/produtos/vitrine,
     // mas FILTRADO por tenant_id do slug + sem expor código/SKU)
     // p.cor esta DEPRECADA (a cor mora na variacao) — nao selecionada.
+    // descricao/medidas/modelo_veste/composicao alimentam a pagina de produto.
+    // `descricao` ja existia no schema desde sempre e NUNCA era lida aqui — a peca
+    // aparecia na vitrine so com nome e preco. Os outros 3 vieram na migration 044.
     const produtos = db.prepare(`
       SELECT
-        p.id, p.nome, p.categoria, p.preco_venda, p.foto, p.colecao
+        p.id, p.nome, p.categoria, p.preco_venda, p.foto, p.colecao,
+        p.descricao, p.medidas, p.modelo_veste, p.composicao, p.destaque
       FROM produtos p
       WHERE p.ativo = 1 AND p.tenant_id = ?
       ORDER BY p.nome ASC
@@ -132,11 +137,20 @@ router.get('/:slug/produtos', (req, res) => {
         cores,
         cor: cores.length === 1 ? cores[0] : null,
         preco_venda: p.preco_venda,
-        foto: p.foto,
+        // urlFoto normaliza 'img/produtos/x' -> '/img/produtos/x'. Sem a barra, o
+        // caminho e' relativo a URL ATUAL: funciona em /minhaloja por acidente e
+        // quebra em /minhaloja/p/vestido-142 (a pagina de produto). Corrigir aqui
+        // conserta o front atual sem tocar em vitrine.js.
+        foto: urlFoto(p.foto),
         colecao: p.colecao,
+        descricao: p.descricao || '',
+        medidas: p.medidas || '',
+        modelo_veste: p.modelo_veste || '',
+        composicao: p.composicao || '',
+        destaque: p.destaque || 0,
         grade: grade.map(g => ({ cor: g.cor, tamanho: g.tamanho, quantidade: g.quantidade })),
         tamanhos: [...new Set(grade.map(g => g.tamanho))].map(t => ({ tamanho: t })),
-        galeria: galeria.map(g => g.caminho)
+        galeria: galeria.map(g => urlFoto(g.caminho))
       };
     });
 

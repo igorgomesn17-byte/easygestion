@@ -1793,6 +1793,143 @@ function executarMigrations(db) {
         `);
         db.exec(`CREATE INDEX IF NOT EXISTS idx_reativacao_tenant ON reativacao_contatos(tenant_id, contatado_em);`);
       }
+    },
+
+    {
+      nome: '042_vitrine_pedidos',
+      hash: 'v42-vitrine-pedidos',
+      exec: (db) => {
+        // O pedido da vitrine NAO e' venda. Venda existe quando a lojista confirma
+        // no PDV e o estoque baixa. Isto aqui e' a INTENCAO: o que a cliente montou
+        // na loja online antes de abrir o WhatsApp.
+        //
+        // POR QUE GRAVAR: hoje o carrinho abre o wa.me e se APAGA (finalizarWhatsApp
+        // em public/vitrine/js/vitrine.js). A lojista nao sabe quantos pedidos a
+        // vitrine gerou, quais pecas foram abandonadas, nem quem era a cliente.
+        // Sem isso nao existe o unico numero que prova que a loja online funciona.
+        //
+        // NAO reserva estoque de proposito: duas clientes PODEM pedir a ultima peca.
+        // Reservar sem pagamento trava estoque de quem nunca vai fechar — a tela da
+        // lojista mostra a disponibilidade ATUAL na hora de abrir o pedido.
+        db.exec(`
+          CREATE TABLE IF NOT EXISTS vitrine_pedidos (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            tenant_id     INTEGER NOT NULL,
+            codigo        TEXT NOT NULL,          -- A7K2 (curto: vai na msg do zap)
+            cliente_nome  TEXT,
+            cliente_tel   TEXT,
+            cliente_id    INTEGER,                -- preenchido se virar cliente do CRM
+            total         REAL NOT NULL DEFAULT 0,
+            qtd_itens     INTEGER NOT NULL DEFAULT 0,
+            status        TEXT NOT NULL DEFAULT 'novo',  -- novo|respondido|fechado|perdido
+            venda_id      INTEGER,                -- venda gerada quando fecha no PDV
+            origem        TEXT,                   -- utm_source ou 'direto'
+            obs           TEXT,
+            criado_em     TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+            atualizado_em TEXT,
+            UNIQUE (tenant_id, codigo),
+            FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE SET NULL,
+            FOREIGN KEY (venda_id)   REFERENCES vendas(id)   ON DELETE SET NULL
+          );
+        `);
+        // UNIQUE por (tenant_id, codigo) e nao global: duas lojas podem ter #A7K2
+        // sem colidir, e o codigo so e' resolvido junto do slug (/loja/pedido/A7K2).
+        // Mesmo padrao das migrations 034/035/036 (unique por loja).
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_vpedidos_tenant ON vitrine_pedidos(tenant_id, criado_em DESC);`);
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_vpedidos_status ON vitrine_pedidos(tenant_id, status);`);
+
+        // produto_nome e preco_unit sao COPIADOS de proposito (snapshot). Se a
+        // lojista mudar o preco amanha, o pedido de hoje tem que continuar dizendo
+        // o que a cliente VIU — senao a mensagem do zap e o caixa divergem.
+        // variacao_id mantem o vinculo forte com a grade; os dois coexistem.
+        db.exec(`
+          CREATE TABLE IF NOT EXISTS vitrine_pedido_itens (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            tenant_id    INTEGER NOT NULL,
+            pedido_id    INTEGER NOT NULL,
+            produto_id   INTEGER,
+            variacao_id  INTEGER,
+            produto_nome TEXT NOT NULL,
+            cor          TEXT,
+            tamanho      TEXT,
+            qtd          INTEGER NOT NULL DEFAULT 1,
+            preco_unit   REAL NOT NULL DEFAULT 0,
+            FOREIGN KEY (pedido_id)   REFERENCES vitrine_pedidos(id) ON DELETE CASCADE,
+            FOREIGN KEY (produto_id)  REFERENCES produtos(id)  ON DELETE SET NULL,
+            FOREIGN KEY (variacao_id) REFERENCES variacoes(id) ON DELETE SET NULL
+          );
+        `);
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_vpedido_itens ON vitrine_pedido_itens(tenant_id, pedido_id);`);
+      }
+    },
+
+    {
+      nome: '043_vitrine_leads',
+      hash: 'v43-vitrine-leads',
+      exec: (db) => {
+        // Quem deixou o WhatsApp na vitrine (newsletter, "avise-me", pedido).
+        //
+        // NAO grava direto em `clientes` de proposito: jogar todo visitante que
+        // digita um telefone na tabela de clientes poluiria o RFM e a regua de
+        // relacionamento com gente que nunca comprou — exatamente o problema que a
+        // migration 040 (clientes.tipo) acabou de resolver. O lead vira cliente
+        // quando a lojista PROMOVE (um clique na tela), e ai cliente_id e' preenchido.
+        //
+        // UNIQUE(tenant_id, telefone): a mesma pessoa mandando o formulario 5 vezes
+        // e' UM lead, nao cinco. O INSERT usa ON CONFLICT DO UPDATE.
+        db.exec(`
+          CREATE TABLE IF NOT EXISTS vitrine_leads (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            tenant_id  INTEGER NOT NULL,
+            nome       TEXT,
+            telefone   TEXT NOT NULL,
+            email      TEXT,
+            fonte      TEXT,                     -- newsletter | pedido | pdp_avise
+            cliente_id INTEGER,                  -- preenchido ao virar cliente do CRM
+            consentiu  INTEGER NOT NULL DEFAULT 0,  -- LGPD: opt-in EXPLICITO
+            ip_hash    TEXT,                     -- hash, NUNCA o IP cru (LGPD)
+            criado_em  TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+            UNIQUE (tenant_id, telefone),
+            FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE SET NULL
+          );
+        `);
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_vleads_tenant ON vitrine_leads(tenant_id, criado_em DESC);`);
+      }
+    },
+
+    {
+      nome: '044_produtos_pdp',
+      hash: 'v44-produtos-pdp',
+      exec: (db) => {
+        // Campos que a PAGINA DE PRODUTO precisa e o cadastro nao tinha.
+        // ALTER idempotente: o runner nao abre transacao, entao se algo depois
+        // desta migration falhar, ela reexecuta do zero na proxima subida.
+        const cols = db.prepare('PRAGMA table_info(produtos)').all().map((c) => c.name);
+
+        // Medidas da PECA em cm ("Busto 88 / Cintura 70 / Comprimento 120").
+        // A pesquisa de UX e' dura aqui: 82% das lojas de moda falham em informacao
+        // de tamanho, e a duvida de tamanho e' causa comum de abandono. Medida da
+        // peca vende mais que tabela generica P/M/G — a numeracao brasileira varia
+        // demais entre marcas.
+        if (!cols.includes('medidas')) db.exec(`ALTER TABLE produtos ADD COLUMN medidas TEXT;`);
+
+        // "A modelo tem 1,70m e veste M" — a frase que mais reduz duvida de tamanho,
+        // e a que quase ninguem escreve.
+        if (!cols.includes('modelo_veste')) db.exec(`ALTER TABLE produtos ADD COLUMN modelo_veste TEXT;`);
+
+        // Composicao e cuidados ("95% viscose, 5% elastano. Lavar a mao.")
+        if (!cols.includes('composicao')) db.exec(`ALTER TABLE produtos ADD COLUMN composicao TEXT;`);
+
+        // Destaque na home da loja: 0 normal, 1 novidade, 2 mais vendido.
+        // INTEGER e nao TEXT porque a home ordena por ele.
+        if (!cols.includes('destaque')) db.exec(`ALTER TABLE produtos ADD COLUMN destaque INTEGER NOT NULL DEFAULT 0;`);
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_produtos_destaque ON produtos(tenant_id, destaque);`);
+
+        // NAO existe coluna `slug` de produto de proposito: a URL e'
+        // /:loja/p/:nome-slug-:id e quem resolve e' o ID. Slug em coluna exigiria
+        // UNIQUE por tenant, resolucao de colisao, backfill e manutencao no rename —
+        // com zero ganho, ja que gerarSlug(nome) e' deterministico (lib/helpers.js).
+      }
     }
   ];
 
