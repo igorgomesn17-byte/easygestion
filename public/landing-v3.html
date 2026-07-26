@@ -489,6 +489,33 @@
   .plano li.off svg{color:var(--tinta-3)}
   .planos-foot{text-align:center;margin-top:34px;font-size:14.5px;color:var(--tinta-2)}
 
+  /* ---------- IMPLANTAÇÃO GRÁTIS ---------- */
+  .impl{
+    max-width:860px;margin:34px auto 0;position:relative;overflow:hidden;
+    background:var(--verde-esc);border-radius:20px;padding:38px 40px;
+    display:grid;grid-template-columns:1fr auto;gap:32px;align-items:center;
+    box-shadow:var(--sombra);
+  }
+  .impl::before{content:"";position:absolute;top:-40%;right:-8%;width:360px;height:360px;border-radius:50%;background:radial-gradient(circle,rgba(195,154,54,.16),transparent 64%);pointer-events:none}
+  .impl-tag{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--dourado-claro);margin-bottom:12px}
+  .impl-tag svg{color:var(--dourado-claro)}
+  .impl-head{position:relative}
+  .impl-head h3{font-family:var(--serif);font-weight:700;font-size:27px;color:#fff;line-height:1.2;margin-bottom:10px}
+  .impl-head h3 em{color:var(--dourado-claro);font-style:italic}
+  .impl-head p{font-size:15px;color:#bcd4cc;max-width:56ch;line-height:1.55}
+  .impl-list{list-style:none;display:flex;flex-wrap:wrap;gap:10px 22px;margin-top:18px}
+  .impl-list li{display:flex;align-items:center;gap:9px;font-size:14px;color:#e6efec;font-weight:500}
+  .impl-list li svg{flex-shrink:0;color:var(--dourado-claro)}
+  .impl-price{position:relative;text-align:center;flex-shrink:0;padding-left:32px;border-left:1px solid rgba(255,255,255,.14)}
+  .impl-price .risco{font-size:17px;color:#8fb0a7;text-decoration:line-through;display:block;margin-bottom:2px}
+  .impl-price .free{font-family:var(--serif);font-weight:800;font-size:40px;color:#fff;line-height:1.05;display:block}
+  .impl-price .obs{font-size:12.5px;color:var(--dourado-claro);font-weight:600;margin-top:6px;display:block}
+  @media(max-width:720px){
+    .impl{grid-template-columns:1fr;gap:22px;padding:32px 26px;text-align:center}
+    .impl-list{justify-content:center}
+    .impl-price{padding-left:0;border-left:0;border-top:1px solid rgba(255,255,255,.14);padding-top:22px}
+  }
+
   /* ---------- FAQ ---------- */
   .faq{background:var(--creme-2)}
   .faq-list{max-width:780px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
@@ -1206,6 +1233,25 @@
         <a href="/registro.html" class="btn btn-primary btn-bloco" style="width:100%">Testar grátis</a>
       </div>
     </div>
+    <div class="impl reveal">
+      <div class="impl-head">
+        <span class="impl-tag"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Implantação gratuita</span>
+        <h3>A gente deixa <em>pronto pra você usar</em></h3>
+        <p>Você não precisa saber de sistema. Nossa equipe cadastra seus produtos, configura taxas, imposto, logo e vitrine, faz uma chamada com você no primeiro uso e fica no WhatsApp pra tirar dúvida nos primeiros dias.</p>
+        <ul class="impl-list">
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Cadastro dos produtos</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Configuração da loja</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Chamada de acompanhamento</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Suporte no WhatsApp</li>
+        </ul>
+      </div>
+      <div class="impl-price">
+        <span class="risco">R$ 499,90</span>
+        <span class="free">Grátis</span>
+        <span class="obs">temporariamente</span>
+      </div>
+    </div>
+
     <p class="planos-foot">Todo cadastro novo começa com <b>14 dias no plano Growth completo</b>. Você experimenta tudo antes de escolher.</p>
   </div>
 </section>
