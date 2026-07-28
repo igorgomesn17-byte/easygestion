@@ -13,8 +13,8 @@
        os tokens apareceriam literalmente na cara da cliente — por isso
        server.js bloqueia /vitrine/*.html no static. -->
   {{{head}}}
-  <link rel="stylesheet" href="/css/ds.css?v=2">
-  <link rel="stylesheet" href="/vitrine/css/vitrine.css?v=2">
+  <link rel="stylesheet" href="/css/ds.css?v={{v}}">
+  <link rel="stylesheet" href="/vitrine/css/vitrine.css?v={{v}}">
 </head>
 <body>
   <!-- Barra de anúncio: o espaço mais nobre da página (frete, Pix, novidade).
@@ -225,6 +225,6 @@
   <!-- Dados já prontos: mata os 2 fetches em cascata do boot (HTML → JS →
        fetch loja → fetch produtos → render). O JS tem fallback pro fetch. -->
   {{{dados}}}
-  <script src="/vitrine/js/vitrine.js?v=2"></script>
+  <script src="/vitrine/js/vitrine.js?v={{v}}"></script>
 </body>
 </html>
