@@ -585,6 +585,19 @@
   <script src="js/config.js"></script>
   <script>
     // Navegação entre seções
+    // Features do plano, vindas do /api/me. `null` = ainda não sabemos.
+    // Declarada AQUI no topo: o gate é assíncrono e `trocarSecaoConfig` (que a
+    // lê) pode rodar antes — `let` tem temporal dead zone e estouraria.
+    var FEATURES_ME = null;
+
+    // Mostra/esconde os campos do site na seção Vitrine. Chamada pelo gate E
+    // por trocarSecaoConfig, que repinta o display das seções.
+    function aplicarBlocoSite() {
+      const bloco = document.getElementById('blocoSite');
+      if (!bloco || !FEATURES_ME) return;
+      bloco.style.display = FEATURES_ME.vitrine_site ? '' : 'none';
+    }
+
     function trocarSecaoConfig(secao) {
       // Esconde todas as seções
       document.querySelectorAll('.config-secao').forEach(s => s.classList.remove('ativo'));
@@ -602,6 +615,10 @@
 
       // Marca o nav item como ativo
       document.querySelector(`[data-secao="${secao}"]`).classList.add('ativo');
+
+      // Reaplica o gate do bloco do site: esta função repinta o display das
+      // seções, e sem isto o bloco de Vitrine some ao trocar de aba.
+      if (typeof aplicarBlocoSite === 'function') aplicarBlocoSite();
     }
 
     // Salvar seção específica (compatibilidade com múltiplas seções)
@@ -1139,8 +1156,13 @@
         // DENTRO da seção Vitrine, que todo plano tem. Esconder, não bloquear:
         // `vitrine_site` ainda não é vendável, então não há checkout pra onde
         // mandar a lojista — card de upgrade aqui seria promessa sem entrega.
-        const blocoSite = document.getElementById('blocoSite');
-        if (blocoSite) blocoSite.style.display = features.vitrine_site ? '' : 'none';
+        //
+        // Guardado em variável global porque este gate é ASSÍNCRONO e roda uma
+        // vez só: se a lojista trocar de seção antes do /api/me responder, ou
+        // depois, `trocarSecaoConfig` repinta o display e o bloco sumiria.
+        // Com a flag, quem repinta sabe o que fazer.
+        FEATURES_ME = features;
+        aplicarBlocoSite();
       } catch (e) { /* em erro, não esconde — degradação segura no front (back ainda barra) */ }
     }
 
