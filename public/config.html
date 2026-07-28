@@ -886,16 +886,16 @@
     }
 
     // ---------- Categorias de produtos ----------
-    let categorias = [];
+    let categoriasCfg = [];
     async function carregarCategorias_config() {
       const cfg = await api('/config');
-      try { categorias = JSON.parse(cfg.categorias || '[]'); } catch(e) { categorias = []; }
-      if (!categorias.length) categorias = ['vestido','blusa','calca','short','saia','conjunto','macacao','alfaiataria','acessorio','outro'];
+      try { categoriasCfg = JSON.parse(cfg.categorias || '[]'); } catch(e) { categoriasCfg = []; }
+      if (!categoriasCfg.length) categoriasCfg = ['vestido','blusa','calca','short','saia','conjunto','macacao','alfaiataria','acessorio','outro'];
       renderizarCategorias();
     }
     function renderizarCategorias() {
       const div = document.getElementById('listaCategorias');
-      div.innerHTML = categorias.map(c => `
+      div.innerHTML = categoriasCfg.map(c => `
         <div class="chip-tam" style="background:#f9fbfa; border:1px solid #e0e8e5; border-radius:6px; padding:8px 12px; display:flex; justify-content:space-between; align-items:center;">
           <span>${esc(c)}</span>
           <button class="btn btn-fino btn-vermelho" onclick="removerCategoria('${esc(c)}')" style="padding:4px 8px; font-size:0.75rem;"></button>
@@ -905,9 +905,9 @@
       const input = document.getElementById('novaCategoriaInput');
       const nova = input.value.trim().toLowerCase();
       if (!nova) { toast('Digite uma categoria', 'erro'); return; }
-      if (categorias.includes(nova)) { toast('Categoria já existe', 'erro'); return; }
-      categorias.push(nova);
-      await api('/config', { method:'POST', body: { categorias: JSON.stringify(categorias) } });
+      if (categoriasCfg.includes(nova)) { toast('Categoria já existe', 'erro'); return; }
+      categoriasCfg.push(nova);
+      await api('/config', { method:'POST', body: { categorias: JSON.stringify(categoriasCfg) } });
       input.value = '';
       renderizarCategorias();
       toast('Categoria adicionada ', 'sucesso');
@@ -915,24 +915,24 @@
     }
     async function removerCategoria(cat) {
       if (!confirm(`Remover categoria "${cat}"?`)) return;
-      categorias = categorias.filter(c => c !== cat);
-      await api('/config', { method:'POST', body: { categorias: JSON.stringify(categorias) } });
+      categoriasCfg = categoriasCfg.filter(c => c !== cat);
+      await api('/config', { method:'POST', body: { categorias: JSON.stringify(categoriasCfg) } });
       renderizarCategorias();
       toast('Categoria removida', 'sucesso');
       invalidarCacheColecoes();
     }
 
     // ---------- Coleções de produtos ----------
-    let colecoes = [];
+    let colecoesCfg = [];
     async function carregarColecoes_config() {
       const cfg = await api('/config');
-      try { colecoes = JSON.parse(cfg.colecoes || '[]'); } catch(e) { colecoes = []; }
+      try { colecoesCfg = JSON.parse(cfg.colecoes || '[]'); } catch(e) { colecoesCfg = []; }
       renderizarColecoes();
     }
     function renderizarColecoes() {
       const div = document.getElementById('listaColecoes');
-      div.innerHTML = colecoes.length === 0 ? '<div class="texto-cinza">Nenhuma coleção cadastrada</div>' :
-        colecoes.map(c => `
+      div.innerHTML = colecoesCfg.length === 0 ? '<div class="texto-cinza">Nenhuma coleção cadastrada</div>' :
+        colecoesCfg.map(c => `
         <div class="chip-tam" style="background:#f9fbfa; border:1px solid #e0e8e5; border-radius:6px; padding:8px 12px; display:flex; justify-content:space-between; align-items:center;">
           <span>${esc(c)}</span>
           <button class="btn btn-fino btn-vermelho" onclick="removerColecao('${esc(c)}')" style="padding:4px 8px; font-size:0.75rem;"></button>
@@ -942,9 +942,9 @@
       const input = document.getElementById('novaColecaoInput');
       const nova = input.value.trim();
       if (!nova) { toast('Digite uma coleção', 'erro'); return; }
-      if (colecoes.includes(nova)) { toast('Coleção já existe', 'erro'); return; }
-      colecoes.push(nova);
-      await api('/config', { method:'POST', body: { colecoes: JSON.stringify(colecoes) } });
+      if (colecoesCfg.includes(nova)) { toast('Coleção já existe', 'erro'); return; }
+      colecoesCfg.push(nova);
+      await api('/config', { method:'POST', body: { colecoes: JSON.stringify(colecoesCfg) } });
       input.value = '';
       renderizarColecoes();
       toast('Coleção adicionada ', 'sucesso');
@@ -952,8 +952,8 @@
     }
     async function removerColecao(col) {
       if (!confirm(`Remover coleção "${col}"?`)) return;
-      colecoes = colecoes.filter(c => c !== col);
-      await api('/config', { method:'POST', body: { colecoes: JSON.stringify(colecoes) } });
+      colecoesCfg = colecoesCfg.filter(c => c !== col);
+      await api('/config', { method:'POST', body: { colecoes: JSON.stringify(colecoesCfg) } });
       renderizarColecoes();
       toast('Coleção removida', 'sucesso');
       invalidarCacheColecoes();
