@@ -46,7 +46,12 @@
 
 
       <div class="campo">
-        <label>Fotos da peça <span class="texto-cinza" style="font-weight:400;">(até 5 — a 1ª é a capa)</span></label>
+        <!-- Dizia "até 5" e ficou desatualizado quando o limite subiu pra 20. -->
+        <label>Fotos da peça
+          <span class="texto-cinza" style="font-weight:400;">
+            (até 20 — a 1ª é a capa. Foto em pé, tipo 800 × 1200)
+          </span>
+        </label>
         <div id="galeria" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;"></div>
         <!-- SEM capture: `capture="environment"` FORÇAVA a câmera traseira e o celular
              nem oferecia a galeria. Sem ele, o aparelho mostra o menu normal

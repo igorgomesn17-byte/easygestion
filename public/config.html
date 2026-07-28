@@ -231,10 +231,18 @@
           <div id="blocoSite" style="display:none">
             <h3 style="margin-top:22px">Banner da loja</h3>
             <p class="subtitulo" style="margin-bottom:12px">
-              A foto grande no topo da sua loja online. Use uma foto de campanha deitada (larga).
+              A foto grande no topo da sua loja online.
+              <strong>Tamanho ideal: 1600 × 686 pixels</strong> (foto deitada, bem larga).
+              O sistema ajusta sozinho — mas se a foto for em pé, ela vai ser cortada
+              em cima e embaixo. Aceita JPG, PNG ou WEBP.
             </p>
             <div style="display:flex; gap:14px; align-items:flex-start; flex-wrap:wrap; margin-bottom:14px;">
-              <div id="previewBanner" style="width:220px; height:94px; border-radius:8px; border:1.5px dashed var(--linha-forte); background:var(--surface-2); display:flex; align-items:center; justify-content:center; color:var(--tinta-3); font-size:0.78rem; overflow:hidden;">sem banner</div>
+              <!-- A moldura tem a MESMA proporção do banner real (21:9): é a
+                   forma mais direta de a lojista ver que a foto precisa ser
+                   deitada, antes de escolher a errada. -->
+              <div id="previewBanner" style="width:220px; height:94px; border-radius:8px; border:1.5px dashed var(--linha-forte); background:var(--surface-2); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; color:var(--tinta-3); font-size:0.75rem; text-align:center; overflow:hidden;">
+                <span>sem banner</span><span style="font-size:0.68rem; opacity:.8">1600 × 686</span>
+              </div>
               <div style="display:flex; flex-direction:column; gap:8px;">
                 <input type="file" id="bannerFile" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="enviarImagemSite(event,'banner')">
                 <button type="button" class="btn btn-fino" onclick="document.getElementById('bannerFile').click()">Escolher banner</button>
@@ -301,11 +309,19 @@
             <div class="campo">
               <label>Imagem de compartilhamento (1200 × 630)</label>
               <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
-                <div id="previewOg" style="width:150px; height:79px; border-radius:8px; border:1.5px dashed var(--linha-forte); background:var(--surface-2); display:flex; align-items:center; justify-content:center; color:var(--tinta-3); font-size:0.72rem; overflow:hidden;">sem imagem</div>
+                <!-- Moldura na proporção real (1.91:1), pelo mesmo motivo do banner. -->
+                <div id="previewOg" style="width:150px; height:79px; border-radius:8px; border:1.5px dashed var(--linha-forte); background:var(--surface-2); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; color:var(--tinta-3); font-size:0.72rem; text-align:center; overflow:hidden;">
+                  <span>sem imagem</span><span style="font-size:0.64rem; opacity:.8">1200 × 630</span>
+                </div>
                 <input type="file" id="ogFile" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="enviarImagemSite(event,'og')">
                 <button type="button" class="btn btn-fino" onclick="document.getElementById('ogFile').click()">Escolher</button>
               </div>
-              <small class="subtitulo">A imagem que aparece quando alguém cola o link da loja no WhatsApp. Máx. 300KB — acima disso o WhatsApp não mostra o preview.</small>
+              <small class="subtitulo">
+                A imagem que aparece quando alguém cola o link da sua loja no WhatsApp.
+                <strong>Tamanho exato: 1200 × 630 pixels</strong> (deitada).
+                O sistema comprime pra caber no limite do WhatsApp — imagem pesada
+                demais faz o link sair <em>sem</em> preview nenhum.
+              </small>
             </div>
 
             <div class="campo">
@@ -828,10 +844,34 @@
       });
     }
 
+    // A proporção que cada imagem precisa ter. O sistema redimensiona sozinho,
+    // então tamanho errado não dá erro — mas foto EM PÉ num espaço deitado é
+    // cortada em cima e embaixo, e a lojista só descobre olhando a loja.
+    // Avisar antes vale mais que consertar depois.
+    function avisarProporcao(file, tipo) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onerror = () => resolve();   // não travar por causa do aviso
+        img.onload = () => {
+          const proporcao = img.width / img.height;
+          const ideal = tipo === 'og' ? 1.91 : 2.33;   // 1200x630 e 1600x686
+          const medida = tipo === 'og' ? '1200 × 630' : '1600 × 686';
+          // Tolerância larga de propósito: só avisa quando o corte vai ser feio.
+          if (proporcao < ideal * 0.6) {
+            toast(`Essa foto é mais em pé que o espaço (${img.width}×${img.height}). ` +
+                  `Ela vai ser cortada — o ideal é ${medida}, bem deitada.`, 'erro');
+          }
+          resolve();
+        };
+        img.src = URL.createObjectURL(file);
+      });
+    }
+
     async function enviarImagemSite(ev, tipo) {
       const file = ev.target.files && ev.target.files[0];
       if (!file) return;
       try {
+        await avisarProporcao(file, tipo);
         // og: 1200px de largura e qualidade menor, pra caber nos 300KB que o
         // WhatsApp exige. banner: 1600px, que cobre tela grande sem exagero.
         const dataUrl = tipo === 'og'
