@@ -1629,4 +1629,44 @@ Em `lib/planos.js`: `true` **apenas no `interno`**, `false` em starter/growth/en
 
 ---
 
+## Últimas Mudanças (26 de julho de 2026 — parte 2) — Foto por COR + layout de moda BR
+
+**Commit:** `d6925e9`. Migration **045**. **Não deployado ainda.**
+
+### A foto pertence à COR, não ao SKU
+
+O gargalo que a página de produto expôs não era quantidade de foto: era a foto **não saber de qual cor ela é**. A cliente clicava em "Terracota" e continuava vendo a foto do off white — pedia a peça errada, ou desistia. Aumentar de 5 para 20 fotos sem resolver isso pioraria: viraria pilha misturada.
+
+**Como o mercado resolve (pesquisado):** Nuvemshop, Loja Integrada e Tray usam `image_id` **singular** na variação — só trocam a foto *ativa*, a galeria continua misturada. No Shopify a API suporta N:N mas o admin só deixa 1, e existe um mercado de apps pagos só pra isso. A **Bagy** é a única que chega perto do certo (`color_id` como entidade de 1ª classe).
+
+**A distinção que quase todos erram:** vincular a foto à variação (cor × tamanho) obrigaria a lojista a repetir o vínculo em Azul-P, Azul-M, Azul-G e Azul-GG — 4× o mesmo trabalho pro mesmo arquivo. `produto_fotos.cor` resolve com 1 vínculo.
+
+**`cor` é NULLABLE de propósito:** foto sem cor é **comum ao produto** e aparece em qualquer cor selecionada (tabela de medidas, close do tecido, lookbook com duas cores). Obrigar a marcar forçaria a lojista a classificar tudo — e cobre quem fotografa só uma cor.
+
+`catalogoPublico()` entrega `galeriaPorCor` (fotos da cor + as comuns, nessa ordem); o SSR abre a PDP já com as fotos da primeira cor (servir misturado e deixar o JS corrigir causaria flash de foto errada, e o crawler indexaria a foto de outra cor).
+
+**Junto:** 5 → **20 fotos**, resolução 800 → **1200px** (a PDP mostra a foto em metade da tela; 800px em retina fica borrado), e **reordenar arrastando** — a ordem decide qual foto abre a galeria, e antes era a de upload sem jeito de mudar.
+
+### O layout que a consumidora brasileira espera
+
+Três coisas que estavam erradas no que eu tinha feito antes:
+
+- **Card 4:5, não 2:3** — o padrão de moda BR é 4:5; 2:3 alonga demais num card estreito.
+- **Preço Pix e parcelamento NO CARD**, não só na PDP. O Pix foi ~49% das transações online em 2025 — é decisão de compra, não enfeite.
+- **"Adicionar ao carrinho" numa loja SEM checkout gera desconfiança.** Vocabulário virou de conversa: "Quero essa", "Sua sacola", "Fechar pedido no WhatsApp".
+
+Entrou também: **banner da loja** com upload (frase, botão e link — banner que não leva a lugar nenhum é o erro mais comum), **barra de anúncio** no topo, **tarja de benefícios** e **categorias em círculo** com foto (a gramática dos Stories, que a cliente vinda do Instagram reconhece na hora).
+
+**O que a loja de cidade pequena tem e a Renner não:** "retire na loja" e "entrega hoje na cidade" como benefício visível. **Selo antifraude numa loja que não processa pagamento é sinal falso — não entrou.**
+
+**Badge de "últimas peças" só com estoque VERDADEIRO** (≤ 3). Escassez inventada funciona uma vez e destrói a confiança quando descoberta; numa cidade pequena, onde a cliente conhece a dona, isso é risco reputacional real.
+
+### Armadilha encontrada
+
+`public/config.html` tinha **três cópias** de `CAMPOS_TEXTO` — os campos novos precisaram entrar nas três **mais** na lista do `carregar()`. Campo fora dessas listas salva como `'0'` ou volta vazio ao recarregar.
+
+**Testes:** suíte verde (11 arquivos) + **E2E de 83 verificações**, incluindo a prova de que a foto de uma cor não vaza pra outra e a comum aparece em todas. Migration idempotente contra cópia do banco, zero perda de dado.
+
+---
+
 **Documento versão 2.2 — Atualizado em 18 de julho de 2026. Régua nova: vitrine + personalização + precificação DESCERAM pro Starter (canal de aquisição + operação básica de vender); relacionamento (RFM + régua + clube) SUBIU pro Growth como bandeira do plano; DRE/relatórios seguem Growth. Fonte da verdade `lib/planos.js` — front e endpoint seguem sozinhos. Clube: lista de selos recolhida por padrão. Cupom não fiscal voltou a mostrar selos (rota `/crm/selos` era fantasma). Ficha da cliente ganhou Instagram + Observações (migration 039). Histórico: nome da cliente vira link pra ficha. Régua reconciliada: quem compra sai da fila e a janela de reativação não multiplica o mesmo cliente (`npm run test:regua`). Stripe em modo LIVE. Pendência de segurança nº1: rotacionar a chave AWS vazada.**
