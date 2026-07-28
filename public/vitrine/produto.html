@@ -26,9 +26,16 @@
   </header>
 
   <main class="pdp">
-    <!-- Galeria. A 1ª foto é o LCP: fetchpriority alto, sem lazy. -->
+    <!-- Galeria. A 1ª foto é o LCP: fetchpriority alto, sem lazy.
+         Clicar na foto grande abre ampliada — em moda a cliente quer ver o
+         tecido e o acabamento antes de perguntar. -->
     <section class="pdp-galeria">
       {{{galeriaHtml}}}
+      <button id="btnAmpliar" class="pdp-ampliar" aria-label="Ampliar foto">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M11 8v6M8 11h6"/>
+        </svg>
+      </button>
     </section>
 
     <section class="pdp-info">
@@ -99,6 +106,18 @@
     </div>
     <button id="btnPedirFixo" class="btn btn-primary">Pedir no WhatsApp</button>
   </div>
+
+  <!-- Foto ampliada. <dialog> nativo: fecha com Esc de graça, não precisa de lib
+       e não rouba o scroll da página como um overlay improvisado faria. -->
+  <dialog id="lightbox" class="pdp-lightbox">
+    <button class="lightbox-fechar" aria-label="Fechar">&times;</button>
+    <img id="lightboxImg" src="" alt="">
+    <div class="lightbox-nav">
+      <button id="lightboxAnt" aria-label="Foto anterior">&#8249;</button>
+      <span id="lightboxConta"></span>
+      <button id="lightboxProx" aria-label="Próxima foto">&#8250;</button>
+    </div>
+  </dialog>
 
   <!-- Medidas: <dialog> nativo, sem lib -->
   <dialog id="modalMedidas" class="pdp-dialog">

@@ -99,32 +99,13 @@
       <input type="text" id="filtroBusca" placeholder="Buscar peça..." class="input-busca-principal">
     </div>
 
-    <!-- Barra de coleções (horizontal scrollável) -->
-    <div class="vitrine-colecoes">
-      <button class="btn-colecao btn-colecao-ativo" data-colecao="">Todas as coleções</button>
-      <div id="botoesColecoes"></div>
-      <button class="btn-seta-direita">→</button>
-    </div>
-
-    <!-- Filtro por TAMANHO: o de maior retorno em moda. A frustração nº1 da
-         cliente é achar a peça perfeita e descobrir que o tamanho dela acabou —
-         "mostre só o que serve em mim" evita a jornada inteira, e evita que ela
-         chegue no WhatsApp pedindo o que não existe.
-         Sem filtro de PREÇO de propósito: em loja de faixa estreita (tudo entre
-         R$80 e R$250) ele não segmenta nada e só ocupa espaço. -->
-    <div class="vitrine-barra-filtros" id="barraFiltros" hidden>
-      <div class="filtro-chips" id="filtroTamanhos"></div>
-      <div class="filtro-chips" id="filtroCores"></div>
-      <select id="filtroOrdem" class="filtro-ordem" aria-label="Ordenar">
-        <option value="">Ordenar</option>
-        <option value="novidades">Novidades</option>
-        <option value="menor">Menor preço</option>
-        <option value="maior">Maior preço</option>
-      </select>
-    </div>
-
-    <!-- Selects legados: o JS ainda lê deles (filtrar()), mas a UI usa os chips.
-         Mantidos escondidos pra não quebrar o caminho de quem não tem site. -->
+    <!-- A NAVEGAÇÃO É POR CATEGORIA, só. Os chips de tamanho e cor e a barra de
+         coleções saíram: com o catálogo desta loja eles empilhavam 20+ botões
+         acima da grade e empurravam as peças pra baixo da dobra — a cliente
+         chegava na loja e via filtro, não roupa. Categoria em círculo com foto
+         (acima) já resolve a navegação, e é o padrão que ela reconhece.
+         Os selects abaixo ficam escondidos porque `filtrar()` lê deles; as
+         categorias em círculo escrevem no #filtroCategoria. -->
     <div class="vitrine-filtros" style="display:none;">
       <div class="filtro-grupo">
         <label>Categoria:</label>

@@ -72,6 +72,30 @@
         </div>
       </div>
 
+      <!-- Descrição, medidas e composição alimentam a PÁGINA DA PEÇA na loja
+           online. A dúvida de tamanho é a causa nº1 de abandono em moda, e a
+           medida da PEÇA resolve o que tabela genérica P/M/G não resolve —
+           numeração varia demais entre marcas. -->
+      <details class="campo-loja">
+        <summary>Detalhes para a loja online</summary>
+        <div class="campo">
+          <label>Descrição</label>
+          <textarea id="descricao" rows="3" placeholder="Vestido midi em linho leve, com fenda lateral. Cai bem com rasteira de dia e salto à noite."></textarea>
+        </div>
+        <div class="linha">
+          <div class="campo">
+            <label>Medidas da peça</label>
+            <textarea id="medidas" rows="3" placeholder="P — Busto 88cm / Comprimento 118cm&#10;M — Busto 92cm / Comprimento 120cm"></textarea>
+          </div>
+          <div class="campo">
+            <label>A modelo veste</label>
+            <input type="text" id="modelo_veste" placeholder="A modelo tem 1,70m e veste M">
+            <label style="margin-top:10px">Composição</label>
+            <input type="text" id="composicao" placeholder="55% linho, 45% viscose. Lavar à mão.">
+          </div>
+        </div>
+      </details>
+
       <div class="linha">
         <div class="campo">
           <label>Custo (quanto pagou) *</label>
@@ -729,6 +753,12 @@
       document.getElementById('colecao').value = '';
       document.getElementById('analisePreco').innerHTML = 'Preencha custo e preço para ver o lucro real.';
       document.getElementById('verCodigos').checked = false;
+      // Sem limpar, a descrição da peça anterior vaza pro cadastro novo.
+      ['descricao', 'medidas', 'modelo_veste', 'composicao'].forEach(c => {
+        const el = document.getElementById(c); if (el) el.value = '';
+      });
+      const detNovo = document.querySelector('.campo-loja');
+      if (detNovo) detNovo.open = false;
       galeriaFotos = []; renderGaleria();
       TAMANHOS = ['PP','P','M','G','GG'];
       MATRIZ = [];
@@ -753,10 +783,16 @@
         grade = [{ tamanho: 'U', quantidade: 1 }];
       }
 
+      const txt = (id) => (document.getElementById(id)?.value || '').trim();
       const dados = {
         nome, categoria: document.getElementById('categoria').value,
         colecao: document.getElementById('colecao').value,
-        custo, preco_venda: preco, grade
+        custo, preco_venda: preco, grade,
+        // Alimentam a página da peça na loja online.
+        descricao: txt('descricao'),
+        medidas: txt('medidas'),
+        modelo_veste: txt('modelo_veste'),
+        composicao: txt('composicao'),
       };
       // capa = 1ª foto; extras = resto. Sempre envia (PUT regrava a galeria).
       // A capa vai como STRING crua (produtos.foto é uma coluna de texto, sem
@@ -789,6 +825,17 @@
       document.getElementById('preco').value = p.preco_venda;
       document.getElementById('novaCor').value = '';
       document.getElementById('verCodigos').checked = false;
+      // Campos da loja online. Sem isto, editar a peça APAGARIA a descrição:
+      // o PUT recebe string vazia do campo em branco e sobrescreve o que havia.
+      ['descricao', 'medidas', 'modelo_veste', 'composicao'].forEach(c => {
+        const el = document.getElementById(c);
+        if (el) el.value = p[c] || '';
+      });
+      // Já abre a seção se a peça tem algo preenchido — senão a lojista não vê
+      // o que escreveu e acha que sumiu.
+      const detalhes = document.querySelector('.campo-loja');
+      if (detalhes) detalhes.open = !!(p.descricao || p.medidas || p.modelo_veste || p.composicao);
+
       // As cores da peça alimentam o seletor de cor de cada foto. Precisa vir
       // ANTES do renderGaleria, senão o select nasce vazio na primeira pintura.
       window.__CORES_PRODUTO__ = p.cores || [];

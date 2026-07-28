@@ -630,3 +630,12 @@ tbody tr:last-child td { border-bottom: none; }
   .matriz thead th { min-width: 52px; font-size: 0.72rem; }
   .matriz .qtd { min-width: 44px; padding: 8px 2px; }
 }
+
+/* Secao "Detalhes para a loja online" no cadastro de produto. <details> nativo:
+   fica fechada por padrao pra nao inchar o formulario de quem so quer cadastrar
+   a peca rapido, e abre sozinha quando ja ha conteudo (senao a lojista escreve,
+   reabre e acha que sumiu). */
+.campo-loja { border: 1px solid var(--linha); border-radius: var(--radius-sm); padding: 0 14px; margin-bottom: 14px; }
+.campo-loja > summary { cursor: pointer; padding: 12px 0; font-weight: 600; font-size: 0.92rem; color: var(--tinta-2); }
+.campo-loja[open] > summary { border-bottom: 1px solid var(--linha); margin-bottom: 14px; }
+.campo-loja textarea { width: 100%; font-family: inherit; resize: vertical; }

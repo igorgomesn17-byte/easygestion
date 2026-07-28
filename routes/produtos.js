@@ -402,7 +402,8 @@ router.post('/rapido', exigirDentroDoLimite('produtos', contarProdutos), (req, r
 // "Vermelho / GG = 0" polui a arara com peca que a loja nem comprou.
 router.post('/', exigirDentroDoLimite('produtos', contarProdutos), limiteUploadPorTenant, async (req, res, next) => {
   const tenantId = req.tenantId;
-  const { nome, categoria, descricao, custo, preco_venda, grade, colecao } = req.body;
+  const { nome, categoria, descricao, custo, preco_venda, grade, colecao,
+          medidas, modelo_veste, composicao } = req.body;
 
   // HEIC do iPhone → JPEG, ANTES da transação (é async; a transação é síncrona).
   let foto, fotos;
@@ -429,16 +430,21 @@ router.post('/', exigirDentroDoLimite('produtos', contarProdutos), limiteUploadP
 
   // produtos.cor e codigos_barras nao sao mais preenchidos: os dois viraram atributo
   // do SKU. As colunas continuam existindo so pelos cadastros antigos.
+  // medidas/modelo_veste/composicao vieram na migration 044 e alimentam a
+  // pagina da peca na loja online. Estavam no schema mas nunca eram gravados:
+  // a lojista preenchia e o campo sumia.
   const insertProduto = db.prepare(`
-    INSERT INTO produtos (codigo, nome, categoria, descricao, custo, preco_venda, foto, colecao, tenant_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO produtos (codigo, nome, categoria, descricao, custo, preco_venda, foto, colecao,
+                          medidas, modelo_veste, composicao, tenant_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   const insertVar = db.prepare('INSERT INTO variacoes (produto_id, cor, tamanho, quantidade, codigo_barras, tenant_id) VALUES (?, ?, ?, ?, ?, ?)');
   const insertMov = db.prepare("INSERT INTO movimentos_estoque (variacao_id, tipo, qtd, motivo) VALUES (?, 'entrada', ?, 'cadastro inicial')");
 
   const tx = db.transaction(() => {
     const info = insertProduto.run(codigo, nomeFinal, categoria || null, descricao || null,
-      parseFloat(custo) || 0, parseFloat(preco_venda) || 0, fotoPath, colecao || null, tenantId);
+      parseFloat(custo) || 0, parseFloat(preco_venda) || 0, fotoPath, colecao || null,
+      medidas || null, modelo_veste || null, composicao || null, tenantId);
     const produtoId = info.lastInsertRowid;
 
     const skus = [];
@@ -491,7 +497,8 @@ router.post('/', exigirDentroDoLimite('produtos', contarProdutos), limiteUploadP
 // ver o porque logo abaixo.
 router.put('/:id', limiteUploadPorTenant, async (req, res, next) => {
   const tenantId = req.tenantId;
-  const { nome, categoria, descricao, custo, preco_venda, grade, colecao } = req.body;
+  const { nome, categoria, descricao, custo, preco_venda, grade, colecao,
+          medidas, modelo_veste, composicao } = req.body;
   const p = db.prepare('SELECT id, codigo, foto FROM produtos WHERE id = ? AND tenant_id = ?').get(req.params.id, tenantId);
   if (!p) return res.status(404).json({ erro: 'Produto nao encontrado' });
 
@@ -516,10 +523,12 @@ router.put('/:id', limiteUploadPorTenant, async (req, res, next) => {
   const tx = db.transaction(() => {
     // produtos.cor NAO e' mais escrita (deprecada — a cor mora na variacao).
     db.prepare(`
-      UPDATE produtos SET nome=?, categoria=?, descricao=?, custo=?, preco_venda=?, foto=?, colecao=?
+      UPDATE produtos SET nome=?, categoria=?, descricao=?, custo=?, preco_venda=?, foto=?, colecao=?,
+                          medidas=?, modelo_veste=?, composicao=?
       WHERE id=? AND tenant_id=?
     `).run(nome, categoria || null, descricao || null,
-      parseFloat(custo) || 0, parseFloat(preco_venda) || 0, fotoPath, colecao || null, req.params.id, tenantId);
+      parseFloat(custo) || 0, parseFloat(preco_venda) || 0, fotoPath, colecao || null,
+      medidas || null, modelo_veste || null, composicao || null, req.params.id, tenantId);
 
     // só mexe na galeria se 'fotos' foi enviado (undefined = não alterar)
     if (Array.isArray(fotos)) {

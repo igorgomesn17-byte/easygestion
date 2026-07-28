@@ -122,6 +122,73 @@
     });
   }
 
+  // ---------- Foto ampliada ----------
+  // Em moda a cliente quer ver o tecido, o acabamento e o caimento antes de
+  // perguntar. Sem ampliar, ela pergunta "tem foto melhor?" no WhatsApp — ou
+  // desiste. <dialog> nativo: fecha no Esc de graça, sem lib.
+  let indiceAmpliada = 0;
+
+  function fotosVisiveis() {
+    const p = $('fotoPrincipal');
+    const minis = [...document.querySelectorAll('.pdp-miniatura')].map((m) => m.dataset.full || m.src);
+    return p ? [p.src, ...minis] : minis;
+  }
+
+  function abrirAmpliada(i = 0) {
+    const dlg = $('lightbox');
+    const fotos = fotosVisiveis();
+    if (!dlg || !fotos.length) return;
+    indiceAmpliada = Math.max(0, Math.min(i, fotos.length - 1));
+    pintarAmpliada();
+    if (typeof dlg.showModal === 'function') dlg.showModal();
+  }
+
+  function pintarAmpliada() {
+    const fotos = fotosVisiveis();
+    const img = $('lightboxImg');
+    const conta = $('lightboxConta');
+    if (img) img.src = fotos[indiceAmpliada] || '';
+    // A contagem só faz sentido com mais de uma foto — "1 de 1" é ruído.
+    if (conta) conta.textContent = fotos.length > 1 ? `${indiceAmpliada + 1} de ${fotos.length}` : '';
+    const umaSo = fotos.length <= 1;
+    $('lightboxAnt')?.toggleAttribute('hidden', umaSo);
+    $('lightboxProx')?.toggleAttribute('hidden', umaSo);
+  }
+
+  function navegarAmpliada(passo) {
+    const total = fotosVisiveis().length;
+    if (total < 2) return;
+    // Circular: passar da última volta pra primeira, em vez de travar.
+    indiceAmpliada = (indiceAmpliada + passo + total) % total;
+    pintarAmpliada();
+  }
+
+  function ligarAmpliada() {
+    const dlg = $('lightbox');
+    if (!dlg) return;
+    $('fotoPrincipal')?.addEventListener('click', () => abrirAmpliada(0));
+    $('btnAmpliar')?.addEventListener('click', () => abrirAmpliada(0));
+    dlg.querySelector('.lightbox-fechar')?.addEventListener('click', () => dlg.close());
+    $('lightboxAnt')?.addEventListener('click', (e) => { e.stopPropagation(); navegarAmpliada(-1); });
+    $('lightboxProx')?.addEventListener('click', (e) => { e.stopPropagation(); navegarAmpliada(1); });
+    // Clicar no fundo fecha — comportamento que todo mundo espera de foto aberta.
+    dlg.addEventListener('click', (e) => { if (e.target === dlg) dlg.close(); });
+    document.addEventListener('keydown', (e) => {
+      if (!dlg.open) return;
+      if (e.key === 'ArrowLeft') navegarAmpliada(-1);
+      if (e.key === 'ArrowRight') navegarAmpliada(1);
+    });
+    // Swipe no celular, que é de onde vem quase todo o tráfego.
+    let x0 = null;
+    dlg.addEventListener('touchstart', (e) => { x0 = e.changedTouches[0].clientX; }, { passive: true });
+    dlg.addEventListener('touchend', (e) => {
+      if (x0 === null) return;
+      const dx = e.changedTouches[0].clientX - x0;
+      if (Math.abs(dx) > 45) navegarAmpliada(dx < 0 ? 1 : -1);
+      x0 = null;
+    }, { passive: true });
+  }
+
   // ---------- Carrinho ----------
   const chaveCarrinho = () => `carrinho_${SLUG}`;
   function lerCarrinho() {
@@ -238,6 +305,7 @@
     ligarCores();
     pintarTamanhos();
     ligarGaleria();
+    ligarAmpliada();
     ligarBarraFixa();
     salvarCarrinho(lerCarrinho());   // atualiza o badge
 

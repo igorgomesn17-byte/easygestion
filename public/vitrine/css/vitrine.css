@@ -615,6 +615,49 @@ a.card-produto { text-decoration: none; color: inherit; }
 .pdp-barra-parcelas { font-size: 0.76rem; color: var(--tinta-2); }
 .pdp-barra-fixa .btn { white-space: nowrap; }
 
+/* Pix na pagina da peca */
+
+/* ---- Foto ampliada ---- */
+.pdp-galeria { position: relative; }
+/* Botao de lupa sobre a foto: a dica visual de que da pra ampliar. Sem ele
+   ninguem descobre que a foto e clicavel. */
+.pdp-ampliar {
+  position: absolute; top: 10px; right: 10px; z-index: 3;
+  width: 38px; height: 38px; border-radius: 50%;
+  border: none; cursor: pointer;
+  background: rgba(255, 255, 255, .92); color: var(--tinta);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: var(--sombra);
+}
+.pdp-ampliar svg { width: 19px; height: 19px; }
+#fotoPrincipal { cursor: zoom-in; }
+
+.pdp-lightbox {
+  border: none; padding: 0; background: transparent;
+  max-width: 100vw; max-height: 100vh; width: 100%; height: 100%;
+  display: none; /* <dialog> so vira flex quando aberto */
+}
+.pdp-lightbox[open] { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.pdp-lightbox::backdrop { background: rgba(12, 18, 16, .93); }
+#lightboxImg {
+  max-width: 96vw; max-height: 82vh;
+  object-fit: contain; border-radius: var(--v-radius-sm);
+}
+.lightbox-fechar {
+  position: fixed; top: 14px; right: 16px; z-index: 5;
+  width: 42px; height: 42px; border-radius: 50%; border: none; cursor: pointer;
+  background: rgba(255, 255, 255, .16); color: #fff; font-size: 1.5rem; line-height: 1;
+}
+.lightbox-nav {
+  display: flex; align-items: center; gap: 1.5rem;
+  margin-top: 1rem; color: #fff; font-size: .82rem;
+}
+.lightbox-nav button {
+  width: 44px; height: 44px; border-radius: 50%; border: none; cursor: pointer;
+  background: rgba(255, 255, 255, .16); color: #fff; font-size: 1.7rem; line-height: 1;
+}
+.lightbox-nav button[hidden] { display: none; }
+
 .pdp-dialog {
   border: none; border-radius: var(--v-radius); padding: 1.5rem;
   max-width: 460px; width: 90%; box-shadow: var(--sombra-lg); color: var(--tinta);
