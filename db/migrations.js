@@ -1930,6 +1930,37 @@ function executarMigrations(db) {
         // UNIQUE por tenant, resolucao de colisao, backfill e manutencao no rename —
         // com zero ganho, ja que gerarSlug(nome) e' deterministico (lib/helpers.js).
       }
+    },
+
+    {
+      nome: '045_produto_fotos_cor',
+      hash: 'v45-produto-fotos-cor',
+      exec: (db) => {
+        // A FOTO PERTENCE A COR, NAO AO SKU.
+        //
+        // O problema: o Vestido existe em Off White e Terracota. A lojista sobe 5
+        // fotos misturadas. A cliente clica em "Terracota" e continua vendo a foto
+        // do off white — pede a peca errada, ou desiste.
+        //
+        // Por que `cor` na foto e nao `variacao_id`: a variacao e' (cor x tamanho).
+        // Vincular a foto a variacao obrigaria repetir o mesmo vinculo em Azul-P,
+        // Azul-M, Azul-G e Azul-GG — quatro vezes o mesmo trabalho manual, pro
+        // mesmo arquivo. A foto varia com a COR e e' invariante ao tamanho.
+        //
+        // Isto e' o que Nuvemshop, Loja Integrada e Tray NAO fazem (todas usam um
+        // image_id singular na variacao, que so troca a foto ativa). A Bagy e o
+        // modelo mais proximo do certo, e e' o que copiamos aqui.
+        //
+        // NULLABLE de proposito: foto sem cor e' COMUM ao produto e aparece em
+        // qualquer cor selecionada (tabela de medidas, close do tecido, foto de
+        // lookbook com duas cores). Obrigar cor forcaria a lojista a marcar tudo.
+        const cols = db.prepare('PRAGMA table_info(produto_fotos)').all().map((c) => c.name);
+        if (!cols.includes('cor')) db.exec(`ALTER TABLE produto_fotos ADD COLUMN cor TEXT;`);
+
+        // A galeria da pagina de produto filtra por (produto, cor) a cada troca de
+        // cor — sem indice isso e' full scan da tabela de fotos a cada clique.
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_produto_fotos_cor ON produto_fotos(tenant_id, produto_id, cor);`);
+      }
     }
   ];
 

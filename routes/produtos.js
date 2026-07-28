@@ -91,19 +91,36 @@ function salvarFotoBase64(dataUrl, codigo) {
   return { ok: true, erro: null, caminho: 'img/produtos/' + nome };
 }
 
-const MAX_FOTOS = 5; // 1 capa + até 4 extras
+// 20 no total (1 capa + 19 extras). Era 5, o que nao cobre moda multicor:
+// 4 cores x 5 fotos ja estoura. Referencias: Shopify permite 250, Loja Integrada
+// 20 (e' reclamacao conhecida da comunidade deles). 20 e' o suficiente pra ~4
+// cores com cobertura completa, sem virar problema de disco.
+const MAX_FOTOS = 20;
 
 // Salva as fotos EXTRAS de um produto (galeria). Substitui as existentes.
-// fotosExtras: array de base64 (novas) ou caminhos (mantidas). Máx MAX_FOTOS-1 extras.
+//
+// Cada item pode ser:
+//   - string  → base64 nova, ou caminho mantido (formato legado, sem cor)
+//   - objeto  → { foto: base64|caminho, cor: 'Terracota'|null }
+//
+// A COR e' o que faz a galeria trocar quando a cliente escolhe outra cor na
+// pagina do produto. `cor: null` = foto COMUM, aparece em qualquer cor (tabela
+// de medidas, close do tecido, lookbook com duas cores).
+//
 // tenantId e' OBRIGATORIO: sem ele, a query cai em qualquer loja. Lança em vez de
 // aceitar undefined — um default silencioso e' o que produz vazamento entre tenants.
 function salvarFotosExtras(produtoId, codigo, fotosExtras, tenantId) {
   if (!tenantId) throw new Error('salvarFotosExtras: tenantId obrigatorio');
   if (!Array.isArray(fotosExtras)) return null;
   db.prepare('DELETE FROM produto_fotos WHERE produto_id = ? AND tenant_id = ?').run(produtoId, tenantId);
-  const ins = db.prepare('INSERT INTO produto_fotos (produto_id, caminho, ordem, tenant_id) VALUES (?, ?, ?, ?)');
+  const ins = db.prepare('INSERT INTO produto_fotos (produto_id, caminho, ordem, cor, tenant_id) VALUES (?, ?, ?, ?, ?)');
   let ordem = 0;
-  for (const f of fotosExtras.slice(0, MAX_FOTOS - 1)) {
+  for (const item of fotosExtras.slice(0, MAX_FOTOS - 1)) {
+    // Aceita os dois formatos: o front antigo mandava string crua, o novo manda
+    // {foto, cor}. Sem isso, uma tela nao atualizada apagaria a galeria inteira.
+    const f = typeof item === 'string' ? item : (item && item.foto);
+    const cor = typeof item === 'object' && item && item.cor ? String(item.cor).slice(0, 40) : null;
+
     let caminho = null;
     if (typeof f === 'string' && f.startsWith('data:image')) {
       const result = salvarFotoBase64(f, codigo);
@@ -112,16 +129,19 @@ function salvarFotosExtras(produtoId, codigo, fotosExtras, tenantId) {
     } else if (typeof f === 'string' && f.startsWith('img/produtos/')) {
       caminho = f; // mantida
     }
-    if (caminho) ins.run(produtoId, caminho, ordem++, tenantId);
+    if (caminho) ins.run(produtoId, caminho, ordem++, cor, tenantId);
   }
   return { ok: true, erro: null };
 }
 
-// Retorna as fotos extras de um produto (array de caminhos)
-function fotosExtrasDe(produtoId, tenantId) {
+// Fotos extras de um produto. `comCor` decide o formato:
+//   false (padrao) → array de caminhos (contrato antigo, nao quebra quem ja usa)
+//   true           → array de { foto, cor } (o cadastro precisa da cor pra editar)
+function fotosExtrasDe(produtoId, tenantId, comCor = false) {
   if (!tenantId) throw new Error('fotosExtrasDe: tenantId obrigatorio');
-  return db.prepare('SELECT caminho FROM produto_fotos WHERE produto_id = ? AND tenant_id = ? ORDER BY ordem, id')
-    .all(produtoId, tenantId).map(r => r.caminho);
+  const linhas = db.prepare('SELECT caminho, cor FROM produto_fotos WHERE produto_id = ? AND tenant_id = ? ORDER BY ordem, id')
+    .all(produtoId, tenantId);
+  return comCor ? linhas.map(r => ({ foto: r.caminho, cor: r.cor })) : linhas.map(r => r.caminho);
 }
 
 // Valida que o produto pertence ao tenant logado
@@ -322,7 +342,9 @@ router.get('/:id', (req, res) => {
   p.cores = coresDaGrade(p.grade);
   p.tamanhos = [...new Set(p.grade.map((g) => g.tamanho))];
   p.estoque_total = p.grade.reduce((s, v) => s + v.quantidade, 0);
-  p.fotos = fotosExtrasDe(p.id, tenantId); // fotos extras da galeria (a capa fica em p.foto)
+  // fotos extras da galeria (a capa fica em p.foto). COM a cor: a tela de
+  // cadastro precisa saber de qual cor e' cada foto pra reabrir a edicao certa.
+  p.fotos = fotosExtrasDe(p.id, tenantId, true);
   if (req.session && req.session.papel === 'admin') p.margem = analisarPreco(p.custo, p.preco_venda, { tenantId: req.tenantId });
   else { delete p.custo; } // não-admin não vê custo/margem
   res.json(p);

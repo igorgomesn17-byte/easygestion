@@ -229,9 +229,43 @@
                `vitrine_site` (hoje o plano interno) — escondidos, não bloqueados:
                não existe checkout que entregue essa feature ainda. -->
           <div id="blocoSite" style="display:none">
-            <h3 style="margin-top:22px">Site da loja</h3>
+            <h3 style="margin-top:22px">Banner da loja</h3>
             <p class="subtitulo" style="margin-bottom:12px">
-              O que aparece na página de cada peça e no preview do link quando você manda no WhatsApp.
+              A foto grande no topo da sua loja online. Use uma foto de campanha deitada (larga).
+            </p>
+            <div style="display:flex; gap:14px; align-items:flex-start; flex-wrap:wrap; margin-bottom:14px;">
+              <div id="previewBanner" style="width:220px; height:94px; border-radius:8px; border:1.5px dashed var(--linha-forte); background:var(--surface-2); display:flex; align-items:center; justify-content:center; color:var(--tinta-3); font-size:0.78rem; overflow:hidden;">sem banner</div>
+              <div style="display:flex; flex-direction:column; gap:8px;">
+                <input type="file" id="bannerFile" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="enviarImagemSite(event,'banner')">
+                <button type="button" class="btn btn-fino" onclick="document.getElementById('bannerFile').click()">Escolher banner</button>
+                <button type="button" class="btn btn-fino btn-fantasma" onclick="removerImagemSite('banner')">Remover</button>
+              </div>
+            </div>
+            <div class="linha">
+              <div class="campo">
+                <label>Frase do banner</label>
+                <input type="text" id="vitrine_banner_titulo" placeholder="Coleção Alto Verão">
+              </div>
+              <div class="campo">
+                <label>Texto do botão</label>
+                <input type="text" id="vitrine_banner_botao" placeholder="Ver a coleção">
+              </div>
+            </div>
+            <div class="campo">
+              <label>O banner leva para</label>
+              <input type="text" id="vitrine_banner_link" placeholder="/minha-loja?colecao=Alto Verao">
+              <small class="subtitulo">Banner que não leva a lugar nenhum é o erro mais comum. Deixe vazio se for só decorativo.</small>
+            </div>
+
+            <div class="campo">
+              <label>Faixa de aviso no topo</label>
+              <input type="text" id="vitrine_anuncio" placeholder="ENTREGA NO MESMO DIA EM ITABUNA">
+              <small class="subtitulo">A tarja fina acima do logo. É o espaço mais visto da página.</small>
+            </div>
+
+            <h3 style="margin-top:22px">Página de cada peça</h3>
+            <p class="subtitulo" style="margin-bottom:12px">
+              O que aparece na página do produto e no preview do link quando você manda no WhatsApp.
             </p>
 
             <div class="campo">
@@ -243,24 +277,41 @@
             <div class="linha">
               <div class="campo">
                 <label>Prazo de entrega</label>
-                <input type="text" id="vitrine_prazo_entrega" placeholder="Entrega no mesmo dia em Itabuna">
+                <input type="text" id="vitrine_prazo_entrega" placeholder="Entrega no mesmo dia na cidade">
               </div>
+              <div class="campo">
+                <label>Retirada na loja</label>
+                <input type="text" id="vitrine_retirada_loja" placeholder="Retire na loja: Av. Principal, 100">
+                <small class="subtitulo">O que a loja grande não oferece. Vale mais que selo de segurança.</small>
+              </div>
+            </div>
+
+            <div class="linha">
               <div class="campo">
                 <label>Parcelamos em até (x)</label>
                 <input type="number" id="vitrine_parcelas_max" min="1" max="12" placeholder="3">
               </div>
+              <div class="campo">
+                <label>Desconto no Pix (%)</label>
+                <input type="number" id="vitrine_pix_desconto" min="0" max="30" placeholder="5">
+                <small class="subtitulo">Aparece no preço de cada peça. Deixe 0 se não dá desconto.</small>
+              </div>
+            </div>
+
+            <div class="campo">
+              <label>Imagem de compartilhamento (1200 × 630)</label>
+              <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+                <div id="previewOg" style="width:150px; height:79px; border-radius:8px; border:1.5px dashed var(--linha-forte); background:var(--surface-2); display:flex; align-items:center; justify-content:center; color:var(--tinta-3); font-size:0.72rem; overflow:hidden;">sem imagem</div>
+                <input type="file" id="ogFile" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="enviarImagemSite(event,'og')">
+                <button type="button" class="btn btn-fino" onclick="document.getElementById('ogFile').click()">Escolher</button>
+              </div>
+              <small class="subtitulo">A imagem que aparece quando alguém cola o link da loja no WhatsApp. Máx. 300KB — acima disso o WhatsApp não mostra o preview.</small>
             </div>
 
             <div class="campo">
               <label>Tabela de medidas</label>
               <textarea id="vitrine_tabela_medidas" rows="4" placeholder="P — Busto 88cm / Cintura 70cm&#10;M — Busto 92cm / Cintura 74cm"></textarea>
               <small class="subtitulo">Medidas em cm. Cada peça também pode ter as medidas dela no cadastro do produto.</small>
-            </div>
-
-            <div class="campo">
-              <label>Imagem de compartilhamento (1200 × 630)</label>
-              <input type="text" id="vitrine_og_imagem" placeholder="/img/marca/capa.png">
-              <small class="subtitulo">A imagem que aparece quando alguém cola o link da loja no WhatsApp. Máx. 300KB.</small>
             </div>
 
             <h3 style="margin-top:22px">Anúncios</h3>
@@ -565,7 +616,8 @@
         // simplesmente não envia essas chaves (que o backend recusaria de todo jeito).
         'vitrine': ['vitrine_frase','loja_whatsapp','loja_whatsapp_link','loja_instagram_url','loja_maps',
                     'vitrine_politica_troca','vitrine_prazo_entrega','vitrine_parcelas_max',
-                    'vitrine_tabela_medidas','vitrine_og_imagem','pixel_meta_id','pixel_google_id'],
+                    'vitrine_tabela_medidas','pixel_meta_id','pixel_google_id',
+                    'vitrine_banner_titulo','vitrine_banner_botao','vitrine_banner_link','vitrine_anuncio','vitrine_retirada_loja','vitrine_pix_desconto'],
         'cupom': ['cupom_auto_imprimir','cupom_mensagem_rodape','cupom_politica_troca'],
         'fiscal': ['loja_razao_social','loja_nome_fantasia','loja_cnpj','loja_ie','loja_regime','loja_cep','loja_cidade','loja_uf',
                    'nfce_ativo','nfce_ambiente','nfce_serie','nfce_csc_id','nfce_ncm_padrao','nfce_cfop_padrao','nfce_csosn_padrao',
@@ -586,7 +638,8 @@
         // Campos do site da loja. FORA desta lista o `else` final os enviaria
         // como '0' quando vazios — a politica de troca viraria literalmente "0".
         'vitrine_politica_troca','vitrine_prazo_entrega','vitrine_tabela_medidas',
-        'vitrine_og_imagem','pixel_meta_id','pixel_google_id'];
+        'vitrine_og_imagem','pixel_meta_id','pixel_google_id',
+        'vitrine_banner_titulo','vitrine_banner_botao','vitrine_banner_link','vitrine_anuncio','vitrine_retirada_loja'];
 
       const campos = CAMPOS_SECAO[secao] || [];
       campos.forEach(c => {
@@ -627,11 +680,13 @@
         'cupom_mensagem_rodape','cupom_politica_troca',
         'vitrine_frase','loja_whatsapp','loja_whatsapp_link','loja_instagram_url','loja_maps',
         'vitrine_politica_troca','vitrine_prazo_entrega','vitrine_parcelas_max',
-        'vitrine_tabela_medidas','vitrine_og_imagem','pixel_meta_id','pixel_google_id',
+        'vitrine_tabela_medidas','pixel_meta_id','pixel_google_id',
+        'vitrine_banner_titulo','vitrine_banner_botao','vitrine_banner_link','vitrine_anuncio','vitrine_retirada_loja','vitrine_pix_desconto',
         // Campos do site da loja. FORA desta lista o `else` final os enviaria
         // como '0' quando vazios — a politica de troca viraria literalmente "0".
         'vitrine_politica_troca','vitrine_prazo_entrega','vitrine_tabela_medidas',
-        'vitrine_og_imagem','pixel_meta_id','pixel_google_id'];
+        'vitrine_og_imagem','pixel_meta_id','pixel_google_id',
+        'vitrine_banner_titulo','vitrine_banner_botao','vitrine_banner_link','vitrine_anuncio','vitrine_retirada_loja'];
       const CAMPOS_TEXTO = ['loja_nome','loja_endereco','loja_telefone','loja_instagram','vitrine_frase',
         'loja_whatsapp','loja_whatsapp_link','loja_instagram_url','loja_maps',
         'loja_razao_social','loja_nome_fantasia','loja_cnpj','loja_ie','loja_regime','loja_cep','loja_cidade','loja_uf',
@@ -642,7 +697,8 @@
         // Campos do site da loja. FORA desta lista o `else` final os enviaria
         // como '0' quando vazios — a politica de troca viraria literalmente "0".
         'vitrine_politica_troca','vitrine_prazo_entrega','vitrine_tabela_medidas',
-        'vitrine_og_imagem','pixel_meta_id','pixel_google_id'];
+        'vitrine_og_imagem','pixel_meta_id','pixel_google_id',
+        'vitrine_banner_titulo','vitrine_banner_botao','vitrine_banner_link','vitrine_anuncio','vitrine_retirada_loja'];
 
       const body = {};
       CAMPOS.forEach(c => {
@@ -677,13 +733,16 @@
         // e a lojista acha que não salvou e digita de novo.
         'vitrine_frase','loja_whatsapp','loja_whatsapp_link','loja_instagram_url','loja_maps',
         'vitrine_politica_troca','vitrine_prazo_entrega','vitrine_parcelas_max',
-        'vitrine_tabela_medidas','vitrine_og_imagem','pixel_meta_id','pixel_google_id'
+        'vitrine_tabela_medidas','pixel_meta_id','pixel_google_id',
+        'vitrine_banner_titulo','vitrine_banner_botao','vitrine_banner_link','vitrine_anuncio','vitrine_retirada_loja','vitrine_pix_desconto'
       ].forEach(c => { if (document.getElementById(c) && cfg[c] != null) document.getElementById(c).value = cfg[c]; });
 
       const cor = cfg.marca_cor || '#1a6f5e';
       document.getElementById('marca_cor').value = cor;
       document.getElementById('marca_cor_hex').value = cor;
       mostrarLogo(cfg.loja_logo || '');
+      mostrarImagemSite('banner', cfg.vitrine_banner || '');
+      mostrarImagemSite('og', cfg.vitrine_og_imagem || '');
       document.getElementById('cupom_auto_imprimir').checked = (cfg.cupom_auto_imprimir == '0');
       document.getElementById('nfce_ativo').checked = (cfg.nfce_ativo === '1');
       await carregarCategorias_config();
@@ -721,6 +780,69 @@
       if (!confirm('Remover a logo? Volta a mostrar o nome da loja em texto.')) return;
       try { await api('/config/logo', { method:'DELETE' }); mostrarLogo(''); toast('Logo removida'); }
       catch (e) { toast(e.message,'erro'); }
+    }
+
+    // ---------- Banner e imagem de compartilhamento ----------
+    // Redimensiona no navegador antes de subir. O banner e' deitado (21:9) e a
+    // imagem de compartilhamento e' 1200x630 — subir a foto original de 4MB
+    // estouraria o limite e a lojista veria so uma mensagem de erro.
+    function prepararImagem(file, larguraAlvo, qualidade) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('nao consegui ler o arquivo'));
+        reader.onload = (e) => {
+          const img = new Image();
+          const timer = setTimeout(() => reject(new Error('a imagem demorou demais')), 15000);
+          img.onerror = () => { clearTimeout(timer); reject(new Error('formato nao suportado')); };
+          img.onload = () => {
+            clearTimeout(timer);
+            try {
+              let { width, height } = img;
+              if (width > larguraAlvo) { height = height * larguraAlvo / width; width = larguraAlvo; }
+              const c = document.createElement('canvas');
+              c.width = width; c.height = height;
+              c.getContext('2d').drawImage(img, 0, 0, width, height);
+              resolve(c.toDataURL('image/jpeg', qualidade));
+            } catch (err) { reject(err); }
+          };
+          img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function enviarImagemSite(ev, tipo) {
+      const file = ev.target.files && ev.target.files[0];
+      if (!file) return;
+      try {
+        // og: 1200px de largura e qualidade menor, pra caber nos 300KB que o
+        // WhatsApp exige. banner: 1600px, que cobre tela grande sem exagero.
+        const dataUrl = tipo === 'og'
+          ? await prepararImagem(file, 1200, 0.72)
+          : await prepararImagem(file, 1600, 0.82);
+        const r = await api('/config/imagem-site', { method: 'POST', body: { imagem: dataUrl, tipo } });
+        mostrarImagemSite(tipo, r.caminho);
+        toast(tipo === 'og' ? 'Imagem de compartilhamento atualizada' : 'Banner atualizado', 'sucesso');
+      } catch (e) {
+        toast(e.message || 'Nao consegui usar essa imagem', 'erro');
+      }
+      ev.target.value = '';
+    }
+
+    async function removerImagemSite(tipo) {
+      try {
+        await api('/config/imagem-site?tipo=' + tipo, { method: 'DELETE' });
+        mostrarImagemSite(tipo, '');
+        toast('Removido');
+      } catch (e) { toast(e.message, 'erro'); }
+    }
+
+    function mostrarImagemSite(tipo, caminho) {
+      const box = document.getElementById(tipo === 'og' ? 'previewOg' : 'previewBanner');
+      if (!box) return;
+      box.innerHTML = caminho
+        ? '<img src="/' + caminho.replace(/^\//, '') + '" style="width:100%;height:100%;object-fit:cover;">'
+        : (tipo === 'og' ? 'sem imagem' : 'sem banner');
     }
     function previewCor(v) {
       document.getElementById('marca_cor_hex').value = v;

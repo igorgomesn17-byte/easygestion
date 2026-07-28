@@ -154,9 +154,19 @@
     }
     carregarCategorias_produtos();
 
-    // ---------- Galeria de fotos (até 5: 1 capa + 4 extras) ----------
-    const MAX_FOTOS = 5;
-    let galeriaFotos = []; // cada item: base64 (nova) OU caminho 'img/produtos/...' (existente)
+    // ---------- Galeria de fotos (até 20: 1 capa + 19 extras) ----------
+    //
+    // Era 5, o que não cobre moda multicor: 4 cores × 5 fotos já estoura.
+    const MAX_FOTOS = 20;
+    // Cada item: { foto, cor }.
+    //   foto = base64 (nova) OU caminho 'img/produtos/...' (existente)
+    //   cor  = 'Terracota' ou null. NULL = foto COMUM, aparece em todas as cores
+    //          (tabela de medidas, close do tecido, lookbook com duas cores).
+    //
+    // A cor é da FOTO, não do SKU: marcar "Terracota" cobre P, M, G e GG de
+    // uma vez. É o que faz a galeria da vitrine trocar quando a cliente escolhe
+    // outra cor — algo que Nuvemshop e Loja Integrada não fazem nativamente.
+    let galeriaFotos = [];
 
     // Redimensiona uma imagem (File) pra max 800px e devolve base64 JPEG.
     //
@@ -181,7 +191,11 @@
           img.onload = () => {
             clearTimeout(timer);
             try {
-              const max = 800;
+              // 1200px (era 800). A página de produto mostra a foto ocupando
+              // metade da tela no desktop e a tela inteira no celular — 800px em
+              // tela retina fica visivelmente borrado. As plataformas pedem
+              // 2000px+ pra zoom; 1200 é o meio-termo que não estoura o upload.
+              const max = 1200;
               let { width, height } = img;
               if (!width || !height) return reject(new Error('imagem inválida'));
               if (width > max || height > max) {
@@ -230,7 +244,10 @@
           // HEIC do iPhone: manda cru; o servidor converte e redimensiona.
           // Foto normal (JPG/PNG): redimensiona aqui no front (economiza upload).
           const b64 = ehHeic(file) ? await lerCru(file) : await redimensionar(file);
-          galeriaFotos.push(b64);
+          // Nasce SEM cor (= comum a todas). A lojista marca a cor depois, só
+          // nas fotos em que isso importa. Obrigar a escolher a cor no upload
+          // travaria o fluxo de quem fotografa uma cor só.
+          galeriaFotos.push({ foto: b64, cor: null });
         } catch (err) {
           // ANTES isto travava em silêncio: a lojista selecionava a foto e nada acontecia.
           // Agora ela recebe um aviso com o motivo, em vez de ficar no escuro.
@@ -251,24 +268,86 @@
     // mostra um cartãozinho no lugar da miniatura quebrada, pra lojista não achar que deu erro.
     function ehHeicB64(f) { return typeof f === 'string' && /^data:image\/hei[cf]/i.test(f); }
 
+    // As cores que a peca REALMENTE tem, lidas da matriz cor x tamanho. O select
+    // de cor da foto so oferece essas: texto livre criaria "Terracota" e
+    // "terracota" como cores diferentes, e a galeria da vitrine nao casaria.
+    // A MATRIZ (cor x tamanho) é a fonte da verdade das cores da peça — é dela
+    // que a grade é montada no salvar. Ler daqui garante que a cor da foto seja
+    // exatamente a mesma string da variação; texto livre criaria "Terracota" e
+    // "terracota" como cores diferentes, e a galeria da vitrine não casaria.
+    function coresDaPeca() {
+      const cores = new Set();
+      (typeof MATRIZ !== 'undefined' ? MATRIZ : []).forEach(l => {
+        if (l && l.cor && l.cor !== 'Unica') cores.add(l.cor);
+      });
+      (window.__CORES_PRODUTO__ || []).forEach(c => { if (c && c !== 'Unica') cores.add(c); });
+      return [...cores];
+    }
+
     function renderGaleria() {
       const el = document.getElementById('galeria');
-      const fotos = galeriaFotos.map((f, i) => `
-        <div style="position:relative; width:80px; height:80px; border-radius:10px; overflow:hidden; border:1.5px solid ${i===0?'var(--dourado)':'var(--dourado-claro)'};">
+      const cores = coresDaPeca();
+
+      const fotos = galeriaFotos.map((item, i) => {
+        const f = item.foto;
+        // Select de cor por foto. So aparece quando a peca TEM mais de uma cor —
+        // numa peca de cor unica ele seria ruido puro.
+        const seletorCor = cores.length > 1 ? `
+          <select onchange="marcarCorFoto(${i}, this.value)" title="De qual cor e esta foto?"
+                  style="position:absolute; bottom:0; left:0; right:0; border:none; font-size:0.58rem;
+                         padding:2px; background:rgba(255,255,255,.94); cursor:pointer; width:100%;">
+            <option value="">todas as cores</option>
+            ${cores.map(c => `<option value="${c}"${item.cor === c ? ' selected' : ''}>${c}</option>`).join('')}
+          </select>` : '';
+
+        return `
+        <div draggable="true" ondragstart="arrastarFoto(event,${i})" ondragover="event.preventDefault()"
+             ondrop="soltarFoto(event,${i})"
+             style="position:relative; width:88px; height:112px; border-radius:10px; overflow:hidden;
+                    border:1.5px solid ${i===0?'var(--dourado)':'var(--dourado-claro)'}; cursor:grab;">
           ${ehHeicB64(f)
-            ? `<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--cinza-claro,#F4F5F7);color:var(--marrom,#6B5849);font-size:0.6rem;text-align:center;gap:2px;"><span style="font-size:1.3rem;">📷</span>foto do<br>iPhone</div>`
+            ? `<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--cinza-claro,#F4F5F7);color:var(--marrom,#6B5849);font-size:0.6rem;text-align:center;gap:2px;"><span style="font-size:1.3rem;">FOTO</span>do<br>iPhone</div>`
             : `<img src="${fonteFoto(f)}" style="width:100%; height:100%; object-fit:cover;">`}
-          ${i===0?'<span style="position:absolute; bottom:0; left:0; right:0; background:rgba(107,88,73,.85); color:#fff; font-size:0.62rem; text-align:center; padding:1px;">CAPA</span>':''}
-          <button type="button" onclick="removerFoto(${i})" title="Remover" style="position:absolute; top:2px; right:2px; width:20px; height:20px; border:none; border-radius:50%; background:rgba(0,0,0,.6); color:#fff; cursor:pointer; font-size:0.8rem; line-height:1;"></button>
-          ${i>0?`<button type="button" onclick="tornarCapa(${i})" title="Tornar capa" style="position:absolute; top:2px; left:2px; width:20px; height:20px; border:none; border-radius:50%; background:rgba(201,162,75,.9); color:#fff; cursor:pointer; font-size:0.7rem; line-height:1;"></button>`:''}
-        </div>`).join('');
+          ${i===0?'<span style="position:absolute; top:0; left:0; right:0; background:rgba(107,88,73,.85); color:#fff; font-size:0.6rem; text-align:center; padding:1px;">CAPA</span>':''}
+          <button type="button" onclick="removerFoto(${i})" title="Remover" style="position:absolute; top:2px; right:2px; width:20px; height:20px; border:none; border-radius:50%; background:rgba(0,0,0,.6); color:#fff; cursor:pointer; font-size:0.8rem; line-height:1;">×</button>
+          ${i>0?`<button type="button" onclick="tornarCapa(${i})" title="Tornar capa" style="position:absolute; top:2px; left:2px; width:20px; height:20px; border:none; border-radius:50%; background:rgba(201,162,75,.9); color:#fff; cursor:pointer; font-size:0.7rem; line-height:1;">★</button>`:''}
+          ${seletorCor}
+        </div>`;
+      }).join('');
+
       const btnAdd = galeriaFotos.length < MAX_FOTOS
-        ? `<button type="button" onclick="document.getElementById('fotoInput').click()" style="width:80px; height:80px; border-radius:10px; border:1.5px dashed var(--dourado-claro); background:var(--cinza-claro,#F4F5F7); cursor:pointer; color:var(--marrom,#6B5849); font-size:1.6rem;">+</button>`
+        ? `<button type="button" onclick="document.getElementById('fotoInput').click()" style="width:88px; height:112px; border-radius:10px; border:1.5px dashed var(--dourado-claro); background:var(--cinza-claro,#F4F5F7); cursor:pointer; color:var(--marrom,#6B5849); font-size:1.6rem;">+</button>`
         : '';
-      el.innerHTML = fotos + btnAdd;
+
+      const dica = cores.length > 1
+        ? `<p class="subtitulo" style="width:100%; margin-top:6px; font-size:0.76rem; line-height:1.45;">
+             Marque de qual cor e cada foto: na loja online, quem escolhe a cor ve so as fotos dela.
+             Foto em "todas as cores" (tabela de medidas, detalhe do tecido) aparece sempre.
+             Arraste para reordenar. ${galeriaFotos.length}/${MAX_FOTOS} fotos.
+           </p>`
+        : `<p class="subtitulo" style="width:100%; margin-top:6px; font-size:0.76rem;">Arraste para reordenar. ${galeriaFotos.length}/${MAX_FOTOS} fotos.</p>`;
+
+      el.innerHTML = fotos + btnAdd + dica;
+    }
+
+    function marcarCorFoto(i, cor) {
+      if (galeriaFotos[i]) galeriaFotos[i].cor = cor || null;
     }
     function removerFoto(i) { galeriaFotos.splice(i, 1); renderGaleria(); }
     function tornarCapa(i) { const [f] = galeriaFotos.splice(i, 1); galeriaFotos.unshift(f); renderGaleria(); }
+
+    // Reordenar arrastando: a ORDEM decide qual foto abre a galeria na vitrine.
+    // Antes era a ordem de upload, sem jeito de mudar sem apagar tudo.
+    let fotoArrastada = null;
+    function arrastarFoto(ev, i) { fotoArrastada = i; ev.dataTransfer.effectAllowed = 'move'; }
+    function soltarFoto(ev, destino) {
+      ev.preventDefault();
+      if (fotoArrastada === null || fotoArrastada === destino) return;
+      const [f] = galeriaFotos.splice(fotoArrastada, 1);
+      galeriaFotos.splice(destino, 0, f);
+      fotoArrastada = null;
+      renderGaleria();
+    }
 
     // ============================================================
     // A MATRIZ cor x tamanho
@@ -343,6 +422,11 @@
     }
 
     function renderMatriz() {
+      // A galeria mostra um seletor de cor por foto, e as opções vêm da MATRIZ.
+      // Repintar aqui faz a cor recém-adicionada aparecer nas fotos na hora —
+      // sem isso a lojista adiciona "Terracota" e o select continua sem ela.
+      // setTimeout(0): deixa a MATRIZ terminar de atualizar antes de reler.
+      setTimeout(() => { if (typeof renderGaleria === 'function') renderGaleria(); }, 0);
       const box = document.getElementById('matrizBox');
       if (!MATRIZ.length) {
         box.innerHTML = `<div class="vazio" style="padding:22px;">
@@ -675,8 +759,11 @@
         custo, preco_venda: preco, grade
       };
       // capa = 1ª foto; extras = resto. Sempre envia (PUT regrava a galeria).
-      dados.foto = galeriaFotos.length ? galeriaFotos[0] : '';
-      dados.fotos = galeriaFotos.slice(1);
+      // A capa vai como STRING crua (produtos.foto é uma coluna de texto, sem
+      // cor). As extras vão como {foto, cor} — a cor é o que faz a vitrine
+      // trocar a galeria quando a cliente escolhe outra cor.
+      dados.foto = galeriaFotos.length ? galeriaFotos[0].foto : '';
+      dados.fotos = galeriaFotos.slice(1).map(f => ({ foto: f.foto, cor: f.cor || null }));
       try {
         if (editandoId) {
           await api('/produtos/' + editandoId, { method: 'PUT', body: dados });
@@ -702,8 +789,16 @@
       document.getElementById('preco').value = p.preco_venda;
       document.getElementById('novaCor').value = '';
       document.getElementById('verCodigos').checked = false;
-      // carrega a galeria: capa (p.foto) + extras (p.fotos)
-      galeriaFotos = [p.foto, ...(p.fotos || [])].filter(Boolean);
+      // As cores da peça alimentam o seletor de cor de cada foto. Precisa vir
+      // ANTES do renderGaleria, senão o select nasce vazio na primeira pintura.
+      window.__CORES_PRODUTO__ = p.cores || [];
+      // Carrega a galeria: capa (p.foto, string) + extras (p.fotos, {foto,cor}).
+      // O `.map` tolera os dois formatos porque produto salvo antes da migration
+      // 045 devolve string crua — sem isso a galeria antiga viria vazia.
+      galeriaFotos = [
+        ...(p.foto ? [{ foto: p.foto, cor: null }] : []),
+        ...(p.fotos || []).map(f => (typeof f === 'string' ? { foto: f, cor: null } : { foto: f.foto, cor: f.cor || null })),
+      ].filter(x => x.foto);
       renderGaleria();
       montarMatrizDaGrade(p.grade);
       recalcular();

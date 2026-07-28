@@ -191,16 +191,120 @@ body {
   border-color: var(--marca);
   box-shadow: var(--sombra);
 }
-/* 2:3 retrato — o enquadramento de moda. A altura fixa de 250px que havia aqui
-   cortava vestido e look de corpo inteiro na cintura. aspect-ratio tambem reserva
-   o espaco antes da foto carregar, o que segura o CLS (layout que "pula"). */
+/* 4:5 retrato — o padrao das lojas de moda brasileiras (nao 2:3, que alonga
+   demais num card estreito, nem quadrado, que corta look de corpo inteiro).
+   aspect-ratio tambem reserva o espaco antes da foto carregar, segurando o CLS. */
+.card-produto-media { position: relative; overflow: hidden; }
 .card-produto-foto {
-  width: 100%; aspect-ratio: 2 / 3; height: auto;
+  width: 100%; aspect-ratio: 4 / 5; height: auto;
   object-fit: cover; background-color: var(--surface-2);
+  display: block;
 }
+/* Segunda foto no hover: troca flat-lay por foto em modelo. So no ponteiro —
+   em toque nao existe hover, e a foto ficaria presa no estado "hover". */
+.card-produto-foto-2 { position: absolute; inset: 0; opacity: 0; transition: opacity .25s ease; }
+@media (hover: hover) {
+  .card-produto:hover .card-produto-foto-2 { opacity: 1; }
+}
+
+/* Badge: SO com numero verdadeiro. Escassez inventada funciona uma vez e
+   destroi a confianca quando descoberta — em cidade pequena, onde a cliente
+   conhece a dona, isso e' risco reputacional real. */
+.card-badge {
+  position: absolute; top: 8px; left: 8px; z-index: 2;
+  padding: 3px 8px; border-radius: 999px;
+  font-size: 0.64rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  background: var(--tinta); color: #fff;
+}
+.card-badge-ultimas { background: var(--vermelho); }
+
+/* Pix e parcelamento: no Brasil sao informacao de DECISAO DE COMPRA, nao
+   enfeite. O Pix foi ~49% das transacoes online em 2025. */
+.card-produto-pix { font-size: 0.78rem; color: var(--verde); font-weight: 600; margin-top: 2px; }
+.card-produto-parcelas { font-size: 0.75rem; color: var(--tinta-3); margin-top: 1px; }
+
+.card-cores { display: flex; gap: 4px; align-items: center; margin-top: 8px; }
+.card-cor {
+  width: 13px; height: 13px; border-radius: 50%;
+  border: 1px solid var(--linha-forte); display: inline-block;
+}
+.card-cor-mais { font-size: 0.68rem; color: var(--tinta-3); margin-left: 2px; }
+
 /* O card virou <a> quando a loja tem site: tira o sublinhado e a cor de link */
 a.card-produto { text-decoration: none; color: inherit; }
 .vitrine-vazio { grid-column: 1 / -1; text-align: center; color: var(--tinta-3); padding: 2.5rem 1rem; }
+
+/* ============================================================
+   BLOCOS DA HOME — anuncio, banner, beneficios, categorias
+   ============================================================ */
+
+/* Barra de anuncio: o espaco mais nobre da pagina, que a maioria das lojas
+   desperdica com aviso de cookie. */
+.vitrine-anuncio {
+  background: var(--tinta); color: #fff;
+  padding: 0.55rem 1rem; text-align: center;
+  font-size: 0.74rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+}
+
+.vitrine-banner {
+  display: block; position: relative; overflow: hidden;
+  max-width: 1200px; margin: 0 auto 1.5rem; text-decoration: none;
+}
+.banner-img {
+  width: 100%; aspect-ratio: 21 / 9; object-fit: cover; display: block;
+  background: var(--surface-2);
+}
+.banner-conteudo {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  padding: 1.5rem 1.25rem;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 0.75rem;
+  /* Gradiente em vez de overlay chapado: escurece so onde o texto esta, sem
+     apagar a foto da campanha. */
+  background: linear-gradient(to top, rgba(20,36,32,.62), transparent);
+  color: #fff;
+}
+.banner-titulo { font-family: 'Fraunces', Georgia, serif; font-style: italic; font-size: 1.5rem; color: #fff; }
+.banner-botao {
+  background: #fff; color: var(--tinta);
+  padding: 0.5rem 1.1rem; border-radius: var(--v-radius-sm);
+  font-size: 0.82rem; font-weight: 600;
+}
+
+.vitrine-beneficios {
+  list-style: none; display: flex; flex-wrap: wrap; justify-content: center;
+  gap: 0.75rem 2rem; max-width: 1200px;
+  margin: 0 auto 1.75rem; padding: 0.9rem 1rem;
+  border-top: 1px solid var(--linha); border-bottom: 1px solid var(--linha);
+}
+.vitrine-beneficios li {
+  display: flex; align-items: center; gap: 0.5rem;
+  font-size: 0.8rem; color: var(--tinta-2);
+}
+.vitrine-beneficios svg { width: 17px; height: 17px; flex-shrink: 0; color: var(--marca); }
+
+/* Categorias em CIRCULO: a gramatica visual dos Stories do Instagram, que a
+   cliente que veio de la reconhece sem pensar. Scroll horizontal no celular. */
+.vitrine-categorias {
+  display: flex; gap: 1rem; overflow-x: auto; padding: 0.25rem 0 1.25rem;
+  scrollbar-width: none;
+}
+.vitrine-categorias::-webkit-scrollbar { display: none; }
+.cat-item {
+  flex: 0 0 auto; display: flex; flex-direction: column; align-items: center;
+  gap: 0.45rem; text-decoration: none; width: 82px;
+}
+.cat-circulo {
+  width: 72px; height: 72px; border-radius: 50%; overflow: hidden;
+  border: 2px solid var(--linha); background: var(--surface-2);
+  transition: border-color .15s ease;
+}
+.cat-item:hover .cat-circulo, .cat-item.ativa .cat-circulo { border-color: var(--marca); }
+.cat-circulo img { width: 100%; height: 100%; object-fit: cover; }
+.cat-nome {
+  font-size: 0.74rem; color: var(--tinta-2); text-align: center;
+  text-transform: capitalize; line-height: 1.25;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 82px;
+}
 .card-produto-info { padding: 1rem; flex-grow: 1; display: flex; flex-direction: column; }
 .card-produto-nome {
   font-weight: 600; font-size: 0.98rem; margin: 0 0 0.35rem 0; color: var(--tinta);
@@ -464,6 +568,7 @@ a.card-produto { text-decoration: none; color: inherit; }
 .pdp-titulo { font-size: 1.5rem; line-height: 1.25; margin-bottom: 0.9rem; }
 .pdp-precos { margin-bottom: 1.5rem; }
 .pdp-preco { font-size: 1.9rem; font-weight: 700; color: var(--marca); font-variant-numeric: tabular-nums; }
+.pdp-pix { font-size: 0.95rem; color: var(--verde); font-weight: 600; margin-top: 0.2rem; }
 .pdp-parcelas { font-size: 0.9rem; color: var(--tinta-2); margin-top: 0.15rem; }
 
 .pdp-opcao { margin-bottom: 1.25rem; }

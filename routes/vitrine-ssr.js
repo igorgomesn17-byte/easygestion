@@ -19,7 +19,8 @@ const {
 } = require('../lib/vitrine-publica');
 const {
   blocoHead, blocoDados, gradeProdutos, blocosPixel, eventoPixel,
-  schemaLoja, schemaProduto, schemaBreadcrumb, moeda,
+  blocoAnuncio, blocoBanner, blocoBeneficios, blocoCategorias,
+  schemaLoja, schemaProduto, schemaBreadcrumb, moeda, melhorParcela, precoPix,
 } = require('../lib/vitrine-html');
 
 // HTML da vitrine: `no-store` NÃO — o scraper do WhatsApp rebusca a página pra
@@ -78,7 +79,15 @@ function ssrHome(req, res, next) {
       canonical: loja.temSite ? url : '',
       jsonLd: loja.temSite ? schemaLoja(loja) : null,
     }) + (loja.temSite ? '\n  ' + blocosPixel(c) : ''),
-    grade: loja.temSite ? gradeProdutos(catalogo.produtos, { slug: loja.slug, temSite: true }) : '',
+    grade: loja.temSite
+      ? gradeProdutos(catalogo.produtos, { slug: loja.slug, temSite: true, config: c })
+      : '',
+    // Blocos da home. Cada um só aparece se a lojista preencheu — loja sem
+    // banner não mostra retângulo vazio.
+    anuncio: loja.temSite ? blocoAnuncio(c) : '',
+    banner: loja.temSite ? blocoBanner(c) : '',
+    beneficios: loja.temSite ? blocoBeneficios(c) : '',
+    categorias: loja.temSite ? blocoCategorias(catalogo.categorias, catalogo.produtos, loja.slug) : '',
     dados: loja.temSite
       ? blocoDados({
           loja: { ...c, slug: loja.slug, tem_site: true, vitrineAtiva: true },
@@ -173,7 +182,15 @@ function blocosDaPeca(p, loja) {
   const { COR_PADRAO } = require('../lib/vitrine-html');
 
   const cores = (p.cores || []).filter((c) => c && c !== COR_PADRAO);
-  const galeria = [p.foto, ...(p.galeria || [])].filter(Boolean);
+
+  // A página abre já com as fotos da PRIMEIRA cor (que é a que nasce
+  // selecionada). Servir a galeria misturada e deixar o JS corrigir causaria um
+  // flash de foto errada — e o crawler indexaria a foto de outra cor.
+  const primeiraCor = cores[0];
+  const porCor = p.galeriaPorCor || {};
+  const galeria = (primeiraCor && porCor[primeiraCor] && porCor[primeiraCor].length)
+    ? porCor[primeiraCor]
+    : [p.foto, ...(p.galeria || [])].filter(Boolean);
 
   // Galeria: a PRIMEIRA foto é o LCP da página. fetchpriority alto e sem lazy —
   // lazy acima da dobra piora justamente a métrica que se queria melhorar.
@@ -183,15 +200,18 @@ function blocosDaPeca(p, loja) {
       : `<img src="${esc(urlFoto(f))}" alt="" class="pdp-miniatura" loading="lazy" decoding="async" data-full="${esc(urlFoto(f))}">`
   )).join('\n');
 
-  // Parcelamento: expectativa cultural forte no varejo brasileiro. Só mostra se
-  // a parcela não ficar ridícula (mínimo R$ 20) — "12x de R$ 4,16" não vende.
-  const maxParcelas = Number(loja.config.vitrine_parcelas_max || 0);
-  const parcelas = maxParcelas > 1 ? melhorParcela(p.preco_venda, maxParcelas) : null;
+  // Parcelamento e Pix: expectativa cultural forte no varejo brasileiro. O Pix
+  // foi ~49% das transações online em 2025 — o desconto é decisão de compra.
+  // Só mostra parcela que não fica ridícula (mínimo R$ 20).
+  const parcelas = melhorParcela(p.preco_venda, loja.config.vitrine_parcelas_max);
+  const pix = precoPix(p.preco_venda, loja.config.vitrine_pix_desconto);
 
   return {
     tituloPeca: p.titulo,
     precoPeca: `R$ ${moeda(p.preco_venda)}`,
     parcelamento: parcelas ? `ou ${parcelas.n}x de R$ ${moeda(parcelas.valor)}` : '',
+    precoPix: pix ? `R$ ${moeda(pix.valor)} no Pix (${pix.pct}% off)` : '',
+    temPix: pix ? '' : 'style="display:none"',
     categoriaPeca: p.categoria || '',
     descricaoPeca: p.descricao || '',
     galeriaHtml: fotos,
@@ -227,14 +247,9 @@ function tamanhosDaCor(p, cor) {
   )).join('\n');
 }
 
-// Maior número de parcelas em que a parcela ainda faz sentido (>= R$ 20).
-function melhorParcela(preco, max) {
-  for (let n = Math.min(max, 12); n >= 2; n--) {
-    const valor = Number(preco) / n;
-    if (valor >= 20) return { n, valor };
-  }
-  return null;
-}
+// `melhorParcela` e `precoPix` moram em lib/vitrine-html.js — o card do catálogo
+// e a página de produto usam OS MESMOS cálculos. Duplicar aqui faria a peça
+// mostrar "3x de R$ 63" na grade e outro valor ao abrir.
 
 // ------------------------------------------------------------
 // GET /:slug/sitemap.xml — só para loja com site

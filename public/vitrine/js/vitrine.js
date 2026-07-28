@@ -361,12 +361,33 @@ function esc(s) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-// A legenda do card: cores vendem mais que contagem de tamanhos — a cliente
-// escolhe pela cor. Espelha `cardProduto` em lib/vitrine-html.js.
-function legendaDoCard(p) {
-  const cores = (p.cores || []).filter(c => c && c !== COR_PADRAO);
-  if (!cores.length) return `${(p.tamanhos || []).length} tamanho(s)`;
-  return `${cores.slice(0, 3).join(' • ')}${cores.length > 3 ? ' +' + (cores.length - 3) : ''}`;
+// Espelha melhorParcela/precoPix/corDaPalavra de lib/vitrine-html.js.
+function melhorParcela(preco, max) {
+  const teto = Math.min(Number(max) || 0, 12);
+  for (let n = teto; n >= 2; n--) {
+    const valor = Number(preco) / n;
+    if (valor >= 20) return { n, valor };
+  }
+  return null;
+}
+function precoPix(preco, pct) {
+  const p = Number(pct) || 0;
+  if (p <= 0 || p > 30) return null;
+  return Number(preco) * (1 - p / 100);
+}
+const CORES_HEX = {
+  preto:'#1a1a1a', branco:'#ffffff', 'off white':'#f4f1ea', bege:'#d9c7ad',
+  nude:'#e3c4b3', marrom:'#6b4f3a', caramelo:'#a9663a', terracota:'#b1573a',
+  vermelho:'#c0392b', vinho:'#722f37', rosa:'#e8a5b8', 'rosa claro':'#f3c9d4',
+  rose:'#c9a9a0', pink:'#e5407a', laranja:'#e07b39', amarelo:'#e8c547',
+  verde:'#2e7d52', 'verde oliva':'#7b8b4f', 'verde militar':'#5a6650',
+  azul:'#2f5d9e', 'azul claro':'#8fb6dd', 'azul marinho':'#1f3559',
+  jeans:'#5b7ba8', roxo:'#6b4a8c', lilas:'#b9a3d1', cinza:'#8d8d8d',
+  dourado:'#b78a2e', prata:'#c4c6c8', estampado:'#c9a9a0',
+};
+function corDaPalavra(nome) {
+  const k = String(nome || '').toLowerCase().trim().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  return CORES_HEX[k] || '#c9c9c9';
 }
 
 // ⚠️ ESTE HTML TEM QUE SER IGUAL ao de cardProduto() em lib/vitrine-html.js.
@@ -378,13 +399,29 @@ function htmlDoCard(p, i) {
   const attrs = i === 0
     ? 'fetchpriority="high" decoding="async"'
     : 'loading="lazy" decoding="async"';
+  const cores = (p.cores || []).filter(c => c && c !== COR_PADRAO);
+  const segunda = (p.galeria || []).find(g => g && g !== p.foto);
+  const parc = melhorParcela(p.preco_venda, dadosLoja.vitrine_parcelas_max);
+  const pix = precoPix(p.preco_venda, dadosLoja.vitrine_pix_desconto);
+  const estoque = (p.grade || []).reduce((s, g) => s + (g.quantidade || 0), 0);
+  const badge = estoque > 0 && estoque <= 3
+    ? '<span class="card-badge card-badge-ultimas">últimas peças</span>'
+    : (p.destaque === 1 ? '<span class="card-badge">novo</span>' : '');
+
   return `
-      <img src="${esc(p.foto || '/img/placeholder.png')}" alt="${esc(nome)}" class="card-produto-foto" ${attrs}>
+      <div class="card-produto-media">
+        ${badge}
+        <img src="${esc(p.foto || '/img/placeholder.png')}" alt="${esc(nome)}" class="card-produto-foto" ${attrs}>
+        ${segunda ? `<img src="${esc(segunda)}" alt="" class="card-produto-foto card-produto-foto-2" loading="lazy" decoding="async">` : ''}
+      </div>
       <div class="card-produto-info">
         <h3 class="card-produto-nome">${esc(nome)}</h3>
-        <p class="card-produto-categoria">${esc(p.categoria || '')}</p>
         <p class="card-produto-preco">R$ ${formatarMoeda(p.preco_venda)}</p>
-        <p class="card-produto-tamanhos">${esc(legendaDoCard(p))}</p>
+        ${pix ? `<p class="card-produto-pix">R$ ${formatarMoeda(pix)} no Pix</p>` : ''}
+        ${parc ? `<p class="card-produto-parcelas">ou ${parc.n}x de R$ ${formatarMoeda(parc.valor)}</p>` : ''}
+        ${cores.length > 1 ? `<div class="card-cores">${cores.slice(0, 4).map(c =>
+          `<span class="card-cor" title="${esc(c)}" style="background:${corDaPalavra(c)}"></span>`).join('')}${
+          cores.length > 4 ? `<span class="card-cor-mais">+${cores.length - 4}</span>` : ''}</div>` : ''}
       </div>`;
 }
 

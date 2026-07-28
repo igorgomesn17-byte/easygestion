@@ -17,6 +17,10 @@
   <link rel="stylesheet" href="/vitrine/css/vitrine.css?v=2">
 </head>
 <body>
+  <!-- Barra de anúncio: o espaço mais nobre da página (frete, Pix, novidade).
+       Só aparece se a lojista escreveu algo. -->
+  {{{anuncio}}}
+
   <!-- Header da loja -->
   <header class="vitrine-header">
     <div class="vitrine-logo-container">
@@ -24,6 +28,14 @@
     </div>
     <p id="lojafrase" class="vitrine-frase"></p>
   </header>
+
+  <!-- Banner da campanha. Uma imagem, uma frase, um botão — sem carrossel
+       com autorrotação, que em mobile ninguém vê além do primeiro slide. -->
+  {{{banner}}}
+
+  <!-- O que a Renner não pode oferecer: retirada na loja, entrega hoje na
+       cidade, troca sem burocracia. Vale mais que selo de segurança. -->
+  {{{beneficios}}}
 
   <!-- Botões de contato (WhatsApp, Instagram, Google Maps) -->
   <div class="vitrine-contato">
@@ -57,7 +69,9 @@
   <div id="modalCarrinho" class="modal modal-carrinho">
     <div class="modal-content modal-carrinho-content">
       <div class="modal-header">
-        <h2>Seu Carrinho</h2>
+        <!-- "Sacola", não "Carrinho": aqui não há checkout, o pedido fecha na
+             conversa. Vocabulário de loja física, que é o que de fato acontece. -->
+        <h2>Sua sacola</h2>
         <button class="btn-close" data-close="modalCarrinho">&times;</button>
       </div>
       <div class="modal-body">
@@ -68,7 +82,7 @@
       <div class="modal-footer">
         <p id="carrinhoTotal" class="carrinho-total">Total: R$ 0,00</p>
         <button id="btnFinalizarWhatsApp" class="btn btn-primary" disabled>
-          Finalizar no WhatsApp
+          Fechar pedido no WhatsApp
         </button>
       </div>
     </div>
@@ -76,6 +90,10 @@
 
   <!-- Filtros e grade -->
   <main class="vitrine-main">
+    <!-- Categorias em círculo com foto: a gramática visual dos Stories, que a
+         cliente que vem do Instagram reconhece na hora. -->
+    {{{categorias}}}
+
     <!-- Barra de busca principal -->
     <div class="vitrine-busca-principal">
       <input type="text" id="filtroBusca" placeholder="Buscar peça..." class="input-busca-principal">
@@ -213,8 +231,11 @@
         </div>
       </div>
       <div class="modal-footer">
+        <!-- "Quero essa" no lugar de "Adicionar ao carrinho": não existe
+             checkout aqui, e carrinho que não finaliza gera desconfiança. O
+             vocabulário todo é de conversa, porque é o que de fato acontece. -->
         <button id="btnAdicionarCarrinho" class="btn btn-primary">
-          Adicionar ao Carrinho
+          Quero essa
         </button>
       </div>
     </div>

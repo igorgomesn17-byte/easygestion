@@ -18,20 +18,28 @@ const DIR_MARCA = process.env.UPLOADS_DIR
 if (!fs.existsSync(DIR_MARCA)) fs.mkdirSync(DIR_MARCA, { recursive: true });
 const MAX_LOGO_BYTES = 2 * 1024 * 1024; // 2MB
 
-// Salva a logo base64 (data URL). Aceita SÓ raster (png/jpg/webp) — bloqueia svg
-// (pode conter script) e limita tamanho. Mesmo padrão das fotos de produto.
-function salvarLogoBase64(dataUrl) {
-  if (!dataUrl || typeof dataUrl !== 'string') return { ok: false, erro: 'Logo inválida' };
+// Salva imagem de marca base64 (data URL). Aceita SÓ raster (png/jpg/webp) —
+// bloqueia svg (pode conter script) e limita tamanho. Mesmo padrão das fotos de
+// produto. `prefixo` distingue logo / banner / imagem de compartilhamento.
+function salvarImagemMarca(dataUrl, prefixo = 'logo', maxBytes = MAX_LOGO_BYTES) {
+  if (!dataUrl || typeof dataUrl !== 'string') return { ok: false, erro: 'Imagem inválida' };
   const m = dataUrl.match(/^data:image\/(png|jpe?g|webp);base64,([A-Za-z0-9+/=]+)$/i);
   if (!m) return { ok: false, erro: 'Formato não suportado. Use PNG, JPG ou WEBP' };
   const buf = Buffer.from(m[2], 'base64');
-  if (buf.length === 0) return { ok: false, erro: 'Logo vazia' };
-  if (buf.length > MAX_LOGO_BYTES) return { ok: false, erro: `Logo muito grande (${(buf.length / 1024 / 1024).toFixed(1)}MB). Máximo: 2MB` };
+  if (buf.length === 0) return { ok: false, erro: 'Imagem vazia' };
+  if (buf.length > maxBytes) {
+    return { ok: false, erro: `Imagem muito grande (${(buf.length / 1024 / 1024).toFixed(1)}MB). Máximo: ${(maxBytes / 1024 / 1024).toFixed(1)}MB` };
+  }
   const ext = m[1].toLowerCase() === 'jpeg' ? 'jpg' : m[1].toLowerCase();
-  const nome = `logo-${Date.now()}.${ext}`;
+  // O prefixo é sanitizado: ele vira nome de arquivo no disco.
+  const p = String(prefixo).replace(/[^a-z0-9_-]/gi, '') || 'img';
+  const nome = `${p}-${Date.now()}.${ext}`;
   fs.writeFileSync(path.join(DIR_MARCA, nome), buf);
   return { ok: true, erro: null, caminho: 'img/marca/' + nome };
 }
+
+// Mantém o nome antigo funcionando (a rota POST /logo chama por ele).
+const salvarLogoBase64 = (dataUrl) => salvarImagemMarca(dataUrl, 'logo');
 
 // Prefixos de chaves SENSÍVEIS (financeiro/operacional) — só admin vê no GET.
 // Relacionamento/vendedor recebem o config SEM essas chaves.
@@ -73,8 +81,10 @@ router.get('/', (req, res) => {
 // Declarada ANTES de featureDaChave: `const` tem temporal dead zone, e deixá-la
 // depois só funciona porque a função roda em request. É pegadinha à espera.
 const CHAVES_SITE = new Set([
-  'vitrine_banner', 'vitrine_og_imagem', 'vitrine_politica_troca',
-  'vitrine_tabela_medidas', 'vitrine_prazo_entrega', 'vitrine_parcelas_max',
+  'vitrine_banner', 'vitrine_banner_titulo', 'vitrine_banner_botao', 'vitrine_banner_link',
+  'vitrine_anuncio', 'vitrine_og_imagem', 'vitrine_politica_troca',
+  'vitrine_tabela_medidas', 'vitrine_prazo_entrega', 'vitrine_retirada_loja',
+  'vitrine_parcelas_max', 'vitrine_pix_desconto',
 ]);
 
 function featureDaChave(chave) {
@@ -142,6 +152,39 @@ router.post('/logo', apenasAdmin, exigirFeature('personalizacao'), (req, res) =>
     .run('loja_logo', result.caminho, req.tenantId);
   invalidarCacheConfig(req.tenantId);
   res.json({ ok: true, loja_logo: result.caminho });
+});
+
+// Upload de imagem do SITE: banner da home e imagem de compartilhamento.
+// Recebe { imagem: dataURL, tipo: 'banner'|'og' }.
+//
+// O banner é o topo da loja (foto de campanha, deitada). A imagem `og` é a que
+// aparece quando alguém cola o link no WhatsApp — precisa ser 1200x630 e LEVE:
+// o WhatsApp descarta preview de imagem pesada, e o link sai sem foto nenhuma.
+router.post('/imagem-site', apenasAdmin, exigirFeature('vitrine_site'), (req, res) => {
+  const tipo = req.body && req.body.tipo === 'og' ? 'og' : 'banner';
+  const chave = tipo === 'og' ? 'vitrine_og_imagem' : 'vitrine_banner';
+  // 300KB no og: acima disso o preview simplesmente não aparece no WhatsApp.
+  // Recusar com mensagem clara é melhor que aceitar e o link sair sem foto.
+  const maxBytes = tipo === 'og' ? 300 * 1024 : 3 * 1024 * 1024;
+
+  const result = salvarImagemMarca(req.body && req.body.imagem, tipo, maxBytes);
+  if (!result.ok) {
+    const dica = tipo === 'og'
+      ? ' A imagem de compartilhamento precisa ser leve (máx. 300KB) — o WhatsApp não mostra preview de imagem pesada.'
+      : '';
+    return res.status(400).json({ erro: result.erro + dica });
+  }
+  db.prepare('INSERT INTO config (chave, valor, tenant_id) VALUES (?, ?, ?) ON CONFLICT(chave, tenant_id) DO UPDATE SET valor=excluded.valor')
+    .run(chave, result.caminho, req.tenantId);
+  invalidarCacheConfig(req.tenantId);
+  res.json({ ok: true, chave, caminho: result.caminho });
+});
+
+router.delete('/imagem-site', apenasAdmin, exigirFeature('vitrine_site'), (req, res) => {
+  const chave = req.query.tipo === 'og' ? 'vitrine_og_imagem' : 'vitrine_banner';
+  db.prepare('UPDATE config SET valor=? WHERE chave=? AND tenant_id=?').run('', chave, req.tenantId);
+  invalidarCacheConfig(req.tenantId);
+  res.json({ ok: true });
 });
 
 // Remove a logo (volta a mostrar o nome em texto).

@@ -64,11 +64,49 @@
         b.classList.add('selected');
         corSel = b.dataset.cor;
         pintarTamanhos();
+        // A GALERIA TROCA JUNTO. Sem isto, a cliente clica em "Terracota" e
+        // continua vendo a foto do off white — pede a peça errada, ou desiste.
+        // É o que Nuvemshop e Loja Integrada não fazem nativamente.
+        pintarGaleria(corSel);
       });
     });
     // Já deixa a primeira cor escolhida: a cliente vê tamanho disponível na hora,
     // em vez de uma lista vazia esperando um clique que ela não sabe que precisa dar.
     corSel = botoes.length ? botoes[0].dataset.cor : (PECA.cores || [])[0] || COR_PADRAO;
+  }
+
+  // Repinta a galeria com as fotos DAQUELA cor. O backend já entrega
+  // `galeriaPorCor` com as fotos da cor + as comuns (tabela de medidas, close do
+  // tecido) — foto sem cor marcada aparece em todas.
+  function pintarGaleria(cor) {
+    const porCor = PECA.galeriaPorCor || {};
+    const fotos = (cor && porCor[cor] && porCor[cor].length)
+      ? porCor[cor]
+      : [PECA.foto, ...(PECA.galeria || [])].filter(Boolean);
+    if (!fotos.length) return;
+
+    const principal = $('fotoPrincipal');
+    if (principal) principal.src = fotos[0];
+
+    // As miniaturas são reconstruídas: o conjunto de fotos mudou, não só a ativa.
+    document.querySelectorAll('.pdp-miniatura').forEach((m) => m.remove());
+    const galeria = document.querySelector('.pdp-galeria');
+    if (!galeria) return;
+    fotos.slice(1).forEach((src) => {
+      const img = document.createElement('img');
+      img.className = 'pdp-miniatura';
+      img.src = src;
+      img.alt = '';
+      img.loading = 'lazy';
+      img.decoding = 'async';
+      img.dataset.full = src;
+      img.addEventListener('click', () => {
+        if (principal) principal.src = src;
+        document.querySelectorAll('.pdp-miniatura').forEach((m) => m.classList.remove('ativa'));
+        img.classList.add('ativa');
+      });
+      galeria.appendChild(img);
+    });
   }
 
   // ---------- Galeria ----------
