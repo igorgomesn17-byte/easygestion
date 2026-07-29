@@ -502,6 +502,17 @@ router.post('/', async (req, res) => {
         // transacao — senao ela continuaria na fila de contatos falando de uma ausencia
         // que esta compra acabou de encerrar. Pos-venda/aniversario NAO sao afetados.
         obsoletarAcoesDeAusencia(req.tenantId, cliente_id);
+
+        // PASSAGEM DE BASTÃO (MCC): o Comercial 1 existe pra fazer a PRIMEIRA
+        // venda. Ela acabou de acontecer — a relação passa pro Comercial 2, que
+        // cuida de recompra. Sem isto o C1 acumula carteira e sobra menos tempo
+        // pra prospectar, que é o único trabalho dele.
+        //
+        // Só move quem estava no C1: cliente que já era do C2 comprando de novo
+        // não é passagem, é o trabalho dele acontecendo.
+        try {
+          require('../lib/conversas').passarParaC2(req.tenantId, cliente_id);
+        } catch (e) { /* sem canal/conversa: não há o que passar */ }
       }
     }
 

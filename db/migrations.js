@@ -2232,6 +2232,107 @@ function executarMigrations(db) {
         db.exec(`CREATE INDEX IF NOT EXISTS idx_vitrine_pedidos_despacho
                  ON vitrine_pedidos(tenant_id, venda_id, despachado_em);`);
       }
+    },
+
+    {
+      nome: '050_comercial_1_e_2',
+      hash: 'v50-comercial-1-e-2',
+      exec: (db) => {
+        // DUAS PESSOAS, DOIS DEPARTAMENTOS (modelo MCC).
+        //
+        // O `lib/bot.js` ja CALCULA o roteamento (nunca comprou -> C1, ja comprou
+        // -> C2), mas nao havia onde guardar QUEM e' o C1 e QUEM e' o C2. O papel
+        // 'relacionamento' era um so' pros dois — entao o card caia numa fila
+        // geral e as duas pessoas viam a mesma coisa.
+        //
+        // Nao ha DDL pra `usuarios.papel` (ja e' TEXT livre): o que muda e' a
+        // lista aceita em routes/usuarios.js. Fica registrado aqui porque a REGRA
+        // e' o que importa — 'relacionamento' continua valendo e significa "ve os
+        // dois lados", que e' o papel do dono.
+        //
+        // `departamento` na CONVERSA: o roteamento e' calculado quando a mensagem
+        // chega e CONGELADO. Recalcular na leitura faria o card pular de fila no
+        // instante em que a cliente comprasse — no meio de uma conversa em
+        // andamento, com o C1 ainda escrevendo.
+        const cols = db.prepare('PRAGMA table_info(conversas)').all().map((c) => c.name);
+        if (!cols.includes('departamento')) {
+          db.exec(`ALTER TABLE conversas ADD COLUMN departamento TEXT;`);
+        }
+
+        // Backfill: conversa que ja existe recebe o departamento pelo estado ATUAL
+        // da cliente. Sem isso a fila nasceria vazia dos dois lados, e a impressao
+        // seria de que o sistema perdeu as conversas.
+        //
+        // O `tenant_id` de `conversas` NAO vem do schema.sql — e' adicionado por
+        // uma migration anterior. Num banco NOVO o schema roda primeiro e a coluna
+        // ainda nao existe quando esta migration chega: casar por tenant aqui
+        // derrubaria o boot inteiro. Como banco novo nao tem conversa nenhuma, o
+        // backfill simplesmente nao tem o que fazer.
+        const temTenant = cols.includes('tenant_id')
+          || db.prepare('PRAGMA table_info(conversas)').all().some((c) => c.name === 'tenant_id');
+
+        if (temTenant) {
+          db.exec(`
+            UPDATE conversas SET departamento = (
+              SELECT CASE WHEN COALESCE(cl.num_compras, 0) > 0 THEN 'c2' ELSE 'c1' END
+                FROM clientes cl WHERE cl.id = conversas.cliente_id AND cl.tenant_id = conversas.tenant_id
+            ) WHERE departamento IS NULL AND cliente_id IS NOT NULL;
+          `);
+        } else {
+          // Sem tenant_id, casa so' pelo cliente_id. So' acontece em banco novo
+          // (zero conversas) ou muito antigo de uma loja so' — nos dois casos nao
+          // ha ambiguidade de tenant pra resolver.
+          db.exec(`
+            UPDATE conversas SET departamento = (
+              SELECT CASE WHEN COALESCE(cl.num_compras, 0) > 0 THEN 'c2' ELSE 'c1' END
+                FROM clientes cl WHERE cl.id = conversas.cliente_id
+            ) WHERE departamento IS NULL AND cliente_id IS NOT NULL;
+          `);
+        }
+        // Conversa sem cliente (numero solto que so' mandou "oi") e' levantada de
+        // mao: C1 por definicao.
+        db.exec(`UPDATE conversas SET departamento = 'c1' WHERE departamento IS NULL;`);
+
+        // A fila de cada departamento e' a query mais quente da tela.
+        //
+        // O indice so' pode citar tenant_id se a coluna existir. Em banco NOVO ela
+        // ainda nao existe neste ponto (vem de migration posterior), e um
+        // CREATE INDEX sobre coluna inexistente derruba o BOOT — nao a migration,
+        // o boot inteiro. E' a licao registrada em `schema-sql-roda-antes-das-migrations`.
+        if (temTenant) {
+          db.exec(`CREATE INDEX IF NOT EXISTS idx_conversas_depto
+                   ON conversas(tenant_id, departamento, arquivada);`);
+        } else {
+          db.exec(`CREATE INDEX IF NOT EXISTS idx_conversas_depto_simples
+                   ON conversas(departamento, arquivada);`);
+        }
+
+        // ---------- CONTROLE DO BOT ----------
+        //
+        // O bot estava ligado no webhook e respondia SEMPRE, sem interruptor: nao
+        // havia como desligar, editar o que ele diz, nem ver o que ele respondeu
+        // sozinho. Ligado sem controle e' pior que desligado — a lojista descobre
+        // o que ele falou pela reclamacao da cliente.
+        //
+        // Nasce DESLIGADO (`bot_ativo` ausente = '0' no getConfig): ligar sozinho
+        // no dia do deploy poria um robo pra falar com a base de todo mundo sem
+        // ninguem ter pedido.
+        db.exec(`
+          CREATE TABLE IF NOT EXISTS bot_log (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            tenant_id   INTEGER NOT NULL,
+            conversa_id INTEGER,
+            entrada     TEXT,            -- o que a cliente escreveu
+            acao        TEXT NOT NULL,   -- respondeu | transferiu
+            motivo      TEXT,            -- negociacao, reclamacao, fora_do_escopo...
+            resposta    TEXT,            -- o que o bot mandou (NULL quando calou)
+            departamento TEXT,           -- pra quem transferiu
+            criado_em   TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+            FOREIGN KEY (conversa_id) REFERENCES conversas(id) ON DELETE CASCADE
+          );
+        `);
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_bot_log_tenant ON bot_log(tenant_id, criado_em);`);
+      }
     }
   ];
 

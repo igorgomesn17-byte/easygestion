@@ -12,7 +12,18 @@ const { hashSenha, validarSenha, validarNaoReutilizada, exigirDentroDoLimite } =
 const contarUsuarios = (tenantId) =>
   db.prepare('SELECT COUNT(*) AS n FROM usuarios WHERE tenant_id = ? AND ativo = 1').get(tenantId).n;
 
-const PAPEIS = ['admin', 'relacionamento', 'vendedor'];
+// `comercial_1` e `comercial_2` são os dois departamentos do MCC, e existem como
+// PAPÉIS porque são duas PESSOAS diferentes com filas diferentes:
+//
+//   comercial_1     → quem ainda não comprou (levantada de mão → primeira venda)
+//   comercial_2     → quem já comprou (recompra, a operação lucrativa)
+//   relacionamento  → vê os DOIS lados. É o papel do dono, e o default de quem
+//                     opera sozinho — quem não tem time não deve ser obrigado a
+//                     escolher um lado.
+//
+// Cada um abre na SUA fila, mas alcança a do colega por filtro: férias e picos
+// se resolvem sem o dono mexer em cadastro.
+const PAPEIS = ['admin', 'relacionamento', 'comercial_1', 'comercial_2', 'vendedor'];
 
 // GET /api/usuarios -> lista (NUNCA retorna senha_hash)
 router.get('/', (req, res) => {

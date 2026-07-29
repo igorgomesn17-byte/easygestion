@@ -1,0 +1,210 @@
+<DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Atendimento automático • EasyGestão</title>
+  <link rel="stylesheet" href="css/ds.css">
+  <style>
+    .estado { display:flex; align-items:center; gap:12px; padding:15px 18px;
+              border-radius:var(--radius-sm); margin-bottom:18px; font-weight:600; flex-wrap:wrap; }
+    .estado-on  { background:var(--marca-clara); color:var(--marca-escura); }
+    .estado-off { background:var(--surface-2); color:var(--tinta-2); }
+    .bolinha { width:10px; height:10px; border-radius:50%; background:currentColor; flex-shrink:0; }
+    .duas { display:grid; grid-template-columns:1fr 1fr; gap:2px; background:var(--linha);
+            border:1px solid var(--linha); border-radius:var(--radius-sm); overflow:hidden; }
+    .col { background:var(--surface); padding:18px; }
+    .col-rot { font-size:0.72rem; text-transform:uppercase; letter-spacing:.07em;
+               font-weight:800; margin:0 0 12px; padding-bottom:9px; border-bottom:1px solid var(--linha); }
+    .col.resp .col-rot { color:var(--verde, #1e7d4f); }
+    .col.pass .col-rot { color:var(--vermelho); }
+    .col ul { margin:0; padding-left:18px; font-size:0.88rem; color:var(--tinta-2); line-height:1.7; }
+    .grade { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px; }
+    .kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; margin-bottom:18px; }
+    .kpi { background:var(--surface-2); border-radius:var(--radius-sm); padding:13px 15px; }
+    .kpi-n { font-size:1.4rem; font-weight:800; font-variant-numeric:tabular-nums; }
+    .kpi-l { font-size:0.76rem; color:var(--tinta-2); margin-top:3px; }
+    .log-linha { padding:12px 0; border-bottom:1px solid var(--linha); font-size:0.87rem; }
+    .log-linha:last-child { border-bottom:0; }
+    .log-topo { display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:baseline; }
+    .log-quem { font-weight:700; }
+    .log-h { font-size:0.72rem; color:var(--tinta-2); font-family:ui-monospace,monospace; }
+    .log-msg { color:var(--tinta-2); margin-top:3px; font-style:italic; }
+    .log-resp { margin-top:5px; padding:7px 11px; background:var(--marca-clara);
+                color:var(--marca-escura); border-radius:var(--radius-sm); font-size:0.84rem; }
+    .log-tag { font-size:0.66rem; padding:2px 8px; border-radius:3px; font-weight:700; }
+    .lt-resp { background:var(--marca-clara); color:var(--marca-escura); }
+    .lt-pass { background:var(--dourado-claro); color:var(--dourado-escuro); }
+    .aviso { background:var(--dourado-claro); color:var(--dourado-escuro); border-radius:var(--radius-sm);
+             padding:14px 17px; font-size:0.88rem; line-height:1.6; margin-bottom:18px; }
+  </style>
+</head>
+<body>
+  <div class="conteudo">
+    <h1>Atendimento automático</h1>
+    <p class="subtitulo">Responde o repetitivo e passa pra você o que precisa de gente. Nunca dá desconto, nunca inventa.</p>
+
+    <div id="estado" class="estado estado-off"><span class="bolinha"></span><span id="estadoTxt">Carregando…</span></div>
+
+    <div class="card">
+      <div class="flex-entre" style="margin-bottom:6px;">
+        <h2 style="margin:0;">Ligar o atendimento automático</h2>
+        <label class="switch">
+          <input type="checkbox" id="ativo" class="switch-input" onchange="salvar()">
+          <span class="switch-trilho"></span>
+        </label>
+      </div>
+      <p class="texto-cinza" style="font-size:0.87rem; margin:0;">
+        Quando ligado, ele responde as mensagens que chegam de quem ainda não está em conversa
+        com você. Assim que alguém da equipe responde, ele se cala naquela conversa — e não
+        volta a falar.
+      </p>
+    </div>
+
+    <div class="duas" style="margin-top:16px;">
+      <div class="col resp">
+        <p class="col-rot">Ele responde sozinho</p>
+        <ul id="listaResp"></ul>
+      </div>
+      <div class="col pass">
+        <p class="col-rot">Ele chama você</p>
+        <ul id="listaPass"></ul>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px;">
+      <h2 style="margin-top:0;">O que ele precisa saber</h2>
+      <p class="texto-cinza" style="font-size:0.87rem; margin-top:0;">
+        Sem estas informações ele passa a pergunta pra você — o que está certo, mas custa
+        atendimento por algo que uma linha aqui resolve.
+      </p>
+      <div class="grade" style="margin-top:14px;">
+        <div>
+          <label>Pedido mínimo <span class="texto-cinza">(atacado)</span></label>
+          <input id="pedidoMin" placeholder="300" onchange="salvar()">
+        </div>
+        <div>
+          <label>Prazo de troca (dias)</label>
+          <input id="prazoTroca" type="number" min="0" max="90" onchange="salvar()">
+        </div>
+        <div>
+          <label>Atende das</label>
+          <input id="hIni" type="number" min="0" max="23" onchange="salvar()">
+        </div>
+        <div>
+          <label>até as</label>
+          <input id="hFim" type="number" min="1" max="24" onchange="salvar()">
+        </div>
+      </div>
+      <p class="texto-cinza" style="font-size:0.82rem; margin:12px 0 0;">
+        Fora do horário ele continua respondendo o que sabe, mas avisa quando alguém retorna —
+        em vez de fingir que tem gente do outro lado.
+      </p>
+    </div>
+
+    <h2 style="margin:26px 0 6px;">O que ele fez</h2>
+    <p class="subtitulo" style="margin-bottom:14px;">Últimas 24 horas.</p>
+    <div class="kpis" id="kpis"></div>
+
+    <div class="card">
+      <div id="log"><p class="texto-cinza">Carregando…</p></div>
+    </div>
+  </div>
+
+  <script src="js/comum.js"></script>
+  <script>
+    async function carregar() {
+      const d = await api('/relacionamento/bot');
+
+      document.getElementById('ativo').checked = !!d.ativo;
+      document.getElementById('pedidoMin').value = d.pedido_minimo || '';
+      document.getElementById('prazoTroca').value = d.prazo_troca || 7;
+      document.getElementById('hIni').value = d.horario_inicio;
+      document.getElementById('hFim').value = d.horario_fim;
+
+      const box = document.getElementById('estado');
+      box.className = 'estado ' + (d.ativo ? 'estado-on' : 'estado-off');
+      document.getElementById('estadoTxt').textContent = d.ativo
+        ? 'Ligado — responde quem chega, e chama você quando precisa.'
+        : 'Desligado — toda mensagem que chega espera por você.';
+
+      document.getElementById('listaResp').innerHTML = d.responde.map(x => `<li>${esc(x)}</li>`).join('');
+      document.getElementById('listaPass').innerHTML = d.transfere.map(x => `<li>${esc(x)}</li>`).join('');
+
+      const r = d.resumo || {};
+      const total = (r.respondeu || 0) + (r.transferiu || 0);
+      document.getElementById('kpis').innerHTML = `
+        <div class="kpi"><div class="kpi-n">${total}</div><div class="kpi-l">mensagens atendidas</div></div>
+        <div class="kpi"><div class="kpi-n">${r.respondeu || 0}</div><div class="kpi-l">resolvidas por ele</div></div>
+        <div class="kpi"><div class="kpi-n">${r.transferiu || 0}</div><div class="kpi-l">passadas pra você</div></div>
+        <div class="kpi"><div class="kpi-n">${total ? Math.round((r.respondeu || 0) / total * 100) : 0}%</div><div class="kpi-l">resolvido sem você</div></div>
+      `;
+
+      carregarLog();
+    }
+
+    async function carregarLog() {
+      try {
+        const linhas = await api('/relacionamento/bot/log?limite=40');
+        document.getElementById('log').innerHTML = linhas.length ? linhas.map(l => `
+          <div class="log-linha">
+            <div class="log-topo">
+              <span class="log-quem">${esc(l.cliente_nome || l.contato_nome || l.telefone || 'Contato')}</span>
+              <span>
+                <span class="log-tag ${l.acao === 'respondeu' ? 'lt-resp' : 'lt-pass'}">
+                  ${l.acao === 'respondeu' ? 'respondeu' : 'passou pra ' + (l.departamento === 'c2' ? 'Comercial 2' : 'Comercial 1')}
+                </span>
+                <span class="log-h" style="margin-left:8px;">${quando(l.criado_em)}</span>
+              </span>
+            </div>
+            <div class="log-msg">"${esc(l.entrada || '')}"</div>
+            ${l.resposta ? `<div class="log-resp">${esc(l.resposta)}</div>` : ''}
+            ${!l.resposta && l.motivo ? `<div class="texto-cinza" style="font-size:0.8rem; margin-top:4px;">Ficou calado — ${esc(rotulo(l.motivo))}</div>` : ''}
+          </div>`).join('')
+          : '<p class="texto-cinza">Nada ainda. Assim que alguém escrever com o atendimento ligado, aparece aqui.</p>';
+      } catch (e) {
+        document.getElementById('log').innerHTML = `<p class="texto-cinza">${esc(e.message || 'Erro')}</p>`;
+      }
+    }
+
+    const MOTIVOS = {
+      negociacao: 'pedido de desconto',
+      reclamacao: 'reclamação',
+      irritada: 'cliente irritada',
+      pediu_humano: 'pediu falar com atendente',
+      troca: 'troca ou devolução',
+      pedido_nao_encontrado: 'código de pedido não encontrado',
+      duvida_produto: 'dúvida sobre peça que ele não achou',
+      fora_do_escopo: 'não cobre esse assunto',
+    };
+    function rotulo(m) { return MOTIVOS[m] || m; }
+
+    async function salvar() {
+      const body = {
+        ativo: document.getElementById('ativo').checked,
+        pedido_minimo: document.getElementById('pedidoMin').value.trim(),
+        prazo_troca: document.getElementById('prazoTroca').value,
+        horario_inicio: document.getElementById('hIni').value,
+        horario_fim: document.getElementById('hFim').value,
+      };
+      try {
+        await api('/relacionamento/bot', { method: 'POST', body });
+        toast('Salvo');
+        carregar();
+      } catch (e) { toast(e.message || 'Erro ao salvar', 'erro'); }
+    }
+
+    function quando(d) {
+      if (!d) return '';
+      const s = String(d), hoje = new Date().toISOString().slice(0, 10);
+      return s.slice(0, 10) === hoje ? s.slice(11, 16) : s.slice(8, 10) + '/' + s.slice(5, 7) + ' ' + s.slice(11, 16);
+    }
+    function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      montarLayout('bot');
+      carregar().catch(e => toast(e.message || 'Erro ao carregar', 'erro'));
+    });
+  </script>
+</body>
+</html>

@@ -374,6 +374,83 @@ router.post('/cadencia', (req, res) => {
 });
 
 // ============================================================
+// BOT — ligar, desligar, editar e AUDITAR.
+// ============================================================
+// O bot estava ligado no webhook e respondia sempre, sem interruptor. Ligado sem
+// controle é pior que desligado: a lojista descobre o que ele falou pela
+// reclamação da cliente.
+//
+// Nasce DESLIGADO. Ligar sozinho no dia do deploy poria um robô pra falar com a
+// base de todo mundo sem ninguém ter pedido.
+router.get('/bot', (req, res) => {
+  const t = req.tenantId;
+  const bot = require('../lib/bot');
+
+  res.json({
+    ativo: getConfig('bot_ativo', '0', t) === '1',
+    horario_inicio: parseInt(getConfig('atendimento_inicio', '8', t), 10),
+    horario_fim: parseInt(getConfig('atendimento_fim', '18', t), 10),
+    pedido_minimo: getConfig('pedido_minimo', '', t),
+    prazo_troca: getConfig('prazo_troca_dias', '7', t),
+    // O que ele responde e o que ele passa — a lojista precisa VER isso antes de
+    // ligar, não descobrir depois.
+    responde: [
+      'Se tem um tamanho ("tem na M?") — consultando o estoque real',
+      'Status do pedido pelo código (#A7K2)',
+      'Pedido mínimo e prazo de entrega',
+      'Link do catálogo',
+    ],
+    transfere: [
+      'Pediu desconto ou condição especial',
+      'Reclamação (peça com defeito, atraso)',
+      'Cliente irritada',
+      'Pediu falar com atendente',
+      'Qualquer coisa que ele não saiba responder',
+    ],
+    // Últimas 24h: quantas ele resolveu sozinho e quantas passou pra gente.
+    resumo: db.prepare(`
+      SELECT acao, COUNT(*) AS n FROM bot_log
+       WHERE tenant_id = ? AND datetime(criado_em) >= datetime('now','localtime','-1 day')
+       GROUP BY acao
+    `).all(t).reduce((m, r) => ({ ...m, [r.acao]: r.n }), { respondeu: 0, transferiu: 0 }),
+  });
+});
+
+router.post('/bot', (req, res) => {
+  const t = req.tenantId;
+  const b = req.body || {};
+
+  if (b.ativo !== undefined) setConfig('bot_ativo', b.ativo ? '1' : '0', t);
+
+  const hi = parseInt(b.horario_inicio, 10);
+  const hf = parseInt(b.horario_fim, 10);
+  if (Number.isInteger(hi) && hi >= 0 && hi <= 23) setConfig('atendimento_inicio', String(hi), t);
+  if (Number.isInteger(hf) && hf >= 1 && hf <= 24) setConfig('atendimento_fim', String(hf), t);
+
+  // O bot responde o mínimo e o prazo de troca CONSULTANDO estas configs — sem
+  // elas ele passa a pergunta pro humano, que é o comportamento certo mas custa
+  // atendimento por algo que uma linha de config resolve.
+  if (b.pedido_minimo !== undefined) setConfig('pedido_minimo', String(b.pedido_minimo || ''), t);
+  if (b.prazo_troca !== undefined) setConfig('prazo_troca_dias', String(b.prazo_troca || '7'), t);
+
+  res.json({ ok: true });
+});
+
+// GET /bot/log — o que ele fez, na ordem. É o que transforma "acho que o bot
+// está respondendo bem" em prova.
+router.get('/bot/log', (req, res) => {
+  const limite = Math.min(200, parseInt(req.query.limite, 10) || 50);
+  res.json(db.prepare(`
+    SELECT l.*, c.telefone, c.contato_nome, cl.nome AS cliente_nome
+      FROM bot_log l
+      LEFT JOIN conversas c ON c.id = l.conversa_id AND c.tenant_id = l.tenant_id
+      LEFT JOIN clientes cl ON cl.id = c.cliente_id AND cl.tenant_id = l.tenant_id
+     WHERE l.tenant_id = ?
+     ORDER BY l.id DESC LIMIT ?
+  `).all(req.tenantId, limite));
+});
+
+// ============================================================
 // CANAL DE WHATSAPP — conectar, ver estado, desconectar.
 // ============================================================
 // GET /canal — o que a tela de configuração mostra.

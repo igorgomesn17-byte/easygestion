@@ -166,6 +166,12 @@ async function responderComBot(tenantId, conversaId, texto, clienteId) {
   const bot = require('../lib/bot');
   const conversas = require('../lib/conversas');
   const whatsapp = require('../lib/whatsapp');
+  const { getConfig } = require('../db/database');
+
+  // O INTERRUPTOR. Sem ele o bot respondia sempre, e a lojista não tinha como
+  // calar. Desligado é o padrão: um robô falando com a base de todo mundo sem
+  // ninguém ter pedido é o pior jeito de estrear a funcionalidade.
+  if (getConfig('bot_ativo', '0', tenantId) !== '1') return;
 
   const d = bot.decidir(tenantId, texto, {});
 
@@ -213,13 +219,43 @@ async function responderComBot(tenantId, conversaId, texto, clienteId) {
   if (d.acao === 'transferir' && !bot.dentroDoHorario(tenantId)) {
     resposta = (resposta ? resposta + '\n\n' : '') + bot.avisoForaDoHorario(tenantId);
   }
-  if (!resposta) return;
+  // Sem resposta = ele calou e passou (o caso "fora do escopo"). Precisa ir pro
+  // log do mesmo jeito: é justamente o silêncio dele que a lojista precisa ver,
+  // pra saber o que ele ainda não cobre.
+  if (!resposta) {
+    registrarBotLog(tenantId, conversaId, texto, d, null, clienteId);
+    return;
+  }
 
   const envio = await whatsapp.enviarTexto(tenantId, telefoneDaConversa(tenantId, conversaId), resposta);
   if (envio.ok) {
     conversas.registrarEnviada(tenantId, { conversaId, externalId: envio.externalId, texto: resposta });
   } else {
     logger.warn('[BOT] nao consegui responder:', envio.erro);
+  }
+
+  registrarBotLog(tenantId, conversaId, texto, d, resposta, clienteId);
+}
+
+// O QUE O BOT FEZ, gravado. Sem isto a lojista só descobre o que ele falou pela
+// reclamação da cliente — e não tem como saber se ele está ajudando ou atrapalhando.
+// Nunca derruba o atendimento: log é registro, não parte do fluxo.
+function registrarBotLog(tenantId, conversaId, entrada, decisao, resposta, clienteId) {
+  try {
+    const bot = require('../lib/bot');
+    db.prepare(`
+      INSERT INTO bot_log (tenant_id, conversa_id, entrada, acao, motivo, resposta, departamento)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      tenantId, conversaId,
+      String(entrada || '').slice(0, 500),
+      decisao.acao === 'transferir' ? 'transferiu' : 'respondeu',
+      decisao.motivo || null,
+      resposta ? String(resposta).slice(0, 1000) : null,
+      decisao.acao === 'transferir' ? bot.departamentoDe(tenantId, clienteId) : null,
+    );
+  } catch (e) {
+    logger.warn('[BOT] log falhou:', e.message);
   }
 }
 

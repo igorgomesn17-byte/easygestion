@@ -45,9 +45,13 @@ router.get('/kanban', (req, res) => {
   const t = req.tenantId;
   const meu = req.query.meu === '1' ? usuarioDaSessao(req) : null;
 
+  // Filtro por departamento (?depto=c1|c2). Cada comercial abre na SUA fila, mas
+  // alcança a do colega — férias e picos se resolvem sem o dono mexer no cadastro.
+  const depto = ['c1', 'c2'].includes(req.query.depto) ? req.query.depto : null;
+
   const linhas = db.prepare(`
     SELECT c.id, c.estagio, c.ordem_kanban, c.telefone, c.contato_nome, c.origem,
-           c.usuario_id, c.ultima_interacao, c.criado_em,
+           c.usuario_id, c.ultima_interacao, c.criado_em, c.departamento,
            cl.id AS cliente_id, cl.nome AS cliente_nome, cl.cidade,
            cl.total_gasto, cl.num_compras, cl.tipo AS cliente_tipo,
            u.nome AS dono_nome,
@@ -61,8 +65,9 @@ router.get('/kanban', (req, res) => {
       LEFT JOIN usuarios u  ON u.id  = c.usuario_id AND u.tenant_id = c.tenant_id
      WHERE c.tenant_id = ? AND c.arquivada = 0
        AND (? IS NULL OR c.usuario_id = ?)
+       AND (? IS NULL OR COALESCE(c.departamento, 'c1') = ?)
      ORDER BY c.ordem_kanban ASC, c.ultima_interacao DESC
-  `).all(t, meu, meu);
+  `).all(t, meu, meu, depto, depto);
 
   const colunas = ESTAGIOS.map((e) => ({
     ...e,
@@ -78,7 +83,20 @@ router.get('/kanban', (req, res) => {
       })),
   }));
 
-  res.json({ colunas, total: linhas.length, tem_canal: whatsapp.temCanal(t) });
+  // Contagem por departamento SEM o filtro aplicado — senão o número do filtro
+  // sumiria assim que ele fosse usado, e a pessoa perderia a noção de quanto tem
+  // do outro lado.
+  const porDepto = db.prepare(`
+    SELECT COALESCE(departamento, 'c1') AS d, COUNT(*) AS n
+      FROM conversas WHERE tenant_id = ? AND arquivada = 0 GROUP BY 1
+  `).all(t).reduce((m, r) => ({ ...m, [r.d]: r.n }), { c1: 0, c2: 0 });
+
+  res.json({
+    colunas, total: linhas.length, tem_canal: whatsapp.temCanal(t),
+    depto, por_depto: porDepto,
+    // O papel decide em qual fila a tela ABRE. `relacionamento`/`admin` veem tudo.
+    meu_papel: req.session?.papel || 'admin',
+  });
 });
 
 // ------------------------------------------------------------

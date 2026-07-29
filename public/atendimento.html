@@ -67,6 +67,10 @@
     .tg-novo { background: var(--vermelho-bg); color: var(--vermelho); }
     .tg-bot { background: var(--surface-2); color: var(--tinta-2); }
     .tg-dono { background: var(--surface-2); color: var(--tinta-2); }
+    /* Departamento: só aparece na visão "os dois" — dentro de uma fila só, dizer
+       o departamento em todo card seria repetir o que o filtro já diz. */
+    .tg-c1 { background: var(--dourado-claro); color: var(--dourado-escuro); }
+    .tg-c2 { background: var(--marca-clara); color: var(--marca-escura); }
 
     /* ---- conversa ---- */
     .conv-vazia { display: flex; align-items: center; justify-content: center; height: 100%;
@@ -161,6 +165,8 @@
           <span class="p-tit">Conversas</span>
           <span class="p-tit" id="qtdFila">—</span>
         </div>
+        <!-- Departamento: quem ainda não comprou × quem já é cliente. -->
+        <div class="filtros-at" id="deptos" style="border-bottom:1px solid var(--linha);"></div>
         <div class="filtros-at" id="filtros"></div>
         <div class="p-rola" id="fila"></div>
       </div>
@@ -232,6 +238,10 @@
     // mesma pessoa seria exatamente a confusão que esta tela existe pra acabar.
     // ============================================================
     let FILA = [], SEL = null, FILTRO = 'tudo', TEM_CANAL = false, COLUNAS = [], VISAO = 'lista';
+    // DEPARTAMENTO (modelo MCC): c1 = quem ainda não comprou (primeira venda),
+    // c2 = quem já comprou (recompra). O papel decide em qual fila a tela ABRE;
+    // o filtro deixa alcançar a do colega — férias e picos sem o dono mexer.
+    let DEPTO = null, POR_DEPTO = { c1: 0, c2: 0 }, MEU_PAPEL = 'admin';
 
     const FILTROS = [
       { id: 'tudo',      txt: 'Tudo' },
@@ -244,13 +254,16 @@
     async function carregar() {
       // As duas chamadas em paralelo. Se a régua falhar (loja sem a feature), a
       // fila de conversas continua — degrada, não quebra.
+      const q = DEPTO ? `?depto=${DEPTO}` : '';
       const [kb, ac] = await Promise.all([
-        api('/comercial/kanban').catch(() => ({ colunas: [] })),
+        api('/comercial/kanban' + q).catch(() => ({ colunas: [] })),
         api('/relacionamento/acoes').catch(() => ({ acoes: [] })),
       ]);
 
       TEM_CANAL = !!kb.tem_canal;
       COLUNAS = kb.colunas || [];
+      POR_DEPTO = kb.por_depto || { c1: 0, c2: 0 };
+      MEU_PAPEL = kb.meu_papel || 'admin';
 
       // Achata as colunas do kanban numa lista só
       const conversas = [];
@@ -267,8 +280,13 @@
           // Ela já tem conversa: a ação vira sugestão DENTRO do card que já existe.
           existente.acao = a;
         } else {
+          // Ação da régua é SEMPRE de quem já comprou (ela mede ausência, e quem
+          // nunca veio não tem ausência) — então pertence ao Comercial 2. Com o
+          // filtro em C1, a régua não entra: senão a fila de prospecção viria
+          // cheia de cliente antiga, que é o oposto do trabalho do C1.
+          if (DEPTO === 'c1') continue;
           soRegua.push({
-            _tipo: 'regua', acao: a,
+            _tipo: 'regua', acao: a, departamento: 'c2',
             id: null, cliente_id: a.cliente_id, cliente_nome: a.nome, telefone: a.telefone,
             total_gasto: a.total_gasto, num_compras: a.num_compras,
             ultima_msg: a.detalhe, ultima_interacao: a.data,
@@ -308,6 +326,16 @@
     function render() {
       const lista = FILA.filter(passaFiltro);
       document.getElementById('qtdFila').textContent = lista.length;
+
+      // Barra de departamento. "Tudo" só aparece pra quem enxerga os dois lados
+      // (dono/admin); pro comercial, ver a fila do colega é o filtro do lado,
+      // não o padrão — senão ele abre a tela sem saber o que é dele.
+      document.getElementById('deptos').innerHTML = `
+        <span class="fpill ${DEPTO === 'c1' ? 'on' : ''}" onclick="verDepto('c1')" title="Quem ainda não comprou">
+          Primeiro contato ${POR_DEPTO.c1 || 0}</span>
+        <span class="fpill ${DEPTO === 'c2' ? 'on' : ''}" onclick="verDepto('c2')" title="Quem já é cliente">
+          Já é cliente ${POR_DEPTO.c2 || 0}</span>
+        <span class="fpill ${!DEPTO ? 'on' : ''}" onclick="verDepto(null)">Os dois</span>`;
       document.getElementById('resumo').textContent =
         `${FILA.length} na fila · ${FILA.filter(c => c.esperando).length} esperando você`;
 
@@ -335,6 +363,7 @@
           </div>
           <div class="ca-txt">${esc(previa)}</div>
           <div class="ca-tags">
+            ${!DEPTO ? `<span class="tg ${c.departamento === 'c2' ? 'tg-c2' : 'tg-c1'}">${c.departamento === 'c2' ? 'cliente' : '1º contato'}</span>` : ''}
             ${c.esperando ? '<span class="tg tg-esp">esperando você</span>' : ''}
             ${c.acao || c._tipo === 'regua' ? '<span class="tg tg-reg">a régua sugere</span>' : ''}
             ${c.travado ? `<span class="tg tg-trv">${c.dias_parado}d parado</span>` : ''}
@@ -347,6 +376,7 @@
     function chaveDe(c) { return c.id ? 'c' + c.id : 'a' + c.acao?.id; }
     function abrirPorChave(k) { const c = FILA.find(x => chaveDe(x) === k); if (c) abrir(c); }
     function filtrar(f) { FILTRO = f; render(); }
+    function verDepto(d) { DEPTO = d; SEL = null; carregar(); }
 
     // ------------------------------------------------------------
     // Abrir: conversa no meio, ficha à direita
@@ -644,7 +674,14 @@
 
     document.addEventListener('DOMContentLoaded', async () => {
       montarLayout('atendimento');
-      try { const me = await api('/me'); ME_ID = me.usuario_id || null; } catch (e) {}
+      try {
+        const me = await api('/me');
+        ME_ID = me.usuario_id || null;
+        // Cada comercial ABRE na fila dele. O dono (admin/relacionamento) abre em
+        // "os dois" — ele precisa da visão inteira, não de metade.
+        if (me.papel === 'comercial_1') DEPTO = 'c1';
+        else if (me.papel === 'comercial_2') DEPTO = 'c2';
+      } catch (e) {}
       carregar().catch(e => toast(e.message || 'Erro ao carregar', 'erro'));
       // Mensagem nova chega pelo webhook, não por push: recarrega a fila de tempos
       // em tempos pra quem responder não ficar invisível.

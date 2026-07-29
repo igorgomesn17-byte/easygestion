@@ -398,7 +398,7 @@ app.use('/api/auditoria',     apenasAdmin, require('./routes/auditoria'));  // L
 // papel certo resultava em 403. A intenção do gate original era barrar VENDEDORA (a tela
 // expõe a base com telefone) — e `exigirPapel('admin','relacionamento')` faz exatamente
 // isso, sem barrar quem opera. Vendedora continua de fora.
-app.use('/api/relacionamento', exigirPapel('admin', 'relacionamento'), exigirFeature('relacionamento'), require('./routes/relacionamento'));
+app.use('/api/relacionamento', exigirPapel('admin', 'relacionamento', 'comercial_1', 'comercial_2'), exigirFeature('relacionamento'), require('./routes/relacionamento'));
 // Reativação da base IMPORTADA (campanha, não régua). Gate próprio: `base_importada`
 // existe só no plano `interno` — é ferramenta da campanha da loja do dono, não
 // produto. Mesmo padrão de mount: rota nova nasce protegida.
@@ -406,7 +406,7 @@ app.use('/api/reativacao', apenasAdmin, exigirFeature('base_importada'), require
 // CRM comercial (Comercial 1): kanban de prospecção, conversas e placar. Mesma
 // regra de papel do relacionamento — quem opera o CRM precisa entrar, e vendedora
 // não. Gate `crm_avancado` no mount: rota nova nasce protegida.
-app.use('/api/comercial', exigirPapel('admin', 'relacionamento'), exigirFeature('crm_avancado'), require('./routes/comercial'));
+app.use('/api/comercial', exigirPapel('admin', 'relacionamento', 'comercial_1', 'comercial_2'), exigirFeature('crm_avancado'), require('./routes/comercial'));
 // Maquininha integrada (Mercado Pago Point): manda a cobrança pro aparelho e traz de
 // volta NSU, bandeira e a TAXA REAL. Gate no mount, como os de cima.
 // ⚠️ A feature é `maquininha_integrada`, NÃO `maquininha` — esta última já existe, é
