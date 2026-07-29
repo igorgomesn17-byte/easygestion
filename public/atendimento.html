@@ -410,7 +410,16 @@
     }
 
     function chaveDe(c) { return c.id ? 'c' + c.id : 'a' + c.acao?.id; }
-    function abrirPorChave(k) { const c = FILA.find(x => chaveDe(x) === k); if (c) abrir(c); }
+
+    function abrirPorChave(k) {
+      const c = FILA.find(x => chaveDe(x) === k);
+      if (!c) return;
+      // Clicar num card do FUNIL tem que voltar pra visão de lista: os três
+      // painéis ficam escondidos no modo funil (`body.kanban .paineis`), então a
+      // conversa abria atrás da cortina e o clique parecia não fazer nada.
+      if (VISAO === 'kanban') alternarVisao();
+      abrir(c);
+    }
     function filtrar(f) { FILTRO = f; render(); }
     function verDepto(d) { DEPTO = d; SEL = null; carregar(); }
 
@@ -645,8 +654,28 @@
       if (VISAO === 'kanban') renderKanban();
     }
 
+    // O funil desenha a MESMA fila da lista, não uma fonte paralela. Antes lia
+    // `COLUNAS` (só conversas) enquanto o topo contava `FILA` (conversas + régua)
+    // — dava "19 na fila" com 3 cards na tela, e a pessoa não tinha como saber
+    // onde estavam os outros 16.
     function renderKanban() {
-      document.getElementById('kanban').innerHTML = COLUNAS.map(col => `
+      // Regrupa a fila pelas colunas do funil. Quem veio só da régua não tem
+      // estágio (nunca houve conversa) e entra em "A abordar", que é exatamente
+      // o que ela é: alguém pra procurar hoje.
+      const porEstagio = {};
+      for (const c of FILA.filter(passaFiltro)) {
+        const e = c.estagio || 'novo';
+        (porEstagio[e] = porEstagio[e] || []).push(c);
+      }
+      const COLS = COLUNAS.length ? COLUNAS : [
+        { id:'novo', nome:'A abordar' }, { id:'falei', nome:'Falei' },
+        { id:'catalogo', nome:'Mandei catálogo' }, { id:'negociando', nome:'Negociando' },
+        { id:'comprou', nome:'Virou cliente' }, { id:'nao_levou', nome:'Não levou' },
+      ];
+
+      document.getElementById('kanban').innerHTML = COLS.map(col0 => {
+        const col = { ...col0, cards: porEstagio[col0.id] || [] };
+        return `
         <div class="kb-col" data-estagio="${col.id}"
              ondragover="event.preventDefault(); this.classList.add('alvo');"
              ondragleave="this.classList.remove('alvo');"
@@ -654,16 +683,21 @@
           <div class="kb-cab"><span class="kb-nome">${esc(col.nome)}</span><span class="kb-n">${col.cards.length}</span></div>
           <div class="kb-cards">
             ${col.cards.length ? col.cards.map(k => `
-              <div class="kb-card" draggable="true" ondragstart="arrastar(event, ${k.id})"
-                   ondragend="this.classList.remove('arrastando')" onclick="abrirPorChave('c${k.id}')">
+              <div class="kb-card" ${k.id ? `draggable="true" ondragstart="arrastar(event, ${k.id})"` : ''}
+                   ondragend="this.classList.remove('arrastando')" onclick="abrirPorChave('${chaveDe(k)}')">
                 <div style="font-weight:700; font-size:0.85rem;">${esc(k.cliente_nome || k.contato_nome || k.telefone)}</div>
                 <div style="font-size:0.72rem; color:var(--tinta-2); font-family:ui-monospace,monospace;">
                   ${k.total_gasto > 0 ? 'R$ ' + Number(k.total_gasto).toFixed(0) + ' · ' + k.num_compras + 'x' : (k.cidade || k.origem || 'sem histórico')}
                 </div>
-                ${k.esperando ? '<span class="tg tg-esp" style="margin-top:5px; display:inline-block;">esperando você</span>' : ''}
+                <div style="display:flex; gap:4px; flex-wrap:wrap; margin-top:5px;">
+                  ${k.esperando ? '<span class="tg tg-esp">esperando você</span>' : ''}
+                  ${k.acao || k._tipo === 'regua' ? '<span class="tg tg-reg">a régua sugere</span>' : ''}
+                  ${k.travado ? `<span class="tg tg-trv">${k.dias_parado}d parado</span>` : ''}
+                </div>
               </div>`).join('') : '<div style="text-align:center; color:var(--tinta-2); font-size:0.78rem; padding:12px 0;">—</div>'}
           </div>
-        </div>`).join('');
+        </div>`;
+      }).join('');
     }
 
     let ARRASTANDO = null;
