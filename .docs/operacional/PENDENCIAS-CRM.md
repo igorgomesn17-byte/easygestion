@@ -41,12 +41,24 @@ Pedido pago e embalado → gerar etiqueta pra colar no pacote. O que ela precisa
 **destinatário**, **cidade**, **excursão** (é o destino real — quem recebe é a empresa
 de excursão), código do pedido e qtd de volumes.
 
-Já existe molde no projeto: `bwip-js` gera código de barras e há a lição registrada de
-que **a folha é o ROLO** (`@page` = 100×75mm, o par de 2 etiquetas de 50mm) — errar isso
-corta o rolo ao meio. O teste mede o PDF em mm.
+**Formato decidido pela pesquisa (29/07): 10×15cm (100×150mm).** É o padrão único do
+e-commerce brasileiro — Shopee, Mercado Livre, Amazon, Magalu e Correios usam todos o
+mesmo, em impressora térmica sem tinta. Rolo com serrilha, ~200 etiquetas em 30m.
+Vantagem: se um dia despachar por transportadora, a etiqueta já está no formato certo.
 
-Decidir antes de construir: usa o mesmo rolo da etiqueta de produto ou um formato maior
-(A4 com 4 por folha é o comum pra envio)? E o código de barras é do pedido ou do volume?
+⚠️ **NÃO reusar o `@page` da etiqueta de produto** — lá a folha é o ROLO de 100×75mm
+(o par de 2 etiquetas de 50mm), e errar isso corta o rolo ao meio. Aqui é 100×150mm.
+O teste deve medir o PDF em mm, como o de produto já faz.
+
+Ainda a decidir: o código de barras é do **pedido** (1 por envio) ou do **volume**
+(1 por caixa, pra pedido que vai em 2 pacotes)?
+
+**Contexto legal que apareceu na pesquisa e vale registrar:** desde **06/04/2026** a
+Declaração de Conteúdo eletrônica (DC-e) é obrigatória pra envio SEM nota fiscal, e a
+declaração em papel deixou de valer — exige XML assinado e autorizado pelo Fisco, e o
+que acompanha o pacote vira o DACE com QR Code.
+**Não afeta este caso** (mercadoria vai pra excursão, não Correios; e a loja emite
+NFC-e). Mas se algum dia houver despacho por transportadora sem nota, é bloqueador.
 
 ### 6. `CATALOGO_SEMANAL` sem tela de configuração
 O gatilho lê `crm_catalogo_dia` (0 = desligado), mas **não há onde a lojista escolher o
