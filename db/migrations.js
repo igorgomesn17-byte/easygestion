@@ -2333,6 +2333,29 @@ function executarMigrations(db) {
         `);
         db.exec(`CREATE INDEX IF NOT EXISTS idx_bot_log_tenant ON bot_log(tenant_id, criado_em);`);
       }
+    },
+    {
+      nome: '051_assinaturas_beta',
+      hash: 'v51-assinaturas-beta',
+      exec: (db) => {
+        // BETA DE PROSPECCAO (decisao Igor 29/07/2026): os primeiros 20 clientes
+        // ganham o Growth completo por 30 dias em vez dos 14 padrao. O cliente se
+        // cadastra normal e o admin converte a conta no backoffice, um a um.
+        //
+        // Por que uma COLUNA e nao inferir pela duracao? Porque "data_fim_teste -
+        // data_inicio_teste > 14" nao distingue um beta de um trial que o admin
+        // esticou por outro motivo (suporte, cliente que pediu mais tempo, teste
+        // interno). Sem a marca explicita, a contagem das 20 vagas mentiria — e a
+        // vaga e' exatamente o que da valor a oferta na prospecao.
+        //
+        // NAO e' um plano novo. O beta roda no growth com em_teste=1: e' um trial
+        // mais longo, entao continua protegido pelos mesmos guardas de trial
+        // (renovacao-scheduler nao cobra, cobranca-scheduler nao bloqueia).
+        const cols = db.prepare('PRAGMA table_info(assinaturas)').all().map((c) => c.name);
+        if (!cols.includes('beta')) {
+          db.exec(`ALTER TABLE assinaturas ADD COLUMN beta INTEGER NOT NULL DEFAULT 0;`);
+        }
+      }
     }
   ];
 

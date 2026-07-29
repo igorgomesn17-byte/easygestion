@@ -280,6 +280,25 @@
     </div>
   </div>
 
+  <div class="admin-modal" id="modal-beta">
+    <div class="admin-modal-content">
+      <h3>Ativar Beta</h3>
+      <p style="font-size:13px;">O cliente passa a ter o <b>Growth completo</b> e o teste é estendido. A contagem começa hoje. Não gera cobrança no Stripe.</p>
+      <input type="hidden" id="betaAssinaturaId">
+      <p id="betaCliente" style="margin:12px 0 0;font-size:14px;font-weight:600;"></p>
+      <label style="display:block;margin:14px 0 5px;font-weight:600;font-size:14px;">Dias de teste</label>
+      <input type="number" id="betaDias" value="30" min="1" max="90"
+             style="width:100%;padding:9px;border:1px solid #ccc;border-radius:6px;"
+             oninput="atualizarPreviaBeta()">
+      <p id="betaPrevia" style="margin-top:12px;font-size:14px;color:#333;"></p>
+      <p id="betaVagas" style="margin-top:6px;font-size:13px;color:#777;"></p>
+      <div class="admin-modal-actions">
+        <button class="btn btn-secondary" onclick="document.getElementById('modal-beta').classList.remove('show')">Cancelar</button>
+        <button class="btn btn-primary" onclick="salvarBeta()">Ativar Beta</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const API_URL = '/api/admin';
     let paginaAtual = 1;
@@ -744,10 +763,20 @@
         </tr></thead><tbody>`;
 
         assinaturas.forEach(a => {
-          const statusBadge = a.em_teste ? '<span class="badge-pendente">Trial</span>' :
+          // Beta é um trial mais longo (em_teste=1), então precisa vir ANTES do
+          // teste de trial — senão a conta beta apareceria como "Trial" comum e o
+          // Igor não saberia quais das 20 vagas já estão em pé.
+          const statusBadge = a.beta ? '<span class="badge-ativo">Beta</span>' :
+            a.em_teste ? '<span class="badge-pendente">Trial</span>' :
             a.cancelada_em ? '<span class="badge-bloqueado">Cancelada</span>' :
             new Date(a.data_proxima_renovacao) <= new Date() ? '<span class="badge-warning">Vencida</span>' :
             '<span class="badge-ativo">Ativa</span>';
+
+          // O Beta só se aplica a quem ainda está testando: a rota recusa (409) uma
+          // conta pagante, pra não dar acesso grátis a quem o Stripe segue cobrando.
+          const btnBeta = a.em_teste && !a.cancelada_em
+            ? `<button class="admin-btn-small" onclick="abrirBeta(${a.id}, ${JSON.stringify(a.nome_loja)}, ${a.beta ? 1 : 0})">${a.beta ? 'Estender Beta' : 'Ativar Beta'}</button>`
+            : '';
 
           html += `<tr>
             <td><strong>${a.nome_loja}</strong><br><span style="font-size:12px;color:#999">${a.email}</span></td>
@@ -758,6 +787,7 @@
             <td>${statusBadge}</td>
             <td>
               <button class="admin-btn-small" onclick="editarAssinatura(${a.id}, '${a.plano}')">Editar</button>
+              ${btnBeta}
             </td>
           </tr>`;
         });
@@ -841,6 +871,56 @@
         if (data.erro) { alert('Erro: ' + data.erro); return; }
         alert(data.mensagem || 'Plano atualizado');
         document.getElementById('modal-plano').classList.remove('show');
+        carregarAssinaturas();
+      }).catch(err => alert('Erro: ' + err.message));
+    }
+
+    // ---- Beta (benefício de prospecção: Growth completo por 30 dias) ----
+    async function abrirBeta(id, nomeLoja, jaEhBeta) {
+      document.getElementById('betaAssinaturaId').value = id;
+      document.getElementById('betaCliente').textContent = nomeLoja;
+      document.getElementById('betaDias').value = 30;
+      atualizarPreviaBeta();
+
+      // As 20 vagas são uma decisão comercial (a escassez que ele oferece na
+      // conversa), não uma trava: o backend não recusa a 21ª. Mostrar o placar é o
+      // que importa — travar viraria estorvo no dia em que ele abrir mais vagas.
+      const el = document.getElementById('betaVagas');
+      el.textContent = '';
+      try {
+        const r = await fetchAdmin('/beta');
+        const d = await r.json();
+        if (!d.erro) {
+          el.textContent = jaEhBeta
+            ? `Esta conta já ocupa uma das ${d.vagas} vagas. ${d.usadas} de ${d.vagas} em uso.`
+            : `${d.usadas} de ${d.vagas} vagas do Beta em uso${d.restantes === 0 ? ' — as 20 já foram.' : `. Restam ${d.restantes}.`}`;
+        }
+      } catch (e) { /* o placar é informativo; sem ele o Beta continua funcionando */ }
+
+      document.getElementById('modal-beta').classList.add('show');
+    }
+
+    function atualizarPreviaBeta() {
+      const dias = parseInt(document.getElementById('betaDias').value, 10);
+      const previa = document.getElementById('betaPrevia');
+      if (!Number.isInteger(dias) || dias < 1 || dias > 90) {
+        previa.textContent = 'Informe de 1 a 90 dias.';
+        return;
+      }
+      const fim = new Date(Date.now() + dias * 24 * 60 * 60 * 1000);
+      previa.textContent = `Growth completo até ${fim.toLocaleDateString('pt-BR')} (${dias} dias a partir de hoje).`;
+    }
+
+    function salvarBeta() {
+      const id = document.getElementById('betaAssinaturaId').value;
+      const dias = parseInt(document.getElementById('betaDias').value, 10);
+      fetchAdmin(`/assinaturas/${id}/beta`, {
+        method: 'POST',
+        body: JSON.stringify({ dias })
+      }).then(res => res.json()).then(data => {
+        if (data.erro) { alert('Erro: ' + data.erro); return; }
+        alert(data.mensagem || 'Beta ativado');
+        document.getElementById('modal-beta').classList.remove('show');
         carregarAssinaturas();
       }).catch(err => alert('Erro: ' + err.message));
     }

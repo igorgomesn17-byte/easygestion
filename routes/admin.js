@@ -610,6 +610,7 @@ router.get('/assinaturas', exigirAdminBackoffice, (req, res) => {
         a.data_proxima_renovacao,
         a.cancelada_em,
         a.em_teste,
+        a.beta,
         a.data_inicio_teste,
         a.data_fim_teste,
         COUNT(DISTINCT c.id) AS num_cobracas,
@@ -739,6 +740,121 @@ router.patch('/assinaturas/:id', exigirAdminBackoffice, (req, res) => {
   } catch (err) {
     console.error('[ADMIN] Erro ao atualizar assinatura:', err);
     return res.status(500).json({ erro: 'Erro ao atualizar assinatura' });
+  }
+});
+
+// --- POST /assinaturas/:id/beta → conceder o Beta (Growth por N dias) ---
+//
+// Benefício de PROSPECÇÃO (decisão Igor 29/07/2026): o cliente se cadastra normal
+// (14 dias no Growth, routes/auth.js) e o admin converte a conta em Beta aqui.
+// Não há código de convite nem contador automático no signup: quem decide quem
+// entra é o Igor, um a um, na conversa de prospecção.
+//
+// ⚠️ As DUAS datas precisam andar juntas. Quem manda no bloqueio é
+// `data_proxima_renovacao` — é ela que obterStatusAssinatura (lib/assinatura.js)
+// compara com hoje pra devolver 'vencida'. `data_fim_teste` é registro (aparece
+// na tela). Estender só uma trava o beta no dia 15 mostrando "30 dias" na cara
+// dele, ou o contrário: promete 14 e libera 30.
+//
+// em_teste CONTINUA 1 de propósito. É o que segura os três schedulers:
+// renovacao-scheduler (não cobra R$119,90 de um teste grátis), stripe.js
+// verificarEBloquearPorAtrasoComStrike (não marca 'bloqueado' quem só está
+// testando) e o cobranca-scheduler. Beta é trial mais longo, não assinatura.
+const BETA_DIAS_PADRAO = 30;
+const BETA_DIAS_MAX = 90; // trava de digitação: 300 dias por engano = ano grátis
+
+router.post('/assinaturas/:id/beta', exigirAdminBackoffice, (req, res) => {
+  try {
+    const assinaturaId = parseInt(req.params.id, 10);
+    const dias = parseInt(req.body?.dias ?? BETA_DIAS_PADRAO, 10);
+
+    if (!Number.isInteger(dias) || dias < 1 || dias > BETA_DIAS_MAX) {
+      return res.status(400).json({ erro: `Dias inválido (use de 1 a ${BETA_DIAS_MAX})` });
+    }
+
+    const antes = db.prepare('SELECT * FROM assinaturas WHERE id = ?').get(assinaturaId);
+    if (!antes) return res.status(404).json({ erro: 'Assinatura não encontrada' });
+
+    // Quem já PAGA não vira beta: sobrescrever a data de renovação de um cliente
+    // pagante daria acesso grátis e desalinharia do Stripe, que continua cobrando.
+    if (antes.em_teste === 0) {
+      return res.status(409).json({
+        erro: 'Esta conta já é pagante. O Beta só se aplica a quem ainda está em teste.',
+      });
+    }
+    if (antes.cancelada_em) {
+      return res.status(409).json({ erro: 'Assinatura cancelada. Reative antes de conceder o Beta.' });
+    }
+
+    // A contagem começa HOJE, não na data de cadastro: o benefício é oferecido na
+    // prospecção, então "30 dias" é o que o cliente ouviu na conversa de hoje.
+    // Somar sobre o fim do trial antigo daria menos dias que o prometido.
+    const hoje = new Date();
+    const dataInicio = hoje.toISOString().split('T')[0];
+    const dataFim = new Date(hoje.getTime() + dias * 24 * 60 * 60 * 1000)
+      .toISOString().split('T')[0];
+
+    const def = definicaoPlano('growth');
+
+    // Growth + as duas datas + tenants.plano na MESMA transação. tenants.plano é o
+    // que temFeature() lê: sem ele, o beta veria "Growth" na fatura e continuaria
+    // batendo em 403 no DRE e no relacionamento.
+    const tx = db.transaction(() => {
+      db.prepare(`
+        UPDATE assinaturas
+        SET plano = 'growth',
+            valor_mensal = ?,
+            em_teste = 1,
+            beta = 1,
+            data_inicio_teste = ?,
+            data_fim_teste = ?,
+            data_proxima_renovacao = ?
+        WHERE id = ?
+      `).run(def.preco_mensal, dataInicio, dataFim, dataFim, assinaturaId);
+      db.prepare("UPDATE tenants SET plano = 'growth', status = 'ativo' WHERE id = ?")
+        .run(antes.tenant_id);
+    });
+    tx();
+
+    const depois = db.prepare('SELECT * FROM assinaturas WHERE id = ?').get(assinaturaId);
+
+    auditarAcao(req, {
+      acao: 'POST_assinatura_beta',
+      recurso: 'assinaturas',
+      recurso_id: assinaturaId,
+      antes,
+      depois,
+      status: 200,
+    });
+
+    console.log(`[ADMIN] Beta concedido: assinatura ${assinaturaId} (tenant ${antes.tenant_id}) → Growth por ${dias} dias, até ${dataFim}.`);
+
+    res.json({
+      sucesso: true,
+      mensagem: `Beta ativado: Growth completo por ${dias} dias, até ${dataFim.split('-').reverse().join('/')}.`,
+      data_fim_teste: dataFim,
+      assinatura: depois,
+    });
+  } catch (err) {
+    console.error('[ADMIN] Erro ao conceder Beta:', err);
+    return res.status(500).json({ erro: 'Erro ao conceder o Beta' });
+  }
+});
+
+// --- GET /beta → quantas vagas do Beta já foram usadas ---
+// O limite de 20 é uma decisão COMERCIAL (a escassez que o Igor oferece na
+// prospecção), não uma trava de código: a rota acima não recusa a 21ª. Contar e
+// mostrar é o suficiente — travar no backend viraria um bloqueio irritante no dia
+// em que ele decidir abrir mais 5 vagas pra uma loja boa.
+const BETA_VAGAS = 20;
+
+router.get('/beta', exigirAdminBackoffice, (req, res) => {
+  try {
+    const { usadas } = db.prepare('SELECT COUNT(*) AS usadas FROM assinaturas WHERE beta = 1').get();
+    res.json({ vagas: BETA_VAGAS, usadas, restantes: Math.max(0, BETA_VAGAS - usadas), dias_padrao: BETA_DIAS_PADRAO });
+  } catch (err) {
+    console.error('[ADMIN] Erro ao contar vagas do Beta:', err);
+    return res.status(500).json({ erro: 'Erro ao contar vagas do Beta' });
   }
 });
 
