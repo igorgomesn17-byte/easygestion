@@ -12,6 +12,7 @@ const jwt = require('jsonwebtoken');
 const { enviarEmail, templateResetSenha } = require('../lib/email');
 const { gerarSecret, gerarQRCode, validarToken } = require('../lib/2fa');
 const { definicaoPlano } = require('../lib/planos');
+const { planoDeEntrada, validarConvite } = require('../lib/beta');
 
 // ✅ CRÍTICO: TOKEN_SECRET é obrigatório em produção (sem fallback)
 const TOKEN_SECRET = process.env.TOKEN_SECRET || (process.env.NODE_ENV !== 'production' ? 'dev-secret-change-in-env' : null);
@@ -173,10 +174,24 @@ router.post('/login', (req, res) => {
   return res.status(401).json({ erro: 'Email ou senha inválidos' });
 });
 
-// POST /api/auth/registro  body: { email, senha, nome_loja, nome_responsavel, telefone, cpf_cnpj }
+// GET /api/registro/beta?codigo=BETA30 → o convite do link vale?
+//
+// Pública (a tela de cadastro é anônima). Só devolve se o código confere e se ainda
+// há vaga — nunca o código em si, nem quem já usou: a página não precisa disso, e
+// vazaria a lista de clientes da campanha.
+//
+// A tela ESPELHA esta resposta em vez de decidir sozinha. Sem isto, o link
+// prometeria 30 dias na cara da lojista depois das vagas terem acabado, e o banco
+// gravaria 14 — a pior versão do bug, porque só aparece na conversa dela com o Igor.
+router.get('/registro/beta', (req, res) => {
+  const r = validarConvite(req.query.codigo);
+  res.json({ valido: r.valido, motivo: r.motivo || null, dias: r.dias || null, restantes: r.restantes ?? null });
+});
+
+// POST /api/auth/registro  body: { email, senha, nome_loja, nome_responsavel, telefone, cpf_cnpj, beta? }
 // Cria novo tenant + usuário admin (LGPD terms já foram aceitos no form)
 router.post('/registro', async (req, res) => {
-  const { email, senha, nome_loja, nome_responsavel, telefone, cpf_cnpj } = req.body || {};
+  const { email, senha, nome_loja, nome_responsavel, telefone, cpf_cnpj, beta } = req.body || {};
 
   // Validações
   if (!validarEmail(email)) {
@@ -227,12 +242,20 @@ router.post('/registro', async (req, res) => {
     // Gerar slug único antes de iniciar transação
     const slugUnico = gerarSlugUnico(db, nomeLoja);
 
-    // Todo tenant novo começa o trial de 14 dias no GROWTH (plano completo) —
-    // assim experimenta tudo (DRE, gráficos, vitrine, relatórios) antes de escolher.
+    // Todo tenant novo começa o trial no GROWTH (plano completo) — assim experimenta
+    // tudo (DRE, gráficos, vitrine, relatórios) antes de escolher. O PRAZO varia:
+    // 14 dias normais, 30 se veio pelo link do Beta (ver `entrada` logo abaixo).
     // Ao fim do trial, se não assinar, é bloqueado e escolhe o plano na tela de planos.
     // Preço/limites/features vêm da fonte única lib/planos.js.
     const planoInicial = 'growth';
     const precoInicial = definicaoPlano(planoInicial).preco_mensal;
+
+    // BETA DE PROSPECÇÃO: quem chega pelo link (?beta=BETA30) nasce com 30 dias em
+    // vez de 14. Código inválido, ausente ou vaga esgotada cai no trial normal — sem
+    // recusar o cadastro, que perderia um cliente real por detalhe de campanha.
+    // A regra (código, prazo, teto de 20 vagas) mora em lib/beta.js, a mesma fonte
+    // que o botão do backoffice usa.
+    const entrada = planoDeEntrada(beta, 14);
 
     const tx = db.transaction(() => {
       // (1) Criar novo tenant com slug gerado
@@ -249,14 +272,19 @@ router.post('/registro', async (req, res) => {
       `).run(email.trim(), email.trim(), tenantId, hashSenha(senha));
       const userId = infoUser.lastInsertRowid;
 
-      // (3) Criar assinatura em TESTE (14 dias grátis)
+      // (3) Criar assinatura em TESTE — 14 dias normais, ou 30 se veio pelo link do Beta.
+      //
+      // ⚠️ data_proxima_renovacao E data_fim_teste recebem a MESMA data. Quem manda no
+      // bloqueio é data_proxima_renovacao (é ela que obterStatusAssinatura compara com
+      // hoje); data_fim_teste é o que a tela mostra. Divergir trava o beta no dia 15
+      // exibindo "30 dias" na cara dele.
       const hoje = new Date();
       const dataInicio = hoje.toISOString().split('T')[0];
-      const dataFim = new Date(hoje.getTime() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const dataFim = new Date(hoje.getTime() + entrada.dias * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
       db.prepare(`
-        INSERT INTO assinaturas (tenant_id, plano, valor_mensal, data_inicio, data_proxima_renovacao, em_teste, data_inicio_teste, data_fim_teste)
-        VALUES (?, ?, ?, ?, ?, 1, ?, ?)
-      `).run(tenantId, planoInicial, precoInicial, dataInicio, dataFim, dataInicio, dataFim);
+        INSERT INTO assinaturas (tenant_id, plano, valor_mensal, data_inicio, data_proxima_renovacao, em_teste, beta, data_inicio_teste, data_fim_teste)
+        VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?)
+      `).run(tenantId, planoInicial, precoInicial, dataInicio, dataFim, entrada.beta, dataInicio, dataFim);
 
       return { tenantId, userId };
     });
@@ -330,7 +358,9 @@ router.post('/registro', async (req, res) => {
       console.error(`[REGISTRO] Erro ao enviar email para ${email}:`, e.message);
     });
 
-    console.log(`[NOVO TENANT] ${email} (tenant ${r.tenantId}) - Aguardando verificação de email`);
+    // O log diz se entrou pelo link do Beta: é como o Igor confere se a campanha de
+    // prospecção está trazendo gente, sem depender de abrir o banco.
+    console.log(`[NOVO TENANT] ${email} (tenant ${r.tenantId}) - ${entrada.beta ? `BETA pelo link (${entrada.dias} dias)` : `trial normal (${entrada.dias} dias)`} - Aguardando verificação de email`);
     return res.status(201).json({
       ok: true,
       mensagem: 'Conta criada! Verifique seu email para confirmar o cadastro.',

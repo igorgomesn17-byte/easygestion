@@ -131,7 +131,15 @@
       </svg>
     </div>
 
-    <h2>Criar Conta — Teste Grátis de 14 Dias</h2>
+    <h2 id="tituloRegistro">Criar Conta — Teste Grátis de 14 Dias</h2>
+
+    <!-- Faixa do convite: só aparece pra quem chegou pelo link do Beta (?beta=...).
+         Sem ela, a lojista clicaria num link prometendo 30 dias e cairia numa tela
+         dizendo 14 — parecendo que o convite não pegou. -->
+    <div id="faixaBeta" style="display:none;margin:0 0 18px;padding:13px 16px;border-radius:10px;background:#f0f7f3;border:1px solid #cfe4d8;">
+      <p style="margin:0;font-weight:700;font-size:15px;color:#1c4a35;">Você foi convidado para o Beta</p>
+      <p id="faixaBetaTexto" style="margin:4px 0 0;font-size:13.5px;color:#456;">Sua conta começa com <b>30 dias grátis</b> no plano Growth completo, em vez de 14.</p>
+    </div>
 
     <form id="formRegistro">
       <div class="form-grid">
@@ -254,6 +262,41 @@
   </div>
 
   <script>
+    // ---- Convite do Beta (link de prospecção: /registro.html?beta=BETA30) ----
+    //
+    // O código vem da URL e é repassado no POST. Quem manda de verdade é o BACKEND
+    // (lib/beta.js): esta tela só ESPELHA o que ele confirmou. Decidir aqui deixaria
+    // a promessa de 30 dias à mercê de quem edita a URL — e, pior, prometeria 30 na
+    // tela e entregaria 14 no banco quando as vagas tivessem acabado.
+    const BETA_CODIGO = new URLSearchParams(location.search).get('beta') || undefined;
+
+    if (BETA_CODIGO) {
+      fetch('/api/registro/beta?codigo=' + encodeURIComponent(BETA_CODIGO))
+        .then(r => r.json())
+        .then(d => {
+          if (d.valido) {
+            document.getElementById('faixaBeta').style.display = 'block';
+            document.getElementById('faixaBetaTexto').innerHTML =
+              `Sua conta começa com <b>${d.dias} dias grátis</b> no plano Growth completo, em vez de 14.`;
+            document.getElementById('tituloRegistro').textContent =
+              `Criar Conta — Teste Grátis de ${d.dias} Dias`;
+          } else if (d.motivo === 'esgotado') {
+            // Chegou tarde: as 20 vagas acabaram. É notícia, não erro — ela ainda
+            // pode se cadastrar, com os 14 dias normais. Esconder isso faria o
+            // cadastro parecer quebrado ("o link não funcionou").
+            document.getElementById('faixaBeta').style.display = 'block';
+            document.getElementById('faixaBeta').style.background = '#fdf6e7';
+            document.getElementById('faixaBeta').style.borderColor = '#eadcb8';
+            document.getElementById('faixaBeta').querySelector('p').textContent = 'As vagas do Beta acabaram';
+            document.getElementById('faixaBetaTexto').innerHTML =
+              'Você ainda pode criar sua conta com <b>14 dias grátis</b> no Growth completo.';
+          }
+          // Código inválido: não mostra nada. Avisar "código errado" pra quem só
+          // colou um link torto criaria atrito num cadastro que vai funcionar igual.
+        })
+        .catch(() => { /* a faixa é enfeite; o cadastro funciona sem ela */ });
+    }
+
     // Máscara para CPF/CNPJ
     document.getElementById('cpf_cnpj').addEventListener('input', (e) => {
       let valor = e.target.value.replace(/\D/g, '');
@@ -363,7 +406,9 @@
         const res = await fetch('/api/registro', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, senha, nome_loja, nome_responsavel, telefone, cpf_cnpj })
+          // BETA_CODIGO vai junto: é ele que faz o backend abrir 30 dias em vez de 14.
+          // Quem não tem convite manda undefined, que o JSON.stringify omite.
+          body: JSON.stringify({ email, senha, nome_loja, nome_responsavel, telefone, cpf_cnpj, beta: BETA_CODIGO })
         });
 
         const data = await res.json();

@@ -760,7 +760,9 @@ router.patch('/assinaturas/:id', exigirAdminBackoffice, (req, res) => {
 // renovacao-scheduler (não cobra R$119,90 de um teste grátis), stripe.js
 // verificarEBloquearPorAtrasoComStrike (não marca 'bloqueado' quem só está
 // testando) e o cobranca-scheduler. Beta é trial mais longo, não assinatura.
-const BETA_DIAS_PADRAO = 30;
+// Prazo e vagas vêm de lib/beta.js — a MESMA fonte que o link de convite usa. Duplicar
+// aqui faria o link e o botão prometerem prazos diferentes no primeiro ajuste.
+const { BETA_DIAS: BETA_DIAS_PADRAO, BETA_VAGAS, placarVagas } = require('../lib/beta');
 const BETA_DIAS_MAX = 90; // trava de digitação: 300 dias por engano = ano grátis
 
 router.post('/assinaturas/:id/beta', exigirAdminBackoffice, (req, res) => {
@@ -842,16 +844,13 @@ router.post('/assinaturas/:id/beta', exigirAdminBackoffice, (req, res) => {
 });
 
 // --- GET /beta → quantas vagas do Beta já foram usadas ---
-// O limite de 20 é uma decisão COMERCIAL (a escassez que o Igor oferece na
-// prospecção), não uma trava de código: a rota acima não recusa a 21ª. Contar e
-// mostrar é o suficiente — travar no backend viraria um bloqueio irritante no dia
-// em que ele decidir abrir mais 5 vagas pra uma loja boa.
-const BETA_VAGAS = 20;
-
+// Aqui o limite de 20 é INFORMATIVO: a rota acima não recusa a 21ª, porque quem
+// decide no backoffice é o Igor, na conversa. No LINK de convite (lib/beta.js) o
+// mesmo teto é uma trava real — link é público e copiável, e sem teto um vazamento
+// no grupo de lojistas viraria desconto infinito.
 router.get('/beta', exigirAdminBackoffice, (req, res) => {
   try {
-    const { usadas } = db.prepare('SELECT COUNT(*) AS usadas FROM assinaturas WHERE beta = 1').get();
-    res.json({ vagas: BETA_VAGAS, usadas, restantes: Math.max(0, BETA_VAGAS - usadas), dias_padrao: BETA_DIAS_PADRAO });
+    res.json({ ...placarVagas(), dias_padrao: BETA_DIAS_PADRAO });
   } catch (err) {
     console.error('[ADMIN] Erro ao contar vagas do Beta:', err);
     return res.status(500).json({ erro: 'Erro ao contar vagas do Beta' });

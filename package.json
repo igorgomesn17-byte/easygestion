@@ -33,6 +33,7 @@
     "test:gate-vale": "DB_DIR=./tests/.tmp-gate PORT=3006 node --env-file-if-exists=.env server.js > /dev/null 2>&1 & sleep 3 && DB_DIR=./tests/.tmp-gate node tests/gate-vale-credito.test.js",
     "test:idor-http": "DB_DIR=./tests/.tmp-idorhttp PORT=3007 node --env-file-if-exists=.env server.js > /dev/null 2>&1 & sleep 3 && DB_DIR=./tests/.tmp-idorhttp node tests/idor-cross-tenant.test.js",
     "test:beta": "node tests/beta-trial-30-dias.test.js",
+    "test:beta-link": "node tests/beta-link-convite.test.js",
     "test:bot": "node tests/bot.test.js",
     "test:c12": "node tests/comercial-1-2.test.js"
   },
