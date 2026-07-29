@@ -86,10 +86,55 @@ async function carregarAba(container, arquivo, { init } = {}) {
       window.__ABA_INIT = null;
       for (const codigo of scripts) {
         try {
-          // `montarLayout` é neutralizado: a página-mãe já montou o menu, e chamar
-          // de novo redesenharia a sidebar dentro da aba.
-          const wrapper = `(function(){ const montarLayout = function(){}; \n${codigo}\n })();`;
-          new Function(wrapper)();
+          // O IIFE existe pra que `const`/`let` do topo de uma tela não colidam
+          // com os de outra — duas abas declarando `let FILTRO` estourariam
+          // SyntaxError, e a segunda aba morreria em silêncio.
+          //
+          // Mas o isolamento tem um preço: as funções da tela ficam PRESAS dentro
+          // dele. `function carregar()` não vira `window.carregar`, e o shell
+          // procurava lá fora — resultado: a aba montava o HTML e nunca buscava
+          // os dados. Parecia funcionar e vinha vazia.
+          //
+          // A exportação no fim resolve: cada tela entrega as funções que a
+          // página-mãe precisa chamar, sem abrir mão do isolamento.
+          //
+          // <script> injetado no DOM, e não `new Function`/`eval`: o CSP deste
+          // projeto NÃO tem `unsafe-eval` (só `unsafe-inline`), então os dois
+          // seriam bloqueados pelo navegador. Abrir o CSP por causa disto seria
+          // péssima troca — foi justamente ele que barrou a conversão de HEIC no
+          // navegador e mandou a conversão pro servidor, onde é mais segura.
+          //
+          // Roda no escopo GLOBAL de propósito. Um IIFE parece mais seguro, mas
+          // quebra duas coisas:
+          //   1. `function carregar()` ficaria presa lá dentro e nunca viraria
+          //      `window.carregar` — o shell não acharia, e a aba montaria o HTML
+          //      sem NUNCA buscar os dados. Parecia funcionar, e vinha vazia.
+          //   2. `onclick="verQuem('DIA1')"` é resolvido no escopo global. Toda
+          //      tabela clicável e todo filtro dariam "função não definida".
+          //
+          // O risco de colisão entre telas é contido por `_abasCarregadas`: cada
+          // arquivo executa UMA vez por sessão.
+          // O IIFE isola (`const esc` de uma tela × `function esc` de outra
+          // estouraria SyntaxError e mataria a aba em silêncio), e a exportação
+          // no fim devolve o que a página precisa: `carregar` pro shell chamar, e
+          // TODA função nomeada pro `onclick` do HTML encontrar.
+          //
+          // A varredura é do texto do próprio script — não há como listar as
+          // funções de um escopo por reflexão em JS.
+          const nomes = [...new Set(
+            [...codigo.matchAll(/^\s*(?:async\s+)?function\s+([A-Za-z_$][\w$]*)/gm)].map((m) => m[1])
+          )];
+          const pontes = nomes.map((n) => `window[${JSON.stringify(n)}] = ${n};`).join('');
+
+          const tag = document.createElement('script');
+          tag.dataset.aba = arquivo;
+          tag.textContent = `(function(){
+            var montarLayout = function(){};
+            ${codigo}
+            ${pontes}
+            if (typeof carregar === 'function') window.__ABA_INIT = carregar;
+          })();`;
+          document.body.appendChild(tag);
         } catch (e) {
           console.error('[ABA]', arquivo, e.message);
         }
