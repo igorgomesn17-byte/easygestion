@@ -39,6 +39,24 @@
     .at-topo h1 { margin: 0; font-size: 1.2rem; }
     .at-resumo { font-size: 0.82rem; color: var(--tinta-2); }
 
+    /* Busca na base — o caminho pra falar com quem JÁ é cliente. */
+    .busca-base { position: relative; min-width: 240px; flex: 1; max-width: 340px; }
+    .busca-base input { width: 100%; padding: 7px 11px; font-size: 0.86rem;
+                        border: 1px solid var(--linha); border-radius: var(--radius-sm); }
+    .busca-res {
+      display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 200;
+      background: var(--surface); border: 1px solid var(--linha);
+      border-radius: var(--radius-sm); margin-top: 4px; max-height: 320px; overflow-y: auto;
+      box-shadow: 0 4px 16px rgba(0,0,0,.12);
+    }
+    .busca-res.on { display: block; }
+    .bres { padding: 9px 12px; cursor: pointer; border-bottom: 1px solid var(--linha); }
+    .bres:last-child { border-bottom: 0; }
+    .bres:hover { background: var(--surface-2); }
+    .bres-nome { font-weight: 700; font-size: 0.87rem; }
+    .bres-meta { font-size: 0.74rem; color: var(--tinta-2); font-family: ui-monospace, monospace; margin-top: 1px; }
+    .bres-vazio { padding: 14px 12px; font-size: 0.82rem; color: var(--tinta-2); text-align: center; }
+
     .paineis {
       flex: 1; display: grid; grid-template-columns: 290px 1fr 290px;
       gap: 1px; background: var(--linha); min-height: 0;
@@ -163,6 +181,13 @@
     <div class="at-topo">
       <h1>Atendimento</h1>
       <span class="at-resumo" id="resumo"></span>
+      <!-- Puxar alguém da base é o trabalho principal do Comercial 2, e não havia
+           por onde: o único botão criava contato NOVO, inútil com 1.235 clientes. -->
+      <div class="busca-base">
+        <input id="buscaCli" placeholder="Procurar cliente pelo nome ou telefone…"
+               autocomplete="off" oninput="buscarBase()" onfocus="buscarBase()">
+        <div class="busca-res" id="buscaRes"></div>
+      </div>
       <div style="margin-left:auto; display:flex; gap:8px; flex-wrap:wrap;">
         <button class="btn btn-sec" id="btnVisao" onclick="alternarVisao()">Ver como funil</button>
         <button class="btn" onclick="abrirNovo()">+ Contato</button>
@@ -656,6 +681,54 @@
     }
 
     // ------------------------------------------------------------
+    // ------------------------------------------------------------
+    // Buscar na base e começar a conversa
+    // ------------------------------------------------------------
+    // Debounce de 250ms: buscar a cada tecla numa base de mil clientes é query
+    // demais pra ganho nenhum — a pessoa ainda está digitando.
+    let _t = null;
+    function buscarBase() {
+      clearTimeout(_t);
+      const q = document.getElementById('buscaCli').value.trim();
+      const box = document.getElementById('buscaRes');
+      if (q.length < 2) { box.classList.remove('on'); return; }
+      _t = setTimeout(async () => {
+        try {
+          const rs = await api(`/comercial/buscar-clientes?q=${encodeURIComponent(q)}`);
+          box.innerHTML = rs.length ? rs.map(c => `
+            <div class="bres" onclick="falarCom(${c.id})">
+              <div class="bres-nome">${esc(c.nome)}${c.nao_perturbe ? ' 🔕' : ''}</div>
+              <div class="bres-meta">
+                ${c.num_compras > 0 ? `R$ ${Number(c.total_gasto || 0).toFixed(0)} · ${c.num_compras}x` : 'ainda não comprou'}
+                ${c.cidade ? ' · ' + esc(c.cidade) : ''}
+                ${c.conversa_id ? ' · conversa aberta' : ''}
+              </div>
+            </div>`).join('')
+            : '<div class="bres-vazio">Ninguém com esse nome ou telefone.</div>';
+          box.classList.add('on');
+        } catch (e) { box.classList.remove('on'); }
+      }, 250);
+    }
+
+    async function falarCom(clienteId) {
+      document.getElementById('buscaRes').classList.remove('on');
+      document.getElementById('buscaCli').value = '';
+      try {
+        const r = await api(`/comercial/conversa-com/${clienteId}`, { method: 'POST' });
+        await carregar();
+        // Abre a conversa que acabou de ser criada/encontrada. Sem isto a pessoa
+        // buscaria, a fila mudaria, e ela teria que caçar o card na lista.
+        const c = FILA.find(x => x.id === r.conversa_id);
+        if (c) abrir(c);
+        else toast('Conversa criada — pode estar no outro departamento');
+      } catch (e) { toast(e.message || 'Não consegui abrir', 'erro'); }
+    }
+
+    // Clicar fora fecha o resultado.
+    document.addEventListener('click', (ev) => {
+      if (!ev.target.closest('.busca-base')) document.getElementById('buscaRes')?.classList.remove('on');
+    });
+
     function abrirNovo() { document.getElementById('dlgNovo').showModal(); }
     async function salvarNovo() {
       const v = (id) => document.getElementById(id).value.trim();
@@ -693,6 +766,16 @@
         if (me.papel === 'comercial_1') DEPTO = 'c1';
         else if (me.papel === 'comercial_2') DEPTO = 'c2';
       } catch (e) {}
+      // ?cliente=123 vindo da ficha ("Falar com ela"): abre a conversa direto,
+      // sem obrigar a pessoa a procurar de novo o nome que ela acabou de ver.
+      const alvo = new URLSearchParams(location.search).get('cliente');
+      if (alvo) {
+        await carregar().catch(() => {});
+        await falarCom(Number(alvo));
+        history.replaceState(null, '', 'atendimento.html');
+        return;
+      }
+
       carregar().catch(e => toast(e.message || 'Erro ao carregar', 'erro'));
       // Mensagem nova chega pelo webhook, não por push: recarrega a fila de tempos
       // em tempos pra quem responder não ficar invisível.

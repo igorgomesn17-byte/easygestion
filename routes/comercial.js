@@ -205,6 +205,76 @@ router.post('/prospect', (req, res) => {
 });
 
 // ------------------------------------------------------------
+// GET /buscar-clientes?q= — procurar na base pra começar uma conversa
+// ------------------------------------------------------------
+// Sem isto, a única porta de entrada era "cadastrar contato novo" — inútil para
+// quem já tem 1.235 clientes. Iniciar conversa com quem JÁ compra é o trabalho
+// principal do Comercial 2, e não havia por onde.
+router.get('/buscar-clientes', (req, res) => {
+  const q = String(req.query.q || '').trim();
+  if (q.length < 2) return res.json([]);
+
+  const t = req.tenantId;
+  const like = `%${q}%`;
+  const soDigitos = q.replace(/\D/g, '');
+
+  const linhas = db.prepare(`
+    SELECT c.id, c.nome, c.telefone, c.cidade, c.total_gasto, c.num_compras,
+           c.ultima_compra, c.tipo, c.nao_perturbe,
+           -- Já existe conversa aberta? A tela abre a que existe em vez de criar
+           -- outra: duas conversas com a mesma pessoa é o começo de dois
+           -- comerciais atendendo em paralelo sem saber.
+           (SELECT id FROM conversas v
+             WHERE v.cliente_id = c.id AND v.tenant_id = c.tenant_id AND v.arquivada = 0
+             ORDER BY v.ultima_interacao DESC LIMIT 1) AS conversa_id
+      FROM clientes c
+     WHERE c.tenant_id = ? AND c.arquivado = 0
+       -- 'balcao' fora: é o "Consumidor não identificado", não é pessoa.
+       AND (c.tipo IS NULL OR c.tipo <> 'balcao')
+       -- COLLATE NOCASE: sem ele "ma" não acha "Modas Cristina". O LIKE do SQLite
+       -- só é case-insensitive em ASCII por padrão — e quem digita numa busca não
+       -- escreve com maiúscula.
+       AND (c.nome LIKE ? COLLATE NOCASE
+            OR (? <> '' AND replace(replace(replace(replace(c.telefone,' ',''),'-',''),'(',''),')','') LIKE ?))
+     ORDER BY c.num_compras DESC, c.total_gasto DESC
+     LIMIT 20
+  `).all(t, like, soDigitos, '%' + soDigitos + '%');
+
+  res.json(linhas);
+});
+
+// POST /conversa-com/:clienteId — abre (ou cria) a conversa com quem já é cliente.
+router.post('/conversa-com/:clienteId', (req, res) => {
+  const t = req.tenantId;
+  const cli = db.prepare('SELECT * FROM clientes WHERE id = ? AND tenant_id = ? AND arquivado = 0')
+    .get(req.params.clienteId, t);
+  if (!cli) return res.status(404).json({ erro: 'Cliente não encontrada' });
+  if (!cli.telefone) return res.status(400).json({ erro: 'Esta cliente não tem telefone cadastrado' });
+
+  // "Não perturbe" é escolha dela (LGPD) — bloqueia aqui, não só na régua.
+  // Deixar passar porque o contato é manual seria burlar o próprio opt-out.
+  if (cli.nao_perturbe) return res.status(403).json({ erro: 'Esta cliente pediu para não receber contato' });
+
+  try {
+    const conversa = conversas.acharOuCriarConversa(t, {
+      telefone: cli.telefone, nome: cli.nome, origem: 'manual',
+    });
+    // Amarra na cliente (acharOuCriarConversa pode não ter casado o telefone se
+    // ele estiver cadastrado num formato diferente) e assume, sem roubar de quem
+    // já estava atendendo.
+    db.prepare(`
+      UPDATE conversas SET cliente_id = COALESCE(cliente_id, ?), usuario_id = COALESCE(usuario_id, ?)
+       WHERE id = ? AND tenant_id = ?
+    `).run(cli.id, usuarioDaSessao(req), conversa.id, t);
+
+    res.json({ ok: true, conversa_id: conversa.id });
+  } catch (e) {
+    logger.error('[COMERCIAL] erro ao abrir conversa:', e.message);
+    res.status(500).json({ erro: 'Não foi possível abrir a conversa' });
+  }
+});
+
+// ------------------------------------------------------------
 // Conversa: ler e responder
 // ------------------------------------------------------------
 router.get('/conversas/:id', (req, res) => {

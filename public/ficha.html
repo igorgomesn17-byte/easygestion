@@ -24,6 +24,15 @@
     .linha-sub { font-size:0.76rem; color:var(--tinta-2); }
     .n { font-variant-numeric:tabular-nums; white-space:nowrap; }
     .vazio { color:var(--tinta-2); font-size:0.85rem; padding:10px 0; }
+    /* Compra clicável: abre os itens ali mesmo. */
+    .linha-click { cursor:pointer; }
+    .linha-click:hover { background:var(--surface-2); margin:0 -8px; padding-left:8px; padding-right:8px; border-radius:var(--radius-sm); }
+    .seta { color:var(--tinta-2); font-size:0.9rem; margin-left:4px; }
+    .itens-venda { display:none; padding:2px 0 10px 12px; border-left:2px solid var(--marca-clara); margin:0 0 6px 4px; }
+    .itens-venda.aberto { display:block; }
+    .item-linha { display:flex; justify-content:space-between; gap:10px; font-size:0.82rem;
+                  padding:4px 0; color:var(--tinta); }
+    .item-extra { color:var(--tinta-2); font-size:0.78rem; }
     .cartela { display:flex; gap:4px; flex-wrap:wrap; margin-top:8px; }
     .selo-pt { width:15px; height:15px; border-radius:50%; border:1.5px solid var(--marca); }
     .selo-pt.cheio { background:var(--marca); }
@@ -72,8 +81,10 @@
             </div>
           </div>
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            ${c.telefone ? `<a class="btn btn-sec" target="_blank" href="https://wa.me/${String(c.telefone).replace(/\\D/g,'')}">WhatsApp</a>` : ''}
-            ${d.conversa ? `<a class="btn" href="prospeccao.html">Ver conversa</a>` : ''}
+            <!-- Sem isto a ficha é um beco: abre e não há caminho de volta pro
+                 lugar onde o trabalho acontece. -->
+            <a class="btn btn-sec" href="atendimento.html">‹ Voltar ao atendimento</a>
+            ${c.telefone ? `<a class="btn" href="atendimento.html?cliente=${c.id}">Falar com ela</a>` : ''}
           </div>
         </div>
 
@@ -101,10 +112,11 @@
           <div class="card">
             <h2 style="margin-top:0;">Compras</h2>
             ${d.compras.length ? d.compras.map(v => `
-              <div class="linha">
+              <div class="linha linha-click" onclick="verItens(${v.id})">
                 <div>${dataBr(v.data_hora)}<div class="linha-sub">${esc(v.forma_pagamento || '')} · ${esc(v.origem || 'loja')}</div></div>
-                <span class="n">${moeda(v.total)}</span>
-              </div>`).join('') : '<p class="vazio">Nenhuma compra registrada.</p>'}
+                <span class="n">${moeda(v.total)} <span class="seta" id="seta-${v.id}">›</span></span>
+              </div>
+              <div class="itens-venda" id="itens-${v.id}"></div>`).join('') : '<p class="vazio">Nenhuma compra registrada.</p>'}
           </div>
 
           <div class="card">
@@ -145,6 +157,48 @@
           <p style="margin:0; font-size:0.9rem; white-space:pre-line;">${esc(c.observacoes)}</p>
         </div>` : ''}
       `;
+    }
+
+    // "R$ 269,90" sozinho não conduz conversa nenhuma — o que serve é saber QUE
+    // peça ela levou. Abre ali mesmo, sem trocar de tela: sair da ficha pra ver
+    // um item e ter que voltar é o atrito que esta tela existe pra acabar.
+    const _itensCache = {};
+    async function verItens(id) {
+      const box = document.getElementById('itens-' + id);
+      const seta = document.getElementById('seta-' + id);
+      if (!box) return;
+
+      // Já aberto? Fecha. Segundo clique na mesma linha desfaz o primeiro.
+      if (box.classList.contains('aberto')) {
+        box.classList.remove('aberto');
+        if (seta) seta.textContent = '›';
+        return;
+      }
+
+      if (seta) seta.textContent = '⌄';
+      box.classList.add('aberto');
+
+      if (_itensCache[id]) { box.innerHTML = _itensCache[id]; return; }
+      box.innerHTML = '<div class="item-linha texto-cinza">Carregando…</div>';
+
+      try {
+        const v = await api(`/vendas/${id}`);
+        const itens = v.itens || [];
+        const html = itens.length
+          ? itens.map(i => `
+              <div class="item-linha">
+                <span>${i.qtd}× ${esc(i.descricao || 'Item')}</span>
+                <span class="n">${moeda(i.preco_unit * i.qtd)}</span>
+              </div>`).join('')
+            + (v.desconto > 0 ? `<div class="item-linha item-extra"><span>desconto</span><span class="n">−${moeda(v.desconto)}</span></div>` : '')
+            + (v.vendedor_nome ? `<div class="item-linha item-extra"><span>vendeu</span><span>${esc(v.vendedor_nome)}</span></div>` : '')
+            + (v.observacao ? `<div class="item-linha item-extra"><span>obs</span><span>${esc(v.observacao)}</span></div>` : '')
+          : '<div class="item-linha texto-cinza">Esta venda foi lançada sem itens detalhados.</div>';
+        _itensCache[id] = html;
+        box.innerHTML = html;
+      } catch (e) {
+        box.innerHTML = `<div class="item-linha texto-cinza">${esc(e.message || 'Não consegui abrir')}</div>`;
+      }
     }
 
     function kpi(n, l) { return `<div class="kpi"><div class="kpi-n">${n}</div><div class="kpi-l">${l}</div></div>`; }
