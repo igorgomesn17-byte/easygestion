@@ -10,7 +10,14 @@ const { temFeature } = require('../lib/planos');
 // e em routes/config.js, e o gate era local — com o SSR seriam três cópias.
 const { resolverLojaPublica, urlFoto, catalogoPublico } = require('../lib/vitrine-publica');
 const { criarPedido, registrarLead } = require('../lib/vitrine-pedidos');
+const reserva = require('../lib/reserva');
+const pix = require('../lib/pix');
+const { normalizarTelefone } = require('../lib/whatsapp');
+const { cnpj: cnpjValidador, cpf: cpfValidador } = require('cpf-cnpj-validator');
 const rateLimit = require('express-rate-limit');
+
+const cnpjValido = (v) => cnpjValidador.isValid(v);
+const cpfValido = (v) => cpfValidador.isValid(v);
 
 // Resolver tenant pelo slug (público, sem autenticação)
 function resolverTenantPorSlug(slug) {
@@ -157,10 +164,159 @@ router.post('/:slug/pedido', limiteEscritaPublica, (req, res) => {
       } catch (e) { /* lead é bônus: nunca derruba o pedido */ }
     }
 
-    res.status(201).json({ ok: true, codigo: r.codigo, total: r.total });
+    res.status(201).json({ ok: true, id: r.id, codigo: r.codigo, total: r.total });
   } catch (err) {
     console.error('[VITRINE] Erro em POST /:slug/pedido:', err);
     res.status(500).json({ erro: 'Não foi possível registrar o pedido' });
+  }
+});
+
+// ============================================================
+// ATACADO — cadastro no fechamento e Pix.
+// ============================================================
+// POST /api/vitrine/:slug/pedido/:codigo/cadastro
+//
+// A cliente navega e monta o carrinho SEM login. O cadastro só aparece na hora de
+// fechar — pedir antes é o que faz desistir na porta. Aqui ela vira cliente de
+// verdade, com CNPJ e excursão.
+router.post('/:slug/pedido/:codigo/cadastro', limiteEscritaPublica, (req, res) => {
+  try {
+    const loja = resolverLojaPublica(req.params.slug);
+    if (!loja || !loja.temAtacado) return res.status(404).json({ erro: 'Loja não encontrada' });
+    const t = loja.tenant.id;
+
+    const pedido = db.prepare(
+      "SELECT * FROM vitrine_pedidos WHERE tenant_id = ? AND codigo = ? AND status = 'novo'"
+    ).get(t, String(req.params.codigo || '').toUpperCase());
+    if (!pedido) return res.status(404).json({ erro: 'Pedido não encontrado' });
+
+    const { nome, cnpj, telefone, cidade, uf, endereco, cep, excursao, email } = req.body || {};
+    if (!nome || !telefone) return res.status(400).json({ erro: 'Preencha o nome e o telefone' });
+
+    const tel = normalizarTelefone(telefone);
+    if (!tel) return res.status(400).json({ erro: 'Telefone inválido' });
+
+    const doc = String(cnpj || '').replace(/\D/g, '');
+    if (doc && !(cnpjValido(doc) || cpfValido(doc))) {
+      return res.status(400).json({ erro: 'CNPJ inválido' });
+    }
+
+    // A EXCURSÃO É TABELA, não texto: o mesmo destino escrito de três jeitos
+    // ("Excursão do João", "exc joao", "Van do João") impediria agrupar o despacho,
+    // que é justamente onde essa informação serve. Digitar uma nova cria a linha —
+    // a cliente não pode ficar presa porque a excursão dela ainda não existe.
+    let excursaoId = null;
+    if (excursao && String(excursao).trim()) {
+      const nomeExc = String(excursao).trim().slice(0, 80);
+      const achada = db.prepare('SELECT id FROM excursoes WHERE tenant_id = ? AND nome = ? COLLATE NOCASE').get(t, nomeExc);
+      excursaoId = achada
+        ? achada.id
+        : Number(db.prepare('INSERT INTO excursoes (tenant_id, nome, cidade) VALUES (?, ?, ?)').run(t, nomeExc, cidade || null).lastInsertRowid);
+    }
+
+    // Já é cliente? Casa pelo telefone (8 dígitos finais — o mesmo número chega em
+    // formatos diferentes) pra não criar cadastro duplicado a cada pedido.
+    const sufixo = tel.slice(-8);
+    let cli = db.prepare(`
+      SELECT id FROM clientes
+       WHERE tenant_id = ? AND arquivado = 0
+         AND replace(replace(replace(replace(telefone,' ',''),'-',''),'(',''),')','') LIKE ?
+       ORDER BY num_compras DESC LIMIT 1
+    `).get(t, '%' + sufixo);
+
+    if (cli) {
+      // Atualiza o que ela informou agora, sem apagar o que já existia.
+      db.prepare(`
+        UPDATE clientes SET nome = ?, cidade = COALESCE(?, cidade), uf = COALESCE(?, uf),
+               endereco = COALESCE(?, endereco), cep = COALESCE(?, cep),
+               cpf_cnpj = COALESCE(?, cpf_cnpj), email = COALESCE(?, email),
+               excursao_id = COALESCE(?, excursao_id),
+               tipo = CASE WHEN tipo = 'prospect' THEN NULL ELSE tipo END
+         WHERE id = ? AND tenant_id = ?
+      `).run(String(nome).slice(0, 120), cidade || null, uf || null, endereco || null, cep || null,
+             doc || null, email ? String(email).toLowerCase() : null, excursaoId, cli.id, t);
+    } else {
+      cli = { id: Number(db.prepare(`
+        INSERT INTO clientes (tenant_id, nome, telefone, cidade, uf, endereco, cep, cpf_cnpj, email, excursao_id, origem)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'vitrine')
+      `).run(t, String(nome).slice(0, 120), tel, cidade || null, uf || null, endereco || null,
+             cep || null, doc || null, email ? String(email).toLowerCase() : null, excursaoId).lastInsertRowid) };
+    }
+
+    db.prepare(`
+      UPDATE vitrine_pedidos SET cliente_id = ?, cliente_nome = ?, cliente_tel = ?, excursao_id = ?,
+             atualizado_em = datetime('now','localtime')
+       WHERE id = ? AND tenant_id = ?
+    `).run(cli.id, String(nome).slice(0, 120), tel, excursaoId, pedido.id, t);
+
+    res.json({ ok: true, cliente_id: cli.id });
+  } catch (err) {
+    console.error('[VITRINE] Erro no cadastro do pedido:', err);
+    res.status(500).json({ erro: 'Não foi possível salvar seus dados' });
+  }
+});
+
+// POST /api/vitrine/:slug/pedido/:codigo/pix — reserva o estoque e gera o QR.
+//
+// A ORDEM importa: reserva PRIMEIRO, cobra depois. Gerar o Pix antes de garantir a
+// peça é o caminho pra cliente pagar por algo que já foi vendido no balcão.
+router.post('/:slug/pedido/:codigo/pix', limiteEscritaPublica, async (req, res) => {
+  try {
+    const loja = resolverLojaPublica(req.params.slug);
+    if (!loja || !loja.temAtacado) return res.status(404).json({ erro: 'Loja não encontrada' });
+    const t = loja.tenant.id;
+
+    const pedido = db.prepare(
+      "SELECT * FROM vitrine_pedidos WHERE tenant_id = ? AND codigo = ?"
+    ).get(t, String(req.params.codigo || '').toUpperCase());
+    if (!pedido) return res.status(404).json({ erro: 'Pedido não encontrado' });
+    if (pedido.venda_id) return res.status(409).json({ erro: 'Este pedido já foi pago' });
+
+    const rr = reserva.reservar(t, pedido.id, pix.MINUTOS_EXPIRA);
+    if (!rr.ok) {
+      // Diz QUAL peça faltou: "não deu" sem explicação faz a cliente achar que o
+      // site quebrou, quando na verdade a peça acabou enquanto ela escolhia.
+      return res.status(409).json({ erro: rr.erro, faltando: rr.faltando || [] });
+    }
+
+    const cob = await pix.criarCobranca(t, pedido.id, { email: req.body?.email });
+    if (!cob.ok) {
+      // Cobrança falhou: solta a peça na hora. Deixar reservada travaria o estoque
+      // por 45 minutos por causa de um erro do provedor.
+      reserva.liberar(t, pedido.id);
+      return res.status(502).json({ erro: cob.erro || 'Não foi possível gerar o Pix' });
+    }
+
+    res.json({
+      ok: true, codigo: pedido.codigo, total: cob.total,
+      copia_cola: cob.copia_cola, qr_base64: cob.qr_base64, expira_em: cob.expira_em,
+    });
+  } catch (err) {
+    console.error('[VITRINE] Erro ao gerar Pix:', err);
+    res.status(500).json({ erro: 'Não foi possível gerar o pagamento' });
+  }
+});
+
+// GET /api/vitrine/:slug/pedido/:codigo/status — a tela pergunta "já caiu?".
+// O webhook é o caminho normal; isto é a rede de segurança pra quando ele atrasa.
+router.get('/:slug/pedido/:codigo/status', (req, res) => {
+  try {
+    const loja = resolverLojaPublica(req.params.slug);
+    if (!loja || !loja.temAtacado) return res.status(404).json({ erro: 'Loja não encontrada' });
+
+    const p = db.prepare(
+      'SELECT codigo, status, venda_id, pagamento_status, pix_expira_em FROM vitrine_pedidos WHERE tenant_id = ? AND codigo = ?'
+    ).get(loja.tenant.id, String(req.params.codigo || '').toUpperCase());
+    if (!p) return res.status(404).json({ erro: 'Pedido não encontrado' });
+
+    res.json({
+      codigo: p.codigo,
+      pago: !!p.venda_id,
+      status: p.status,
+      expira_em: p.pix_expira_em,
+    });
+  } catch (err) {
+    res.status(500).json({ erro: 'Erro ao consultar' });
   }
 });
 

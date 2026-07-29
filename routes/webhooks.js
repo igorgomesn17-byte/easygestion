@@ -146,4 +146,88 @@ router.post('/whatsapp/:token', (req, res) => {
   }
 });
 
+// ============================================================
+// POST /api/webhooks/mercadopago — o Pix caiu.
+// ------------------------------------------------------------
+// Este é o momento em que o pedido da vitrine vira venda: estoque baixa, o dinheiro
+// entra no caixa e no DRE, e a compra passa a existir pro CRM. Sem ele, a lojista
+// teria que digitar tudo de novo no PDV.
+//
+// SEMPRE 200, mesmo em erro: o Mercado Pago reenvia até receber 200, e um erro que
+// não vai se resolver sozinho viraria retry infinito. O que falha aqui vira log.
+// ============================================================
+router.post('/mercadopago', async (req, res) => {
+  try {
+    const pix = require('../lib/pix');
+    const pedidoVenda = require('../lib/pedido-venda');
+
+    // O MP manda o id do pagamento em lugares diferentes conforme o tipo de
+    // notificação (IPN antigo × webhook novo). Aceita os dois.
+    const pagamentoId = req.body?.data?.id || req.query['data.id'] || req.body?.id;
+    const tipo = req.body?.type || req.query.type || '';
+    if (!pagamentoId) return res.status(200).json({ received: true, ignorado: 'sem id' });
+    // Só interessa pagamento. `merchant_order` e afins chegam pelo mesmo endpoint.
+    if (tipo && tipo !== 'payment') return res.status(200).json({ received: true, ignorado: tipo });
+
+    // Acha o pedido pelo id do pagamento — é o que diz de QUAL loja é a notificação.
+    // Sem isso não dá pra saber qual credencial usar pra consultar o MP.
+    const pedido = db.prepare(
+      'SELECT id, tenant_id, codigo, venda_id FROM vitrine_pedidos WHERE pagamento_id = ?'
+    ).get(String(pagamentoId));
+
+    if (!pedido) {
+      // Pode ser cobrança de outro sistema na mesma conta MP, ou o webhook chegando
+      // antes de a nossa gravação terminar. Não é erro nosso.
+      logger.info(`[Webhook MP] pagamento ${pagamentoId} não corresponde a nenhum pedido`);
+      return res.status(200).json({ received: true, ignorado: 'pedido nao encontrado' });
+    }
+
+    if (pedido.venda_id) return res.status(200).json({ received: true, jaProcessado: true });
+
+    // IDEMPOTÊNCIA ANTES DE PROCESSAR: o UNIQUE é o lock. Se o INSERT não passa,
+    // outro processo já pegou este evento — e processar de novo daria baixa dobrada
+    // no estoque e venda duplicada no caixa. Mesma lição do webhook do Stripe.
+    const eventoId = `${pagamentoId}:${req.body?.action || tipo || 'payment'}`;
+    if (!pix.reservarEvento(eventoId, pedido.tenant_id)) {
+      return res.status(200).json({ received: true, duplicado: true });
+    }
+
+    // Consulta o MP em vez de confiar no corpo: o webhook diz "algo mudou", não
+    // "está pago". Aceitar o status do corpo permitiria a qualquer um postar aqui
+    // dizendo que pagou.
+    const p = await pix.consultarPagamento(pedido.tenant_id, pagamentoId);
+    if (!p.ok) {
+      logger.warn(`[Webhook MP] não consegui consultar ${pagamentoId}: ${p.erro}`);
+      return res.status(200).json({ received: true, erro: p.erro });
+    }
+
+    db.prepare('UPDATE vitrine_pedidos SET pagamento_status = ? WHERE id = ?').run(p.status, pedido.id);
+
+    if (!p.aprovado) {
+      // Recusado ou expirado: solta a peça na hora, senão ela fica presa até o
+      // prazo da reserva vencer por conta própria.
+      if (p.status === 'rejected' || p.status === 'cancelled') {
+        require('../lib/reserva').liberar(pedido.tenant_id, pedido.id);
+      }
+      return res.status(200).json({ received: true, status: p.status });
+    }
+
+    const r = pedidoVenda.converter(pedido.tenant_id, pedido.id, { forma: 'pix', origem: 'vitrine' });
+    if (!r.ok) {
+      // O caso mais provável é a peça ter sido vendida no balcão enquanto o Pix
+      // estava aberto. O dinheiro ENTROU — isso precisa de olho humano, não de
+      // retry: a lojista resolve na conversa (troca ou devolve).
+      logger.error(`[Webhook MP] pedido ${pedido.codigo} pago mas NÃO virou venda: ${r.erro}`);
+      return res.status(200).json({ received: true, erro: r.erro, revisar: true });
+    }
+
+    logger.info(`[Webhook MP] pedido ${pedido.codigo} pago → venda ${r.vendaId}`);
+    res.status(200).json({ received: true, venda_id: r.vendaId });
+
+  } catch (err) {
+    logger.error('[Webhook MP] erro:', err.stack || err.message);
+    res.status(200).json({ received: true, error: err.message });
+  }
+});
+
 module.exports = router;

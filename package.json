@@ -25,6 +25,7 @@
     "test:reescrever": "node tests/reescrever-fila.test.js",
     "test:whatsapp": "node tests/whatsapp-canal.test.js",
     "test:canal": "node tests/canal-regua.test.js",
+    "test:atacado": "node tests/atacado.test.js",
     "backup": "node scripts/backup.js",
     "backup-s3": "node scripts/backup-s3.js",
     "test:calculos": "node tests/calculos-tenant.test.js",

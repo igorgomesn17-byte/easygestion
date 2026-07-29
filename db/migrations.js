@@ -2105,6 +2105,109 @@ function executarMigrations(db) {
         // O webhook busca por este token a cada mensagem que chega.
         db.exec(`CREATE INDEX IF NOT EXISTS idx_integracoes_canal_webhook ON integracoes_canal(webhook_token);`);
       }
+    },
+
+    {
+      nome: '048_atacado_excursao_e_reserva',
+      hash: 'v48-atacado-excursao-reserva',
+      exec: (db) => {
+        // ---------- EXCURSAO ----------
+        //
+        // No atacado a mercadoria NAO vai pro endereco da lojista: vai pra empresa de
+        // excursao, que leva pra cidade dela. Entao "onde entregar" nao e' o endereco
+        // da cliente — e' um terceiro, que se REPETE entre varias clientes.
+        //
+        // Por isso e' TABELA, e nao um campo de texto na ficha. Texto livre produziria
+        // "Excursao do Joao", "exc. joao" e "Van Joao" pro MESMO destino — e o
+        // despacho, que e' justamente onde isso importa, nao teria como agrupar.
+        // Com tabela, a tela de pedidos responde "3 pedidos vao na Excursao do Joao
+        // hoje", que e' o que evita mandar o mesmo destino em duas viagens.
+        db.exec(`
+          CREATE TABLE IF NOT EXISTS excursoes (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            tenant_id   INTEGER NOT NULL,
+            nome        TEXT NOT NULL,
+            responsavel TEXT,
+            telefone    TEXT,
+            cidade      TEXT,
+            obs         TEXT,
+            ativo       INTEGER NOT NULL DEFAULT 1,
+            criado_em   TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+            UNIQUE (tenant_id, nome)
+          );
+        `);
+
+        const colCli = db.prepare('PRAGMA table_info(clientes)').all().map((c) => c.name);
+
+        // NULLABLE de proposito: cliente sem excursao e' caso legitimo (retira na
+        // loja, entrega propria, mora na cidade). Obrigar criaria excursao-fantasma.
+        if (!colCli.includes('excursao_id')) db.exec(`ALTER TABLE clientes ADD COLUMN excursao_id INTEGER;`);
+
+        // Dados de PJ. `cpf_cnpj` ja existe (serve pros dois); o que falta e' o que
+        // so o atacado precisa: razao social e onde entregar.
+        if (!colCli.includes('razao_social'))    db.exec(`ALTER TABLE clientes ADD COLUMN razao_social TEXT;`);
+        if (!colCli.includes('endereco'))        db.exec(`ALTER TABLE clientes ADD COLUMN endereco TEXT;`);
+        if (!colCli.includes('cep'))             db.exec(`ALTER TABLE clientes ADD COLUMN cep TEXT;`);
+        if (!colCli.includes('uf'))              db.exec(`ALTER TABLE clientes ADD COLUMN uf TEXT;`);
+
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_clientes_excursao ON clientes(tenant_id, excursao_id);`);
+
+        // ---------- RESERVA DE ESTOQUE ----------
+        //
+        // O catalogo so mostra o que tem, entao o pedido nasce valido e nao precisa
+        // de aprovacao. Mas isso deixa uma corrida aberta: duas clientes veem a mesma
+        // ultima peca M como disponivel, as duas geram Pix, as duas pagam — e uma vai
+        // ser estornada. Numa cidade pequena, onde a cliente conhece a dona, esse
+        // estorno custa mais que a venda.
+        //
+        // A reserva acontece ao GERAR O PIX, nao ao montar o carrinho: reservar no
+        // carrinho prenderia peca de quem so estava olhando.
+        //
+        // Expiracao e' LAZY (reservado_ate < agora), sem job. Job que nao roda —
+        // deploy, reboot, erro — deixaria peca presa indefinidamente. Mesmo padrao
+        // que o cupom expirado ja usa.
+        const colItens = db.prepare('PRAGMA table_info(vitrine_pedido_itens)').all().map((c) => c.name);
+        if (!colItens.includes('reservado_ate')) {
+          db.exec(`ALTER TABLE vitrine_pedido_itens ADD COLUMN reservado_ate TEXT;`);
+        }
+
+        // A consulta de disponibilidade roda a cada carregamento do catalogo e
+        // descontar reservas ativas nao pode custar full scan.
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_pedido_itens_reserva
+                 ON vitrine_pedido_itens(tenant_id, variacao_id, reservado_ate);`);
+
+        // ---------- PAGAMENTO DO PEDIDO ----------
+        //
+        // O pedido precisa lembrar a cobranca que gerou: pra reenviar o QR quando a
+        // cliente perde a mensagem, e pra o webhook do provedor saber QUAL pedido
+        // pagar quando o dinheiro cai.
+        const colPed = db.prepare('PRAGMA table_info(vitrine_pedidos)').all().map((c) => c.name);
+        if (!colPed.includes('pagamento_id'))     db.exec(`ALTER TABLE vitrine_pedidos ADD COLUMN pagamento_id TEXT;`);
+        if (!colPed.includes('pagamento_status')) db.exec(`ALTER TABLE vitrine_pedidos ADD COLUMN pagamento_status TEXT;`);
+        if (!colPed.includes('pix_qr'))           db.exec(`ALTER TABLE vitrine_pedidos ADD COLUMN pix_qr TEXT;`);
+        if (!colPed.includes('pix_expira_em'))    db.exec(`ALTER TABLE vitrine_pedidos ADD COLUMN pix_expira_em TEXT;`);
+        if (!colPed.includes('excursao_id'))      db.exec(`ALTER TABLE vitrine_pedidos ADD COLUMN excursao_id INTEGER;`);
+
+        // O webhook chega com o id do pagamento e precisa achar o pedido por ele.
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_vitrine_pedidos_pagamento ON vitrine_pedidos(pagamento_id);`);
+
+        // ---------- IDEMPOTENCIA DO WEBHOOK DE PAGAMENTO ----------
+        //
+        // O provedor reenvia ate receber 200. Sem esta tabela, um retry daria baixa
+        // DUAS vezes no estoque e lancaria a venda duplicada no caixa. O UNIQUE e' o
+        // proprio lock: quem consegue inserir e' o dono do processamento.
+        // Mesma licao do webhook do Stripe, que ja deu +30 dias de graca por retry.
+        db.exec(`
+          CREATE TABLE IF NOT EXISTS pagamento_eventos (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            provedor    TEXT NOT NULL DEFAULT 'mercadopago',
+            event_id    TEXT NOT NULL,
+            tenant_id   INTEGER,
+            processado_em TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+            UNIQUE (provedor, event_id)
+          );
+        `);
+      }
     }
   ];
 

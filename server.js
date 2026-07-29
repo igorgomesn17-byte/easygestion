@@ -274,6 +274,8 @@ app.use('/api/webhooks/stripe', express.raw({type: 'application/json'}), (req, r
 // próprio aqui, req.body chegaria vazio e toda mensagem recebida seria descartada em
 // silêncio — o pior tipo de falha, porque a tela simplesmente não mostra nada.
 app.use('/api/webhooks/whatsapp', express.json({ limit: '2mb' }));
+// Mesmo motivo: este mount vem antes do express.json global.
+app.use('/api/webhooks/mercadopago', express.json({ limit: '1mb' }));
 app.use('/api/webhooks', require('./routes/webhooks'));
 
 // Não existe webhook de deploy. Deploy é MANUAL via SSH (ver CLAUDE.md): expor
