@@ -1,0 +1,162 @@
+<DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ficha da cliente • EasyGestão</title>
+  <link rel="stylesheet" href="css/ds.css">
+  <style>
+    .topo { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap; }
+    .selos-topo { display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; }
+    .selo { font-size:0.72rem; padding:3px 9px; border-radius:999px; font-weight:700; }
+    .selo-seg { color:#fff; }
+    .selo-info { background:var(--surface-2); color:var(--tinta-2); }
+    .selo-alerta { background:var(--vermelho-bg); color:var(--vermelho); }
+    .kpis { display:grid; grid-template-columns:repeat(auto-fit, minmax(130px,1fr)); gap:12px; margin:18px 0; }
+    .kpi { background:var(--surface-2); border-radius:var(--radius-sm); padding:12px 14px; }
+    .kpi-n { font-size:1.3rem; font-weight:800; font-variant-numeric:tabular-nums; }
+    .kpi-l { font-size:0.74rem; color:var(--tinta-2); margin-top:2px; }
+    .colunas { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+    @media (max-width:820px){ .colunas { grid-template-columns:1fr; } }
+    .linha { display:flex; justify-content:space-between; gap:10px; padding:9px 0;
+             border-bottom:1px solid var(--linha); font-size:0.87rem; }
+    .linha:last-child { border-bottom:0; }
+    .linha-sub { font-size:0.76rem; color:var(--tinta-2); }
+    .n { font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .vazio { color:var(--tinta-2); font-size:0.85rem; padding:10px 0; }
+    .cartela { display:flex; gap:4px; flex-wrap:wrap; margin-top:8px; }
+    .selo-pt { width:15px; height:15px; border-radius:50%; border:1.5px solid var(--marca); }
+    .selo-pt.cheio { background:var(--marca); }
+    .tag-ok { color:var(--verde, #1e7d4f); font-weight:700; }
+    .tag-off { color:var(--tinta-2); }
+  </style>
+</head>
+<body>
+  <div class="conteudo">
+    <div id="ficha"><p class="texto-cinza">Carregando…</p></div>
+  </div>
+
+  <script src="js/comum.js"></script>
+  <script>
+    const ID = new URLSearchParams(location.search).get('id');
+
+    const SEG_CORES = {
+      campeas:'#8a6d1f', fieis:'#1a6f5e', novas:'#2f6b4f', promissoras:'#3a6ea5',
+      atencao:'#a6641c', risco:'#9c3a28', perdidas:'#6b665e', hibernando:'#8a857c',
+    };
+    const SEG_NOMES = {
+      campeas:'Campeã', fieis:'Fiel', novas:'Nova', promissoras:'Promissora',
+      atencao:'Atenção', risco:'Em risco', perdidas:'Perdida', hibernando:'Hibernando',
+    };
+
+    async function carregar() {
+      if (!ID) return erro('Sem cliente informada.');
+      const d = await api(`/comercial/ficha/${ID}`);
+      const c = d.cliente;
+
+      const dias = c.ultima_compra ? diasDesde(c.ultima_compra) : null;
+
+      document.getElementById('ficha').innerHTML = `
+        <div class="topo">
+          <div>
+            <h1 style="margin-bottom:4px;">${esc(c.nome)}</h1>
+            <p class="subtitulo" style="margin:0;">
+              ${esc([c.cidade, c.telefone].filter(Boolean).join(' · ') || 'sem contato')}
+              ${c.excursao_nome ? ` · entrega na <strong>${esc(c.excursao_nome)}</strong>` : ''}
+            </p>
+            <div class="selos-topo">
+              ${d.segmento ? `<span class="selo selo-seg" style="background:${SEG_CORES[d.segmento.segmento] || '#666'}">${SEG_NOMES[d.segmento.segmento] || d.segmento.segmento}</span>` : ''}
+              ${c.tipo === 'prospect' ? '<span class="selo selo-info">ainda não comprou</span>' : ''}
+              ${c.nao_perturbe ? '<span class="selo selo-alerta">não perturbe</span>' : ''}
+              ${dias !== null && dias > 60 ? `<span class="selo selo-alerta">${dias} dias sem comprar</span>` : ''}
+            </div>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            ${c.telefone ? `<a class="btn btn-sec" target="_blank" href="https://wa.me/${String(c.telefone).replace(/\\D/g,'')}">WhatsApp</a>` : ''}
+            ${d.conversa ? `<a class="btn" href="prospeccao.html">Ver conversa</a>` : ''}
+          </div>
+        </div>
+
+        <div class="kpis">
+          ${kpi(moeda(c.total_gasto || 0), 'já gastou')}
+          ${kpi(c.num_compras || 0, c.num_compras === 1 ? 'compra' : 'compras')}
+          ${kpi(c.num_compras ? moeda((c.total_gasto || 0) / c.num_compras) : '—', 'ticket médio')}
+          ${kpi(dias === null ? '—' : dias + 'd', 'desde a última')}
+        </div>
+
+        ${d.selos ? `
+          <div class="card">
+            <h2 style="margin-top:0;">Cartão de fidelidade</h2>
+            <p style="margin:0; font-size:0.9rem;">
+              ${d.selos.noCiclo} de ${d.selos.total || (d.selos.noCiclo + d.selos.faltam)} selos
+              ${d.selos.faltam > 0 ? `· faltam <strong>${d.selos.faltam}</strong> para o prêmio` : '· <span class="tag-ok">cartão completo!</span>'}
+            </p>
+            <div class="cartela">
+              ${Array.from({length: (d.selos.total || (d.selos.noCiclo + d.selos.faltam))}, (_, i) =>
+                `<span class="selo-pt ${i < d.selos.noCiclo ? 'cheio' : ''}"></span>`).join('')}
+            </div>
+          </div>` : ''}
+
+        <div class="colunas" style="margin-top:16px;">
+          <div class="card">
+            <h2 style="margin-top:0;">Compras</h2>
+            ${d.compras.length ? d.compras.map(v => `
+              <div class="linha">
+                <div>${dataBr(v.data_hora)}<div class="linha-sub">${esc(v.forma_pagamento || '')} · ${esc(v.origem || 'loja')}</div></div>
+                <span class="n">${moeda(v.total)}</span>
+              </div>`).join('') : '<p class="vazio">Nenhuma compra registrada.</p>'}
+          </div>
+
+          <div class="card">
+            <h2 style="margin-top:0;">Pedidos do site</h2>
+            ${d.pedidos.length ? d.pedidos.map(p => `
+              <div class="linha">
+                <div><strong>#${esc(p.codigo)}</strong>
+                  <div class="linha-sub">${dataBr(p.criado_em)} · ${p.qtd_itens} ${p.qtd_itens === 1 ? 'peça' : 'peças'}
+                    ${p.venda_id ? (p.despachado_em ? '· <span class="tag-ok">despachado</span>' : '· <span class="tag-ok">pago</span>') : '· <span class="tag-off">em aberto</span>'}</div>
+                </div>
+                <span class="n">${moeda(p.total)}</span>
+              </div>`).join('') : '<p class="vazio">Nenhum pedido pelo site.</p>'}
+          </div>
+
+          <div class="card">
+            <h2 style="margin-top:0;">Contatos</h2>
+            ${d.contatos.length ? d.contatos.map(a => `
+              <div class="linha">
+                <div>${esc(a.label || a.tipo)}
+                  <div class="linha-sub">${dataBr(a.resolvido_em || a.data)} · ${esc(a.status)}${a.respondeu_em ? ' · <span class="tag-ok">respondeu</span>' : ''}</div>
+                </div>
+              </div>`).join('') : '<p class="vazio">Nenhum contato ainda.</p>'}
+          </div>
+
+          <div class="card">
+            <h2 style="margin-top:0;">Cupons</h2>
+            ${d.cupons.length ? d.cupons.map(cp => `
+              <div class="linha">
+                <div><strong>${esc(cp.codigo)}</strong> · ${cp.pct}%
+                  <div class="linha-sub">${cp.usado_em ? 'usado em ' + dataBr(cp.usado_em) : (cp.status === 'ativo' ? 'vale até ' + dataBr(cp.validade) : esc(cp.status))}</div>
+                </div>
+              </div>`).join('') : '<p class="vazio">Nenhum cupom emitido.</p>'}
+          </div>
+        </div>
+
+        ${c.observacoes ? `<div class="card" style="margin-top:16px;">
+          <h2 style="margin-top:0;">Observações</h2>
+          <p style="margin:0; font-size:0.9rem; white-space:pre-line;">${esc(c.observacoes)}</p>
+        </div>` : ''}
+      `;
+    }
+
+    function kpi(n, l) { return `<div class="kpi"><div class="kpi-n">${n}</div><div class="kpi-l">${l}</div></div>`; }
+    function diasDesde(d) { return Math.floor((new Date() - new Date(d + 'T12:00:00')) / 86400000); }
+    function dataBr(d) { return d ? String(d).slice(0, 10).split('-').reverse().join('/') : '—'; }
+    function erro(m) { document.getElementById('ficha').innerHTML = `<div class="card vazio">${esc(m)}</div>`; }
+    function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      montarLayout('clientes');
+      carregar().catch(e => erro(e.message || 'Não consegui carregar a ficha.'));
+    });
+  </script>
+</body>
+</html>

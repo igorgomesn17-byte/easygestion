@@ -90,6 +90,7 @@
       <div style="display:flex; gap:10px; margin-top:10px; flex-wrap:wrap;">
         <button class="btn" id="btnEnviar" onclick="responder(false)">Enviar</button>
         <button class="btn btn-sec" onclick="responder(true)">Salvar como nota</button>
+        <a class="btn btn-sec" id="btnFicha" href="#" style="margin-left:auto;">Ficha completa</a>
       </div>
       <p class="texto-cinza" style="font-size:0.75rem; margin:9px 0 0;">
         A nota fica só aqui — a cliente não vê.
@@ -208,6 +209,12 @@
         const btn = document.getElementById('btnEnviar');
         btn.disabled = !d.tem_canal;
         btn.title = d.tem_canal ? '' : 'Conecte o WhatsApp para responder por aqui';
+
+        // A ficha só existe pra quem já tem cadastro. Card de número solto (que
+        // chegou pelo bot e ninguém salvou) não tem o que mostrar ainda.
+        const fic = document.getElementById('btnFicha');
+        if (c.cliente_id) { fic.href = `ficha.html?id=${c.cliente_id}`; fic.style.display = ''; }
+        else fic.style.display = 'none';
         document.getElementById('dlgConversa').showModal();
         const lista = document.getElementById('cvMsgs');
         lista.scrollTop = lista.scrollHeight;

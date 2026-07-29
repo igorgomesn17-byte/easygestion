@@ -23,11 +23,6 @@ tela pra conectá-la fora do contexto Point**. Falta:
 
 ## 🟠 Importante, mas não bloqueia
 
-### 6b. Ficha 360º da cliente
-Planejada na fase 3, **não construída**. Os dados seguem espalhados em 5 tabelas
-(compras, selos, cupons, pedidos, conversas) sem tela que junte. A conversa já mostra
-valor e nº de compras no card — é o mínimo, não a ficha.
-
 ### 6c. Comissão sobre valor recuperado
 O placar já calcula `valor_recuperado` por pessoa. Falta ligar `usuarios` ↔ `vendedores`
 (tabelas separadas que não se conversam) pra virar comissão de verdade.
@@ -96,6 +91,9 @@ automático. Aceitável enquanto o volume é baixo.
 - **Etiqueta de envio** (29/07): 100×150mm, uma por folha, excursão como bloco principal
   (é o destino real), código de barras do pedido. Migration **049** (`despachado_em`)
 - **Cadência semanal configurável** na tela de Contatos do dia (nasce desligada)
+- **Ficha 360º** (29/07): as cinco fontes numa tela — compras (sem as canceladas),
+  pedidos do site, contatos com quem respondeu, cupons, selos e segmento RFM. Linkada
+  de Clientes e da conversa no kanban
 - Testes: `test:whatsapp` (69), `test:canal` (28), `test:atacado` (46), `test:bot` (43).
   Suíte: **15 arquivos**
 

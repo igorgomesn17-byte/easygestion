@@ -327,6 +327,74 @@ router.get('/placar', (req, res) => {
   res.json({ dias, pessoas, loja, por_tipo: semResposta });
 });
 
+// ------------------------------------------------------------
+// GET /ficha/:clienteId — a cliente inteira numa tela
+// ------------------------------------------------------------
+// Os dados dela sempre existiram, espalhados em cinco lugares: compras em
+// `vendas`, selos derivados de `clientes.gasto_sem_selo`, cupons em `crm_cupons`,
+// pedidos em `vitrine_pedidos` e conversas em `conversas`. Cinco tabelas, nenhuma
+// tela que juntasse — e sem isso o comercial abre a conversa sem saber com quem
+// está falando.
+router.get('/ficha/:id', (req, res) => {
+  const t = req.tenantId;
+  const id = Number(req.params.id);
+
+  const cliente = db.prepare(`
+    SELECT c.*, e.nome AS excursao_nome
+      FROM clientes c
+      LEFT JOIN excursoes e ON e.id = c.excursao_id AND e.tenant_id = c.tenant_id
+     WHERE c.id = ? AND c.tenant_id = ?
+  `).get(id, t);
+  if (!cliente) return res.status(404).json({ erro: 'Cliente não encontrada' });
+
+  // COALESCE(deletado,0)=0 em toda leitura de venda: venda cancelada já contou no
+  // faturamento uma vez neste projeto, em 9 queries diferentes.
+  const compras = db.prepare(`
+    SELECT id, data_hora, total, forma_pagamento, origem
+      FROM vendas
+     WHERE cliente_id = ? AND tenant_id = ? AND COALESCE(deletado, 0) = 0
+     ORDER BY data_hora DESC LIMIT 20
+  `).all(id, t);
+
+  const pedidos = db.prepare(`
+    SELECT codigo, status, total, qtd_itens, criado_em, venda_id, despachado_em
+      FROM vitrine_pedidos WHERE cliente_id = ? AND tenant_id = ?
+     ORDER BY criado_em DESC LIMIT 10
+  `).all(id, t);
+
+  const contatos = db.prepare(`
+    SELECT tipo, label, status, data, resolvido_em, respondeu_em, cupom
+      FROM crm_acoes WHERE cliente_id = ? AND tenant_id = ?
+     ORDER BY COALESCE(resolvido_em, data) DESC LIMIT 15
+  `).all(id, t);
+
+  let cupons = [];
+  try {
+    cupons = db.prepare(`
+      SELECT codigo, pct, status, validade, usado_em
+        FROM crm_cupons WHERE cliente_id = ? AND tenant_id = ?
+       ORDER BY id DESC LIMIT 10
+    `).all(id, t);
+  } catch (_) { /* loja sem o motor de cupom */ }
+
+  const conversa = db.prepare(`
+    SELECT id, estagio, ultima_interacao FROM conversas
+     WHERE cliente_id = ? AND tenant_id = ? AND arquivada = 0
+     ORDER BY ultima_interacao DESC LIMIT 1
+  `).get(id, t);
+
+  // Selos e segmento vêm do motor do CRM, não recalculados aqui — duplicar a
+  // regra faria a ficha divergir da fila no dia em que uma das duas mudasse.
+  let selos = null, segmento = null;
+  try {
+    const crm = require('../lib/crm');
+    if (crm.clubeAtivo(t)) selos = crm.selosDe(t, cliente);
+    segmento = crm.rfmDoCliente(cliente, new Date().toISOString().slice(0, 10));
+  } catch (_) { /* sem relacionamento no plano */ }
+
+  res.json({ cliente, compras, pedidos, contatos, cupons, conversa, selos, segmento });
+});
+
 router.get('/usuarios', (req, res) => {
   res.json(db.prepare(
     "SELECT id, nome, papel FROM usuarios WHERE tenant_id = ? AND ativo = 1 ORDER BY nome"
