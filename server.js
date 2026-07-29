@@ -403,6 +403,10 @@ app.use('/api/relacionamento', exigirPapel('admin', 'relacionamento'), exigirFea
 // existe só no plano `interno` — é ferramenta da campanha da loja do dono, não
 // produto. Mesmo padrão de mount: rota nova nasce protegida.
 app.use('/api/reativacao', apenasAdmin, exigirFeature('base_importada'), require('./routes/reativacao'));
+// CRM comercial (Comercial 1): kanban de prospecção, conversas e placar. Mesma
+// regra de papel do relacionamento — quem opera o CRM precisa entrar, e vendedora
+// não. Gate `crm_avancado` no mount: rota nova nasce protegida.
+app.use('/api/comercial', exigirPapel('admin', 'relacionamento'), exigirFeature('crm_avancado'), require('./routes/comercial'));
 // Maquininha integrada (Mercado Pago Point): manda a cobrança pro aparelho e traz de
 // volta NSU, bandeira e a TAXA REAL. Gate no mount, como os de cima.
 // ⚠️ A feature é `maquininha_integrada`, NÃO `maquininha` — esta última já existe, é

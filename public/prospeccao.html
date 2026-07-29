@@ -1,0 +1,237 @@
+<DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prospecção • EasyGestão</title>
+  <link rel="stylesheet" href="css/ds.css">
+  <style>
+    .kb { display:flex; gap:12px; overflow-x:auto; padding-bottom:12px; align-items:flex-start; }
+    .col { background:var(--surface-2); border-radius:var(--radius-sm); min-width:250px; flex:1 0 250px; }
+    .col-topo { padding:11px 13px; border-bottom:1px solid var(--linha); display:flex;
+                justify-content:space-between; align-items:center; gap:8px; }
+    .col-nome { font-weight:700; font-size:0.85rem; }
+    .col-n { font-size:0.75rem; color:var(--tinta-2); background:var(--surface);
+             padding:1px 8px; border-radius:999px; font-weight:700; }
+    .col-cards { padding:9px; display:flex; flex-direction:column; gap:8px; min-height:60px; }
+    .card-p { background:var(--surface); border:1px solid var(--linha); border-radius:var(--radius-sm);
+              padding:10px 11px; cursor:grab; }
+    .card-p:active { cursor:grabbing; }
+    .card-p.arrastando { opacity:.4; }
+    .col.alvo .col-cards { background:var(--marca-clara); border-radius:var(--radius-sm); }
+    .cp-nome { font-weight:700; font-size:0.9rem; margin-bottom:2px; }
+    .cp-meta { font-size:0.74rem; color:var(--tinta-2); font-family:ui-monospace, monospace; }
+    .cp-msg { font-size:0.78rem; color:var(--tinta-2); margin-top:6px; font-style:italic;
+              overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .cp-tags { display:flex; gap:5px; margin-top:7px; flex-wrap:wrap; }
+    .tg { font-size:0.65rem; padding:2px 6px; border-radius:3px; font-weight:700; letter-spacing:.02em; }
+    .tg-esp { background:var(--dourado-claro); color:var(--dourado-escuro); }
+    .tg-trv { background:var(--vermelho-bg); color:var(--vermelho); }
+    .tg-cli { background:var(--marca-clara); color:var(--marca-escura); }
+    .tg-dono { background:var(--surface-2); color:var(--tinta-2); }
+    .vazio-col { color:var(--tinta-2); font-size:0.78rem; text-align:center; padding:14px 6px; }
+    .filtros { display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
+    dialog { border:0; border-radius:var(--radius); padding:0; max-width:520px; width:92%; }
+    dialog::backdrop { background:rgba(0,0,0,.4); }
+    .dlg { padding:22px; }
+    .msg-lista { max-height:300px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; margin:14px 0; }
+    .bal { padding:8px 11px; border-radius:8px; font-size:0.86rem; max-width:85%; line-height:1.45; }
+    .bal-rec { background:var(--surface-2); align-self:flex-start; }
+    .bal-env { background:var(--marca-clara); color:var(--marca-escura); align-self:flex-end; }
+    .bal-not { background:var(--dourado-claro); color:var(--dourado-escuro); align-self:center;
+               font-style:italic; font-size:0.78rem; max-width:95%; }
+    .bal-h { display:block; font-size:0.66rem; opacity:.65; margin-top:3px; font-family:ui-monospace, monospace; }
+  </style>
+</head>
+<body>
+  <div class="conteudo">
+    <h1>Prospecção</h1>
+    <p class="subtitulo">Quem ainda não é cliente. A fila de contatos cuida de quem já comprou — aqui é você quem escolhe com quem falar.</p>
+
+    <div class="filtros">
+      <button class="btn" onclick="abrirNovo()">+ Novo contato</button>
+      <label style="display:flex; align-items:center; gap:7px; font-size:0.88rem;">
+        <input type="checkbox" id="soMeus" onchange="carregar()"> só os meus
+      </label>
+      <span class="texto-cinza" id="resumo" style="margin-left:auto; font-size:0.85rem;"></span>
+    </div>
+
+    <div class="kb" id="kb"></div>
+  </div>
+
+  <!-- Novo prospect -->
+  <dialog id="dlgNovo">
+    <div class="dlg">
+      <h2 style="margin-top:0;">Novo contato</h2>
+      <div style="display:grid; gap:12px;">
+        <div><label>Nome *</label><input id="nNome" placeholder="Modas Cristina"></div>
+        <div><label>WhatsApp *</label><input id="nTel" placeholder="73 99999-9999"></div>
+        <div><label>Cidade</label><input id="nCidade" placeholder="Ipiaú"></div>
+        <div><label>Como chegou</label><input id="nOrigem" placeholder="Instagram, indicação…"></div>
+        <div><label>Observação</label><textarea id="nObs" rows="2" placeholder="o que você quer lembrar"></textarea></div>
+      </div>
+      <div style="display:flex; gap:10px; margin-top:18px;">
+        <button class="btn" onclick="salvarNovo()">Cadastrar</button>
+        <button class="btn btn-sec" onclick="document.getElementById('dlgNovo').close()">Cancelar</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Conversa -->
+  <dialog id="dlgConversa">
+    <div class="dlg">
+      <div class="flex-entre" style="margin-bottom:4px;">
+        <h2 style="margin:0;" id="cvNome">—</h2>
+        <button class="btn btn-sec" onclick="document.getElementById('dlgConversa').close()">Fechar</button>
+      </div>
+      <p class="texto-cinza" id="cvMeta" style="margin:0; font-size:0.82rem;"></p>
+      <div class="msg-lista" id="cvMsgs"></div>
+      <textarea id="cvTexto" rows="3" placeholder="Escreva a mensagem…" style="width:100%;"></textarea>
+      <div style="display:flex; gap:10px; margin-top:10px; flex-wrap:wrap;">
+        <button class="btn" id="btnEnviar" onclick="responder(false)">Enviar</button>
+        <button class="btn btn-sec" onclick="responder(true)">Salvar como nota</button>
+      </div>
+      <p class="texto-cinza" style="font-size:0.75rem; margin:9px 0 0;">
+        A nota fica só aqui — a cliente não vê.
+      </p>
+    </div>
+  </dialog>
+
+  <script src="js/comum.js"></script>
+  <script>
+    let COLUNAS = [], TEM_CANAL = false, CONVERSA = null;
+
+    async function carregar() {
+      const meu = document.getElementById('soMeus').checked ? '?meu=1' : '';
+      const d = await api('/comercial/kanban' + meu);
+      COLUNAS = d.colunas || [];
+      TEM_CANAL = !!d.tem_canal;
+      document.getElementById('resumo').textContent = `${d.total} contato${d.total === 1 ? '' : 's'} no funil`;
+      render();
+    }
+
+    function render() {
+      document.getElementById('kb').innerHTML = COLUNAS.map(c => `
+        <div class="col" data-estagio="${c.id}"
+             ondragover="event.preventDefault(); this.classList.add('alvo');"
+             ondragleave="this.classList.remove('alvo');"
+             ondrop="soltar(event, '${c.id}')">
+          <div class="col-topo">
+            <span class="col-nome">${esc(c.nome)}</span>
+            <span class="col-n">${c.cards.length}</span>
+          </div>
+          <div class="col-cards">
+            ${c.cards.length ? c.cards.map(card).join('') : '<div class="vazio-col">—</div>'}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function card(k) {
+      const nome = k.cliente_nome || k.contato_nome || k.telefone;
+      // O valor da cliente aparece ANTES de qualquer contato: é o que muda o
+      // cuidado da conversa e justifica o tempo gasto nela.
+      const valor = k.total_gasto > 0
+        ? `R$ ${Number(k.total_gasto).toFixed(0)} · ${k.num_compras} compra${k.num_compras === 1 ? '' : 's'}`
+        : (k.cidade || k.origem || 'sem histórico');
+      return `
+        <div class="card-p" draggable="true" data-id="${k.id}"
+             ondragstart="arrastar(event, ${k.id})" ondragend="this.classList.remove('arrastando')"
+             onclick="abrirConversa(${k.id})">
+          <div class="cp-nome">${esc(nome)}</div>
+          <div class="cp-meta">${esc(valor)}</div>
+          ${k.ultima_msg ? `<div class="cp-msg">${esc(k.ultima_msg)}</div>` : ''}
+          <div class="cp-tags">
+            ${k.esperando ? '<span class="tg tg-esp">esperando você</span>' : ''}
+            ${k.travado ? `<span class="tg tg-trv">${k.dias_parado}d parado</span>` : ''}
+            ${k.cliente_tipo !== 'prospect' && k.num_compras > 0 ? '<span class="tg tg-cli">já é cliente</span>' : ''}
+            ${k.dono_nome ? `<span class="tg tg-dono">${esc(k.dono_nome)}</span>` : ''}
+          </div>
+        </div>`;
+    }
+
+    let ARRASTANDO = null;
+    function arrastar(ev, id) {
+      ARRASTANDO = id;
+      ev.currentTarget.classList.add('arrastando');
+      ev.dataTransfer.effectAllowed = 'move';
+    }
+
+    async function soltar(ev, estagio) {
+      ev.preventDefault();
+      document.querySelectorAll('.col').forEach(c => c.classList.remove('alvo'));
+      if (!ARRASTANDO) return;
+      const id = ARRASTANDO; ARRASTANDO = null;
+      try {
+        await api(`/comercial/kanban/${id}/estagio`, { method: 'POST', body: { estagio } });
+        if (estagio === 'comprou') toast('Virou cliente — entra na régua a partir de agora');
+        carregar();
+      } catch (e) { toast(e.message || 'Não consegui mover', 'erro'); }
+    }
+
+    function abrirNovo() { document.getElementById('dlgNovo').showModal(); }
+
+    async function salvarNovo() {
+      const body = {
+        nome: val('nNome'), telefone: val('nTel'), cidade: val('nCidade'),
+        origem: val('nOrigem'), obs: val('nObs'),
+      };
+      if (!body.nome || !body.telefone) return toast('Preencha o nome e o WhatsApp', 'erro');
+      try {
+        const r = await api('/comercial/prospect', { method: 'POST', body });
+        // Avisa quando a pessoa JÁ compra da loja — prospectar quem já é cliente
+        // é a gafe que faz perder credibilidade na primeira frase.
+        if (r.jaEcliente) toast('Atenção: essa pessoa já é cliente da loja', 'erro');
+        else toast('Contato cadastrado');
+        ['nNome','nTel','nCidade','nOrigem','nObs'].forEach(i => document.getElementById(i).value = '');
+        document.getElementById('dlgNovo').close();
+        carregar();
+      } catch (e) { toast(e.message || 'Erro ao cadastrar', 'erro'); }
+    }
+
+    async function abrirConversa(id) {
+      try {
+        const d = await api(`/comercial/conversas/${id}`);
+        CONVERSA = d.conversa;
+        const c = d.conversa;
+        document.getElementById('cvNome').textContent = c.cliente_nome || c.contato_nome || c.telefone;
+        document.getElementById('cvMeta').textContent =
+          [c.cidade, c.total_gasto > 0 ? `R$ ${Number(c.total_gasto).toFixed(0)} em ${c.num_compras} compras` : 'ainda não comprou',
+           c.dono_nome ? `com ${c.dono_nome}` : null].filter(Boolean).join(' · ');
+
+        document.getElementById('cvMsgs').innerHTML = (d.mensagens || []).map(m => `
+          <div class="bal bal-${m.direcao === 'recebida' ? 'rec' : m.direcao === 'nota' ? 'not' : 'env'}">
+            ${esc(m.texto || '[' + m.tipo + ']')}
+            <span class="bal-h">${(m.criado_em || '').slice(5, 16).replace('-', '/')}</span>
+          </div>`).join('') || '<p class="texto-cinza">Nenhuma mensagem ainda.</p>';
+
+        const btn = document.getElementById('btnEnviar');
+        btn.disabled = !d.tem_canal;
+        btn.title = d.tem_canal ? '' : 'Conecte o WhatsApp para responder por aqui';
+        document.getElementById('dlgConversa').showModal();
+        const lista = document.getElementById('cvMsgs');
+        lista.scrollTop = lista.scrollHeight;
+      } catch (e) { toast(e.message || 'Erro ao abrir', 'erro'); }
+    }
+
+    async function responder(nota) {
+      const texto = val('cvTexto');
+      if (!texto) return toast('Escreva a mensagem', 'erro');
+      try {
+        await api(`/comercial/conversas/${CONVERSA.id}/mensagem`, { method: 'POST', body: { texto, nota } });
+        document.getElementById('cvTexto').value = '';
+        toast(nota ? 'Nota salva' : 'Enviado');
+        abrirConversa(CONVERSA.id);
+      } catch (e) { toast(e.message || 'Não consegui enviar', 'erro'); }
+    }
+
+    function val(id) { return document.getElementById(id).value.trim(); }
+    function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      montarLayout('prospeccao');
+      carregar().catch(e => toast(e.message || 'Erro ao carregar', 'erro'));
+    });
+  </script>
+</body>
+</html>

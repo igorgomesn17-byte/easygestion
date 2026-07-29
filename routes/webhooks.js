@@ -138,13 +138,96 @@ router.post('/whatsapp/:token', (req, res) => {
     }
 
     logger.info(`[Webhook WhatsApp] tenant ${tenantId} · conversa ${r.conversaId}${r.nova ? ' (NOVA)' : ''}`);
+
+    // ---- o bot atende, se for a vez dele ----
+    // Responde ANTES do 200 sair? Não: o provedor precisa do 200 rápido, senão
+    // reenvia. O envio vai em background e a falha dele nunca vira erro do webhook.
     res.status(200).json({ received: true, conversa_id: r.conversaId });
+
+    if (require('../lib/conversas').botDeveResponder(tenantId, r.conversaId)) {
+      responderComBot(tenantId, r.conversaId, r.texto, r.clienteId).catch((e) =>
+        logger.warn('[BOT] falhou:', e.message));
+    }
+    return;
 
   } catch (err) {
     logger.error('[Webhook WhatsApp] erro:', err.stack || err.message);
     res.status(200).json({ received: true, error: err.message });
   }
 });
+
+// ------------------------------------------------------------
+// O bot atende — ou passa pro humano.
+// ------------------------------------------------------------
+// Roda DEPOIS da resposta HTTP, de propósito: o provedor precisa do 200 rápido ou
+// reenvia o webhook. Nada aqui pode derrubar o recebimento da mensagem, que já
+// aconteceu e já está gravado.
+async function responderComBot(tenantId, conversaId, texto, clienteId) {
+  const bot = require('../lib/bot');
+  const conversas = require('../lib/conversas');
+  const whatsapp = require('../lib/whatsapp');
+
+  const d = bot.decidir(tenantId, texto, {});
+
+  // TRANSFERIU: o bot se cala nesta conversa pra sempre. Voltar a falar depois de
+  // ter chamado gente é o comportamento que faz a cliente desistir — ela já foi
+  // avisada que um humano vem.
+  if (d.acao === 'transferir') {
+    conversas.pausarBot(tenantId, conversaId);
+
+    // Pra QUEM: nunca comprou → Comercial 1; já comprou → Comercial 2. A regra
+    // vem do MCC, e é o que faz o card cair na fila certa.
+    const depto = bot.departamentoDe(tenantId, clienteId);
+
+    db.prepare(`
+      UPDATE conversas SET estagio = CASE WHEN estagio = 'novo' THEN 'falei' ELSE estagio END
+       WHERE id = ? AND tenant_id = ?
+    `).run(conversaId, tenantId);
+
+    // A nota interna é a transferência QUENTE: o comercial abre o card e já lê o
+    // motivo, em vez de receber um "cliente aguarda atendimento" sem contexto.
+    const rotulo = {
+      reclamacao: '🔴 Reclamação',
+      irritada: '🔴 Cliente irritada',
+      negociacao: '💬 Pediu desconto/condição',
+      troca: '🔄 Troca ou devolução',
+      pediu_humano: '🙋 Pediu falar com atendente',
+      pedido_nao_encontrado: '❓ Código de pedido não encontrado',
+      duvida_produto: '👗 Dúvida sobre peça',
+      fora_do_escopo: '❓ Fora do que o atendimento automático cobre',
+    }[d.motivo] || d.motivo;
+
+    conversas.registrarNota(tenantId, {
+      conversaId,
+      texto: `${rotulo} — passado para ${depto === 'c1' ? 'Comercial 1 (primeira compra)' : 'Comercial 2 (já é cliente)'}`,
+    });
+
+    logger.info(`[BOT] tenant ${tenantId} · conversa ${conversaId} → ${depto} (${d.motivo})`);
+  }
+
+  // A resposta pode existir nos dois casos: mesmo transferindo, o bot avisa que
+  // chamou alguém. Silêncio deixaria a cliente falando sozinha.
+  let resposta = d.resposta;
+
+  // Fora do horário, avisa quando alguém volta em vez de fingir que tem gente.
+  if (d.acao === 'transferir' && !bot.dentroDoHorario(tenantId)) {
+    resposta = (resposta ? resposta + '\n\n' : '') + bot.avisoForaDoHorario(tenantId);
+  }
+  if (!resposta) return;
+
+  const envio = await whatsapp.enviarTexto(tenantId, telefoneDaConversa(tenantId, conversaId), resposta);
+  if (envio.ok) {
+    conversas.registrarEnviada(tenantId, { conversaId, externalId: envio.externalId, texto: resposta });
+  } else {
+    logger.warn('[BOT] nao consegui responder:', envio.erro);
+  }
+}
+
+function telefoneDaConversa(tenantId, conversaId) {
+  const c = db.prepare('SELECT telefone FROM conversas WHERE id = ? AND tenant_id = ?')
+    .get(conversaId, tenantId);
+  return c?.telefone || '';
+}
 
 // ============================================================
 // POST /api/webhooks/mercadopago — o Pix caiu.

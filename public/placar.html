@@ -1,0 +1,158 @@
+<DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Placar do comercial • EasyGestão</title>
+  <link rel="stylesheet" href="css/ds.css">
+  <style>
+    .kpis { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:12px; margin-bottom:20px; }
+    .kpi { background:var(--surface-2); border-radius:var(--radius-sm); padding:13px 15px; }
+    .kpi-n { font-size:1.4rem; font-weight:800; color:var(--tinta); font-variant-numeric:tabular-nums; }
+    .kpi-l { font-size:0.76rem; color:var(--tinta-2); margin-top:3px; }
+    .rolagem { overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; min-width:620px; }
+    th, td { padding:11px 12px; text-align:left; border-bottom:1px solid var(--linha); font-size:0.88rem; }
+    th { font-size:0.72rem; text-transform:uppercase; letter-spacing:.06em; color:var(--tinta-2); font-weight:700; }
+    td.n { font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .barra { height:4px; background:var(--linha); border-radius:2px; margin-top:5px; min-width:56px; }
+    .barra span { display:block; height:100%; background:var(--marca); border-radius:2px; }
+    .destaque { font-weight:800; color:var(--marca-escura); }
+    .alerta { color:var(--vermelho); font-weight:700; }
+    .nota { border-left:3px solid var(--dourado); background:var(--dourado-claro);
+            color:var(--dourado-escuro); padding:14px 17px; border-radius:var(--radius-sm);
+            font-size:0.88rem; line-height:1.6; margin-top:20px; }
+    .periodo { display:flex; gap:8px; margin-bottom:18px; flex-wrap:wrap; }
+    .pill { padding:5px 13px; border-radius:999px; background:var(--surface-2); cursor:pointer;
+            font-size:0.82rem; font-weight:600; }
+    .pill.on { background:var(--marca); color:#fff; }
+  </style>
+</head>
+<body>
+  <div class="conteudo">
+    <h1>Placar do comercial</h1>
+    <p class="subtitulo">Todo número aqui sai do que já aconteceu. Ninguém preenche relatório.</p>
+
+    <div class="periodo">
+      <span class="pill" data-d="7" onclick="setPeriodo(7)">7 dias</span>
+      <span class="pill on" data-d="30" onclick="setPeriodo(30)">30 dias</span>
+      <span class="pill" data-d="90" onclick="setPeriodo(90)">90 dias</span>
+    </div>
+
+    <div class="kpis" id="kpis"></div>
+
+    <div class="card">
+      <h2 style="margin-top:0;">Por pessoa</h2>
+      <div class="rolagem"><table id="tabela"></table></div>
+    </div>
+
+    <div class="card" style="margin-top:16px;">
+      <h2 style="margin-top:0;">Quais mensagens ninguém responde</h2>
+      <p class="texto-cinza" style="margin-top:0; font-size:0.87rem;">
+        Este é o número mais honesto do placar — e ele corrige o <strong>texto</strong>,
+        não a pessoa que enviou.
+      </p>
+      <div class="rolagem"><table id="tipos"></table></div>
+    </div>
+
+    <div class="nota" id="leitura"></div>
+  </div>
+
+  <script src="js/comum.js"></script>
+  <script>
+    let DIAS = 30;
+
+    function setPeriodo(d) {
+      DIAS = d;
+      document.querySelectorAll('.pill').forEach(p => p.classList.toggle('on', +p.dataset.d === d));
+      carregar();
+    }
+
+    async function carregar() {
+      const d = await api(`/comercial/placar?dias=${DIAS}`);
+      const l = d.loja;
+
+      document.getElementById('kpis').innerHTML = `
+        ${kpi(l.contatos, 'contatos feitos')}
+        ${kpi(l.taxa_resposta + '%', 'responderam')}
+        ${kpi(moeda(l.valor_recuperado), 'valor recuperado')}
+        ${kpi(l.vendas_recuperadas, 'vendas depois do contato')}
+        ${kpi(l.fecharam + '/' + l.prospects, 'prospects que fecharam')}
+        ${kpi(l.paradas, 'conversas paradas', l.paradas > 0)}
+      `;
+
+      const pessoas = (d.pessoas || []).filter(p => p.contatos || p.prospects || p.paradas);
+      document.getElementById('tabela').innerHTML = pessoas.length ? `
+        <thead><tr>
+          <th>Pessoa</th><th>Contatos</th><th>Responderam</th><th>Recuperado</th>
+          <th>Ticket</th><th>Prospects</th><th>Paradas</th>
+        </tr></thead>
+        <tbody>${pessoas.map(p => `
+          <tr>
+            <td><strong>${esc(p.nome)}</strong></td>
+            <td class="n">${p.contatos}</td>
+            <td class="n">${p.taxa_resposta}%<div class="barra"><span style="width:${Math.min(100, p.taxa_resposta)}%"></span></div></td>
+            <td class="n destaque">${moeda(p.valor_recuperado)}</td>
+            <td class="n">${p.ticket ? moeda(p.ticket) : '—'}</td>
+            <td class="n">${p.fecharam}/${p.prospects}</td>
+            <td class="n ${p.paradas > 0 ? 'alerta' : ''}">${p.paradas}</td>
+          </tr>`).join('')}</tbody>`
+        : '<tbody><tr><td class="texto-cinza">Ninguém enviou contato neste período.</td></tr></tbody>';
+
+      const tipos = (d.por_tipo || []).filter(t => t.enviadas > 0);
+      document.getElementById('tipos').innerHTML = tipos.length ? `
+        <thead><tr><th>Tipo de contato</th><th>Enviadas</th><th>Sem resposta</th><th>%</th></tr></thead>
+        <tbody>${tipos.map(t => {
+          const pct = Math.round((t.sem_resposta / t.enviadas) * 100);
+          return `<tr>
+            <td>${esc(t.tipo)}</td>
+            <td class="n">${t.enviadas}</td>
+            <td class="n ${pct >= 70 ? 'alerta' : ''}">${t.sem_resposta}</td>
+            <td class="n">${pct}%</td>
+          </tr>`;
+        }).join('')}</tbody>`
+        : '<tbody><tr><td class="texto-cinza">Nada enviado ainda.</td></tr></tbody>';
+
+      document.getElementById('leitura').innerHTML = leitura(l, pessoas, tipos);
+    }
+
+    // A leitura em português do que os números dizem. Sem isto o placar vira uma
+    // tabela que ninguém interpreta — e a decisão errada (premiar quem manda mais
+    // mensagem) é o padrão quando o número não vem explicado.
+    function leitura(l, pessoas, tipos) {
+      if (!l.contatos) return '<strong>Ainda sem dados.</strong> Assim que os contatos começarem a sair, os números aparecem aqui.';
+      const partes = [];
+
+      const pior = tipos.filter(t => t.enviadas >= 5).sort((a, b) =>
+        (b.sem_resposta / b.enviadas) - (a.sem_resposta / a.enviadas))[0];
+      if (pior && (pior.sem_resposta / pior.enviadas) >= 0.7) {
+        partes.push(`<strong>A mensagem de "${esc(pior.tipo)}" não está convencendo</strong> — ${pior.sem_resposta} de ${pior.enviadas} não responderam. Vale reescrever o texto dela na tela de Fidelidade.`);
+      }
+
+      if (pessoas.length > 1) {
+        const porValor = pessoas.slice().sort((a, b) => b.valor_recuperado - a.valor_recuperado)[0];
+        const porVolume = pessoas.slice().sort((a, b) => b.contatos - a.contatos)[0];
+        if (porValor && porVolume && porValor.id !== porVolume.id) {
+          partes.push(`<strong>${esc(porVolume.nome)} contatou mais, mas ${esc(porValor.nome)} trouxe mais dinheiro.</strong> Volume e resultado são coisas diferentes — pagar por mensagem enviada premiaria a pessoa errada.`);
+        }
+      }
+
+      if (l.paradas > 0) {
+        partes.push(`<strong>${l.paradas} conversa${l.paradas === 1 ? '' : 's'} esperando resposta.</strong> É o custo escondido de atender rápido e não fechar.`);
+      }
+
+      return partes.length ? partes.join('<br><br>') : '<strong>Tudo em dia.</strong> Nenhuma conversa parada e nenhum tipo de mensagem com problema.';
+    }
+
+    function kpi(n, l, alerta) {
+      return `<div class="kpi"><div class="kpi-n" ${alerta ? 'style="color:var(--vermelho)"' : ''}>${n}</div><div class="kpi-l">${l}</div></div>`;
+    }
+    function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      montarLayout('placar');
+      carregar().catch(e => toast(e.message || 'Erro ao carregar', 'erro'));
+    });
+  </script>
+</body>
+</html>

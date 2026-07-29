@@ -203,6 +203,10 @@ const NAV = [
     // Conectar o WhatsApp da loja. Mesma feature do resto do relacionamento: sem
     // régua, um canal conectado não teria o que enviar.
     { id:'canal',          href:'canal.html',          ico:'config',   txt:'WhatsApp',        feature:'relacionamento' },
+    // Comercial 1 (quem ainda não é cliente) e o placar do time. Feature própria
+    // (`crm_avancado`): quem não tem time comercial não precisa ver estas abas.
+    { id:'prospeccao',     href:'prospeccao.html',     ico:'clientes', txt:'Prospecção',      feature:'crm_avancado' },
+    { id:'placar',         href:'placar.html',         ico:'fluxo',    txt:'Placar',          feature:'crm_avancado' },
     // Base importada de outro sistema: campanha à parte, não entra na fila do dia.
     // Feature PRÓPRIA (`base_importada`, só no interno) — quem não tem base migrada
     // não precisa ver esta aba.
