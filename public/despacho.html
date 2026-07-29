@@ -1,0 +1,246 @@
+<DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Despacho • EasyGestão</title>
+  <link rel="stylesheet" href="css/ds.css">
+  <style>
+    .grupo { border:1px solid var(--linha); border-radius:var(--radius-sm); margin-bottom:16px; overflow:hidden; }
+    .grupo-topo { background:var(--surface-2); padding:14px 16px; display:flex;
+                  justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+    .grupo-nome { font-weight:800; font-size:1.02rem; }
+    .grupo-sub { font-size:0.8rem; color:var(--tinta-2); margin-top:2px; }
+    .grupo-resumo { font-size:0.82rem; color:var(--tinta-2); font-variant-numeric:tabular-nums; }
+    .ped { display:flex; align-items:center; gap:12px; padding:12px 16px;
+           border-top:1px solid var(--linha); flex-wrap:wrap; }
+    .ped-cod { font-family:ui-monospace, monospace; font-weight:700; font-size:0.9rem; }
+    .ped-info { flex:1; min-width:150px; }
+    .ped-cli { font-weight:600; font-size:0.92rem; }
+    .ped-meta { font-size:0.78rem; color:var(--tinta-2); }
+    .ped.saiu { opacity:.5; }
+    .sem-exc .grupo-topo { background:var(--dourado-claro); color:var(--dourado-escuro); }
+    .vazio { text-align:center; padding:36px 20px; color:var(--tinta-2); }
+    .abas { display:flex; gap:8px; margin-bottom:18px; }
+    .aba { padding:7px 15px; border-radius:999px; background:var(--surface-2);
+           cursor:pointer; font-size:0.86rem; font-weight:600; }
+    .aba.on { background:var(--marca); color:#fff; }
+    /* Excursões */
+    .exc-linha { display:flex; align-items:center; gap:12px; padding:12px 0;
+                 border-bottom:1px solid var(--linha); flex-wrap:wrap; }
+    .exc-linha:last-child { border-bottom:0; }
+    .exc-nome { font-weight:700; flex:1; min-width:140px; }
+    .exc-meta { font-size:0.78rem; color:var(--tinta-2); }
+    .exc-off { opacity:.5; }
+    dialog { border:0; border-radius:var(--radius); padding:0; max-width:460px; width:92%; }
+    dialog::backdrop { background:rgba(0,0,0,.4); }
+    .dlg { padding:22px; }
+  </style>
+</head>
+<body>
+  <div class="conteudo">
+    <h1>Despacho</h1>
+    <p class="subtitulo">Os pedidos pagos, agrupados por onde a mercadoria vai. Imprima o lote de uma excursão de uma vez.</p>
+
+    <div class="abas">
+      <span class="aba on" data-t="despacho" onclick="verAba('despacho')">O que sai hoje</span>
+      <span class="aba" data-t="excursoes" onclick="verAba('excursoes')">Excursões</span>
+    </div>
+
+    <div id="tabDespacho"></div>
+
+    <div id="tabExcursoes" style="display:none;">
+      <div class="card">
+        <div class="flex-entre" style="margin-bottom:12px;">
+          <h2 style="margin:0;">Excursões cadastradas</h2>
+          <button class="btn" onclick="abrirNova()">+ Nova</button>
+        </div>
+        <p class="texto-cinza" style="font-size:0.85rem; margin-top:0;">
+          Quando a mesma excursão aparece com dois nomes, use <strong>Juntar</strong> —
+          senão o despacho continua vendo dois destinos pro mesmo lugar.
+        </p>
+        <div id="listaExc"></div>
+      </div>
+    </div>
+  </div>
+
+  <dialog id="dlgExc">
+    <div class="dlg">
+      <h2 style="margin-top:0;" id="dlgTitulo">Nova excursão</h2>
+      <div style="display:grid; gap:12px;">
+        <div><label>Nome *</label><input id="eNome" placeholder="Excursão do João"></div>
+        <div><label>Responsável</label><input id="eResp" placeholder="João"></div>
+        <div><label>Telefone</label><input id="eTel" placeholder="(73) 99999-9999"></div>
+        <div><label>Cidade</label><input id="eCidade" placeholder="Ipiaú"></div>
+        <div><label>Observação</label><input id="eObs" placeholder="sai toda terça, 14h"></div>
+      </div>
+      <div style="display:flex; gap:10px; margin-top:18px;">
+        <button class="btn" onclick="salvarExc()">Salvar</button>
+        <button class="btn btn-sec" onclick="document.getElementById('dlgExc').close()">Cancelar</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="dlgFundir">
+    <div class="dlg">
+      <h2 style="margin-top:0;">Juntar excursões</h2>
+      <p class="texto-cinza" style="font-size:0.87rem;">
+        As clientes e os pedidos de <strong id="fOrigemNome">—</strong> passam para a
+        excursão escolhida. A antiga é desativada, mas o histórico continua.
+      </p>
+      <label>Manter qual?</label>
+      <select id="fDestino" style="width:100%;"></select>
+      <div style="display:flex; gap:10px; margin-top:18px;">
+        <button class="btn" onclick="confirmarFusao()">Juntar</button>
+        <button class="btn btn-sec" onclick="document.getElementById('dlgFundir').close()">Cancelar</button>
+      </div>
+    </div>
+  </dialog>
+
+  <script src="js/comum.js"></script>
+  <script>
+    let EXCURSOES = [], EDITANDO = null, FUNDINDO = null;
+
+    function verAba(t) {
+      document.querySelectorAll('.aba').forEach(a => a.classList.toggle('on', a.dataset.t === t));
+      document.getElementById('tabDespacho').style.display = t === 'despacho' ? '' : 'none';
+      document.getElementById('tabExcursoes').style.display = t === 'excursoes' ? '' : 'none';
+      if (t === 'excursoes') carregarExcursoes();
+    }
+
+    async function carregar() {
+      const d = await api('/vitrine-pedidos/despacho');
+      const grupos = d.grupos || [];
+
+      if (!grupos.length) {
+        document.getElementById('tabDespacho').innerHTML =
+          '<div class="card vazio">Nenhum pedido pago aguardando despacho.<br><small>Pedidos aparecem aqui assim que o pagamento é confirmado.</small></div>';
+        return;
+      }
+
+      document.getElementById('tabDespacho').innerHTML = grupos.map(g => `
+        <div class="grupo ${g.excursao ? '' : 'sem-exc'}">
+          <div class="grupo-topo">
+            <div>
+              <div class="grupo-nome">${g.excursao ? esc(g.excursao) : 'Sem excursão'}</div>
+              <div class="grupo-sub">${g.excursao
+                ? esc([g.responsavel, g.telefone].filter(Boolean).join(' · ') || 'sem responsável cadastrado')
+                : 'retira na loja ou entrega própria'}</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+              <span class="grupo-resumo">${g.pedidos.length} pedido${g.pedidos.length === 1 ? '' : 's'} · ${g.pecas} peças · ${moeda(g.total)}</span>
+              <a class="btn btn-sec" target="_blank"
+                 href="etiqueta-envio.html${g.excursao_id ? '?excursao=' + g.excursao_id : ''}">Imprimir etiquetas</a>
+            </div>
+          </div>
+          ${g.pedidos.map(p => `
+            <div class="ped ${p.despachado ? 'saiu' : ''}">
+              <span class="ped-cod">#${esc(p.codigo)}</span>
+              <div class="ped-info">
+                <div class="ped-cli">${esc(p.cliente || 'Cliente')}</div>
+                <div class="ped-meta">${esc(p.cidade || '')} · ${p.qtd_itens} ${p.qtd_itens === 1 ? 'peça' : 'peças'} · ${moeda(p.total)}</div>
+              </div>
+              <a class="btn btn-sec" target="_blank" href="etiqueta-envio.html?pedido=${esc(p.codigo)}">Etiqueta</a>
+              ${p.despachado
+                ? '<span class="texto-cinza" style="font-size:0.8rem;">já saiu ✓</span>'
+                : `<button class="btn" onclick="despachar(${p.id})">Despachar</button>`}
+            </div>`).join('')}
+        </div>`).join('');
+    }
+
+    async function despachar(id) {
+      try {
+        await api(`/vitrine-pedidos/${id}/despachar`, { method: 'POST' });
+        toast('Marcado como despachado');
+        carregar();
+      } catch (e) { toast(e.message || 'Erro', 'erro'); }
+    }
+
+    async function carregarExcursoes() {
+      EXCURSOES = await api('/vitrine-pedidos/excursoes');
+      document.getElementById('listaExc').innerHTML = EXCURSOES.length ? EXCURSOES.map(e => `
+        <div class="exc-linha ${e.ativo ? '' : 'exc-off'}">
+          <div class="exc-nome">${esc(e.nome)}
+            <div class="exc-meta">${esc([e.responsavel, e.telefone, e.cidade].filter(Boolean).join(' · ') || 'sem dados')} · ${e.clientes} cliente${e.clientes === 1 ? '' : 's'}${e.ativo ? '' : ' · desativada'}</div>
+          </div>
+          <button class="btn btn-sec" onclick="editar(${e.id})">Editar</button>
+          ${e.ativo ? `<button class="btn btn-sec" onclick="abrirFusao(${e.id})">Juntar</button>` : ''}
+          <button class="btn btn-sec" onclick="alternar(${e.id}, ${e.ativo ? 0 : 1})">${e.ativo ? 'Desativar' : 'Reativar'}</button>
+        </div>`).join('')
+        : '<p class="texto-cinza">Nenhuma excursão ainda. Elas também nascem sozinhas quando uma cliente digita no checkout.</p>';
+    }
+
+    function abrirNova() {
+      EDITANDO = null;
+      document.getElementById('dlgTitulo').textContent = 'Nova excursão';
+      ['eNome','eResp','eTel','eCidade','eObs'].forEach(i => document.getElementById(i).value = '');
+      document.getElementById('dlgExc').showModal();
+    }
+
+    function editar(id) {
+      const e = EXCURSOES.find(x => x.id === id);
+      if (!e) return;
+      EDITANDO = id;
+      document.getElementById('dlgTitulo').textContent = 'Editar excursão';
+      document.getElementById('eNome').value = e.nome || '';
+      document.getElementById('eResp').value = e.responsavel || '';
+      document.getElementById('eTel').value = e.telefone || '';
+      document.getElementById('eCidade').value = e.cidade || '';
+      document.getElementById('eObs').value = e.obs || '';
+      document.getElementById('dlgExc').showModal();
+    }
+
+    async function salvarExc() {
+      const body = {
+        nome: v('eNome'), responsavel: v('eResp'), telefone: v('eTel'),
+        cidade: v('eCidade'), obs: v('eObs'),
+      };
+      if (!body.nome) return toast('Dê um nome à excursão', 'erro');
+      try {
+        if (EDITANDO) await api(`/vitrine-pedidos/excursoes/${EDITANDO}`, { method: 'PATCH', body });
+        else await api('/vitrine-pedidos/excursoes', { method: 'POST', body });
+        document.getElementById('dlgExc').close();
+        toast('Salvo');
+        carregarExcursoes();
+      } catch (e) { toast(e.message || 'Erro ao salvar', 'erro'); }
+    }
+
+    async function alternar(id, ativo) {
+      try {
+        await api(`/vitrine-pedidos/excursoes/${id}`, { method: 'PATCH', body: { ativo } });
+        carregarExcursoes();
+      } catch (e) { toast(e.message || 'Erro', 'erro'); }
+    }
+
+    function abrirFusao(id) {
+      const origem = EXCURSOES.find(x => x.id === id);
+      if (!origem) return;
+      FUNDINDO = id;
+      document.getElementById('fOrigemNome').textContent = origem.nome;
+      document.getElementById('fDestino').innerHTML = EXCURSOES
+        .filter(x => x.id !== id && x.ativo)
+        .map(x => `<option value="${x.id}">${esc(x.nome)}</option>`).join('');
+      document.getElementById('dlgFundir').showModal();
+    }
+
+    async function confirmarFusao() {
+      const destino = document.getElementById('fDestino').value;
+      if (!destino) return toast('Escolha a excursão que fica', 'erro');
+      try {
+        await api(`/vitrine-pedidos/excursoes/${destino}/fundir`, { method: 'POST', body: { origem_id: FUNDINDO } });
+        document.getElementById('dlgFundir').close();
+        toast('Excursões juntadas');
+        carregarExcursoes();
+      } catch (e) { toast(e.message || 'Erro', 'erro'); }
+    }
+
+    function v(id) { return document.getElementById(id).value.trim(); }
+    function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      montarLayout('despacho');
+      carregar().catch(e => toast(e.message || 'Erro ao carregar', 'erro'));
+    });
+  </script>
+</body>
+</html>

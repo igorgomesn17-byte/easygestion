@@ -19,50 +19,9 @@ tela pra conectá-la fora do contexto Point**. Falta:
 - conectar a conta MP do tenant
 - apontar o webhook do painel MP pra `/api/webhooks/mercadopago`
 
-### 3. Tela de checkout da vitrine (cadastro + QR)
-As rotas existem (`/pedido/:codigo/cadastro`, `/pedido/:codigo/pix`, `/status`), o HTML
-público **não**. Hoje a cliente monta o carrinho e não tem por onde se cadastrar nem ver
-o QR. **É o maior buraco funcional do atacado.**
-
 ---
 
 ## 🟠 Importante, mas não bloqueia
-
-### 4. Tela de excursões (CRUD)
-A tabela existe e o cadastro público cria excursão nova ao digitar. Falta a tela da
-lojista pra renomear, desativar e corrigir duplicata ("Van do João" × "Excursão João").
-
-### 5. Agrupar pedidos por excursão na aba de Pedidos
-Decidido no plano, **não implementado**. É o que responde "3 pedidos vão na Excursão do
-João hoje" e evita despachar o mesmo destino em duas viagens.
-
-### 5b. Etiqueta de envio do pedido *(pedido do Igor, 29/07)*
-Pedido pago e embalado → gerar etiqueta pra colar no pacote. O que ela precisa dizer:
-**destinatário**, **cidade**, **excursão** (é o destino real — quem recebe é a empresa
-de excursão), código do pedido e qtd de volumes.
-
-**Formato decidido pela pesquisa (29/07): 10×15cm (100×150mm).** É o padrão único do
-e-commerce brasileiro — Shopee, Mercado Livre, Amazon, Magalu e Correios usam todos o
-mesmo, em impressora térmica sem tinta. Rolo com serrilha, ~200 etiquetas em 30m.
-Vantagem: se um dia despachar por transportadora, a etiqueta já está no formato certo.
-
-⚠️ **NÃO reusar o `@page` da etiqueta de produto** — lá a folha é o ROLO de 100×75mm
-(o par de 2 etiquetas de 50mm), e errar isso corta o rolo ao meio. Aqui é 100×150mm.
-O teste deve medir o PDF em mm, como o de produto já faz.
-
-Ainda a decidir: o código de barras é do **pedido** (1 por envio) ou do **volume**
-(1 por caixa, pra pedido que vai em 2 pacotes)?
-
-**Contexto legal que apareceu na pesquisa e vale registrar:** desde **06/04/2026** a
-Declaração de Conteúdo eletrônica (DC-e) é obrigatória pra envio SEM nota fiscal, e a
-declaração em papel deixou de valer — exige XML assinado e autorizado pelo Fisco, e o
-que acompanha o pacote vira o DACE com QR Code.
-**Não afeta este caso** (mercadoria vai pra excursão, não Correios; e a loja emite
-NFC-e). Mas se algum dia houver despacho por transportadora sem nota, é bloqueador.
-
-### 6. `CATALOGO_SEMANAL` sem tela de configuração
-O gatilho lê `crm_catalogo_dia` (0 = desligado), mas **não há onde a lojista escolher o
-dia**. Hoje só por SQL direto.
 
 ### 6b. Ficha 360º da cliente
 Planejada na fase 3, **não construída**. Os dados seguem espalhados em 5 tabelas
@@ -129,5 +88,24 @@ automático. Aceitável enquanto o volume é baixo.
 - Bot de SAC: nunca dá desconto, nunca inventa, roteia C1/C2 pelo MCC, cala quando
   humano assume
 - Placar por pessoa e da loja, com leitura em português do que os números dizem
+- **Checkout da vitrine** (29/07): cadastro no fechamento com excursão por autocomplete,
+  QR do Pix com copia-e-cola, relógio da reserva, polling de confirmação, e a tela que
+  diz QUAL peça acabou quando o estoque some no meio
+- **Despacho** (29/07): pedidos pagos agrupados por excursão, marcar como despachado,
+  CRUD de excursões e **fusão de duplicata** ("Van do João" + "Excursão João" → uma só)
+- **Etiqueta de envio** (29/07): 100×150mm, uma por folha, excursão como bloco principal
+  (é o destino real), código de barras do pedido. Migration **049** (`despachado_em`)
+- **Cadência semanal configurável** na tela de Contatos do dia (nasce desligada)
 - Testes: `test:whatsapp` (69), `test:canal` (28), `test:atacado` (46), `test:bot` (43).
   Suíte: **15 arquivos**
+
+---
+
+## 📌 Contexto legal registrado (não afeta hoje)
+
+Desde **06/04/2026** a Declaração de Conteúdo eletrônica (DC-e) é obrigatória para envio
+**sem nota fiscal**, e a declaração em papel deixou de valer — exige XML assinado e
+autorizado pelo Fisco, e o que acompanha o pacote vira o DACE com QR Code.
+
+**Não afeta este caso:** a mercadoria vai pra excursão (não Correios) e a loja emite
+NFC-e. Mas seria bloqueador em despacho por transportadora sem nota.

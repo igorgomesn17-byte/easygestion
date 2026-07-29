@@ -347,6 +347,33 @@ router.get('/segmentos/:seg', (req, res) => {
 });
 
 // ============================================================
+// CADÊNCIA — a novidade da semana
+// ============================================================
+// Único gatilho que não reage a comportamento: dispara por CALENDÁRIO, pra base
+// que já comprou. Fica DESLIGADO até a lojista escolher o dia — ligar sozinho
+// mandaria mensagem semanal pra base inteira de quem nunca pediu isso.
+router.get('/cadencia', (req, res) => {
+  res.json({
+    dia: parseInt(getConfig('crm_catalogo_dia', '0', req.tenantId), 10) || 0,
+    carrinho_horas: parseInt(getConfig('crm_carrinho_horas', '4', req.tenantId), 10) || 4,
+  });
+});
+
+router.post('/cadencia', (req, res) => {
+  const dia = parseInt((req.body || {}).dia, 10);
+  if (!Number.isInteger(dia) || dia < 0 || dia > 7) {
+    return res.status(400).json({ erro: 'Dia inválido' });
+  }
+  setConfig('crm_catalogo_dia', String(dia), req.tenantId);
+
+  const horas = parseInt((req.body || {}).carrinho_horas, 10);
+  if (Number.isInteger(horas) && horas >= 0 && horas <= 48) {
+    setConfig('crm_carrinho_horas', String(horas), req.tenantId);
+  }
+  res.json({ ok: true, dia });
+});
+
+// ============================================================
 // CANAL DE WHATSAPP — conectar, ver estado, desconectar.
 // ============================================================
 // GET /canal — o que a tela de configuração mostra.

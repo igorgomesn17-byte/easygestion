@@ -47,6 +47,28 @@
       <button class="btn btn-sec" onclick="gerar()">Atualizar lista</button>
     </div>
 
+    <!-- Cadência semanal: nasce desligada de propósito. Ligar sem a lojista pedir
+         mandaria mensagem toda semana pra base inteira — o caminho mais rápido
+         pra virar spam. -->
+    <div class="card" style="padding:14px 16px; margin-bottom:16px; display:flex;
+                             align-items:center; gap:12px; flex-wrap:wrap;">
+      <div style="flex:1; min-width:200px;">
+        <strong style="font-size:0.92rem;">Novidades da semana</strong>
+        <div class="texto-cinza" style="font-size:0.8rem; margin-top:2px;" id="cadTxt">—</div>
+      </div>
+      <select id="cadDia" onchange="salvarCadencia()" style="padding:7px 10px;
+              border-radius:var(--radius-sm); border:1px solid var(--linha);">
+        <option value="0">Desligado</option>
+        <option value="1">Toda segunda</option>
+        <option value="2">Toda terça</option>
+        <option value="3">Toda quarta</option>
+        <option value="4">Toda quinta</option>
+        <option value="5">Toda sexta</option>
+        <option value="6">Todo sábado</option>
+        <option value="7">Todo domingo</option>
+      </select>
+    </div>
+
     <div id="filtros" class="filtros"></div>
     <div id="lista"></div>
   </div>
@@ -59,7 +81,34 @@
     // for desconectada, a tela volta sozinha pro comportamento antigo.
     let TEM_CANAL = false;
 
+    // Cadência da semana. Falhar aqui não pode travar a fila — que é o que a
+    // lojista veio ver.
+    async function carregarCadencia() {
+      try {
+        const d = await api('/relacionamento/cadencia');
+        document.getElementById('cadDia').value = String(d.dia || 0);
+        pintarCadencia(d.dia || 0);
+      } catch (e) { /* segue sem */ }
+    }
+
+    function pintarCadencia(dia) {
+      const nomes = ['', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo'];
+      document.getElementById('cadTxt').textContent = dia
+        ? `Toda ${nomes[dia]}, quem já comprou entra na fila com o convite do catálogo.`
+        : 'Desligado. Ligue para avisar a base toda semana quando chegar coleção nova.';
+    }
+
+    async function salvarCadencia() {
+      const dia = parseInt(document.getElementById('cadDia').value, 10);
+      try {
+        await api('/relacionamento/cadencia', { method: 'POST', body: { dia } });
+        pintarCadencia(dia);
+        toast(dia ? 'Cadência ligada' : 'Cadência desligada');
+      } catch (e) { toast(e.message || 'Erro ao salvar', 'erro'); }
+    }
+
     async function carregar() {
+      carregarCadencia();
       try {
         const d = await api('/relacionamento/acoes');
         ACOES = d.acoes || [];

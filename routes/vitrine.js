@@ -72,6 +72,11 @@ router.get('/:slug', (req, res) => {
       // O front usa isto pra decidir se o card vira link pra pagina de produto
       // ou continua abrindo o modal (loja online x site completo).
       tem_site: loja.temSite,
+      // Com atacado, o carrinho fecha DENTRO do site (cadastro + Pix) em vez de
+      // jogar pro WhatsApp. Sem, o caminho continua sendo o wa.me de sempre —
+      // nenhuma loja perde o que já tinha.
+      tem_atacado: loja.temAtacado,
+      pedido_minimo: Number(loja.config.pedido_minimo || 0),
       ...loja.config,
       // Logo normalizada: sem a barra inicial ela quebraria em /:slug/p/:peca.
       loja_logo: loja.config.loja_logo ? urlFoto(loja.config.loja_logo) : '',
@@ -174,6 +179,23 @@ router.post('/:slug/pedido', limiteEscritaPublica, (req, res) => {
 // ============================================================
 // ATACADO — cadastro no fechamento e Pix.
 // ============================================================
+// GET /api/vitrine/:slug/excursoes — a lista que alimenta o autocomplete.
+//
+// Existe pra combater a duplicata na ORIGEM: se a cliente vê "Excursão do João"
+// na lista, ela escolhe em vez de digitar "exc joao" — e o despacho consegue
+// agrupar. Só o nome sai daqui; telefone e responsável são dados internos.
+router.get('/:slug/excursoes', (req, res) => {
+  try {
+    const loja = resolverLojaPublica(req.params.slug);
+    if (!loja || !loja.temAtacado) return res.status(404).json({ erro: 'Loja não encontrada' });
+    res.json(db.prepare(
+      'SELECT nome FROM excursoes WHERE tenant_id = ? AND ativo = 1 ORDER BY nome'
+    ).all(loja.tenant.id).map((e) => e.nome));
+  } catch (err) {
+    res.json([]);   // sem lista a cliente digita à mão: degrada, não quebra
+  }
+});
+
 // POST /api/vitrine/:slug/pedido/:codigo/cadastro
 //
 // A cliente navega e monta o carrinho SEM login. O cadastro só aparece na hora de

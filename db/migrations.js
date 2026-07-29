@@ -2208,6 +2208,30 @@ function executarMigrations(db) {
           );
         `);
       }
+    },
+
+    {
+      nome: '049_despacho',
+      hash: 'v49-despacho',
+      exec: (db) => {
+        // DESPACHO — o pedido pago vira pacote e sai.
+        //
+        // Sem esta coluna, a tela de despacho nao tem como distinguir "ja foi" de
+        // "ainda vai": todo pedido pago apareceria no roteiro pra sempre, e a
+        // lojista despacharia duas vezes ou pararia de confiar na tela.
+        //
+        // Data, nao booleano: "saiu hoje" e "saiu semana passada" sao perguntas
+        // diferentes, e a segunda so' tem resposta se a data estiver la.
+        const cols = db.prepare('PRAGMA table_info(vitrine_pedidos)').all().map((c) => c.name);
+        if (!cols.includes('despachado_em')) {
+          db.exec(`ALTER TABLE vitrine_pedidos ADD COLUMN despachado_em TEXT;`);
+        }
+
+        // A tela de despacho filtra por (pago E nao despachado). Sem indice isso
+        // e' full scan a cada abertura.
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_vitrine_pedidos_despacho
+                 ON vitrine_pedidos(tenant_id, venda_id, despachado_em);`);
+      }
     }
   ];
 

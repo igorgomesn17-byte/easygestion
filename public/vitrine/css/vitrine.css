@@ -685,3 +685,81 @@ a.card-produto { text-decoration: none; color: inherit; }
   .pdp-preco { font-size: 1.6rem; }
   .pdp-miniatura { width: 56px; height: 76px; }
 }
+
+/* ============================================================
+   CHECKOUT DO ATACADO — cadastro, Pix e confirmação
+   Três telas no mesmo modal. Fonte maior que o resto da vitrine:
+   aqui a cliente digita dados e lê um código de pagamento, e errar
+   um dígito do Pix custa a venda.
+   ============================================================ */
+.checkout-box {
+  max-width: 460px;
+  padding: 1.6rem 1.5rem 1.4rem;
+  text-align: left;
+}
+.checkout-topo {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem;
+  margin-bottom: .3rem;
+}
+.checkout-topo h2 { margin: 0; font-size: 1.25rem; }
+.checkout-sub { margin: 0 0 1.2rem; font-size: .92rem; color: var(--tinta-2); }
+.checkout-campos { display: flex; flex-direction: column; gap: .85rem; }
+.checkout-campos label {
+  display: flex; flex-direction: column; gap: .3rem;
+  font-size: .82rem; font-weight: 600; color: var(--tinta-2);
+}
+.checkout-campos input {
+  width: 100%; padding: .7rem .8rem;
+  border: 1px solid var(--linha); border-radius: var(--v-radius-sm);
+  /* 16px trava o zoom automático do iOS ao focar o campo — abaixo disso o
+     Safari dá zoom e a cliente perde o contexto da tela no meio do cadastro. */
+  font-size: 16px; font-family: inherit; background: var(--surface);
+  color: var(--tinta);
+}
+.checkout-campos input:focus { outline: 2px solid var(--marca); outline-offset: -1px; }
+.checkout-linha { display: flex; gap: .7rem; }
+.checkout-linha label { flex: 1; }
+.checkout-dica { font-size: .78rem; color: var(--tinta-2); margin: .1rem 0 0; line-height: 1.5; }
+.checkout-nota { font-size: .78rem; color: var(--tinta-2); margin: .9rem 0 0; text-align: center; line-height: 1.5; }
+
+.btn-checkout {
+  display: block; width: 100%; margin-top: 1.2rem;
+  padding: .85rem 1rem; border: 0; border-radius: var(--v-radius-sm);
+  background: var(--marca); color: #fff;
+  font-size: .95rem; font-weight: 700; font-family: inherit;
+  cursor: pointer; text-align: center; text-decoration: none;
+}
+.btn-checkout:hover { filter: brightness(.94); }
+.btn-checkout:disabled { opacity: .6; cursor: default; }
+.btn-checkout.btn-secundario {
+  background: transparent; color: var(--tinta-2); border: 1px solid var(--linha);
+  margin-top: .6rem;
+}
+
+.checkout-qr {
+  display: block; width: 210px; height: 210px; margin: .4rem auto 1rem;
+  border: 1px solid var(--linha); border-radius: var(--v-radius-sm); padding: 6px;
+  background: #fff;   /* QR precisa de fundo branco pra ser lido */
+}
+.checkout-pix {
+  width: 100%; margin-top: .6rem; padding: .6rem;
+  border: 1px solid var(--linha); border-radius: var(--v-radius-sm);
+  font-family: ui-monospace, monospace; font-size: .68rem;
+  height: 62px; resize: none; background: var(--surface-2); color: var(--tinta-2);
+  word-break: break-all;
+}
+.checkout-timer {
+  margin-top: .9rem; text-align: center; font-size: .82rem; font-weight: 600;
+  color: var(--tinta-2); font-variant-numeric: tabular-nums;
+}
+.checkout-timer .expirado { color: #b3261e; }
+.checkout-alerta {
+  background: var(--surface-2); border-left: 3px solid #b3261e;
+  padding: .9rem 1rem; border-radius: var(--v-radius-sm);
+  font-size: .86rem; line-height: 1.7; margin-top: .4rem;
+}
+
+@media (max-width: 480px) {
+  .checkout-box { padding: 1.2rem 1.1rem; }
+  .checkout-qr { width: 180px; height: 180px; }
+}
