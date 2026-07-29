@@ -7,103 +7,115 @@
   <link rel="stylesheet" href="css/ds.css">
   <style>
     .estado { display:flex; align-items:center; gap:10px; padding:14px 16px; border-radius:var(--radius-sm);
-              margin-bottom:18px; font-weight:600; }
-    .estado-on   { background:var(--verde-bg, #e8f5ee); color:var(--verde, #1e7d4f); }
+              margin-bottom:18px; font-weight:600; flex-wrap:wrap; }
+    .estado-on   { background:var(--marca-clara); color:var(--marca-escura); }
     .estado-off  { background:var(--vermelho-bg); color:var(--vermelho); }
     .estado-nada { background:var(--surface-2); color:var(--tinta-2); }
     .bolinha { width:10px; height:10px; border-radius:50%; background:currentColor; flex-shrink:0; }
-    .grade { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:14px; }
-    .passo { display:grid; grid-template-columns:26px 1fr; gap:12px; padding:12px 0;
-             border-bottom:1px solid var(--linha); align-items:start; }
-    .passo:last-child { border-bottom:0; }
-    .passo-n { width:22px; height:22px; border-radius:50%; background:var(--marca); color:#fff;
-               display:flex; align-items:center; justify-content:center; font-size:0.75rem; font-weight:700; }
-    .passo p { margin:0; font-size:0.9rem; line-height:1.55; }
-    .copiavel { display:flex; gap:8px; align-items:center; margin-top:8px; flex-wrap:wrap; }
-    .copiavel code { flex:1; min-width:200px; background:var(--surface-2); padding:9px 11px;
-                     border-radius:var(--radius-sm); font-family:ui-monospace, monospace;
-                     font-size:0.78rem; word-break:break-all; }
+
+    /* Pareamento por QR */
+    .qr-area { text-align:center; padding:10px 0 4px; }
+    .qr-img { width:250px; height:250px; border:1px solid var(--linha); border-radius:var(--radius-sm);
+              padding:8px; background:#fff; display:block; margin:0 auto 14px; }
+    .qr-vazio { width:250px; height:250px; margin:0 auto 14px; border:1px dashed var(--linha);
+                border-radius:var(--radius-sm); display:flex; align-items:center; justify-content:center;
+                color:var(--tinta-2); font-size:0.86rem; text-align:center; padding:20px; }
+    .passos { max-width:340px; margin:0 auto; text-align:left; }
+    .passo { display:grid; grid-template-columns:24px 1fr; gap:11px; padding:7px 0; align-items:start; }
+    .passo-n { width:21px; height:21px; border-radius:50%; background:var(--marca); color:#fff;
+               display:flex; align-items:center; justify-content:center; font-size:0.72rem; font-weight:700; }
+    .passo p { margin:0; font-size:0.87rem; line-height:1.5; }
+    .pisca { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--marca);
+             animation:pulso 1.4s ease-in-out infinite; margin-right:7px; }
+    @keyframes pulso { 0%,100%{opacity:.3} 50%{opacity:1} }
+    @media (prefers-reduced-motion: reduce) { .pisca { animation:none; opacity:.7; } }
+
     .aviso { background:var(--dourado-claro); color:var(--dourado-escuro); border-radius:var(--radius-sm);
              padding:14px 16px; font-size:0.88rem; line-height:1.6; margin-bottom:18px; }
     .aviso strong { font-weight:800; }
+    .grade { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:14px; }
+    .avancado summary { cursor:pointer; font-size:0.86rem; color:var(--tinta-2); padding:8px 0; }
+    .avancado[open] summary { margin-bottom:12px; }
+    .copiavel { display:flex; gap:8px; align-items:center; margin-top:8px; flex-wrap:wrap; }
+    .copiavel code { flex:1; min-width:200px; background:var(--surface-2); padding:9px 11px;
+                     border-radius:var(--radius-sm); font-family:ui-monospace,monospace;
+                     font-size:0.76rem; word-break:break-all; }
   </style>
 </head>
 <body>
   <div class="conteudo">
     <h1>WhatsApp da loja</h1>
-    <p class="subtitulo">Conecte um número e as mensagens da régua saem daqui, sem você abrir o WhatsApp. O que a cliente responder aparece no sistema.</p>
+    <p class="subtitulo">Conecte um número e as mensagens saem daqui, sem você abrir o WhatsApp. O que a cliente responder aparece no sistema.</p>
 
     <div id="estado" class="estado estado-nada"><span class="bolinha"></span><span id="estadoTxt">Carregando…</span></div>
 
-    <!-- O aviso NÃO é decoração: a Evolution conecta um WhatsApp comum e a Meta pode
-         banir o número. Quem está ligando isso precisa saber ANTES, não depois. -->
     <div class="aviso">
-      <strong>Antes de conectar, entenda o risco.</strong> Esta conexão usa um WhatsApp comum
-      (não é a API oficial da Meta). Use um número <strong>dedicado à loja</strong> — nunca o seu
-      pessoal — e evite disparar muitas mensagens de uma vez. O número pode ser bloqueado pela
-      Meta, e se isso acontecer você perde o contato com quem só te conhece por ele.
+      <strong>Use um número dedicado à loja</strong> — nunca o seu pessoal. Esta conexão usa um
+      WhatsApp comum (não é a API oficial da Meta), então evite disparar muitas mensagens de uma
+      vez. Se o número for bloqueado, você perde o contato com quem só te conhece por ele.
     </div>
 
-    <div class="card" id="cardForm">
+    <!-- CAMINHO 1: gerenciado — a lojista só lê o QR -->
+    <div class="card" id="cardQr" style="display:none;">
+      <h2 style="margin-top:0;" id="tituloQr">Conectar seu WhatsApp</h2>
+      <div class="qr-area">
+        <div id="qrBox" class="qr-vazio">Clique em Conectar para gerar o código</div>
+        <div class="passos" id="passosBox" style="display:none;">
+          <div class="passo"><span class="passo-n">1</span><p>Abra o WhatsApp no celular da loja</p></div>
+          <div class="passo"><span class="passo-n">2</span><p>Toque em <strong>⋮ → Aparelhos conectados</strong></p></div>
+          <div class="passo"><span class="passo-n">3</span><p>Toque em <strong>Conectar aparelho</strong> e aponte para o código acima</p></div>
+        </div>
+        <div style="margin-top:16px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+          <button class="btn" id="btnConectar" onclick="conectar()">Conectar</button>
+          <button class="btn btn-sec" id="btnDesc" onclick="desconectar()" style="display:none;">Desconectar</button>
+        </div>
+        <p class="texto-cinza" id="aguardando" style="display:none; font-size:0.85rem; margin:14px 0 0;">
+          <span class="pisca"></span>Esperando você apontar o celular…
+        </p>
+      </div>
+    </div>
+
+    <!-- CAMINHO 2: servidor próprio -->
+    <div class="card" id="cardManual" style="display:none;">
       <h2 style="margin-top:0;">Conectar</h2>
       <div class="grade">
-        <div>
-          <label>Endereço do servidor</label>
-          <input id="base_url" placeholder="https://api.seuservidor.com">
-        </div>
-        <div>
-          <label>Nome da instância</label>
-          <input id="instancia" placeholder="minha-loja">
-        </div>
-        <div>
-          <label>Token (apikey)</label>
-          <input id="token" type="password" placeholder="cole aqui">
-        </div>
-        <div>
-          <label>Número conectado <span class="texto-cinza">(opcional)</span></label>
-          <input id="numero" placeholder="73 99999-9999">
-        </div>
+        <div><label>Endereço do servidor</label><input id="base_url" placeholder="https://api.seuservidor.com"></div>
+        <div><label>Nome da instância</label><input id="instancia" placeholder="minha-loja"></div>
+        <div><label>Token (apikey)</label><input id="token" type="password" placeholder="cole aqui"></div>
+        <div><label>Número <span class="texto-cinza">(opcional)</span></label><input id="numero" placeholder="73 99999-9999"></div>
       </div>
       <div style="margin-top:16px; display:flex; gap:10px; flex-wrap:wrap;">
-        <button class="btn" onclick="salvar()">Conectar</button>
-        <button class="btn btn-sec" id="btnDesc" onclick="desconectar()" style="display:none;">Desconectar</button>
+        <button class="btn" onclick="salvarManual()">Conectar</button>
+        <button class="btn btn-sec" id="btnDescM" onclick="desconectar()" style="display:none;">Desconectar</button>
       </div>
     </div>
 
-    <div class="card" id="cardWebhook" style="display:none;">
-      <h2 style="margin-top:0;">Falta um passo: avisar o provedor</h2>
-      <p class="texto-cinza" style="margin-top:0;">
-        Sem isto, você consegue <strong>enviar</strong>, mas o que a cliente responder
-        não chega no sistema.
+    <!-- Webhook: só aparece no modo manual (no gerenciado é automático) -->
+    <div class="card" id="cardWebhook" style="display:none; margin-top:16px;">
+      <h2 style="margin-top:0;">Falta avisar o provedor</h2>
+      <p class="texto-cinza" style="margin-top:0; font-size:0.88rem;">
+        Sem isto você consegue <strong>enviar</strong>, mas o que a cliente responder não chega no
+        sistema. Cole o endereço abaixo na configuração de <strong>Webhook</strong> da instância,
+        marcando o evento <strong>MESSAGES_UPSERT</strong>.
       </p>
-      <div class="passo">
-        <span class="passo-n">1</span>
-        <div>
-          <p>Copie o endereço abaixo.</p>
-          <div class="copiavel">
-            <code id="webhookUrl">—</code>
-            <button class="btn btn-sec" onclick="copiarWebhook()">Copiar</button>
-          </div>
-        </div>
-      </div>
-      <div class="passo">
-        <span class="passo-n">2</span>
-        <div><p>No painel do seu provedor, abra a configuração de <strong>Webhook</strong> da instância e cole o endereço.</p></div>
-      </div>
-      <div class="passo">
-        <span class="passo-n">3</span>
-        <div><p>Marque o evento <strong>MESSAGES_UPSERT</strong> (mensagens recebidas) e salve.</p></div>
+      <div class="copiavel">
+        <code id="webhookUrl">—</code>
+        <button class="btn btn-sec" onclick="copiarWebhook()">Copiar</button>
       </div>
     </div>
   </div>
 
   <script src="js/comum.js"></script>
   <script>
-    let CONECTADO = false;
+    let GERENCIADO = false, CONECTADO = false, TIMER = null;
 
     async function carregar() {
       const d = await api('/relacionamento/canal');
+      GERENCIADO = !!d.gerenciado;
       CONECTADO = !!d.conectado;
+
+      document.getElementById('cardQr').style.display = GERENCIADO ? '' : 'none';
+      document.getElementById('cardManual').style.display = GERENCIADO ? 'none' : '';
 
       const box = document.getElementById('estado');
       const txt = document.getElementById('estadoTxt');
@@ -112,41 +124,97 @@
       if (!CONECTADO) {
         txt.textContent = 'Nenhum número conectado — as mensagens abrem no WhatsApp, como sempre.';
       } else if (d.online) {
-        txt.textContent = `Conectado${d.numero ? ' · ' + d.numero : ''} — as mensagens saem daqui.`;
+        txt.textContent = `Conectado${d.numero ? ' · ' + formatarTel(d.numero) : ''} — as mensagens saem daqui.`;
+        pararPolling();
       } else {
-        // Distinção que importa: credencial salva não é o mesmo que instância no ar.
-        // Sem esta linha a lojista acha que está tudo certo e as mensagens não saem.
-        txt.textContent = 'Configurado, mas a instância está fora do ar. Verifique no painel do provedor.';
+        // Distinção que importa: credencial salva não é o mesmo que aparelho
+        // pareado. Sem esta linha a lojista acha que está tudo certo e as
+        // mensagens não saem.
+        txt.textContent = GERENCIADO
+          ? 'O aparelho desconectou. Clique em Conectar para parear de novo.'
+          : 'Configurado, mas a instância está fora do ar. Verifique no painel do provedor.';
       }
 
-      if (CONECTADO) {
-        document.getElementById('base_url').value  = d.base_url || '';
+      document.getElementById('btnDesc').style.display = CONECTADO ? '' : 'none';
+      document.getElementById('btnDescM').style.display = CONECTADO ? '' : 'none';
+      document.getElementById('tituloQr').textContent = CONECTADO && d.online
+        ? 'WhatsApp conectado' : 'Conectar seu WhatsApp';
+      document.getElementById('btnConectar').textContent = CONECTADO && !d.online ? 'Reconectar' : 'Conectar';
+      document.getElementById('btnConectar').style.display = (CONECTADO && d.online) ? 'none' : '';
+
+      if (CONECTADO && d.online) {
+        document.getElementById('qrBox').outerHTML =
+          '<div class="qr-vazio" id="qrBox" style="border-style:solid; color:var(--marca-escura);">✓<br>Aparelho conectado</div>';
+        document.getElementById('passosBox').style.display = 'none';
+      }
+
+      if (!GERENCIADO && CONECTADO) {
+        document.getElementById('base_url').value = d.base_url || '';
         document.getElementById('instancia').value = d.instancia || '';
-        document.getElementById('numero').value    = d.numero || '';
+        document.getElementById('numero').value = d.numero || '';
         document.getElementById('token').placeholder = '•••••• (já salvo — preencha só para trocar)';
-        document.getElementById('btnDesc').style.display = '';
         mostrarWebhook(d.webhook_url);
       }
     }
 
-    function mostrarWebhook(url) {
-      if (!url) return;
-      document.getElementById('webhookUrl').textContent = url;
-      document.getElementById('cardWebhook').style.display = '';
+    // ---------- gerenciado ----------
+    async function conectar() {
+      const btn = document.getElementById('btnConectar');
+      btn.disabled = true; btn.textContent = 'Preparando…';
+      try {
+        const r = await api('/relacionamento/canal/conectar', { method: 'POST' });
+        if (r.conectado) { toast('Já está conectado'); carregar(); return; }
+        pintarQr(r.qr);
+        iniciarPolling();
+      } catch (e) {
+        toast(e.message || 'Não consegui conectar', 'erro');
+      } finally {
+        btn.disabled = false; btn.textContent = 'Conectar';
+      }
     }
 
-    async function salvar() {
-      const body = {
-        base_url:  document.getElementById('base_url').value.trim(),
-        instancia: document.getElementById('instancia').value.trim(),
-        token:     document.getElementById('token').value.trim(),
-        numero:    document.getElementById('numero').value.trim(),
-      };
-      // Reconectar sem digitar o token de novo é o caso comum (trocar o número, por
-      // exemplo). Só que o servidor exige o token — então avisa em vez de dar erro seco.
+    function pintarQr(qr) {
+      const box = document.getElementById('qrBox');
+      if (qr) {
+        const src = qr.startsWith('data:') ? qr : 'data:image/png;base64,' + qr;
+        box.outerHTML = `<img class="qr-img" id="qrBox" src="${src}" alt="Código para conectar o WhatsApp">`;
+        document.getElementById('passosBox').style.display = '';
+        document.getElementById('aguardando').style.display = '';
+      } else {
+        box.outerHTML = '<div class="qr-vazio" id="qrBox">Gerando o código…</div>';
+      }
+    }
+
+    // O QR da Evolution expira em ~40s e é renovado sozinho. Sem este polling a
+    // lojista ficaria olhando um código morto sem saber por que não funciona.
+    function iniciarPolling() {
+      pararPolling();
+      TIMER = setInterval(async () => {
+        try {
+          const r = await api('/relacionamento/canal/qr');
+          if (r.conectado) {
+            pararPolling();
+            toast('WhatsApp conectado!');
+            carregar();
+            return;
+          }
+          if (r.qr) pintarQr(r.qr);
+        } catch (e) { /* rede oscilou: tenta no próximo tick */ }
+      }, 4000);
+    }
+
+    function pararPolling() {
+      if (TIMER) { clearInterval(TIMER); TIMER = null; }
+      const a = document.getElementById('aguardando');
+      if (a) a.style.display = 'none';
+    }
+
+    // ---------- manual (servidor próprio) ----------
+    async function salvarManual() {
+      const v = (id) => document.getElementById(id).value.trim();
+      const body = { base_url: v('base_url'), instancia: v('instancia'), token: v('token'), numero: v('numero') };
       if (!body.token) return toast('Cole o token para conectar', 'erro');
       if (!body.base_url || !body.instancia) return toast('Preencha o endereço e a instância', 'erro');
-
       try {
         const r = await api('/relacionamento/canal', { method: 'POST', body });
         toast('Conectado');
@@ -156,13 +224,10 @@
       } catch (e) { toast(e.message || 'Não consegui conectar', 'erro'); }
     }
 
-    async function desconectar() {
-      if (!confirm('Desconectar o WhatsApp?\n\nAs mensagens da régua voltam a abrir no WhatsApp, e as respostas das clientes param de aparecer aqui.')) return;
-      try {
-        await api('/relacionamento/canal', { method: 'DELETE' });
-        toast('Desconectado');
-        location.reload();
-      } catch (e) { toast(e.message || 'Erro', 'erro'); }
+    function mostrarWebhook(url) {
+      if (!url) return;
+      document.getElementById('webhookUrl').textContent = url;
+      document.getElementById('cardWebhook').style.display = '';
     }
 
     async function copiarWebhook() {
@@ -172,10 +237,26 @@
       } catch { toast('Não consegui copiar', 'erro'); }
     }
 
+    async function desconectar() {
+      if (!confirm('Desconectar o WhatsApp?\n\nAs mensagens voltam a abrir no WhatsApp, e as respostas das clientes param de aparecer aqui.')) return;
+      try {
+        await api('/relacionamento/canal', { method: 'DELETE' });
+        pararPolling();
+        toast('Desconectado');
+        location.reload();
+      } catch (e) { toast(e.message || 'Erro', 'erro'); }
+    }
+
+    function formatarTel(t) {
+      const d = String(t).replace(/\D/g, '').replace(/^55/, '');
+      return d.length >= 10 ? `(${d.slice(0,2)}) ${d.slice(2,-4)}-${d.slice(-4)}` : t;
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
       montarLayout('canal');
       carregar().catch(e => toast(e.message || 'Erro ao carregar', 'erro'));
     });
+    window.addEventListener('beforeunload', pararPolling);
   </script>
 </body>
 </html>

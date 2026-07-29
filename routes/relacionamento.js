@@ -459,7 +459,12 @@ router.get('/bot/log', (req, res) => {
 // pra qualquer um que abra o DevTools.
 router.get('/canal', async (req, res) => {
   const cred = whatsapp.credencialDe(req.tenantId);
-  if (!cred) return res.json({ conectado: false });
+  // `gerenciado` diz à tela qual caminho oferecer: o botão "Conectar" com QR
+  // Code (quando o Easy hospeda o servidor) ou o formulário de endereço/token
+  // (quem tem Evolution própria).
+  const gerenciado = whatsapp.temGerenciado();
+
+  if (!cred) return res.json({ conectado: false, gerenciado });
 
   // O estado real da instância — a lojista precisa descobrir que caiu AQUI, e não
   // quando a mensagem não chega na cliente.
@@ -468,12 +473,19 @@ router.get('/canal', async (req, res) => {
     estado = await require('../lib/whatsapp-evolution').estado(cred);
   } catch (_) { estado = { conectado: false, estado: 'inacessivel' }; }
 
+  // Assim que a instância aparece conectada, guarda o número — é o que a lojista
+  // confere pra ter certeza de que pareou o aparelho certo.
+  if (gerenciado && estado?.conectado && !cred.numero) {
+    try { await whatsapp.sincronizarNumero(req.tenantId); } catch (_) {}
+  }
+
   res.json({
     conectado: true,
+    gerenciado,
     provedor: cred.provedor,
     base_url: cred.base_url,
     instancia: cred.instancia,
-    numero: cred.numero,
+    numero: whatsapp.credencialDe(req.tenantId)?.numero || cred.numero,
     // A URL que a lojista precisa colar na configuração do provedor. Sem ela,
     // a mensagem que a cliente manda não chega em lugar nenhum.
     webhook_url: `${process.env.SITE_URL || ''}/api/webhooks/whatsapp/${cred.webhook_token}`,
@@ -504,8 +516,50 @@ router.post('/canal', (req, res) => {
   }
 });
 
-router.delete('/canal', (req, res) => {
-  whatsapp.desconectar(req.tenantId);
+// POST /canal/conectar — cria a instância e devolve o QR.
+//
+// É o caminho de UM clique: a lojista não informa nada, só aponta o celular pro
+// código. Sem isto, "conectar" exigia endereço de servidor e token — coisas que
+// ela não tem e não teria como conseguir.
+router.post('/canal/conectar', async (req, res) => {
+  if (!whatsapp.temGerenciado()) {
+    return res.status(400).json({ erro: 'Conexão automática não está configurada neste servidor' });
+  }
+  try {
+    const r = await whatsapp.conectarGerenciado(req.tenantId, process.env.SITE_URL);
+    if (!r.ok) return res.status(502).json({ erro: r.erro || 'Não consegui preparar a conexão' });
+    res.json(r);
+  } catch (e) {
+    logger.error('[CANAL] erro ao conectar:', e.message);
+    res.status(500).json({ erro: 'Não consegui preparar a conexão' });
+  }
+});
+
+// GET /canal/qr — a tela pergunta de tempos em tempos enquanto espera o
+// pareamento. O QR da Evolution expira em ~40s e é renovado sozinho; sem este
+// polling a lojista ficaria olhando um código morto sem saber.
+router.get('/canal/qr', async (req, res) => {
+  try {
+    const r = await whatsapp.qrGerenciado(req.tenantId);
+    if (r.conectado) {
+      const numero = await whatsapp.sincronizarNumero(req.tenantId).catch(() => null);
+      return res.json({ conectado: true, numero });
+    }
+    res.json({ conectado: false, qr: r.qr || null });
+  } catch (e) {
+    res.json({ conectado: false, qr: null });
+  }
+});
+
+router.delete('/canal', async (req, res) => {
+  // No modo gerenciado, apaga a instância no servidor TAMBÉM: só limpar a
+  // credencial deixaria a instância pendurada consumindo recurso, e o celular
+  // da lojista continuaria mostrando um aparelho conectado que não existe mais.
+  if (whatsapp.temGerenciado()) {
+    await whatsapp.desconectarGerenciado(req.tenantId).catch(() => whatsapp.desconectar(req.tenantId));
+  } else {
+    whatsapp.desconectar(req.tenantId);
+  }
   res.json({ ok: true });
 });
 
