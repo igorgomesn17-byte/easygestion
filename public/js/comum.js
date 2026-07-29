@@ -200,6 +200,9 @@ const NAV = [
     { id:'resultados',     href:'resultados.html',     ico:'fluxo',    txt:'Deu resultado?',  feature:'relacionamento' },
     { id:'segmentos',      href:'segmentos.html',      ico:'vendas',   txt:'Segmentos',       feature:'relacionamento' },
     { id:'clube',          href:'clube.html',          ico:'config',   txt:'Fidelidade',  feature:'relacionamento' },
+    // Conectar o WhatsApp da loja. Mesma feature do resto do relacionamento: sem
+    // régua, um canal conectado não teria o que enviar.
+    { id:'canal',          href:'canal.html',          ico:'config',   txt:'WhatsApp',        feature:'relacionamento' },
     // Base importada de outro sistema: campanha à parte, não entra na fila do dia.
     // Feature PRÓPRIA (`base_importada`, só no interno) — quem não tem base migrada
     // não precisa ver esta aba.
