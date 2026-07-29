@@ -1,0 +1,142 @@
+<DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Configurar CRM • EasyGestão</title>
+  <link rel="stylesheet" href="css/ds.css">
+  <style>
+    .abas-barra { display:flex; gap:8px; margin-bottom:18px; flex-wrap:wrap; }
+    .cad-box { max-width:560px; }
+    .cad-linha { display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  </style>
+</head>
+<body>
+  <div class="conteudo">
+    <h1>Configurar</h1>
+    <p class="subtitulo">Ajusta uma vez e não volta mais.</p>
+
+    <div class="abas-barra" id="barra"></div>
+    <div id="conteudoAba"></div>
+
+    <!-- Cadência mora aqui, e não numa tela de fila: é ajuste, não trabalho do dia. -->
+    <div id="abaCadencia" style="display:none;">
+      <div class="card cad-box">
+        <h2 style="margin-top:0;">Novidades da semana</h2>
+        <p class="texto-cinza" style="font-size:0.9rem; margin-top:0;">
+          Único contato que não reage a comportamento: sai por calendário, para quem já comprou.
+          Serve pro giro — no atacado, a loja espera o catálogo toda semana.
+        </p>
+        <div class="cad-linha" style="margin-top:14px;">
+          <select id="cadDia" onchange="salvarCadencia()"
+                  style="padding:9px 12px; border-radius:var(--radius-sm); border:1px solid var(--linha);">
+            <option value="0">Desligado</option>
+            <option value="1">Toda segunda</option>
+            <option value="2">Toda terça</option>
+            <option value="3">Toda quarta</option>
+            <option value="4">Toda quinta</option>
+            <option value="5">Toda sexta</option>
+            <option value="6">Todo sábado</option>
+            <option value="7">Todo domingo</option>
+          </select>
+          <span class="texto-cinza" id="cadTxt" style="font-size:0.86rem;">—</span>
+        </div>
+      </div>
+
+      <div class="card cad-box" style="margin-top:16px;">
+        <h2 style="margin-top:0;">Carrinho abandonado</h2>
+        <p class="texto-cinza" style="font-size:0.9rem; margin-top:0;">
+          Quem montou o carrinho na loja online e não finalizou entra na fila depois de algumas
+          horas. É o contato mais quente que existe — ela não sumiu, está decidindo agora.
+        </p>
+        <div class="cad-linha" style="margin-top:14px;">
+          <select id="carrHoras" onchange="salvarCadencia()"
+                  style="padding:9px 12px; border-radius:var(--radius-sm); border:1px solid var(--linha);">
+            <option value="0">Desligado</option>
+            <option value="2">Depois de 2 horas</option>
+            <option value="4">Depois de 4 horas</option>
+            <option value="8">Depois de 8 horas</option>
+            <option value="24">Depois de 1 dia</option>
+          </select>
+          <span class="texto-cinza" style="font-size:0.86rem;">A janela fecha em 48h — depois disso a mensagem chega tarde.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/comum.js"></script>
+  <script src="js/abas.js"></script>
+  <script>
+    const ABAS = [
+      { id:'whatsapp',   txt:'WhatsApp',    arquivo:'canal.html' },
+      { id:'fidelidade', txt:'Fidelidade',  arquivo:'clube.html' },
+      { id:'cadencia',   txt:'Cadência',    arquivo:null },
+    ];
+
+    // A aba de cadência é local (não vem de arquivo): o shell de abas carrega
+    // telas existentes, e esta é conteúdo próprio desta página.
+    function trocarLocal(id) {
+      const local = document.getElementById('abaCadencia');
+      const remoto = document.getElementById('conteudoAba');
+      const ehLocal = id === 'cadencia';
+      local.style.display = ehLocal ? '' : 'none';
+      remoto.style.display = ehLocal ? 'none' : '';
+      if (ehLocal) carregarCadencia();
+    }
+
+    async function carregarCadencia() {
+      try {
+        const d = await api('/relacionamento/cadencia');
+        document.getElementById('cadDia').value = String(d.dia || 0);
+        document.getElementById('carrHoras').value = String(d.carrinho_horas ?? 4);
+        pintarCadencia(d.dia || 0);
+      } catch (e) { toast(e.message || 'Erro ao carregar', 'erro'); }
+    }
+
+    function pintarCadencia(dia) {
+      const nomes = ['', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo'];
+      document.getElementById('cadTxt').textContent = dia
+        ? `Toda ${nomes[dia]}, quem já comprou entra na fila com o convite do catálogo.`
+        : 'Desligado. Ligue para avisar a base toda semana quando chegar coleção nova.';
+    }
+
+    async function salvarCadencia() {
+      const dia = parseInt(document.getElementById('cadDia').value, 10);
+      const carrinho_horas = parseInt(document.getElementById('carrHoras').value, 10);
+      try {
+        await api('/relacionamento/cadencia', { method: 'POST', body: { dia, carrinho_horas } });
+        pintarCadencia(dia);
+        toast('Salvo');
+      } catch (e) { toast(e.message || 'Erro ao salvar', 'erro'); }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      montarLayout('configurar-crm');
+
+      // Barra própria: as abas locais e remotas convivem, então o clique precisa
+      // decidir entre carregar arquivo ou só mostrar o bloco que já está na página.
+      const barra = document.getElementById('barra');
+      const inicial = new URLSearchParams(location.search).get('aba');
+      let atual = ABAS.find(a => a.id === inicial) ? inicial : ABAS[0].id;
+
+      function pintar() {
+        barra.innerHTML = ABAS.map(a =>
+          `<span class="aba ${a.id === atual ? 'ativa' : ''}" data-aba="${a.id}">${a.txt}</span>`).join('');
+        barra.querySelectorAll('.aba').forEach(el => el.onclick = () => ir(el.dataset.aba));
+      }
+
+      function ir(id) {
+        const aba = ABAS.find(a => a.id === id);
+        if (!aba) return;
+        atual = id;
+        pintar();
+        const u = new URL(location); u.searchParams.set('aba', id); history.replaceState(null, '', u);
+        trocarLocal(id);
+        if (aba.arquivo) carregarAba('conteudoAba', aba.arquivo);
+      }
+
+      pintar(); ir(atual);
+    });
+  </script>
+</body>
+</html>

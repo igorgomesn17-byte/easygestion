@@ -470,6 +470,10 @@ router.get('/me', (req, res) => {
     return res.json({
       logado: true,
       usuario: req.session.usuario,
+      // O ID (não só o nome) porque a tela de Atendimento filtra "meus contatos"
+      // comparando com `conversas.usuario_id` e `crm_acoes.usuario_id`. Comparar
+      // por nome quebraria no dia em que duas lojas tivessem uma "Ana".
+      usuario_id: req.session.usuario_id || null,
       papel: req.session.papel || 'admin',
       plano,
       features,

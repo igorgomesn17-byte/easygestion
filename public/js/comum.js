@@ -198,22 +198,20 @@ const NAV = [
   ]},
   // Relacionamento é feature de plano (hoje só no interno). Os itens carregam
   // `feature`, e montarLayout esconde do menu quem não tem — ver o filtro lá.
+  // TRÊS itens, não sete. A versão anterior tinha uma tela por pergunta —
+  // funcionava, mas ninguém trabalha assim: pra falar com uma cliente era abrir
+  // Contatos, copiar o nome, ir em Clientes, procurar, abrir a ficha e voltar.
+  //
+  // Agora: Atendimento é ONDE SE TRABALHA (fila + conversa + ficha na mesma tela);
+  // Resultados responde "está funcionando?"; Configurar se mexe uma vez e pronto.
+  //
+  // As telas antigas continuam no disco e respondem por URL direta — se algo na
+  // nova estiver quebrado, o caminho velho ainda serve. Apagar depois de rodar
+  // alguns dias em produção.
   { grupo: 'Relacionamento', itens: [
-    { id:'relacionamento', href:'relacionamento.html', ico:'clientes', txt:'Contatos do dia', feature:'relacionamento' },
-    { id:'resultados',     href:'resultados.html',     ico:'fluxo',    txt:'Deu resultado?',  feature:'relacionamento' },
-    { id:'segmentos',      href:'segmentos.html',      ico:'vendas',   txt:'Segmentos',       feature:'relacionamento' },
-    { id:'clube',          href:'clube.html',          ico:'config',   txt:'Fidelidade',  feature:'relacionamento' },
-    // Conectar o WhatsApp da loja. Mesma feature do resto do relacionamento: sem
-    // régua, um canal conectado não teria o que enviar.
-    { id:'canal',          href:'canal.html',          ico:'config',   txt:'WhatsApp',        feature:'relacionamento' },
-    // Comercial 1 (quem ainda não é cliente) e o placar do time. Feature própria
-    // (`crm_avancado`): quem não tem time comercial não precisa ver estas abas.
-    { id:'prospeccao',     href:'prospeccao.html',     ico:'clientes', txt:'Prospecção',      feature:'crm_avancado' },
-    { id:'placar',         href:'placar.html',         ico:'fluxo',    txt:'Placar',          feature:'crm_avancado' },
-    // Base importada de outro sistema: campanha à parte, não entra na fila do dia.
-    // Feature PRÓPRIA (`base_importada`, só no interno) — quem não tem base migrada
-    // não precisa ver esta aba.
-    { id:'reativacao',     href:'reativacao.html',     ico:'clientes', txt:'Reativação',  feature:'base_importada' },
+    { id:'atendimento',    href:'atendimento.html',    ico:'clientes', txt:'Atendimento', feature:'relacionamento' },
+    { id:'resultados-crm', href:'resultados-crm.html', ico:'fluxo',    txt:'Resultados',  feature:'relacionamento' },
+    { id:'configurar-crm', href:'configurar-crm.html', ico:'config',   txt:'Configurar',  feature:'relacionamento' },
   ]},
   { grupo: 'Pessoas', itens: [
     { id:'clientes',   href:'clientes.html',   ico:'clientes', txt:'Clientes' },
@@ -355,7 +353,10 @@ function montarLayout(paginaAtiva) {
       fetch('/api/relacionamento/acoes/contagem', { credentials: 'same-origin' })
         .then(r => r.ok ? r.json() : null)
         .then(d => {
-          const b = document.querySelector('.nav-badge[data-badge="relacionamento"]');
+          // O badge segue o item que hoje leva à fila. Ele se chamava
+          // "relacionamento" quando havia uma tela "Contatos do dia"; agora a fila
+          // vive dentro de Atendimento.
+          const b = document.querySelector('.nav-badge[data-badge="atendimento"]');
           if (b && d && d.pendentes > 0) { b.textContent = d.pendentes; b.style.display = ''; }
         }).catch(() => {});
     }

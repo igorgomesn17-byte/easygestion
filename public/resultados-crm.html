@@ -1,0 +1,44 @@
+<DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Resultados • EasyGestão</title>
+  <link rel="stylesheet" href="css/ds.css">
+  <style>
+    .abas-barra { display:flex; gap:8px; margin-bottom:18px; flex-wrap:wrap; }
+  </style>
+</head>
+<body>
+  <div class="conteudo">
+    <h1>Resultados</h1>
+    <p class="subtitulo">Está funcionando? Quatro recortes da mesma pergunta.</p>
+
+    <div class="abas-barra" id="barra"></div>
+    <div id="conteudoAba"></div>
+  </div>
+
+  <script src="js/comum.js"></script>
+  <script src="js/abas.js"></script>
+  <script>
+    // As quatro respondem "está funcionando?" em recortes diferentes:
+    // o placar mede as PESSOAS, o "deu resultado" mede as MENSAGENS, os segmentos
+    // mostram a BASE, e a reativação é uma campanha com começo e fim.
+    const ABAS = [
+      { id:'placar',     txt:'Placar do time', arquivo:'placar.html',     feature:'crm_avancado' },
+      { id:'mensagens',  txt:'Deu resultado?', arquivo:'resultados.html' },
+      { id:'segmentos',  txt:'Segmentos',      arquivo:'segmentos.html' },
+      { id:'reativacao', txt:'Reativação',     arquivo:'reativacao.html', feature:'base_importada' },
+    ];
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      montarLayout('resultados-crm');
+      // As abas de feature só existem pra quem tem — renderizar e bloquear seria
+      // mostrar uma porta que não abre.
+      let features = {};
+      try { features = (await api('/me')).features || {}; } catch (e) {}
+      montarAbas({ abas: ABAS, container: 'conteudoAba', barra: 'barra', features });
+    });
+  </script>
+</body>
+</html>

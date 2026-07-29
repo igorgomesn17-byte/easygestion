@@ -1,0 +1,655 @@
+<DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Atendimento • EasyGestão</title>
+  <link rel="stylesheet" href="css/ds.css">
+  <style>
+    /* ============================================================
+       ATENDIMENTO — a tela onde o comercial vive.
+
+       Três painéis: fila à esquerda, conversa no meio, cliente à direita.
+       O padrão de HubSpot e Pipedrive, e a razão é simples: quem atende
+       precisa saber COM QUEM está falando sem trocar de tela. Antes disto o
+       caminho era Contatos → copiar nome → Clientes → procurar → ficha → voltar.
+
+       A altura é fixa em 100vh porque a lista e a conversa rolam SOZINHAS.
+       Página que rola inteira faria a caixa de resposta sumir da tela toda vez
+       que a conversa fosse longa.
+       ============================================================ */
+    body { overflow: hidden; }
+    .conteudo { padding: 0 !important; max-width: none !important; height: 100vh; display: flex; flex-direction: column; }
+
+    .at-topo {
+      display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+      padding: 12px 18px; border-bottom: 1px solid var(--linha); background: var(--surface);
+    }
+    .at-topo h1 { margin: 0; font-size: 1.2rem; }
+    .at-resumo { font-size: 0.82rem; color: var(--tinta-2); }
+
+    .paineis {
+      flex: 1; display: grid; grid-template-columns: 290px 1fr 290px;
+      gap: 1px; background: var(--linha); min-height: 0;
+    }
+    .painel { background: var(--surface); display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+    .p-cab {
+      padding: 10px 14px; border-bottom: 1px solid var(--linha);
+      display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;
+    }
+    .p-tit { font-size: 0.72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--tinta-2); font-weight: 700; }
+    .p-rola { flex: 1; overflow-y: auto; min-height: 0; }
+
+    /* ---- filtros ---- */
+    .filtros-at { display: flex; gap: 5px; padding: 9px 12px; flex-wrap: wrap; border-bottom: 1px solid var(--linha); }
+    .fpill {
+      font-size: 0.73rem; padding: 3px 10px; border-radius: 999px; cursor: pointer;
+      background: var(--surface-2); color: var(--tinta-2); font-weight: 600; white-space: nowrap;
+    }
+    .fpill.on { background: var(--marca); color: #fff; }
+
+    /* ---- card da fila ---- */
+    .card-at { padding: 10px 13px; border-bottom: 1px solid var(--linha); cursor: pointer; }
+    .card-at:hover { background: var(--surface-2); }
+    .card-at.sel { background: var(--marca-clara); border-left: 3px solid var(--marca); padding-left: 10px; }
+    .ca-topo { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+    .ca-nome { font-weight: 700; font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ca-hora { font-size: 0.68rem; color: var(--tinta-2); font-family: ui-monospace, monospace; white-space: nowrap; }
+    .ca-txt {
+      font-size: 0.78rem; color: var(--tinta-2); margin-top: 2px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .ca-tags { display: flex; gap: 4px; margin-top: 5px; flex-wrap: wrap; }
+    .tg { font-size: 0.63rem; padding: 1px 6px; border-radius: 3px; font-weight: 700; white-space: nowrap; }
+    .tg-esp { background: var(--dourado-claro); color: var(--dourado-escuro); }
+    .tg-reg { background: var(--marca-clara); color: var(--marca-escura); }
+    .tg-trv { background: var(--vermelho-bg); color: var(--vermelho); }
+    .tg-novo { background: var(--vermelho-bg); color: var(--vermelho); }
+    .tg-bot { background: var(--surface-2); color: var(--tinta-2); }
+    .tg-dono { background: var(--surface-2); color: var(--tinta-2); }
+
+    /* ---- conversa ---- */
+    .conv-vazia { display: flex; align-items: center; justify-content: center; height: 100%;
+                  color: var(--tinta-2); font-size: 0.9rem; text-align: center; padding: 30px; }
+    .msgs { padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+    .bal { padding: 9px 12px; border-radius: 9px; font-size: 0.87rem; max-width: 78%; line-height: 1.45; }
+    .bal-rec { background: var(--surface-2); align-self: flex-start; }
+    .bal-env { background: var(--marca-clara); color: var(--marca-escura); align-self: flex-end; }
+    .bal-not { background: var(--dourado-claro); color: var(--dourado-escuro); align-self: center;
+               font-style: italic; font-size: 0.79rem; max-width: 92%; }
+    .bal-h { display: block; font-size: 0.64rem; opacity: .65; margin-top: 3px; font-family: ui-monospace, monospace; }
+
+    .caixa-resp { border-top: 1px solid var(--linha); padding: 11px 14px; background: var(--surface-2); }
+    .caixa-resp textarea { width: 100%; min-height: 64px; resize: vertical; font-family: inherit;
+                           font-size: 0.87rem; padding: 8px 10px; }
+    .resp-acoes { display: flex; gap: 7px; margin-top: 8px; flex-wrap: wrap; align-items: center; }
+    .chip-cupom {
+      background: var(--dourado-claro); color: var(--dourado-escuro); font-size: 0.75rem;
+      padding: 6px 11px; border-radius: var(--radius-sm); margin-bottom: 8px; line-height: 1.5;
+    }
+    .aviso-regua {
+      background: var(--marca-clara); color: var(--marca-escura); font-size: 0.78rem;
+      padding: 7px 11px; border-radius: var(--radius-sm); margin-bottom: 8px;
+    }
+
+    /* ---- ficha (direita) ---- */
+    .fx { padding: 11px 14px; border-bottom: 1px solid var(--linha); }
+    .fx:last-child { border-bottom: 0; }
+    .fx-rot { font-size: 0.66rem; text-transform: uppercase; letter-spacing: .07em;
+              color: var(--tinta-2); font-weight: 700; margin-bottom: 6px; }
+    .fx-nome { font-size: 1rem; font-weight: 800; line-height: 1.25; }
+    .fx-sub { font-size: 0.76rem; color: var(--tinta-2); margin-top: 2px; }
+    .fx-linha { display: flex; justify-content: space-between; gap: 8px; font-size: 0.8rem; padding: 3px 0; }
+    .fx-linha span:last-child { font-family: ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+    .fx-seg { display: inline-block; font-size: 0.66rem; padding: 2px 9px; border-radius: 999px;
+              color: #fff; font-weight: 700; margin-top: 6px; }
+    .selo-pts { display: flex; gap: 3px; margin-top: 6px; flex-wrap: wrap; }
+    .pt { width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid var(--marca); }
+    .pt.cheio { background: var(--marca); }
+
+    /* ---- kanban (visão alternativa) ---- */
+    .kb-wrap { display: none; flex: 1; overflow: auto; padding: 12px; background: var(--fundo); }
+    body.kanban .paineis { display: none; }
+    body.kanban .kb-wrap { display: flex; gap: 10px; align-items: flex-start; }
+    .kb-col { background: var(--surface-2); border-radius: var(--radius-sm); min-width: 220px; flex: 1 0 220px; }
+    .kb-cab { padding: 10px 12px; border-bottom: 1px solid var(--linha); display: flex;
+              justify-content: space-between; align-items: center; }
+    .kb-nome { font-weight: 700; font-size: 0.82rem; }
+    .kb-n { font-size: 0.72rem; color: var(--tinta-2); background: var(--surface);
+            padding: 1px 8px; border-radius: 999px; font-weight: 700; }
+    .kb-cards { padding: 8px; display: flex; flex-direction: column; gap: 7px; min-height: 50px; }
+    .kb-card { background: var(--surface); border: 1px solid var(--linha); border-radius: var(--radius-sm);
+               padding: 9px 10px; cursor: grab; }
+    .kb-card:active { cursor: grabbing; }
+    .kb-card.arrastando { opacity: .4; }
+    .kb-col.alvo .kb-cards { background: var(--marca-clara); border-radius: var(--radius-sm); }
+
+    .vazio-p { padding: 26px 16px; text-align: center; color: var(--tinta-2); font-size: 0.83rem; }
+
+    /* ---- responsivo: uma coluna por vez ----
+       Três painéis não cabem em celular, e o comercial atende do celular. */
+    .voltar-mob { display: none; }
+    @media (max-width: 900px) {
+      .paineis { grid-template-columns: 1fr; }
+      .painel { display: none; }
+      body[data-mob="lista"] .painel.p-fila { display: flex; }
+      body[data-mob="conversa"] .painel.p-conversa { display: flex; }
+      body[data-mob="ficha"] .painel.p-ficha { display: flex; }
+      .voltar-mob { display: inline-flex; }
+    }
+
+    dialog { border: 0; border-radius: var(--radius); padding: 0; max-width: 460px; width: 92%; }
+    dialog::backdrop { background: rgba(0,0,0,.4); }
+    .dlg { padding: 22px; }
+  </style>
+</head>
+<body data-mob="lista">
+  <div class="conteudo">
+    <div class="at-topo">
+      <h1>Atendimento</h1>
+      <span class="at-resumo" id="resumo"></span>
+      <div style="margin-left:auto; display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="btn btn-sec" id="btnVisao" onclick="alternarVisao()">Ver como funil</button>
+        <button class="btn" onclick="abrirNovo()">+ Contato</button>
+      </div>
+    </div>
+
+    <div class="paineis">
+      <!-- ESQUERDA -->
+      <div class="painel p-fila">
+        <div class="p-cab">
+          <span class="p-tit">Conversas</span>
+          <span class="p-tit" id="qtdFila">—</span>
+        </div>
+        <div class="filtros-at" id="filtros"></div>
+        <div class="p-rola" id="fila"></div>
+      </div>
+
+      <!-- MEIO -->
+      <div class="painel p-conversa">
+        <div class="p-cab">
+          <button class="btn btn-sec btn-fino voltar-mob" onclick="mob('lista')">‹ Fila</button>
+          <span class="p-tit" id="convTitulo">Conversa</span>
+          <button class="btn btn-sec btn-fino voltar-mob" onclick="mob('ficha')">Ficha ›</button>
+        </div>
+        <div class="p-rola" id="convCorpo">
+          <div class="conv-vazia">Escolha alguém na lista ao lado para começar.</div>
+        </div>
+        <div class="caixa-resp" id="caixaResp" style="display:none;">
+          <div id="avisoRegua"></div>
+          <textarea id="txtResp" placeholder="Escreva a mensagem…"></textarea>
+          <div class="resp-acoes">
+            <button class="btn" id="btnEnviar" onclick="enviar()">Enviar</button>
+            <button class="btn btn-sec" onclick="salvarNota()">Nota interna</button>
+            <span id="acoesRegua" style="display:flex; gap:7px; flex-wrap:wrap;"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- DIREITA -->
+      <div class="painel p-ficha">
+        <div class="p-cab">
+          <button class="btn btn-sec btn-fino voltar-mob" onclick="mob('conversa')">‹ Conversa</button>
+          <span class="p-tit">A cliente</span>
+        </div>
+        <div class="p-rola" id="ficha">
+          <div class="vazio-p">O histórico dela aparece aqui.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Visão de funil (mesma fila, outro formato) -->
+    <div class="kb-wrap" id="kanban"></div>
+  </div>
+
+  <dialog id="dlgNovo">
+    <div class="dlg">
+      <h2 style="margin-top:0;">Novo contato</h2>
+      <div style="display:grid; gap:12px;">
+        <div><label>Nome *</label><input id="nNome" placeholder="Modas Cristina"></div>
+        <div><label>WhatsApp *</label><input id="nTel" placeholder="73 99999-9999"></div>
+        <div><label>Cidade</label><input id="nCidade" placeholder="Ipiaú"></div>
+        <div><label>Como chegou</label><input id="nOrigem" placeholder="Instagram, indicação…"></div>
+      </div>
+      <div style="display:flex; gap:10px; margin-top:18px;">
+        <button class="btn" onclick="salvarNovo()">Cadastrar</button>
+        <button class="btn btn-sec" onclick="document.getElementById('dlgNovo').close()">Cancelar</button>
+      </div>
+    </div>
+  </dialog>
+
+  <script src="js/comum.js"></script>
+  <script>
+    // ============================================================
+    // A FILA UNIFICADA
+    // ------------------------------------------------------------
+    // Duas fontes viram UMA lista: as conversas (quem escreveu) e a régua (quem
+    // o sistema diz pra procurar). Manter separado era o erro da versão anterior —
+    // são o mesmo trabalho, com origens diferentes.
+    //
+    // Deduplicação por cliente_id: quem tem conversa E ação pendente é UM card,
+    // com a conversa no corpo e a ação como sugestão de resposta. Duas linhas pra
+    // mesma pessoa seria exatamente a confusão que esta tela existe pra acabar.
+    // ============================================================
+    let FILA = [], SEL = null, FILTRO = 'tudo', TEM_CANAL = false, COLUNAS = [], VISAO = 'lista';
+
+    const FILTROS = [
+      { id: 'tudo',      txt: 'Tudo' },
+      { id: 'esperando', txt: 'Esperando você' },
+      { id: 'regua',     txt: 'A régua sugere' },
+      { id: 'novos',     txt: 'Novos' },
+      { id: 'meus',      txt: 'Meus' },
+    ];
+
+    async function carregar() {
+      // As duas chamadas em paralelo. Se a régua falhar (loja sem a feature), a
+      // fila de conversas continua — degrada, não quebra.
+      const [kb, ac] = await Promise.all([
+        api('/comercial/kanban').catch(() => ({ colunas: [] })),
+        api('/relacionamento/acoes').catch(() => ({ acoes: [] })),
+      ]);
+
+      TEM_CANAL = !!kb.tem_canal;
+      COLUNAS = kb.colunas || [];
+
+      // Achata as colunas do kanban numa lista só
+      const conversas = [];
+      for (const col of COLUNAS) for (const c of (col.cards || [])) conversas.push({ ...c, _tipo: 'conversa' });
+
+      // Índice por cliente pra fundir com a régua
+      const porCliente = new Map();
+      conversas.forEach(c => { if (c.cliente_id) porCliente.set(c.cliente_id, c); });
+
+      const soRegua = [];
+      for (const a of (ac.acoes || [])) {
+        const existente = a.cliente_id && porCliente.get(a.cliente_id);
+        if (existente) {
+          // Ela já tem conversa: a ação vira sugestão DENTRO do card que já existe.
+          existente.acao = a;
+        } else {
+          soRegua.push({
+            _tipo: 'regua', acao: a,
+            id: null, cliente_id: a.cliente_id, cliente_nome: a.nome, telefone: a.telefone,
+            total_gasto: a.total_gasto, num_compras: a.num_compras,
+            ultima_msg: a.detalhe, ultima_interacao: a.data,
+          });
+        }
+      }
+
+      FILA = [...conversas, ...soRegua];
+
+      // Ordem por urgência: quem espera resposta primeiro, depois régua, depois o
+      // resto por recência. Card parado sobe — é o que vira dinheiro perdido.
+      FILA.sort((a, b) => peso(a) - peso(b) || String(b.ultima_interacao || '').localeCompare(String(a.ultima_interacao || '')));
+
+      render();
+      if (!SEL && FILA.length && window.innerWidth > 900) abrir(FILA[0]);
+    }
+
+    function peso(c) {
+      if (c.esperando) return 1;
+      if (c.travado) return 2;
+      if (c.acao) return 3;
+      if (c._tipo === 'regua') return 4;
+      return 5;
+    }
+
+    function passaFiltro(c) {
+      if (FILTRO === 'tudo') return true;
+      if (FILTRO === 'esperando') return !!c.esperando;
+      if (FILTRO === 'regua') return !!c.acao || c._tipo === 'regua';
+      if (FILTRO === 'novos') return !c.num_compras && (c.origem || c._tipo === 'conversa');
+      if (FILTRO === 'meus') return !!c.usuario_id && c.usuario_id === ME_ID;
+      return true;
+    }
+
+    let ME_ID = null;
+
+    function render() {
+      const lista = FILA.filter(passaFiltro);
+      document.getElementById('qtdFila').textContent = lista.length;
+      document.getElementById('resumo').textContent =
+        `${FILA.length} na fila · ${FILA.filter(c => c.esperando).length} esperando você`;
+
+      document.getElementById('filtros').innerHTML = FILTROS.map(f => {
+        const n = FILA.filter(c => { const s = FILTRO; FILTRO = f.id; const r = passaFiltro(c); FILTRO = s; return r; }).length;
+        return `<span class="fpill ${FILTRO === f.id ? 'on' : ''}" onclick="filtrar('${f.id}')">${f.txt}${n ? ' ' + n : ''}</span>`;
+      }).join('');
+
+      document.getElementById('fila').innerHTML = lista.length
+        ? lista.map(card).join('')
+        : '<div class="vazio-p">Nada por aqui.<br><small>Quando alguém escrever ou a régua sugerir um contato, aparece nesta lista.</small></div>';
+
+      if (VISAO === 'kanban') renderKanban();
+    }
+
+    function card(c) {
+      const nome = c.cliente_nome || c.contato_nome || c.telefone || 'Sem nome';
+      const chave = c.id ? 'c' + c.id : 'a' + c.acao?.id;
+      const previa = c.acao ? (c.acao.detalhe || c.acao.label) : (c.ultima_msg || '');
+      return `
+        <div class="card-at ${SEL && chaveDe(SEL) === chave ? 'sel' : ''}" onclick="abrirPorChave('${chave}')">
+          <div class="ca-topo">
+            <span class="ca-nome">${esc(nome)}</span>
+            <span class="ca-hora">${horaCurta(c.ultima_interacao)}</span>
+          </div>
+          <div class="ca-txt">${esc(previa)}</div>
+          <div class="ca-tags">
+            ${c.esperando ? '<span class="tg tg-esp">esperando você</span>' : ''}
+            ${c.acao || c._tipo === 'regua' ? '<span class="tg tg-reg">a régua sugere</span>' : ''}
+            ${c.travado ? `<span class="tg tg-trv">${c.dias_parado}d parado</span>` : ''}
+            ${c.origem === 'anuncio' || c.origem === 'checkout' ? `<span class="tg tg-novo">${esc(c.origem)}</span>` : ''}
+            ${c.dono_nome ? `<span class="tg tg-dono">${esc(c.dono_nome)}</span>` : ''}
+          </div>
+        </div>`;
+    }
+
+    function chaveDe(c) { return c.id ? 'c' + c.id : 'a' + c.acao?.id; }
+    function abrirPorChave(k) { const c = FILA.find(x => chaveDe(x) === k); if (c) abrir(c); }
+    function filtrar(f) { FILTRO = f; render(); }
+
+    // ------------------------------------------------------------
+    // Abrir: conversa no meio, ficha à direita
+    // ------------------------------------------------------------
+    async function abrir(c) {
+      SEL = c;
+      render();
+      mob('conversa');
+
+      document.getElementById('convTitulo').textContent =
+        c.cliente_nome || c.contato_nome || c.telefone || 'Conversa';
+
+      // MENSAGENS — só quem tem conversa de verdade tem histórico. Card que veio
+      // só da régua ainda não teve conversa nenhuma.
+      const corpo = document.getElementById('convCorpo');
+      if (c.id) {
+        try {
+          const d = await api(`/comercial/conversas/${c.id}`);
+          corpo.innerHTML = (d.mensagens || []).length
+            ? `<div class="msgs">${d.mensagens.map(balao).join('')}</div>`
+            : '<div class="conv-vazia">Nenhuma mensagem ainda.</div>';
+          corpo.scrollTop = corpo.scrollHeight;
+        } catch (e) { corpo.innerHTML = `<div class="conv-vazia">${esc(e.message || 'Erro')}</div>`; }
+      } else {
+        corpo.innerHTML = '<div class="conv-vazia">Vocês ainda não conversaram.<br><small>A mensagem abaixo é a sugestão da régua.</small></div>';
+      }
+
+      // CAIXA DE RESPOSTA — com ação da régua, já vem preenchida.
+      const caixa = document.getElementById('caixaResp');
+      caixa.style.display = '';
+      const txt = document.getElementById('txtResp');
+      const aviso = document.getElementById('avisoRegua');
+      const acoes = document.getElementById('acoesRegua');
+
+      if (c.acao) {
+        txt.value = c.acao.mensagem || '';
+        aviso.innerHTML = `<div class="aviso-regua">${esc(c.acao.label || 'A régua sugere')} — ${esc(c.acao.detalhe || '')}</div>`
+          + (c.acao.cupom ? `<div class="chip-cupom">🎟️ <strong>${esc(c.acao.cupom)}</strong> · ${c.acao.cupom_pct}% de desconto${c.acao.cupom_validade ? ' · vale até ' + dataBr(c.acao.cupom_validade) : ''}<br><span style="opacity:.8">só desta cliente — desconta sozinho no caixa</span></div>` : '');
+        acoes.innerHTML = `
+          <select class="sel-adiar" onchange="adiar(this.value); this.value='';"
+                  style="padding:7px 9px; border-radius:var(--radius-sm); border:1px solid var(--linha);">
+            <option value="">Adiar…</option>
+            <option value="1">amanhã</option>
+            <option value="3">3 dias</option>
+            <option value="7">1 semana</option>
+          </select>
+          <button class="btn btn-sec" onclick="ignorar()">Não contatar</button>`;
+      } else {
+        txt.value = '';
+        aviso.innerHTML = '';
+        acoes.innerHTML = '';
+      }
+
+      const btn = document.getElementById('btnEnviar');
+      btn.disabled = !TEM_CANAL && !c.acao;   // sem canal, ação da régua ainda abre o wa.me
+      btn.title = btn.disabled ? 'Conecte o WhatsApp em Configurar' : '';
+
+      carregarFicha(c);
+    }
+
+    function balao(m) {
+      const cls = m.direcao === 'recebida' ? 'rec' : m.direcao === 'nota' ? 'not' : 'env';
+      return `<div class="bal bal-${cls}">${esc(m.texto || '[' + m.tipo + ']')}<span class="bal-h">${horaCurta(m.criado_em)}</span></div>`;
+    }
+
+    // ------------------------------------------------------------
+    // Painel direito
+    // ------------------------------------------------------------
+    async function carregarFicha(c) {
+      const el = document.getElementById('ficha');
+      if (!c.cliente_id) {
+        el.innerHTML = `
+          <div class="fx">
+            <div class="fx-nome">${esc(c.contato_nome || c.telefone || 'Contato novo')}</div>
+            <div class="fx-sub">${esc(c.telefone || '')}${c.origem ? ' · veio de ' + esc(c.origem) : ''}</div>
+          </div>
+          <div class="fx">
+            <p style="font-size:0.82rem; color:var(--tinta-2); margin:0 0 10px;">
+              Ainda não é cliente cadastrada — sem histórico pra mostrar.
+            </p>
+            <button class="btn btn-sec" onclick="promover()">Salvar como cliente</button>
+          </div>`;
+        return;
+      }
+
+      try {
+        const d = await api(`/comercial/ficha/${c.cliente_id}`);
+        const cli = d.cliente, seg = d.segmento;
+        const ult = d.pedidos && d.pedidos[0];
+        const dias = cli.ultima_compra ? diasDesde(cli.ultima_compra) : null;
+
+        el.innerHTML = `
+          <div class="fx">
+            <div class="fx-nome">${esc(cli.nome)}</div>
+            <div class="fx-sub">${esc([cli.cidade, cli.telefone].filter(Boolean).join(' · '))}</div>
+            ${seg ? `<span class="fx-seg" style="background:${SEG_COR[seg.segmento] || '#666'}">${SEG_NOME[seg.segmento] || seg.segmento}</span>` : ''}
+            ${cli.nao_perturbe ? '<span class="fx-seg" style="background:var(--vermelho)">não perturbe</span>' : ''}
+          </div>
+          <div class="fx">
+            <div class="fx-rot">Histórico</div>
+            <div class="fx-linha"><span>Já gastou</span><span>${moeda(cli.total_gasto || 0)}</span></div>
+            <div class="fx-linha"><span>Compras</span><span>${cli.num_compras || 0}</span></div>
+            ${cli.num_compras ? `<div class="fx-linha"><span>Ticket médio</span><span>${moeda(cli.total_gasto / cli.num_compras)}</span></div>` : ''}
+            <div class="fx-linha"><span>Última compra</span><span>${dias === null ? '—' : dias + 'd atrás'}</span></div>
+          </div>
+          ${d.selos ? `<div class="fx">
+            <div class="fx-rot">Cartão de selos</div>
+            <div style="font-size:0.83rem;">${d.selos.noCiclo} de ${d.selos.total || (d.selos.noCiclo + d.selos.faltam)}${d.selos.faltam > 0 ? ` · faltam ${d.selos.faltam}` : ' · completo!'}</div>
+            <div class="selo-pts">${Array.from({length: (d.selos.total || (d.selos.noCiclo + d.selos.faltam))}, (_, i) =>
+              `<span class="pt ${i < d.selos.noCiclo ? 'cheio' : ''}"></span>`).join('')}</div>
+          </div>` : ''}
+          ${ult ? `<div class="fx">
+            <div class="fx-rot">Último pedido</div>
+            <div class="fx-linha"><span>#${esc(ult.codigo)}</span><span>${moeda(ult.total)}</span></div>
+            <div style="font-size:0.74rem; color:${ult.venda_id ? 'var(--verde,#1e7d4f)' : 'var(--tinta-2)'}; margin-top:2px;">
+              ${ult.venda_id ? (ult.despachado_em ? 'pago · despachado' : 'pago') : 'em aberto'}
+            </div>
+          </div>` : ''}
+          ${cli.excursao_nome ? `<div class="fx">
+            <div class="fx-rot">Entrega</div>
+            <div style="font-size:0.83rem;">${esc(cli.excursao_nome)}</div>
+          </div>` : ''}
+          ${cli.observacoes ? `<div class="fx">
+            <div class="fx-rot">Observações</div>
+            <div style="font-size:0.8rem; white-space:pre-line;">${esc(cli.observacoes)}</div>
+          </div>` : ''}
+          <div class="fx">
+            <a class="btn btn-sec" href="ficha.html?id=${cli.id}" target="_blank" style="width:100%; text-align:center;">Ficha completa</a>
+          </div>`;
+      } catch (e) {
+        el.innerHTML = `<div class="vazio-p">${esc(e.message || 'Não consegui carregar')}</div>`;
+      }
+    }
+
+    const SEG_COR = { campeas:'#8a6d1f', fieis:'#1a6f5e', novas:'#2f6b4f', promissoras:'#3a6ea5',
+                      atencao:'#a6641c', risco:'#9c3a28', perdidas:'#6b665e', hibernando:'#8a857c' };
+    const SEG_NOME = { campeas:'Campeã', fieis:'Fiel', novas:'Nova', promissoras:'Promissora',
+                       atencao:'Atenção', risco:'Em risco', perdidas:'Perdida', hibernando:'Hibernando' };
+
+    // ------------------------------------------------------------
+    // Enviar
+    // ------------------------------------------------------------
+    // Dois caminhos DIFERENTES de propósito: ação da régua vai pela rota da régua
+    // (que ATIVA O CUPOM e dá baixa na fila); conversa comum vai pela rota da
+    // conversa. Unificar deixaria o cupom rascunho pra sempre.
+    async function enviar() {
+      if (!SEL) return;
+      const texto = document.getElementById('txtResp').value.trim();
+      if (!texto) return toast('Escreva a mensagem', 'erro');
+
+      const btn = document.getElementById('btnEnviar');
+      btn.disabled = true; btn.textContent = 'Enviando…';
+
+      try {
+        if (SEL.acao) {
+          // O cupom pode ter sido apagado do texto sem querer — a verdade mora no
+          // banco, mas a cliente não vai saber do código se ele não for na mensagem.
+          if (SEL.acao.cupom && !texto.includes(SEL.acao.cupom)) {
+            if (!confirm(`Você tirou o cupom ${SEL.acao.cupom} da mensagem.\n\nA cliente não vai receber o código. Enviar assim mesmo?`)) {
+              btn.disabled = false; btn.textContent = 'Enviar'; return;
+            }
+          }
+          const r = await api(`/relacionamento/acoes/${SEL.acao.id}/enviada`, { method: 'POST', body: { mensagem: texto } });
+          if (!r.enviado && r.sem_canal) {
+            const tel = String(SEL.telefone || '').replace(/\D/g, '');
+            window.open(`https://wa.me/${tel.length <= 11 ? '55' + tel : tel}?text=${encodeURIComponent(texto)}`, '_blank');
+          } else if (!r.enviado) {
+            toast(r.erro_envio || 'Não consegui enviar', 'erro');
+          } else toast('Enviado');
+        } else {
+          await api(`/comercial/conversas/${SEL.id}/mensagem`, { method: 'POST', body: { texto } });
+          toast('Enviado');
+        }
+        document.getElementById('txtResp').value = '';
+        SEL = null;
+        await carregar();
+      } catch (e) {
+        toast(e.message || 'Erro ao enviar', 'erro');
+      } finally {
+        btn.disabled = false; btn.textContent = 'Enviar';
+      }
+    }
+
+    async function salvarNota() {
+      if (!SEL || !SEL.id) return toast('Só dá pra anotar em conversa já existente', 'erro');
+      const texto = document.getElementById('txtResp').value.trim();
+      if (!texto) return toast('Escreva a nota', 'erro');
+      try {
+        await api(`/comercial/conversas/${SEL.id}/mensagem`, { method: 'POST', body: { texto, nota: true } });
+        document.getElementById('txtResp').value = '';
+        toast('Nota salva — a cliente não vê');
+        abrir(SEL);
+      } catch (e) { toast(e.message || 'Erro', 'erro'); }
+    }
+
+    async function adiar(dias) {
+      if (!dias || !SEL?.acao) return;
+      try {
+        await api(`/relacionamento/acoes/${SEL.acao.id}/adiar`, { method: 'POST', body: { dias: +dias } });
+        toast('Adiado'); SEL = null; carregar();
+      } catch (e) { toast(e.message || 'Erro', 'erro'); }
+    }
+
+    async function ignorar() {
+      if (!SEL?.acao) return;
+      if (!confirm('Tirar este contato da lista?')) return;
+      try {
+        await api(`/relacionamento/acoes/${SEL.acao.id}/ignorar`, { method: 'POST' });
+        toast('Removido'); SEL = null; carregar();
+      } catch (e) { toast(e.message || 'Erro', 'erro'); }
+    }
+
+    async function promover() {
+      if (!SEL) return;
+      const nome = prompt('Nome da cliente:', SEL.contato_nome || '');
+      if (!nome) return;
+      try {
+        await api('/comercial/prospect', { method: 'POST', body: { nome, telefone: SEL.telefone } });
+        toast('Cliente cadastrada'); carregar();
+      } catch (e) { toast(e.message || 'Erro', 'erro'); }
+    }
+
+    // ------------------------------------------------------------
+    // Visão de funil — a MESMA fila, outro formato
+    // ------------------------------------------------------------
+    function alternarVisao() {
+      VISAO = VISAO === 'lista' ? 'kanban' : 'lista';
+      document.body.classList.toggle('kanban', VISAO === 'kanban');
+      document.getElementById('btnVisao').textContent = VISAO === 'lista' ? 'Ver como funil' : 'Ver como lista';
+      if (VISAO === 'kanban') renderKanban();
+    }
+
+    function renderKanban() {
+      document.getElementById('kanban').innerHTML = COLUNAS.map(col => `
+        <div class="kb-col" data-estagio="${col.id}"
+             ondragover="event.preventDefault(); this.classList.add('alvo');"
+             ondragleave="this.classList.remove('alvo');"
+             ondrop="soltar(event, '${col.id}')">
+          <div class="kb-cab"><span class="kb-nome">${esc(col.nome)}</span><span class="kb-n">${col.cards.length}</span></div>
+          <div class="kb-cards">
+            ${col.cards.length ? col.cards.map(k => `
+              <div class="kb-card" draggable="true" ondragstart="arrastar(event, ${k.id})"
+                   ondragend="this.classList.remove('arrastando')" onclick="abrirPorChave('c${k.id}')">
+                <div style="font-weight:700; font-size:0.85rem;">${esc(k.cliente_nome || k.contato_nome || k.telefone)}</div>
+                <div style="font-size:0.72rem; color:var(--tinta-2); font-family:ui-monospace,monospace;">
+                  ${k.total_gasto > 0 ? 'R$ ' + Number(k.total_gasto).toFixed(0) + ' · ' + k.num_compras + 'x' : (k.cidade || k.origem || 'sem histórico')}
+                </div>
+                ${k.esperando ? '<span class="tg tg-esp" style="margin-top:5px; display:inline-block;">esperando você</span>' : ''}
+              </div>`).join('') : '<div style="text-align:center; color:var(--tinta-2); font-size:0.78rem; padding:12px 0;">—</div>'}
+          </div>
+        </div>`).join('');
+    }
+
+    let ARRASTANDO = null;
+    function arrastar(ev, id) { ARRASTANDO = id; ev.currentTarget.classList.add('arrastando'); ev.dataTransfer.effectAllowed = 'move'; }
+    async function soltar(ev, estagio) {
+      ev.preventDefault();
+      document.querySelectorAll('.kb-col').forEach(c => c.classList.remove('alvo'));
+      if (!ARRASTANDO) return;
+      const id = ARRASTANDO; ARRASTANDO = null;
+      try {
+        await api(`/comercial/kanban/${id}/estagio`, { method: 'POST', body: { estagio } });
+        if (estagio === 'comprou') toast('Virou cliente — entra na régua a partir de agora');
+        carregar();
+      } catch (e) { toast(e.message || 'Não consegui mover', 'erro'); }
+    }
+
+    // ------------------------------------------------------------
+    function abrirNovo() { document.getElementById('dlgNovo').showModal(); }
+    async function salvarNovo() {
+      const v = (id) => document.getElementById(id).value.trim();
+      const body = { nome: v('nNome'), telefone: v('nTel'), cidade: v('nCidade'), origem: v('nOrigem') };
+      if (!body.nome || !body.telefone) return toast('Preencha o nome e o WhatsApp', 'erro');
+      try {
+        const r = await api('/comercial/prospect', { method: 'POST', body });
+        if (r.jaEcliente) toast('Atenção: essa pessoa já é cliente da loja', 'erro');
+        else toast('Contato cadastrado');
+        ['nNome','nTel','nCidade','nOrigem'].forEach(i => document.getElementById(i).value = '');
+        document.getElementById('dlgNovo').close();
+        carregar();
+      } catch (e) { toast(e.message || 'Erro', 'erro'); }
+    }
+
+    function mob(painel) { if (window.innerWidth <= 900) document.body.dataset.mob = painel; }
+
+    function horaCurta(d) {
+      if (!d) return '';
+      const s = String(d), hoje = new Date().toISOString().slice(0, 10);
+      if (s.slice(0, 10) === hoje) return s.slice(11, 16);
+      return s.slice(8, 10) + '/' + s.slice(5, 7);
+    }
+    function diasDesde(d) { return Math.floor((new Date() - new Date(String(d).slice(0,10) + 'T12:00:00')) / 86400000); }
+    function dataBr(d) { return d ? String(d).slice(0, 10).split('-').reverse().join('/') : ''; }
+    function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      montarLayout('atendimento');
+      try { const me = await api('/me'); ME_ID = me.usuario_id || null; } catch (e) {}
+      carregar().catch(e => toast(e.message || 'Erro ao carregar', 'erro'));
+      // Mensagem nova chega pelo webhook, não por push: recarrega a fila de tempos
+      // em tempos pra quem responder não ficar invisível.
+      setInterval(() => { if (!document.hidden) carregar().catch(() => {}); }, 45000);
+    });
+  </script>
+</body>
+</html>
