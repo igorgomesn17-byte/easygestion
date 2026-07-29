@@ -1961,6 +1961,103 @@ function executarMigrations(db) {
         // cor — sem indice isso e' full scan da tabela de fotos a cada clique.
         db.exec(`CREATE INDEX IF NOT EXISTS idx_produto_fotos_cor ON produto_fotos(tenant_id, produto_id, cor);`);
       }
+    },
+
+    {
+      nome: '046_crm_dono_e_origem',
+      hash: 'v46-crm-dono-origem',
+      exec: (db) => {
+        // O CRM FOI FEITO ASSUMINDO UMA PESSOA SO OPERANDO.
+        //
+        // `crm_acoes` e `conversas` nao tinham dono. Enquanto e' o proprio lojista
+        // atendendo, ninguem percebe. No momento em que existe um time comercial
+        // (o modelo MCC: Comercial 1 faz a primeira venda, Comercial 2 cuida da
+        // base), NADA disso funciona: nao ha como separar a fila de cada um, como
+        // rotear o card pro C1 ou pro C2, como medir quem trouxe quanto, nem como
+        // travar "fulano ja esta respondendo" pra dois nao atenderem junto.
+        //
+        // Por que `usuario_id` e nao `vendedor_id`: quem opera o CRM LOGA, e login
+        // mora em `usuarios`. `vendedores` e' a tabela de comissao do PDV — nao tem
+        // senha nem sessao, e existem vendedores que nunca abrem o sistema. Amarrar
+        // a fila em `vendedores` obrigaria a inventar um login pra quem nao tem.
+        // (Ligar as duas pontas — comissao sobre o que o comercial recupera — e'
+        // trabalho de outra fase e depende de uma decisao de negocio.)
+        //
+        // NULLABLE, e de proposito: toda acao e conversa que ja existe hoje nasceu
+        // sem dono. Um DEFAULT apontando pra um usuario qualquer atribuiria a fila
+        // historica inteira pra uma pessoa que nunca falou com aquelas clientes —
+        // e envenenaria o placar dela no dia seguinte. NULL = "da loja, sem dono".
+        const colAcoes = db.prepare('PRAGMA table_info(crm_acoes)').all().map((c) => c.name);
+        if (!colAcoes.includes('usuario_id')) {
+          db.exec(`ALTER TABLE crm_acoes ADD COLUMN usuario_id INTEGER;`);
+        }
+
+        // `respondeu_em`: hoje status='enviada' significa apenas "alguem clicou no
+        // botao". Nao diz se chegou, nem se a cliente respondeu — o que torna
+        // impossivel saber se a mensagem CONVENCE. Com o canal integrado, a
+        // resposta dela carimba esta coluna, e "mandei 40, 30 nao responderam"
+        // vira um numero que conserta o TEXTO, nao a pessoa que enviou.
+        if (!colAcoes.includes('respondeu_em')) {
+          db.exec(`ALTER TABLE crm_acoes ADD COLUMN respondeu_em TEXT;`);
+        }
+
+        const colConversas = db.prepare('PRAGMA table_info(conversas)').all().map((c) => c.name);
+        if (!colConversas.includes('usuario_id')) {
+          db.exec(`ALTER TABLE conversas ADD COLUMN usuario_id INTEGER;`);
+        }
+
+        // `origem`: de onde a pessoa veio (anuncio, indicacao, vitrine, direto).
+        // Sem isto nao ha como responder "qual campanha traz quem COMPRA" — so
+        // "quantas pessoas escreveram", que e' vaidade. A conversa e' o unico lugar
+        // onde essa informacao chega: quando ela vem por link de anuncio, o texto
+        // pre-preenchido carrega o codigo.
+        if (!colConversas.includes('origem')) {
+          db.exec(`ALTER TABLE conversas ADD COLUMN origem TEXT;`);
+        }
+
+        // `primeira_resposta_em`: o relogio do atendimento. Quem pergunta e espera
+        // tres horas some — e some sem ninguem saber que existiu. So da pra cobrar
+        // o que se mede, e a mediana disso e' o KPI mais honesto do comercial.
+        if (!colConversas.includes('primeira_resposta_em')) {
+          db.exec(`ALTER TABLE conversas ADD COLUMN primeira_resposta_em TEXT;`);
+        }
+
+        // INDICES SO DEPOIS DE CONFERIR QUE A COLUNA EXISTE.
+        //
+        // `conversas` e `mensagens` nascem SEM tenant_id no schema.sql (a coluna foi
+        // acrescentada depois, e aparece solta no fim do CREATE do banco antigo). Num
+        // banco NOVO, o schema.sql roda primeiro e as migrations depois — entao um
+        // CREATE INDEX sobre tenant_id aqui derruba o boot inteiro com "no such
+        // column". Foi exatamente assim que este arquivo ja quebrou antes (a licao
+        // registrada em schema-sql-roda-antes-das-migrations): indice novo sobre
+        // coluna nova precisa da mesma guarda que o ALTER.
+        const idx = (nome, tabela, colunas) => {
+          const existentes = db.prepare(`PRAGMA table_info(${tabela})`).all().map((c) => c.name);
+          if (colunas.every((c) => existentes.includes(c))) {
+            db.exec(`CREATE INDEX IF NOT EXISTS ${nome} ON ${tabela}(${colunas.join(', ')});`);
+          }
+        };
+
+        // A fila de UMA pessoa e' a query mais quente da tela: roda a cada abertura
+        // do painel e a cada envio. Sem indice e' full scan em crm_acoes.
+        idx('idx_crm_acoes_dono', 'crm_acoes', ['tenant_id', 'usuario_id', 'status']);
+        idx('idx_conversas_dono', 'conversas', ['tenant_id', 'usuario_id', 'arquivada']);
+
+        // O kanban le por estagio e ordena por ordem_kanban (colunas que ja existiam
+        // no schema, sobreviventes do Inbox removido, nunca usadas ate agora).
+        idx('idx_conversas_estagio', 'conversas', ['tenant_id', 'estagio', 'ordem_kanban']);
+
+        // O webhook casa toda mensagem que chega pelo telefone. Sem indice, cada
+        // mensagem recebida vira full scan de conversas.
+        idx('idx_conversas_telefone', 'conversas', ['tenant_id', 'telefone']);
+
+        // clientes.tipo ganha o valor 'prospect' (a COLUNA ja existe — migration 040).
+        // Nao ha DDL a fazer aqui: e' um valor novo, nao uma estrutura nova. Fica
+        // registrado porque a REGRA e' o que importa — 'prospect' sai da regua
+        // reativa pelo mesmo motivo que 'balcao' e 'importado' ja saem: ela NUNCA
+        // comprou, entao nao existe ausencia pra lamentar. Mandar "sentimos sua
+        // falta" pra quem nunca veio queima o contato que o marketing pagou.
+      }
     }
   ];
 

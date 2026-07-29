@@ -384,9 +384,14 @@ app.use('/api/backup',        apenasAdmin, require('./routes/backup'));
 app.use('/api/usuarios',      apenasAdmin, require('./routes/usuarios'));
 app.use('/api/auditoria',     apenasAdmin, require('./routes/auditoria'));  // LGPD: logs de ações
 // Relacionamento (régua + RFM + clube de fidelidade). O gate vale pro router INTEIRO,
-// não rota a rota: rota nova nasce protegida sem ninguém precisar lembrar. É admin
-// porque a tela expõe a base de clientes com telefone — não é tela de vendedora.
-app.use('/api/relacionamento', apenasAdmin, exigirFeature('relacionamento'), require('./routes/relacionamento'));
+// não rota a rota: rota nova nasce protegida sem ninguém precisar lembrar.
+// ⚠️ Era `apenasAdmin`, e isso barrava a ÚNICA pessoa pra quem a tela foi feita: o papel
+// `relacionamento` existe desde sempre (é até o default de routes/usuarios.js) e não
+// conseguia abrir o próprio módulo. Contratar alguém pro CRM e criar o usuário com o
+// papel certo resultava em 403. A intenção do gate original era barrar VENDEDORA (a tela
+// expõe a base com telefone) — e `exigirPapel('admin','relacionamento')` faz exatamente
+// isso, sem barrar quem opera. Vendedora continua de fora.
+app.use('/api/relacionamento', exigirPapel('admin', 'relacionamento'), exigirFeature('relacionamento'), require('./routes/relacionamento'));
 // Reativação da base IMPORTADA (campanha, não régua). Gate próprio: `base_importada`
 // existe só no plano `interno` — é ferramenta da campanha da loja do dono, não
 // produto. Mesmo padrão de mount: rota nova nasce protegida.
