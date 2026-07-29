@@ -156,6 +156,89 @@ router.post('/whatsapp/:token', (req, res) => {
   }
 });
 
+// ============================================================
+// POST/GET /api/webhooks/meta — WhatsApp Cloud E Instagram Direct
+// ------------------------------------------------------------
+// UM endpoint para os DOIS canais: a Meta manda tudo pela mesma Graph API, e o
+// adaptador (`lerWebhook`) decide se é WhatsApp ou Instagram lendo o formato.
+//
+// A Meta NÃO manda token na URL como a Evolution — ela assina o corpo com o App
+// Secret. Então a identificação do tenant vem de dentro do payload (o
+// phone_number_id do WhatsApp, ou o id da conta do Instagram).
+// ============================================================
+
+// GET — a Meta chama uma vez pra confirmar que a URL é nossa.
+router.get('/meta', (req, res) => {
+  const modo = req.query['hub.mode'];
+  const token = req.query['hub.verify_token'];
+  const desafio = req.query['hub.challenge'];
+
+  if (modo === 'subscribe' && token && token === process.env.META_VERIFY_TOKEN) {
+    logger.info('[Webhook Meta] verificação aceita');
+    return res.status(200).send(desafio);
+  }
+  // 403 e não 404: dizer "não existe" quando a URL existe atrapalha o diagnóstico
+  // de quem está configurando.
+  res.sendStatus(403);
+});
+
+router.post('/meta', async (req, res) => {
+  try {
+    const meta = require('../lib/whatsapp-meta');
+    const whatsapp = require('../lib/whatsapp');
+    const conversas = require('../lib/conversas');
+
+    // ASSINATURA — sem isto, quem descobrir a URL injeta mensagem falsa na fila
+    // da lojista. Exige o corpo CRU: JSON.stringify reordena chaves e o hash não
+    // fecha (por isso o mount usa express.raw).
+    const cru = Buffer.isBuffer(req.body) ? req.body : Buffer.from(JSON.stringify(req.body || {}));
+    const assinatura = req.get('x-hub-signature-256');
+    if (process.env.META_APP_SECRET) {
+      if (!meta.assinaturaValida(cru, assinatura, process.env.META_APP_SECRET)) {
+        logger.warn('[Webhook Meta] assinatura inválida');
+        return res.sendStatus(401);
+      }
+    }
+
+    let corpo;
+    try { corpo = JSON.parse(cru.toString('utf8')); } catch (_) { return res.sendStatus(200); }
+
+    const msg = meta.lerWebhook(corpo);
+    // null = eco, status de entrega, ou evento que não é mensagem. 200 sempre:
+    // a Meta reenvia o que não recebe 200, e reenviar um evento que devemos
+    // ignorar viraria retry infinito.
+    if (!msg) return res.sendStatus(200);
+
+    // De QUAL loja é esta mensagem? O identificador vem do payload — não há
+    // token na URL como na Evolution.
+    const idConta = msg.canal === 'instagram'
+      ? corpo?.entry?.[0]?.id
+      : corpo?.entry?.[0]?.changes?.[0]?.value?.metadata?.phone_number_id;
+
+    const tenantId = whatsapp.tenantDaContaMeta(idConta, msg.canal);
+    if (!tenantId) {
+      logger.warn(`[Webhook Meta] conta ${idConta} (${msg.canal}) não corresponde a nenhuma loja`);
+      return res.sendStatus(200);
+    }
+
+    const r = conversas.receberMensagem(tenantId, msg);
+    if (r.duplicada) return res.sendStatus(200);
+    if (!r.ok) { logger.warn('[Webhook Meta]', r.erro); return res.sendStatus(200); }
+
+    logger.info(`[Webhook Meta] ${msg.canal} · tenant ${tenantId} · conversa ${r.conversaId}`);
+    res.sendStatus(200);
+
+    // O bot vai DEPOIS do 200: a Meta precisa da resposta rápida ou reenvia.
+    if (conversas.botDeveResponder(tenantId, r.conversaId)) {
+      responderComBot(tenantId, r.conversaId, r.texto, r.clienteId).catch((e) =>
+        logger.warn('[BOT] falhou:', e.message));
+    }
+  } catch (err) {
+    logger.error('[Webhook Meta] erro:', err.stack || err.message);
+    res.sendStatus(200);
+  }
+});
+
 // ------------------------------------------------------------
 // O bot atende — ou passa pro humano.
 // ------------------------------------------------------------
@@ -227,7 +310,12 @@ async function responderComBot(tenantId, conversaId, texto, clienteId) {
     return;
   }
 
-  const envio = await whatsapp.enviarTexto(tenantId, telefoneDaConversa(tenantId, conversaId), resposta);
+  // O bot responde PELO MESMO canal que a cliente usou. Responder no WhatsApp
+  // quem escreveu no Instagram exigiria um telefone que ela não deu.
+  const conv = db.prepare('SELECT telefone, canal, external_contact_id FROM conversas WHERE id = ? AND tenant_id = ?')
+    .get(conversaId, tenantId) || {};
+  const destino = conv.canal === 'instagram' ? conv.external_contact_id : conv.telefone;
+  const envio = await whatsapp.enviarTexto(tenantId, destino || '', resposta, conv.canal || 'whatsapp');
   if (envio.ok) {
     conversas.registrarEnviada(tenantId, { conversaId, externalId: envio.externalId, texto: resposta });
   } else {

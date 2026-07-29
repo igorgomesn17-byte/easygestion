@@ -335,7 +335,10 @@ router.post('/conversas/:id/mensagem', async (req, res) => {
     return res.json({ ok: true, nota: true });
   }
 
-  const envio = await whatsapp.enviarTexto(t, c.telefone, String(texto));
+  // O canal vem da CONVERSA: se ela escreveu pelo Instagram, a resposta vai por
+  // lá — e o destino é o IGSID, não um telefone (que ela não tem).
+  const destino = c.canal === 'instagram' ? c.external_contact_id : c.telefone;
+  const envio = await whatsapp.enviarTexto(t, destino, String(texto), c.canal || 'whatsapp');
   if (!envio.ok) {
     return res.status(envio.semCanal ? 400 : 502).json({
       erro: envio.semCanal ? 'Conecte o WhatsApp para responder por aqui' : (envio.erro || 'Não consegui enviar'),

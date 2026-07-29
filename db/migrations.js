@@ -2334,6 +2334,39 @@ function executarMigrations(db) {
         db.exec(`CREATE INDEX IF NOT EXISTS idx_bot_log_tenant ON bot_log(tenant_id, criado_em);`);
       }
     },
+
+    {
+      nome: '052_canal_meta_oficial',
+      hash: 'v52-canal-meta-oficial',
+      exec: (db) => {
+        // WHATSAPP OFICIAL + INSTAGRAM pela mesma conexao (decisao 29/07/2026).
+        //
+        // A Evolution self-hosted nao escala como produto: 300-500MB de RAM por
+        // cliente conectado, mesmo com a loja parada. Vira custo fixo de servidor
+        // por cliente, e varios numeros no mesmo IP fazem um banimento derrubar
+        // TODOS ao mesmo tempo. Na oficial cada lojista usa a conta dela: custo
+        // zero de infra, numero que nao cai.
+        //
+        // `instancia_ig` guarda o id da conta do Instagram. Coluna SEPARADA de
+        // `instancia` (que no provedor 'meta' guarda o phone_number_id do
+        // WhatsApp) porque sao dois identificadores diferentes na mesma conexao —
+        // e o webhook precisa achar o tenant por um OU pelo outro.
+        const cols = db.prepare('PRAGMA table_info(integracoes_canal)').all().map((c) => c.name);
+        if (!cols.includes('instancia_ig')) {
+          db.exec(`ALTER TABLE integracoes_canal ADD COLUMN instancia_ig TEXT;`);
+        }
+        // A WABA (WhatsApp Business Account) e' o que se assina pro webhook, e
+        // e' diferente do numero: uma WABA pode ter varios numeros.
+        if (!cols.includes('waba_id')) {
+          db.exec(`ALTER TABLE integracoes_canal ADD COLUMN waba_id TEXT;`);
+        }
+
+        // O webhook da Meta acha o tenant por estes dois campos — sem indice, e'
+        // full scan a cada mensagem recebida.
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_canal_meta_wa ON integracoes_canal(provedor, instancia);`);
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_canal_meta_ig ON integracoes_canal(provedor, instancia_ig);`);
+      }
+    },
     {
       nome: '051_assinaturas_beta',
       hash: 'v51-assinaturas-beta',

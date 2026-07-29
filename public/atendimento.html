@@ -100,6 +100,10 @@
        o departamento em todo card seria repetir o que o filtro já diz. */
     .tg-c1 { background: var(--dourado-claro); color: var(--dourado-escuro); }
     .tg-c2 { background: var(--marca-clara); color: var(--marca-escura); }
+    /* Instagram marcado no card: quem escreveu por lá não tem telefone, e a
+       resposta vai pelo mesmo canal — o comercial precisa saber disso ANTES de
+       digitar (e antes de prometer mandar um Pix por WhatsApp). */
+    .ic-canal { color: #C13584; font-weight: 700; }
 
     /* ---- conversa ---- */
     .conv-vazia { display: flex; align-items: center; justify-content: center; height: 100%;
@@ -398,7 +402,7 @@
       return `
         <div class="card-at ${SEL && chaveDe(SEL) === chave ? 'sel' : ''}" onclick="abrirPorChave('${chave}')">
           <div class="ca-topo">
-            <span class="ca-nome">${esc(nome)}</span>
+            <span class="ca-nome">${c.canal === 'instagram' ? '<span class="ic-canal" title="Instagram">◎</span> ' : ''}${esc(nome)}</span>
             <span class="ca-hora">${horaCurta(c.ultima_interacao)}</span>
           </div>
           <div class="ca-txt">${esc(previa)}</div>

@@ -274,6 +274,10 @@ app.use('/api/webhooks/stripe', express.raw({type: 'application/json'}), (req, r
 // próprio aqui, req.body chegaria vazio e toda mensagem recebida seria descartada em
 // silêncio — o pior tipo de falha, porque a tela simplesmente não mostra nada.
 app.use('/api/webhooks/whatsapp', express.json({ limit: '2mb' }));
+// A Meta assina o corpo com o App Secret, e o hash só fecha sobre o corpo CRU:
+// express.json() reordenaria chaves e mudaria espaços, invalidando a assinatura.
+// Mesmo motivo do webhook do Stripe.
+app.use('/api/webhooks/meta', express.raw({ type: '*/*', limit: '2mb' }));
 // Mesmo motivo: este mount vem antes do express.json global.
 app.use('/api/webhooks/mercadopago', express.json({ limit: '1mb' }));
 app.use('/api/webhooks', require('./routes/webhooks'));
