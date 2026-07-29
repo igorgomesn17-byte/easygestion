@@ -274,6 +274,33 @@ router.post('/conversa-com/:clienteId', (req, res) => {
   }
 });
 
+// DELETE /conversas/:id — tirar da fila.
+//
+// Conversa aberta por engano (testar, clicar no nome errado) fica na fila pra
+// sempre, ocupando espaço e contando no número do topo. Não existia como
+// remover — e "arquivar" não estava exposto em lugar nenhum.
+//
+// ARQUIVA, não apaga: `arquivada = 1` some da fila mas o histórico continua.
+// Se houve mensagem trocada, apagar seria perder a conversa com uma cliente real.
+// A EXCEÇÃO é a conversa que nunca teve mensagem nenhuma — essa não é histórico
+// de nada, é lixo de teste, e apagar de vez evita acumular sujeira invisível.
+router.delete('/conversas/:id', (req, res) => {
+  const t = req.tenantId;
+  const c = db.prepare('SELECT id FROM conversas WHERE id = ? AND tenant_id = ?').get(req.params.id, t);
+  if (!c) return res.status(404).json({ erro: 'Conversa não encontrada' });
+
+  const msgs = db.prepare('SELECT COUNT(*) AS n FROM mensagens WHERE conversa_id = ? AND tenant_id = ?')
+    .get(c.id, t).n;
+
+  if (msgs === 0) {
+    db.prepare('DELETE FROM conversas WHERE id = ? AND tenant_id = ?').run(c.id, t);
+    return res.json({ ok: true, apagada: true });
+  }
+
+  db.prepare('UPDATE conversas SET arquivada = 1 WHERE id = ? AND tenant_id = ?').run(c.id, t);
+  res.json({ ok: true, arquivada: true, mensagens: msgs });
+});
+
 // ------------------------------------------------------------
 // Conversa: ler e responder
 // ------------------------------------------------------------

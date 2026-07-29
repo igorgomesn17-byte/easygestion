@@ -212,7 +212,11 @@
         <div class="p-cab">
           <button class="btn btn-sec btn-fino voltar-mob" onclick="mob('lista')">‹ Fila</button>
           <span class="p-tit" id="convTitulo">Conversa</span>
-          <button class="btn btn-sec btn-fino voltar-mob" onclick="mob('ficha')">Ficha ›</button>
+          <span style="display:flex; gap:6px; align-items:center;">
+            <button class="btn btn-sec btn-fino" id="btnRemover" onclick="removerConversa()"
+                    style="display:none;" title="Tirar da fila">Remover</button>
+            <button class="btn btn-sec btn-fino voltar-mob" onclick="mob('ficha')">Ficha ›</button>
+          </span>
         </div>
         <div class="p-rola" id="convCorpo">
           <div class="conv-vazia">Escolha alguém na lista ao lado para começar.</div>
@@ -477,7 +481,21 @@
 
       const btn = document.getElementById('btnEnviar');
       btn.disabled = !TEM_CANAL && !c.acao;   // sem canal, ação da régua ainda abre o wa.me
-      btn.title = btn.disabled ? 'Conecte o WhatsApp em Configurar' : '';
+      // Botão cinza sem explicação é o pior tipo de bloqueio: a pessoa clica,
+      // nada acontece, e ela não tem como descobrir por quê. O aviso diz o motivo
+      // E leva pra onde resolve.
+      if (btn.disabled) {
+        aviso.innerHTML = `<div class="aviso-regua" style="background:var(--dourado-claro); color:var(--dourado-escuro);">
+          O WhatsApp da loja ainda não está conectado — por isso o Enviar está desligado.
+          <a href="configurar-crm.html?aba=whatsapp" style="color:inherit; font-weight:700;">Conectar agora ›</a>
+        </div>` + aviso.innerHTML;
+      }
+      btn.textContent = TEM_CANAL ? 'Enviar' : (c.acao ? 'Abrir no WhatsApp' : 'Enviar');
+
+      // Remover só faz sentido pra conversa de verdade (card que veio só da régua
+      // não é conversa — é sugestão, e some sozinha quando você adia ou ignora).
+      const rem = document.getElementById('btnRemover');
+      rem.style.display = c.id ? '' : 'none';
 
       carregarFicha(c);
     }
@@ -603,6 +621,33 @@
       } finally {
         btn.disabled = false; btn.textContent = 'Enviar';
       }
+    }
+
+    // Tirar da fila. O texto do aviso muda conforme haja ou não histórico —
+    // "apagar" e "arquivar" são coisas diferentes e a pessoa precisa saber qual
+    // das duas vai acontecer ANTES de confirmar.
+    async function removerConversa() {
+      if (!SEL || !SEL.id) return;
+      const nome = SEL.cliente_nome || SEL.contato_nome || SEL.telefone;
+      const temMsg = document.querySelectorAll('#convCorpo .bal').length > 0;
+
+      const texto = temMsg
+        ? `Tirar a conversa com ${nome} da fila?\n\nAs mensagens ficam guardadas — ela some da lista, mas o histórico continua.`
+        : `Remover ${nome} da fila?\n\nNunca houve mensagem nesta conversa, então ela é apagada de vez.`;
+      if (!confirm(texto)) return;
+
+      try {
+        const r = await api(`/comercial/conversas/${SEL.id}`, { method: 'DELETE' });
+        toast(r.apagada ? 'Removida' : 'Arquivada — o histórico continua guardado');
+        SEL = null;
+        document.getElementById('caixaResp').style.display = 'none';
+        document.getElementById('convCorpo').innerHTML =
+          '<div class="conv-vazia">Escolha alguém na lista ao lado para começar.</div>';
+        document.getElementById('convTitulo').textContent = 'Conversa';
+        document.getElementById('ficha').innerHTML =
+          '<div class="vazio-p">O histórico dela aparece aqui.</div>';
+        carregar();
+      } catch (e) { toast(e.message || 'Erro ao remover', 'erro'); }
     }
 
     async function salvarNota() {
