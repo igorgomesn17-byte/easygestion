@@ -1669,4 +1669,21 @@ Entrou também: **banner da loja** com upload (frase, botão e link — banner q
 
 ---
 
+## Últimas Mudanças (29 de julho de 2026) — Beta de prospecção: Growth por 30 dias
+
+**Commit:** `84686df`. Migration **051** rodou em produção (406 vendas preservadas).
+
+Benefício oferecido **na prospecção**: os primeiros 20 clientes ganham o **Growth completo por 30 dias** em vez dos 14 padrão. O cliente se cadastra normal e o Igor **converte a conta no backoffice**, um a um (aba Assinaturas → botão "Ativar Beta", que só aparece em conta `em_teste=1`). Descartados o código de convite no cadastro e o contador automático no signup — quem decide quem entra é ele.
+
+- **As DUAS datas andam juntas.** Quem manda no bloqueio é `data_proxima_renovacao` — é ela que `obterStatusAssinatura` compara com hoje pra devolver 'vencida'. `data_fim_teste` é só o que a tela mostra. Estender uma sem a outra trava o beta no dia 15 exibindo "30 dias" na cara dele, ou promete 14 e libera 30.
+- **`em_teste` continua 1.** Beta é trial mais longo, não assinatura: é o que segura o `renovacao-scheduler` (não cobra R$ 119,90 de um benefício dado de graça) e o `verificarEBloquearPorAtrasoComStrike` (não marca 'bloqueado' quem só testa). Fim dos 30 dias = mesmo fluxo do trial normal: trava e leva pra tela de planos.
+- **`tenants.plano` na mesma transação** — é o que `temFeature()` lê. Sem ele o beta veria "Growth" na tela e continuaria batendo em 403 no DRE e no relacionamento, exatamente a bandeira que o benefício promete.
+- **As 20 vagas são CONTADAS, não travadas** (`GET /api/admin/beta`). A rota não recusa a 21ª: o limite é argumento comercial, e travar viraria estorvo no dia em que ele abrir uma vaga pra uma loja boa. A coluna `beta` existe (em vez de inferir por duração) porque "fim − início > 14" não distingue um beta de um trial esticado por suporte — a contagem das vagas mentiria.
+- **Conta pagante é recusada (409):** sobrescrever a renovação de quem paga daria acesso grátis enquanto o Stripe (em LIVE) segue cobrando.
+- Teste: `npm run test:beta` (20 asserts). Migration provada contra cópia povoada: idempotente, zero perda, ninguém vira beta sozinho.
+
+Ver memória `beta-30-dias-duas-datas`.
+
+---
+
 **Documento versão 2.2 — Atualizado em 18 de julho de 2026. Régua nova: vitrine + personalização + precificação DESCERAM pro Starter (canal de aquisição + operação básica de vender); relacionamento (RFM + régua + clube) SUBIU pro Growth como bandeira do plano; DRE/relatórios seguem Growth. Fonte da verdade `lib/planos.js` — front e endpoint seguem sozinhos. Clube: lista de selos recolhida por padrão. Cupom não fiscal voltou a mostrar selos (rota `/crm/selos` era fantasma). Ficha da cliente ganhou Instagram + Observações (migration 039). Histórico: nome da cliente vira link pra ficha. Régua reconciliada: quem compra sai da fila e a janela de reativação não multiplica o mesmo cliente (`npm run test:regua`). Stripe em modo LIVE. Pendência de segurança nº1: rotacionar a chave AWS vazada.**
