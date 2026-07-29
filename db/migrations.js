@@ -1961,6 +1961,277 @@ function executarMigrations(db) {
         // cor — sem indice isso e' full scan da tabela de fotos a cada clique.
         db.exec(`CREATE INDEX IF NOT EXISTS idx_produto_fotos_cor ON produto_fotos(tenant_id, produto_id, cor);`);
       }
+    },
+
+    {
+      nome: '046_crm_dono_e_origem',
+      hash: 'v46-crm-dono-origem',
+      exec: (db) => {
+        // O CRM FOI FEITO ASSUMINDO UMA PESSOA SO OPERANDO.
+        //
+        // `crm_acoes` e `conversas` nao tinham dono. Enquanto e' o proprio lojista
+        // atendendo, ninguem percebe. No momento em que existe um time comercial
+        // (o modelo MCC: Comercial 1 faz a primeira venda, Comercial 2 cuida da
+        // base), NADA disso funciona: nao ha como separar a fila de cada um, como
+        // rotear o card pro C1 ou pro C2, como medir quem trouxe quanto, nem como
+        // travar "fulano ja esta respondendo" pra dois nao atenderem junto.
+        //
+        // Por que `usuario_id` e nao `vendedor_id`: quem opera o CRM LOGA, e login
+        // mora em `usuarios`. `vendedores` e' a tabela de comissao do PDV — nao tem
+        // senha nem sessao, e existem vendedores que nunca abrem o sistema. Amarrar
+        // a fila em `vendedores` obrigaria a inventar um login pra quem nao tem.
+        // (Ligar as duas pontas — comissao sobre o que o comercial recupera — e'
+        // trabalho de outra fase e depende de uma decisao de negocio.)
+        //
+        // NULLABLE, e de proposito: toda acao e conversa que ja existe hoje nasceu
+        // sem dono. Um DEFAULT apontando pra um usuario qualquer atribuiria a fila
+        // historica inteira pra uma pessoa que nunca falou com aquelas clientes —
+        // e envenenaria o placar dela no dia seguinte. NULL = "da loja, sem dono".
+        const colAcoes = db.prepare('PRAGMA table_info(crm_acoes)').all().map((c) => c.name);
+        if (!colAcoes.includes('usuario_id')) {
+          db.exec(`ALTER TABLE crm_acoes ADD COLUMN usuario_id INTEGER;`);
+        }
+
+        // `respondeu_em`: hoje status='enviada' significa apenas "alguem clicou no
+        // botao". Nao diz se chegou, nem se a cliente respondeu — o que torna
+        // impossivel saber se a mensagem CONVENCE. Com o canal integrado, a
+        // resposta dela carimba esta coluna, e "mandei 40, 30 nao responderam"
+        // vira um numero que conserta o TEXTO, nao a pessoa que enviou.
+        if (!colAcoes.includes('respondeu_em')) {
+          db.exec(`ALTER TABLE crm_acoes ADD COLUMN respondeu_em TEXT;`);
+        }
+
+        const colConversas = db.prepare('PRAGMA table_info(conversas)').all().map((c) => c.name);
+        if (!colConversas.includes('usuario_id')) {
+          db.exec(`ALTER TABLE conversas ADD COLUMN usuario_id INTEGER;`);
+        }
+
+        // `origem`: de onde a pessoa veio (anuncio, indicacao, vitrine, direto).
+        // Sem isto nao ha como responder "qual campanha traz quem COMPRA" — so
+        // "quantas pessoas escreveram", que e' vaidade. A conversa e' o unico lugar
+        // onde essa informacao chega: quando ela vem por link de anuncio, o texto
+        // pre-preenchido carrega o codigo.
+        if (!colConversas.includes('origem')) {
+          db.exec(`ALTER TABLE conversas ADD COLUMN origem TEXT;`);
+        }
+
+        // `primeira_resposta_em`: o relogio do atendimento. Quem pergunta e espera
+        // tres horas some — e some sem ninguem saber que existiu. So da pra cobrar
+        // o que se mede, e a mediana disso e' o KPI mais honesto do comercial.
+        if (!colConversas.includes('primeira_resposta_em')) {
+          db.exec(`ALTER TABLE conversas ADD COLUMN primeira_resposta_em TEXT;`);
+        }
+
+        // INDICES SO DEPOIS DE CONFERIR QUE A COLUNA EXISTE.
+        //
+        // `conversas` e `mensagens` nascem SEM tenant_id no schema.sql (a coluna foi
+        // acrescentada depois, e aparece solta no fim do CREATE do banco antigo). Num
+        // banco NOVO, o schema.sql roda primeiro e as migrations depois — entao um
+        // CREATE INDEX sobre tenant_id aqui derruba o boot inteiro com "no such
+        // column". Foi exatamente assim que este arquivo ja quebrou antes (a licao
+        // registrada em schema-sql-roda-antes-das-migrations): indice novo sobre
+        // coluna nova precisa da mesma guarda que o ALTER.
+        const idx = (nome, tabela, colunas) => {
+          const existentes = db.prepare(`PRAGMA table_info(${tabela})`).all().map((c) => c.name);
+          if (colunas.every((c) => existentes.includes(c))) {
+            db.exec(`CREATE INDEX IF NOT EXISTS ${nome} ON ${tabela}(${colunas.join(', ')});`);
+          }
+        };
+
+        // A fila de UMA pessoa e' a query mais quente da tela: roda a cada abertura
+        // do painel e a cada envio. Sem indice e' full scan em crm_acoes.
+        idx('idx_crm_acoes_dono', 'crm_acoes', ['tenant_id', 'usuario_id', 'status']);
+        idx('idx_conversas_dono', 'conversas', ['tenant_id', 'usuario_id', 'arquivada']);
+
+        // O kanban le por estagio e ordena por ordem_kanban (colunas que ja existiam
+        // no schema, sobreviventes do Inbox removido, nunca usadas ate agora).
+        idx('idx_conversas_estagio', 'conversas', ['tenant_id', 'estagio', 'ordem_kanban']);
+
+        // O webhook casa toda mensagem que chega pelo telefone. Sem indice, cada
+        // mensagem recebida vira full scan de conversas.
+        idx('idx_conversas_telefone', 'conversas', ['tenant_id', 'telefone']);
+
+        // clientes.tipo ganha o valor 'prospect' (a COLUNA ja existe — migration 040).
+        // Nao ha DDL a fazer aqui: e' um valor novo, nao uma estrutura nova. Fica
+        // registrado porque a REGRA e' o que importa — 'prospect' sai da regua
+        // reativa pelo mesmo motivo que 'balcao' e 'importado' ja saem: ela NUNCA
+        // comprou, entao nao existe ausencia pra lamentar. Mandar "sentimos sua
+        // falta" pra quem nunca veio queima o contato que o marketing pagou.
+      }
+    },
+
+    {
+      nome: '047_integracoes_canal',
+      hash: 'v47-integracoes-canal',
+      exec: (db) => {
+        // CREDENCIAL DO CANAL DE MENSAGEM (WhatsApp).
+        //
+        // Molde deliberado de `integracoes_pagamento` (lib/mercadopago.js): token
+        // CIFRADO (AES-256-CBC, mesma CERT_CIPHER_KEY), por tenant, com UNIQUE que
+        // faz reconectar virar UPDATE em vez de duplicar.
+        //
+        // `provedor` e' COLUNA, e nao um valor fixo, pelo mesmo motivo que
+        // `adquirente` e' coluna na tabela de pagamento: hoje o canal e' a Evolution
+        // (nao-oficial, com risco de banimento assumido pelo dono); amanha pode ser
+        // a Cloud API oficial da Meta. Trocar de provedor tem que ser trocar de
+        // LINHA, nunca migrar tabela — e as duas coexistem enquanto se migra.
+        //
+        // NAO reusar a tabela `config`: la o token da Focus esta em texto puro. Uma
+        // credencial que fala com a base inteira de clientes nao repete isso.
+        //
+        // Migration SEPARADA da 046 de proposito: a 046 ja poderia estar registrada
+        // como executada num banco (dev, staging) quando esta tabela foi acrescentada
+        // ao plano. Editar uma migration ja aplicada faz o codigo novo esperar uma
+        // estrutura que aquele banco nunca vai criar — e o erro so aparece no primeiro
+        // uso, em runtime ("no such table"). Migration aplicada e' imutavel; o que
+        // vem depois vira migration nova.
+        db.exec(`
+          CREATE TABLE IF NOT EXISTS integracoes_canal (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            tenant_id     INTEGER NOT NULL,
+            provedor      TEXT NOT NULL DEFAULT 'evolution',  -- evolution | meta_cloud
+            base_url      TEXT,                               -- onde a instancia responde
+            instancia     TEXT,                               -- nome da instancia no provedor
+            token         TEXT NOT NULL,                      -- CIFRADO, nunca em claro
+            numero        TEXT,                               -- o numero conectado (so digitos)
+            webhook_token TEXT,                               -- valida quem chama nosso webhook
+            ativo         INTEGER NOT NULL DEFAULT 1,
+            criado_em     TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+            atualizado_em TEXT,
+            UNIQUE (tenant_id, provedor)
+          );
+        `);
+
+        // O webhook busca por este token a cada mensagem que chega.
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_integracoes_canal_webhook ON integracoes_canal(webhook_token);`);
+      }
+    },
+
+    {
+      nome: '048_atacado_excursao_e_reserva',
+      hash: 'v48-atacado-excursao-reserva',
+      exec: (db) => {
+        // ---------- EXCURSAO ----------
+        //
+        // No atacado a mercadoria NAO vai pro endereco da lojista: vai pra empresa de
+        // excursao, que leva pra cidade dela. Entao "onde entregar" nao e' o endereco
+        // da cliente — e' um terceiro, que se REPETE entre varias clientes.
+        //
+        // Por isso e' TABELA, e nao um campo de texto na ficha. Texto livre produziria
+        // "Excursao do Joao", "exc. joao" e "Van Joao" pro MESMO destino — e o
+        // despacho, que e' justamente onde isso importa, nao teria como agrupar.
+        // Com tabela, a tela de pedidos responde "3 pedidos vao na Excursao do Joao
+        // hoje", que e' o que evita mandar o mesmo destino em duas viagens.
+        db.exec(`
+          CREATE TABLE IF NOT EXISTS excursoes (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            tenant_id   INTEGER NOT NULL,
+            nome        TEXT NOT NULL,
+            responsavel TEXT,
+            telefone    TEXT,
+            cidade      TEXT,
+            obs         TEXT,
+            ativo       INTEGER NOT NULL DEFAULT 1,
+            criado_em   TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+            UNIQUE (tenant_id, nome)
+          );
+        `);
+
+        const colCli = db.prepare('PRAGMA table_info(clientes)').all().map((c) => c.name);
+
+        // NULLABLE de proposito: cliente sem excursao e' caso legitimo (retira na
+        // loja, entrega propria, mora na cidade). Obrigar criaria excursao-fantasma.
+        if (!colCli.includes('excursao_id')) db.exec(`ALTER TABLE clientes ADD COLUMN excursao_id INTEGER;`);
+
+        // Dados de PJ. `cpf_cnpj` ja existe (serve pros dois); o que falta e' o que
+        // so o atacado precisa: razao social e onde entregar.
+        if (!colCli.includes('razao_social'))    db.exec(`ALTER TABLE clientes ADD COLUMN razao_social TEXT;`);
+        if (!colCli.includes('endereco'))        db.exec(`ALTER TABLE clientes ADD COLUMN endereco TEXT;`);
+        if (!colCli.includes('cep'))             db.exec(`ALTER TABLE clientes ADD COLUMN cep TEXT;`);
+        if (!colCli.includes('uf'))              db.exec(`ALTER TABLE clientes ADD COLUMN uf TEXT;`);
+
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_clientes_excursao ON clientes(tenant_id, excursao_id);`);
+
+        // ---------- RESERVA DE ESTOQUE ----------
+        //
+        // O catalogo so mostra o que tem, entao o pedido nasce valido e nao precisa
+        // de aprovacao. Mas isso deixa uma corrida aberta: duas clientes veem a mesma
+        // ultima peca M como disponivel, as duas geram Pix, as duas pagam — e uma vai
+        // ser estornada. Numa cidade pequena, onde a cliente conhece a dona, esse
+        // estorno custa mais que a venda.
+        //
+        // A reserva acontece ao GERAR O PIX, nao ao montar o carrinho: reservar no
+        // carrinho prenderia peca de quem so estava olhando.
+        //
+        // Expiracao e' LAZY (reservado_ate < agora), sem job. Job que nao roda —
+        // deploy, reboot, erro — deixaria peca presa indefinidamente. Mesmo padrao
+        // que o cupom expirado ja usa.
+        const colItens = db.prepare('PRAGMA table_info(vitrine_pedido_itens)').all().map((c) => c.name);
+        if (!colItens.includes('reservado_ate')) {
+          db.exec(`ALTER TABLE vitrine_pedido_itens ADD COLUMN reservado_ate TEXT;`);
+        }
+
+        // A consulta de disponibilidade roda a cada carregamento do catalogo e
+        // descontar reservas ativas nao pode custar full scan.
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_pedido_itens_reserva
+                 ON vitrine_pedido_itens(tenant_id, variacao_id, reservado_ate);`);
+
+        // ---------- PAGAMENTO DO PEDIDO ----------
+        //
+        // O pedido precisa lembrar a cobranca que gerou: pra reenviar o QR quando a
+        // cliente perde a mensagem, e pra o webhook do provedor saber QUAL pedido
+        // pagar quando o dinheiro cai.
+        const colPed = db.prepare('PRAGMA table_info(vitrine_pedidos)').all().map((c) => c.name);
+        if (!colPed.includes('pagamento_id'))     db.exec(`ALTER TABLE vitrine_pedidos ADD COLUMN pagamento_id TEXT;`);
+        if (!colPed.includes('pagamento_status')) db.exec(`ALTER TABLE vitrine_pedidos ADD COLUMN pagamento_status TEXT;`);
+        if (!colPed.includes('pix_qr'))           db.exec(`ALTER TABLE vitrine_pedidos ADD COLUMN pix_qr TEXT;`);
+        if (!colPed.includes('pix_expira_em'))    db.exec(`ALTER TABLE vitrine_pedidos ADD COLUMN pix_expira_em TEXT;`);
+        if (!colPed.includes('excursao_id'))      db.exec(`ALTER TABLE vitrine_pedidos ADD COLUMN excursao_id INTEGER;`);
+
+        // O webhook chega com o id do pagamento e precisa achar o pedido por ele.
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_vitrine_pedidos_pagamento ON vitrine_pedidos(pagamento_id);`);
+
+        // ---------- IDEMPOTENCIA DO WEBHOOK DE PAGAMENTO ----------
+        //
+        // O provedor reenvia ate receber 200. Sem esta tabela, um retry daria baixa
+        // DUAS vezes no estoque e lancaria a venda duplicada no caixa. O UNIQUE e' o
+        // proprio lock: quem consegue inserir e' o dono do processamento.
+        // Mesma licao do webhook do Stripe, que ja deu +30 dias de graca por retry.
+        db.exec(`
+          CREATE TABLE IF NOT EXISTS pagamento_eventos (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            provedor    TEXT NOT NULL DEFAULT 'mercadopago',
+            event_id    TEXT NOT NULL,
+            tenant_id   INTEGER,
+            processado_em TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+            UNIQUE (provedor, event_id)
+          );
+        `);
+      }
+    },
+
+    {
+      nome: '049_despacho',
+      hash: 'v49-despacho',
+      exec: (db) => {
+        // DESPACHO — o pedido pago vira pacote e sai.
+        //
+        // Sem esta coluna, a tela de despacho nao tem como distinguir "ja foi" de
+        // "ainda vai": todo pedido pago apareceria no roteiro pra sempre, e a
+        // lojista despacharia duas vezes ou pararia de confiar na tela.
+        //
+        // Data, nao booleano: "saiu hoje" e "saiu semana passada" sao perguntas
+        // diferentes, e a segunda so' tem resposta se a data estiver la.
+        const cols = db.prepare('PRAGMA table_info(vitrine_pedidos)').all().map((c) => c.name);
+        if (!cols.includes('despachado_em')) {
+          db.exec(`ALTER TABLE vitrine_pedidos ADD COLUMN despachado_em TEXT;`);
+        }
+
+        // A tela de despacho filtra por (pago E nao despachado). Sem indice isso
+        // e' full scan a cada abertura.
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_vitrine_pedidos_despacho
+                 ON vitrine_pedidos(tenant_id, venda_id, despachado_em);`);
+      }
     }
   ];
 

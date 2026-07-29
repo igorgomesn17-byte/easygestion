@@ -20,6 +20,9 @@ const {
 const { ativarCupomDaAcao, cancelarCupomDaAcao, MAX_PCT } = require('../lib/cupons');
 const { DEFAULT_TEMPLATES, ROTULOS, VARIAVEIS_DISPONIVEIS } = require('../lib/crm-templates');
 const { gerarAcoesDoTenant, hojeLocal } = require('../lib/relacionamento-scheduler');
+const whatsapp = require('../lib/whatsapp');
+const conversas = require('../lib/conversas');
+const logger = require('../lib/logger');
 
 const router = express.Router();
 
@@ -55,6 +58,10 @@ router.get('/acoes', (req, res) => {
   res.json({
     data: hoje,
     total: visiveis.length,
+    // A loja tem canal conectado? É isto que decide se o botão manda a mensagem
+    // daqui ou abre o wa.me. A tela não pode adivinhar: prometer "enviado" sem
+    // canal seria mentir pra lojista sobre uma mensagem que nunca saiu.
+    tem_canal: whatsapp.temCanal(req.tenantId),
     acoes: visiveis.map((a) => ({
       id: a.id, cliente_id: a.cliente_id, nome: a.nome, telefone: a.telefone,
       tipo: a.tipo, label: a.label, detalhe: a.detalhe, prioridade: a.prioridade,
@@ -109,23 +116,87 @@ function resolver(req, res, status, adiadaPara = null) {
 // agora, que a cliente de fato recebeu o codigo, ele vira 'ativo' — e o relogio da
 // validade comeca a correr a partir de HOJE. A mensagem diz "vale ate 20/07", e ela
 // leu hoje: contar o prazo do dia em que o servidor gerou a fila seria roubo de dias.
-router.post('/acoes/:id/enviada', (req, res) => {
+// PELO CANAL (quando a loja tem um) OU pelo wa.me (como sempre foi).
+//
+// A ORDEM aqui não é detalhe. O envio é assíncrono e pode falhar; a marcação é
+// síncrona e transacional. Marcar DEPOIS de enviar deixaria a ação pendente com o
+// cupom já ativo se a resposta se perdesse no caminho — e no dia seguinte a mesma
+// cliente receberia tudo de novo, com um segundo código.
+//
+// Então: marca primeiro (é a verdade do que a lojista decidiu fazer), envia depois,
+// e o resultado do envio vira INFORMAÇÃO na resposta — nunca desfaz o que já valeu.
+// Se o provedor estiver fora do ar, a tela avisa e a lojista abre o wa.me; a ação
+// não volta pra fila só porque a instância caiu.
+router.post('/acoes/:id/enviada', async (req, res) => {
   const id = parseInt(req.params.id, 10);
   const { mensagem } = req.body || {};
 
-  const acao = db.prepare('SELECT tipo FROM crm_acoes WHERE id = ? AND tenant_id = ?').get(id, req.tenantId);
+  const acao = db.prepare(
+    `SELECT a.tipo, a.cliente_id, a.mensagem, c.telefone, c.nome AS cliente_nome
+       FROM crm_acoes a
+       LEFT JOIN clientes c ON c.id = a.cliente_id AND c.tenant_id = a.tenant_id
+      WHERE a.id = ? AND a.tenant_id = ?`
+  ).get(id, req.tenantId);
   if (!acao) return res.status(404).json({ erro: 'Ação não encontrada' });
+
+  // O texto REAL: a lojista pode ter editado o card antes de mandar. Guardar o
+  // template em vez do que ela escreveu faria o histórico mentir.
+  const texto = mensagem ? String(mensagem) : acao.mensagem;
 
   db.transaction(() => {
     if (mensagem) {
       db.prepare('UPDATE crm_acoes SET mensagem = ? WHERE id = ? AND tenant_id = ?')
-        .run(String(mensagem), id, req.tenantId);
+        .run(texto, id, req.tenantId);
     }
     const tpl = templateDe(req.tenantId, acao.tipo);
     ativarCupomDaAcao(req.tenantId, id, (tpl && tpl.cupom_dias) || 7);
+
+    // Quem enviou fica dono da ação — é o que separa a fila de cada comercial e
+    // permite o placar por pessoa.
+    db.prepare('UPDATE crm_acoes SET status = ?, resolvido_em = datetime(\'now\',\'localtime\'), usuario_id = COALESCE(usuario_id, ?) WHERE id = ? AND tenant_id = ?')
+      .run('enviada', req.session?.usuario_id || null, id, req.tenantId);
   })();
 
-  resolver(req, res, 'enviada');
+  // ---- envio pelo canal, se houver ----
+  let envio = { semCanal: true };
+  if (acao.telefone) {
+    envio = await whatsapp.enviarTexto(req.tenantId, acao.telefone, texto);
+
+    if (envio.ok) {
+      // A mensagem enviada entra na conversa da cliente. É isso que faz o
+      // histórico existir num lugar só — e o que permite casar a RESPOSTA dela
+      // com esta ação depois.
+      try {
+        const conversa = conversas.acharOuCriarConversa(req.tenantId, {
+          telefone: acao.telefone,
+          nome: acao.cliente_nome,
+          origem: 'regua',
+        });
+        if (conversa) {
+          conversas.registrarEnviada(req.tenantId, {
+            conversaId: conversa.id,
+            externalId: envio.externalId,
+            texto,
+            usuarioId: req.session?.usuario_id || null,
+          });
+        }
+      } catch (err) {
+        // Gravar a conversa é secundário: a mensagem JÁ chegou na cliente. Falhar
+        // aqui não pode transformar um envio bem-sucedido em erro na tela.
+        logger.warn('[REGUA] enviou mas nao gravou a conversa:', err.message);
+      }
+    }
+  }
+
+  res.json({
+    ok: true,
+    id,
+    status: 'enviada',
+    // A tela usa isto pra decidir entre "✓ enviada" e "abrir no WhatsApp":
+    enviado: !!envio.ok,
+    sem_canal: !!envio.semCanal,
+    erro_envio: envio.ok ? null : (envio.semCanal ? null : envio.erro),
+  });
 });
 
 // Adiar NAO mexe no cupom: ele fica rascunho, e a validade so comeca a contar
@@ -273,6 +344,92 @@ router.get('/segmentos/:seg', (req, res) => {
     .filter((c) => c.segmento === seg)
     .sort((a, b) => b.total_gasto - a.total_gasto);
   res.json({ segmento: seg, ...SEGMENTOS[seg], n: clientes.length, clientes });
+});
+
+// ============================================================
+// CADÊNCIA — a novidade da semana
+// ============================================================
+// Único gatilho que não reage a comportamento: dispara por CALENDÁRIO, pra base
+// que já comprou. Fica DESLIGADO até a lojista escolher o dia — ligar sozinho
+// mandaria mensagem semanal pra base inteira de quem nunca pediu isso.
+router.get('/cadencia', (req, res) => {
+  res.json({
+    dia: parseInt(getConfig('crm_catalogo_dia', '0', req.tenantId), 10) || 0,
+    carrinho_horas: parseInt(getConfig('crm_carrinho_horas', '4', req.tenantId), 10) || 4,
+  });
+});
+
+router.post('/cadencia', (req, res) => {
+  const dia = parseInt((req.body || {}).dia, 10);
+  if (!Number.isInteger(dia) || dia < 0 || dia > 7) {
+    return res.status(400).json({ erro: 'Dia inválido' });
+  }
+  setConfig('crm_catalogo_dia', String(dia), req.tenantId);
+
+  const horas = parseInt((req.body || {}).carrinho_horas, 10);
+  if (Number.isInteger(horas) && horas >= 0 && horas <= 48) {
+    setConfig('crm_carrinho_horas', String(horas), req.tenantId);
+  }
+  res.json({ ok: true, dia });
+});
+
+// ============================================================
+// CANAL DE WHATSAPP — conectar, ver estado, desconectar.
+// ============================================================
+// GET /canal — o que a tela de configuração mostra.
+// O token NUNCA volta, nem mascarado: quem já conectou não precisa vê-lo de novo,
+// e devolvê-lo transformaria uma tela de configuração num vazamento de credencial
+// pra qualquer um que abra o DevTools.
+router.get('/canal', async (req, res) => {
+  const cred = whatsapp.credencialDe(req.tenantId);
+  if (!cred) return res.json({ conectado: false });
+
+  // O estado real da instância — a lojista precisa descobrir que caiu AQUI, e não
+  // quando a mensagem não chega na cliente.
+  let estado = null;
+  try {
+    estado = await require('../lib/whatsapp-evolution').estado(cred);
+  } catch (_) { estado = { conectado: false, estado: 'inacessivel' }; }
+
+  res.json({
+    conectado: true,
+    provedor: cred.provedor,
+    base_url: cred.base_url,
+    instancia: cred.instancia,
+    numero: cred.numero,
+    // A URL que a lojista precisa colar na configuração do provedor. Sem ela,
+    // a mensagem que a cliente manda não chega em lugar nenhum.
+    webhook_url: `${process.env.SITE_URL || ''}/api/webhooks/whatsapp/${cred.webhook_token}`,
+    online: !!estado?.conectado,
+    estado: estado?.estado || null,
+  });
+});
+
+// POST /canal — conectar (ou reconectar; o UNIQUE faz virar UPDATE).
+router.post('/canal', (req, res) => {
+  const { base_url, instancia, token, numero } = req.body || {};
+  if (!base_url || !instancia || !token) {
+    return res.status(400).json({ erro: 'Preencha o endereço, a instância e o token' });
+  }
+  try {
+    const webhookToken = whatsapp.salvarCredencial(req.tenantId, {
+      provedor: 'evolution', base_url: String(base_url).trim(), instancia: String(instancia).trim(),
+      token: String(token).trim(), numero,
+    });
+    res.json({
+      ok: true,
+      webhook_url: `${process.env.SITE_URL || ''}/api/webhooks/whatsapp/${webhookToken}`,
+    });
+  } catch (e) {
+    // CERT_CIPHER_KEY ausente cai aqui: sem ela o token ficaria em texto puro, e
+    // gravar assim é pior do que não gravar.
+    res.status(500).json({ erro: e.message });
+  }
+});
+
+router.delete('/canal', (req, res) => {
+  whatsapp.desconectar(req.tenantId);
+  res.json({ ok: true });
 });
 
 // ============================================================

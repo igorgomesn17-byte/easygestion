@@ -269,6 +269,13 @@ app.use('/api/webhooks/stripe', express.raw({type: 'application/json'}), (req, r
   req.rawBody = req.body.toString('utf8');
   next();
 });
+// O webhook do WhatsApp precisa do JSON já parseado, e este mount acontece ANTES do
+// express.json global (que só entra depois, na seção de body parsers). Sem um parser
+// próprio aqui, req.body chegaria vazio e toda mensagem recebida seria descartada em
+// silêncio — o pior tipo de falha, porque a tela simplesmente não mostra nada.
+app.use('/api/webhooks/whatsapp', express.json({ limit: '2mb' }));
+// Mesmo motivo: este mount vem antes do express.json global.
+app.use('/api/webhooks/mercadopago', express.json({ limit: '1mb' }));
 app.use('/api/webhooks', require('./routes/webhooks'));
 
 // Não existe webhook de deploy. Deploy é MANUAL via SSH (ver CLAUDE.md): expor
@@ -384,13 +391,22 @@ app.use('/api/backup',        apenasAdmin, require('./routes/backup'));
 app.use('/api/usuarios',      apenasAdmin, require('./routes/usuarios'));
 app.use('/api/auditoria',     apenasAdmin, require('./routes/auditoria'));  // LGPD: logs de ações
 // Relacionamento (régua + RFM + clube de fidelidade). O gate vale pro router INTEIRO,
-// não rota a rota: rota nova nasce protegida sem ninguém precisar lembrar. É admin
-// porque a tela expõe a base de clientes com telefone — não é tela de vendedora.
-app.use('/api/relacionamento', apenasAdmin, exigirFeature('relacionamento'), require('./routes/relacionamento'));
+// não rota a rota: rota nova nasce protegida sem ninguém precisar lembrar.
+// ⚠️ Era `apenasAdmin`, e isso barrava a ÚNICA pessoa pra quem a tela foi feita: o papel
+// `relacionamento` existe desde sempre (é até o default de routes/usuarios.js) e não
+// conseguia abrir o próprio módulo. Contratar alguém pro CRM e criar o usuário com o
+// papel certo resultava em 403. A intenção do gate original era barrar VENDEDORA (a tela
+// expõe a base com telefone) — e `exigirPapel('admin','relacionamento')` faz exatamente
+// isso, sem barrar quem opera. Vendedora continua de fora.
+app.use('/api/relacionamento', exigirPapel('admin', 'relacionamento'), exigirFeature('relacionamento'), require('./routes/relacionamento'));
 // Reativação da base IMPORTADA (campanha, não régua). Gate próprio: `base_importada`
 // existe só no plano `interno` — é ferramenta da campanha da loja do dono, não
 // produto. Mesmo padrão de mount: rota nova nasce protegida.
 app.use('/api/reativacao', apenasAdmin, exigirFeature('base_importada'), require('./routes/reativacao'));
+// CRM comercial (Comercial 1): kanban de prospecção, conversas e placar. Mesma
+// regra de papel do relacionamento — quem opera o CRM precisa entrar, e vendedora
+// não. Gate `crm_avancado` no mount: rota nova nasce protegida.
+app.use('/api/comercial', exigirPapel('admin', 'relacionamento'), exigirFeature('crm_avancado'), require('./routes/comercial'));
 // Maquininha integrada (Mercado Pago Point): manda a cobrança pro aparelho e traz de
 // volta NSU, bandeira e a TAXA REAL. Gate no mount, como os de cima.
 // ⚠️ A feature é `maquininha_integrada`, NÃO `maquininha` — esta última já existe, é

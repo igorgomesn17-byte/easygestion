@@ -1,0 +1,181 @@
+<DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WhatsApp da loja • EasyGestão</title>
+  <link rel="stylesheet" href="css/ds.css">
+  <style>
+    .estado { display:flex; align-items:center; gap:10px; padding:14px 16px; border-radius:var(--radius-sm);
+              margin-bottom:18px; font-weight:600; }
+    .estado-on   { background:var(--verde-bg, #e8f5ee); color:var(--verde, #1e7d4f); }
+    .estado-off  { background:var(--vermelho-bg); color:var(--vermelho); }
+    .estado-nada { background:var(--surface-2); color:var(--tinta-2); }
+    .bolinha { width:10px; height:10px; border-radius:50%; background:currentColor; flex-shrink:0; }
+    .grade { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:14px; }
+    .passo { display:grid; grid-template-columns:26px 1fr; gap:12px; padding:12px 0;
+             border-bottom:1px solid var(--linha); align-items:start; }
+    .passo:last-child { border-bottom:0; }
+    .passo-n { width:22px; height:22px; border-radius:50%; background:var(--marca); color:#fff;
+               display:flex; align-items:center; justify-content:center; font-size:0.75rem; font-weight:700; }
+    .passo p { margin:0; font-size:0.9rem; line-height:1.55; }
+    .copiavel { display:flex; gap:8px; align-items:center; margin-top:8px; flex-wrap:wrap; }
+    .copiavel code { flex:1; min-width:200px; background:var(--surface-2); padding:9px 11px;
+                     border-radius:var(--radius-sm); font-family:ui-monospace, monospace;
+                     font-size:0.78rem; word-break:break-all; }
+    .aviso { background:var(--dourado-claro); color:var(--dourado-escuro); border-radius:var(--radius-sm);
+             padding:14px 16px; font-size:0.88rem; line-height:1.6; margin-bottom:18px; }
+    .aviso strong { font-weight:800; }
+  </style>
+</head>
+<body>
+  <div class="conteudo">
+    <h1>WhatsApp da loja</h1>
+    <p class="subtitulo">Conecte um número e as mensagens da régua saem daqui, sem você abrir o WhatsApp. O que a cliente responder aparece no sistema.</p>
+
+    <div id="estado" class="estado estado-nada"><span class="bolinha"></span><span id="estadoTxt">Carregando…</span></div>
+
+    <!-- O aviso NÃO é decoração: a Evolution conecta um WhatsApp comum e a Meta pode
+         banir o número. Quem está ligando isso precisa saber ANTES, não depois. -->
+    <div class="aviso">
+      <strong>Antes de conectar, entenda o risco.</strong> Esta conexão usa um WhatsApp comum
+      (não é a API oficial da Meta). Use um número <strong>dedicado à loja</strong> — nunca o seu
+      pessoal — e evite disparar muitas mensagens de uma vez. O número pode ser bloqueado pela
+      Meta, e se isso acontecer você perde o contato com quem só te conhece por ele.
+    </div>
+
+    <div class="card" id="cardForm">
+      <h2 style="margin-top:0;">Conectar</h2>
+      <div class="grade">
+        <div>
+          <label>Endereço do servidor</label>
+          <input id="base_url" placeholder="https://api.seuservidor.com">
+        </div>
+        <div>
+          <label>Nome da instância</label>
+          <input id="instancia" placeholder="minha-loja">
+        </div>
+        <div>
+          <label>Token (apikey)</label>
+          <input id="token" type="password" placeholder="cole aqui">
+        </div>
+        <div>
+          <label>Número conectado <span class="texto-cinza">(opcional)</span></label>
+          <input id="numero" placeholder="73 99999-9999">
+        </div>
+      </div>
+      <div style="margin-top:16px; display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="btn" onclick="salvar()">Conectar</button>
+        <button class="btn btn-sec" id="btnDesc" onclick="desconectar()" style="display:none;">Desconectar</button>
+      </div>
+    </div>
+
+    <div class="card" id="cardWebhook" style="display:none;">
+      <h2 style="margin-top:0;">Falta um passo: avisar o provedor</h2>
+      <p class="texto-cinza" style="margin-top:0;">
+        Sem isto, você consegue <strong>enviar</strong>, mas o que a cliente responder
+        não chega no sistema.
+      </p>
+      <div class="passo">
+        <span class="passo-n">1</span>
+        <div>
+          <p>Copie o endereço abaixo.</p>
+          <div class="copiavel">
+            <code id="webhookUrl">—</code>
+            <button class="btn btn-sec" onclick="copiarWebhook()">Copiar</button>
+          </div>
+        </div>
+      </div>
+      <div class="passo">
+        <span class="passo-n">2</span>
+        <div><p>No painel do seu provedor, abra a configuração de <strong>Webhook</strong> da instância e cole o endereço.</p></div>
+      </div>
+      <div class="passo">
+        <span class="passo-n">3</span>
+        <div><p>Marque o evento <strong>MESSAGES_UPSERT</strong> (mensagens recebidas) e salve.</p></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/comum.js"></script>
+  <script>
+    let CONECTADO = false;
+
+    async function carregar() {
+      const d = await api('/relacionamento/canal');
+      CONECTADO = !!d.conectado;
+
+      const box = document.getElementById('estado');
+      const txt = document.getElementById('estadoTxt');
+      box.className = 'estado ' + (!CONECTADO ? 'estado-nada' : (d.online ? 'estado-on' : 'estado-off'));
+
+      if (!CONECTADO) {
+        txt.textContent = 'Nenhum número conectado — as mensagens abrem no WhatsApp, como sempre.';
+      } else if (d.online) {
+        txt.textContent = `Conectado${d.numero ? ' · ' + d.numero : ''} — as mensagens saem daqui.`;
+      } else {
+        // Distinção que importa: credencial salva não é o mesmo que instância no ar.
+        // Sem esta linha a lojista acha que está tudo certo e as mensagens não saem.
+        txt.textContent = 'Configurado, mas a instância está fora do ar. Verifique no painel do provedor.';
+      }
+
+      if (CONECTADO) {
+        document.getElementById('base_url').value  = d.base_url || '';
+        document.getElementById('instancia').value = d.instancia || '';
+        document.getElementById('numero').value    = d.numero || '';
+        document.getElementById('token').placeholder = '•••••• (já salvo — preencha só para trocar)';
+        document.getElementById('btnDesc').style.display = '';
+        mostrarWebhook(d.webhook_url);
+      }
+    }
+
+    function mostrarWebhook(url) {
+      if (!url) return;
+      document.getElementById('webhookUrl').textContent = url;
+      document.getElementById('cardWebhook').style.display = '';
+    }
+
+    async function salvar() {
+      const body = {
+        base_url:  document.getElementById('base_url').value.trim(),
+        instancia: document.getElementById('instancia').value.trim(),
+        token:     document.getElementById('token').value.trim(),
+        numero:    document.getElementById('numero').value.trim(),
+      };
+      // Reconectar sem digitar o token de novo é o caso comum (trocar o número, por
+      // exemplo). Só que o servidor exige o token — então avisa em vez de dar erro seco.
+      if (!body.token) return toast('Cole o token para conectar', 'erro');
+      if (!body.base_url || !body.instancia) return toast('Preencha o endereço e a instância', 'erro');
+
+      try {
+        const r = await api('/relacionamento/canal', { method: 'POST', body });
+        toast('Conectado');
+        document.getElementById('token').value = '';
+        mostrarWebhook(r.webhook_url);
+        carregar();
+      } catch (e) { toast(e.message || 'Não consegui conectar', 'erro'); }
+    }
+
+    async function desconectar() {
+      if (!confirm('Desconectar o WhatsApp?\n\nAs mensagens da régua voltam a abrir no WhatsApp, e as respostas das clientes param de aparecer aqui.')) return;
+      try {
+        await api('/relacionamento/canal', { method: 'DELETE' });
+        toast('Desconectado');
+        location.reload();
+      } catch (e) { toast(e.message || 'Erro', 'erro'); }
+    }
+
+    async function copiarWebhook() {
+      try {
+        await navigator.clipboard.writeText(document.getElementById('webhookUrl').textContent);
+        toast('Endereço copiado');
+      } catch { toast('Não consegui copiar', 'erro'); }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      montarLayout('canal');
+      carregar().catch(e => toast(e.message || 'Erro ao carregar', 'erro'));
+    });
+  </script>
+</body>
+</html>

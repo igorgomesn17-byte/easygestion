@@ -608,6 +608,11 @@ async function finalizarWhatsApp() {
     return;
   }
 
+  // ATACADO: o pedido fecha DENTRO do site — cadastro, Pix e pronto. Sem atacado,
+  // segue o caminho de sempre (monta a mensagem e abre o wa.me), pra nenhuma loja
+  // perder o que já funcionava.
+  if (dadosLoja.tem_atacado) return abrirCheckout();
+
   const whatsappNumber = dadosLoja.loja_whatsapp || '';
   if (!whatsappNumber) {
     alert('Erro: WhatsApp não configurado');
@@ -803,6 +808,286 @@ function clareaarCor(cor, percentual) {
     (G > 255 ? 255 : G) * 0x100 +
     (B > 255 ? 255 : B))
     .toString(16).slice(1);
+}
+
+// ============================================================
+// CHECKOUT DO ATACADO — cadastro, Pix e confirmação
+// ============================================================
+// Três telas dentro do mesmo modal. A cliente navegou e montou o carrinho SEM
+// login nenhum; só agora, com a compra decidida, pedimos os dados. Pedir antes é
+// o que faz desistir na porta.
+//
+// O pedido é gravado ANTES do cadastro (já era assim) — se ela abandonar no meio,
+// a lojista ainda vê o carrinho abandonado na aba de Pedidos, e a régua ainda
+// consegue chamá-la de volta.
+
+let PEDIDO_CHECKOUT = null;   // { codigo, total }
+let TIMER_PIX = null;
+
+function checkoutTotal() {
+  return carrinhoLocal.reduce((s, i) => s + i.total, 0);
+}
+
+async function abrirCheckout() {
+  const total = checkoutTotal();
+  const min = Number(dadosLoja.pedido_minimo || 0);
+
+  // O mínimo é barrado AQUI e não no envio: ela precisa saber quanto falta e ter
+  // a chance de voltar e escolher mais peça, não levar um erro depois do cadastro.
+  if (min > 0 && total < min) {
+    const falta = min - total;
+    alert(`O pedido mínimo é R$ ${formatarMoeda(min)}.\n\nFaltam R$ ${formatarMoeda(falta)} para fechar — dá uma olhada nas peças e me chama!`);
+    return;
+  }
+
+  // Grava o pedido (ou reaproveita o que a tela já gravou).
+  try {
+    const r = await fetch(`${API_BASE}/${slug}/pedido`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        itens: carrinhoLocal.map(i => ({ produto_id: i.id, cor: i.cor, tamanho: i.tamanho, qtd: i.qtd })),
+        origem: 'checkout',
+      }),
+    });
+    if (!r.ok) throw new Error('pedido');
+    const d = await r.json();
+    PEDIDO_CHECKOUT = { codigo: d.codigo, total: d.total };
+  } catch (e) {
+    alert('Não consegui abrir o pedido agora. Tenta de novo em instantes?');
+    return;
+  }
+
+  fecharModal('modalCarrinho');
+  renderCheckoutCadastro();
+}
+
+function abrirModalCheckout(html) {
+  let m = document.getElementById('modalCheckout');
+  if (!m) {
+    m = document.createElement('div');
+    m.id = 'modalCheckout';
+    m.className = 'modal';
+    document.body.appendChild(m);
+  }
+  m.innerHTML = `<div class="modal-conteudo checkout-box">${html}</div>`;
+  m.classList.add('ativo');
+  document.body.style.overflow = 'hidden';
+}
+
+function fecharCheckout() {
+  const m = document.getElementById('modalCheckout');
+  if (m) m.classList.remove('ativo');
+  document.body.style.overflow = '';
+  if (TIMER_PIX) { clearInterval(TIMER_PIX); TIMER_PIX = null; }
+}
+
+// ---------- 1. Cadastro ----------
+function renderCheckoutCadastro() {
+  const total = checkoutTotal();
+  abrirModalCheckout(`
+    <div class="checkout-topo">
+      <h2>Seus dados</h2>
+      <button class="modal-fechar" onclick="fecharCheckout()">&times;</button>
+    </div>
+    <p class="checkout-sub">Pedido <strong>#${PEDIDO_CHECKOUT.codigo}</strong> · ${carrinhoLocal.length} ${carrinhoLocal.length === 1 ? 'item' : 'itens'} · R$ ${formatarMoeda(total)}</p>
+
+    <div class="checkout-campos">
+      <label>Nome da loja *<input id="ckNome" autocomplete="organization" placeholder="Boutique Mariana"></label>
+      <label>WhatsApp *<input id="ckTel" inputmode="tel" autocomplete="tel" placeholder="(73) 99999-9999"></label>
+      <label>CNPJ ou CPF<input id="ckDoc" inputmode="numeric" placeholder="opcional"></label>
+      <div class="checkout-linha">
+        <label>Cidade *<input id="ckCidade" autocomplete="address-level2" placeholder="Ipiaú"></label>
+        <label style="max-width:90px;">UF<input id="ckUf" maxlength="2" placeholder="BA" style="text-transform:uppercase;"></label>
+      </div>
+      <label>Excursão / transportadora
+        <input id="ckExc" list="listaExc" placeholder="onde entregamos a mercadoria">
+        <datalist id="listaExc"></datalist>
+      </label>
+      <p class="checkout-dica">É onde deixamos o pacote pra chegar até você. Se retira na loja, deixe em branco.</p>
+      <label>Endereço<input id="ckEnd" autocomplete="street-address" placeholder="opcional"></label>
+    </div>
+
+    <button class="btn-checkout" onclick="enviarCadastro()">Continuar para o pagamento</button>
+    <p class="checkout-nota">Pagamento no Pix, na próxima tela.</p>
+  `);
+  setTimeout(() => document.getElementById('ckNome')?.focus(), 100);
+  carregarExcursoes();
+}
+
+// Autocomplete de excursão: escolher da lista em vez de digitar é o que impede
+// "Van do João" e "exc joao" virarem dois destinos diferentes no despacho.
+async function carregarExcursoes() {
+  try {
+    const r = await fetch(`${API_BASE}/${slug}/excursoes`);
+    if (!r.ok) return;
+    const nomes = await r.json();
+    const dl = document.getElementById('listaExc');
+    if (dl && Array.isArray(nomes)) {
+      dl.innerHTML = nomes.map(n => `<option value="${n.replace(/"/g, '&quot;')}">`).join('');
+    }
+  } catch (e) { /* sem lista ela digita à mão */ }
+}
+
+async function enviarCadastro() {
+  const v = (id) => (document.getElementById(id)?.value || '').trim();
+  const body = {
+    nome: v('ckNome'), telefone: v('ckTel'), cnpj: v('ckDoc'),
+    cidade: v('ckCidade'), uf: v('ckUf').toUpperCase(),
+    excursao: v('ckExc'), endereco: v('ckEnd'),
+  };
+  if (!body.nome || !body.telefone) return alert('Preencha o nome e o WhatsApp');
+  if (!body.cidade) return alert('Preencha a cidade');
+
+  const btn = document.querySelector('.btn-checkout');
+  if (btn) { btn.disabled = true; btn.textContent = 'Salvando…'; }
+
+  try {
+    const r = await fetch(`${API_BASE}/${slug}/pedido/${PEDIDO_CHECKOUT.codigo}/cadastro`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.erro || 'Não consegui salvar');
+    gerarPix();
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Continuar para o pagamento'; }
+    alert(e.message);
+  }
+}
+
+// ---------- 2. Pix ----------
+async function gerarPix() {
+  abrirModalCheckout(`
+    <div class="checkout-topo"><h2>Gerando seu Pix…</h2></div>
+    <p class="checkout-sub">Só um instante 🌿</p>
+  `);
+
+  try {
+    const r = await fetch(`${API_BASE}/${slug}/pedido/${PEDIDO_CHECKOUT.codigo}/pix`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+    });
+    const d = await r.json();
+
+    // ESTOQUE ACABOU entre montar o carrinho e pagar. Dizer QUAL peça faltou é o
+    // que diferencia "o site quebrou" de "a peça acabou enquanto você escolhia".
+    if (r.status === 409 && d.faltando?.length) {
+      const lista = d.faltando.map(f =>
+        `• ${f.produto}${f.tamanho ? ' ' + f.tamanho : ''} — você pediu ${f.pedido}, ${f.disponivel ? 'restam ' + f.disponivel : 'esgotou'}`
+      ).join('<br>');
+      abrirModalCheckout(`
+        <div class="checkout-topo">
+          <h2>Uma peça acabou</h2>
+          <button class="modal-fechar" onclick="fecharCheckout()">&times;</button>
+        </div>
+        <p class="checkout-sub">Enquanto você escolhia, isto saiu do estoque:</p>
+        <div class="checkout-alerta">${lista}</div>
+        <button class="btn-checkout" onclick="fecharCheckout(); abrirModal('modalCarrinho');">Ajustar meu pedido</button>
+      `);
+      return;
+    }
+    if (!r.ok) throw new Error(d.erro || 'Não consegui gerar o Pix');
+
+    renderPix(d);
+  } catch (e) {
+    abrirModalCheckout(`
+      <div class="checkout-topo">
+        <h2>Não consegui gerar o Pix</h2>
+        <button class="modal-fechar" onclick="fecharCheckout()">&times;</button>
+      </div>
+      <p class="checkout-sub">${e.message}</p>
+      <button class="btn-checkout" onclick="gerarPix()">Tentar de novo</button>
+      <p class="checkout-nota">Seu pedido <strong>#${PEDIDO_CHECKOUT.codigo}</strong> está guardado — nada se perdeu.</p>
+    `);
+  }
+}
+
+function renderPix(d) {
+  abrirModalCheckout(`
+    <div class="checkout-topo">
+      <h2>Pague com Pix</h2>
+      <button class="modal-fechar" onclick="fecharCheckout()">&times;</button>
+    </div>
+    <p class="checkout-sub">Pedido <strong>#${PEDIDO_CHECKOUT.codigo}</strong> · <strong>R$ ${formatarMoeda(d.total)}</strong></p>
+
+    ${d.qr_base64 ? `<img class="checkout-qr" src="data:image/png;base64,${d.qr_base64}" alt="QR Code do Pix">` : ''}
+
+    <p class="checkout-dica">Escaneie o código acima ou copie o texto abaixo no app do seu banco.</p>
+    <button class="btn-checkout btn-copiar" onclick="copiarPix(this)">Copiar código Pix</button>
+    <textarea id="pixCopiaCola" readonly class="checkout-pix">${d.copia_cola || ''}</textarea>
+
+    <div class="checkout-timer" id="pixTimer"></div>
+    <p class="checkout-nota">Assim que o pagamento cair, a gente confirma aqui e já separa suas peças. As peças ficam reservadas até lá.</p>
+  `);
+
+  // O relógio não é enfeite: as peças estão RESERVADAS neste prazo, e ela precisa
+  // saber que existe uma janela — senão paga depois de a reserva ter caído.
+  if (d.expira_em) iniciarTimer(new Date(d.expira_em));
+  iniciarPolling();
+}
+
+function copiarPix(btn) {
+  const t = document.getElementById('pixCopiaCola');
+  t.select();
+  navigator.clipboard.writeText(t.value)
+    .then(() => { btn.textContent = 'Código copiado ✓'; setTimeout(() => btn.textContent = 'Copiar código Pix', 2500); })
+    .catch(() => { document.execCommand('copy'); btn.textContent = 'Código copiado ✓'; });
+}
+
+function iniciarTimer(fim) {
+  const el = () => document.getElementById('pixTimer');
+  const tick = () => {
+    const falta = fim - new Date();
+    const alvo = el();
+    if (!alvo) return;
+    if (falta <= 0) {
+      alvo.innerHTML = '<span class="expirado">O tempo acabou — as peças voltaram pro estoque.</span>';
+      return;
+    }
+    const m = Math.floor(falta / 60000), s = Math.floor((falta % 60000) / 1000);
+    alvo.textContent = `Reservado por mais ${m}min ${String(s).padStart(2, '0')}s`;
+  };
+  tick();
+  if (TIMER_PIX) clearInterval(TIMER_PIX);
+  TIMER_PIX = setInterval(tick, 1000);
+}
+
+// ---------- 3. Confirmação ----------
+// O webhook do provedor é o caminho normal; este polling é a rede de segurança
+// pra quando ele atrasa. Sem ele, a cliente paga e continua olhando o QR sem saber
+// se deu certo — e manda mensagem perguntando, que é o trabalho que o portal
+// existe pra evitar.
+function iniciarPolling() {
+  let tentativas = 0;
+  const timer = setInterval(async () => {
+    if (++tentativas > 120) return clearInterval(timer);   // ~10 min
+    try {
+      const r = await fetch(`${API_BASE}/${slug}/pedido/${PEDIDO_CHECKOUT.codigo}/status`);
+      if (!r.ok) return;
+      const d = await r.json();
+      if (d.pago) {
+        clearInterval(timer);
+        if (TIMER_PIX) { clearInterval(TIMER_PIX); TIMER_PIX = null; }
+        renderPago();
+      }
+    } catch (e) { /* rede oscilou: tenta de novo no próximo tick */ }
+  }, 5000);
+}
+
+function renderPago() {
+  // O carrinho só é limpo AQUI — depois do pagamento confirmado. Limpar antes
+  // faria a cliente perder tudo se desistisse no meio.
+  carrinhoLocal = [];
+  salvarCarrinho();
+  atualizarBadgeCarrinho();
+
+  const zap = (dadosLoja.loja_whatsapp || '').replace(/\D/g, '');
+  abrirModalCheckout(`
+    <div class="checkout-topo"><h2>Pagamento confirmado 🌿</h2></div>
+    <p class="checkout-sub">Pedido <strong>#${PEDIDO_CHECKOUT.codigo}</strong> pago com sucesso!</p>
+    <p class="checkout-dica">Já estamos separando suas peças. Qualquer novidade a gente te avisa no WhatsApp.</p>
+    ${zap ? `<a class="btn-checkout" href="https://wa.me/${zap}?text=${encodeURIComponent('Oi! Acabei de pagar o pedido #' + PEDIDO_CHECKOUT.codigo)}" target="_blank">Falar com a loja</a>` : ''}
+    <button class="btn-checkout btn-secundario" onclick="fecharCheckout()">Continuar navegando</button>
+  `);
 }
 
 // ============================================================

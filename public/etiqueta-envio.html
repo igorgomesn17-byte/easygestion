@@ -1,0 +1,195 @@
+<DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Etiqueta de envio • EasyGestão</title>
+  <link rel="stylesheet" href="css/ds.css">
+  <style>
+    /* ============================================================
+       ETIQUETA DE ENVIO — 100 x 150mm, UMA por folha.
+
+       Este é o padrão único do e-commerce brasileiro: Shopee, Mercado Livre,
+       Amazon, Magalu e Correios usam todos o mesmo 10x15cm em impressora
+       térmica. Se um dia a loja despachar por transportadora, a etiqueta já
+       está no formato que eles esperam.
+
+       ⚠️ NÃO CONFUNDIR com a etiqueta de PRODUTO (etiquetas.html): lá a folha
+       é o ROLO de 100x75mm, que traz o PAR de duas etiquetas de 50mm. Aqui a
+       folha É a etiqueta. Errar isso faz a impressora térmica cortar no lugar
+       errado e o rolo inteiro virar lixo.
+
+       Um volume por pedido (decisão de 29/07): sem "1/2, 2/2", sem contagem de
+       caixas. O código de barras é do PEDIDO.
+       ============================================================ */
+    @media screen {
+      body { background: var(--fundo); padding: 20px; }
+      .barra-topo { max-width: 720px; margin: 0 auto 18px; display: flex; gap: 10px;
+                    align-items: center; flex-wrap: wrap; }
+      .etiqueta { box-shadow: 0 1px 3px rgba(0,0,0,.1), 0 8px 24px rgba(0,0,0,.05); }
+    }
+
+    .etiqueta {
+      width: 100mm; height: 150mm;
+      box-sizing: border-box;
+      margin: 0 auto 18px;
+      padding: 5mm;
+      background: #fff;
+      color: #000;
+      font-family: Arial, Helvetica, sans-serif;
+      display: flex; flex-direction: column;
+      /* Preto puro e sem cinza claro: impressora térmica não tem meio-tom, e
+         cinza vira ou preto sólido ou nada. */
+    }
+
+    .et-topo { display: flex; justify-content: space-between; align-items: flex-start;
+               border-bottom: 2px solid #000; padding-bottom: 2.5mm; }
+    .et-loja { font-size: 10pt; font-weight: bold; text-transform: uppercase; }
+    .et-loja small { display: block; font-size: 7pt; font-weight: normal; text-transform: none; }
+    .et-codigo { font-size: 16pt; font-weight: bold; font-family: ui-monospace, monospace; }
+
+    .et-bloco { margin-top: 4mm; }
+    .et-rot { font-size: 7pt; font-weight: bold; letter-spacing: .5pt; text-transform: uppercase;
+              border-bottom: 1px solid #000; padding-bottom: .8mm; margin-bottom: 1.8mm; }
+
+    /* A EXCURSÃO é o destino real — quem recebe o pacote é ela, não a lojista.
+       Por isso é o bloco maior da etiqueta, acima do destinatário. */
+    .et-excursao { font-size: 19pt; font-weight: bold; line-height: 1.1; text-transform: uppercase; }
+    .et-excursao-resp { font-size: 9pt; margin-top: 1mm; }
+
+    .et-nome { font-size: 13pt; font-weight: bold; line-height: 1.2; }
+    .et-linha { font-size: 9.5pt; line-height: 1.45; margin-top: .8mm; }
+    .et-cidade { font-size: 12pt; font-weight: bold; margin-top: 1mm; text-transform: uppercase; }
+
+    .et-barras { margin-top: auto; text-align: center; padding-top: 3mm; }
+    .et-barras img { max-width: 100%; height: 16mm; }
+    .et-barras-txt { font-family: ui-monospace, monospace; font-size: 9pt; letter-spacing: 1pt; margin-top: 1mm; }
+
+    .et-rodape { border-top: 1px solid #000; margin-top: 2.5mm; padding-top: 1.8mm;
+                 display: flex; justify-content: space-between; font-size: 8pt; }
+
+    .vazio { text-align: center; padding: 40px 20px; color: var(--tinta-2); }
+
+    @media print {
+      @page { size: 100mm 150mm; margin: 0; }
+      body { background: #fff; padding: 0; margin: 0; }
+      .barra-topo, .nao-imprimir { display: none !important; }
+      .etiqueta { margin: 0; box-shadow: none; page-break-after: always; }
+      .etiqueta:last-child { page-break-after: auto; }
+    }
+  </style>
+</head>
+<body>
+  <div class="barra-topo nao-imprimir">
+    <button class="btn" onclick="window.print()">Imprimir</button>
+    <button class="btn btn-sec" onclick="history.back()">Voltar</button>
+    <span class="texto-cinza" id="info" style="margin-left:auto; font-size:0.85rem;"></span>
+  </div>
+
+  <div id="saida"></div>
+
+  <script src="js/comum.js"></script>
+  <script>
+    // Aceita ?pedido=A7K2 (uma) ou ?excursao=3 (todas as de um despacho — que é
+    // como a lojista realmente imprime: um lote por viagem, não uma por vez).
+    const params = new URLSearchParams(location.search);
+
+    async function carregar() {
+      const cod = params.get('pedido');
+      const exc = params.get('excursao');
+
+      let pedidos = [];
+      const d = await api('/vitrine-pedidos/despacho');
+      const grupos = d.grupos || [];
+
+      if (cod) {
+        for (const g of grupos) {
+          const p = g.pedidos.find(x => x.codigo === cod.toUpperCase());
+          if (p) { pedidos = [{ ...p, grupo: g }]; break; }
+        }
+      } else if (exc) {
+        const g = grupos.find(x => String(x.excursao_id) === String(exc));
+        if (g) pedidos = g.pedidos.map(p => ({ ...p, grupo: g }));
+      } else {
+        // Sem filtro: tudo que está pronto pra sair.
+        for (const g of grupos) for (const p of g.pedidos) pedidos.push({ ...p, grupo: g });
+      }
+
+      if (!pedidos.length) {
+        document.getElementById('saida').innerHTML =
+          '<div class="vazio">Nenhum pedido pronto para despacho.<br><small>Só aparecem aqui os pedidos já pagos.</small></div>';
+        return;
+      }
+
+      const loja = await api('/config').catch(() => ({}));
+      document.getElementById('info').textContent =
+        `${pedidos.length} etiqueta${pedidos.length === 1 ? '' : 's'} · 100×150mm`;
+
+      document.getElementById('saida').innerHTML = pedidos.map(p => etiqueta(p, loja)).join('');
+      pedidos.forEach(p => desenharBarras(p.codigo));
+    }
+
+    function etiqueta(p, loja) {
+      const g = p.grupo || {};
+      const nomeLoja = loja.loja_nome || loja.nome_loja || 'Loja';
+      const telLoja = loja.loja_whatsapp || loja.telefone || '';
+
+      return `
+        <div class="etiqueta">
+          <div class="et-topo">
+            <div class="et-loja">${esc(nomeLoja)}<small>${esc(telLoja)}</small></div>
+            <div class="et-codigo">#${esc(p.codigo)}</div>
+          </div>
+
+          ${g.excursao ? `
+            <div class="et-bloco">
+              <div class="et-rot">Entregar na excursão</div>
+              <div class="et-excursao">${esc(g.excursao)}</div>
+              ${g.responsavel || g.telefone
+                ? `<div class="et-excursao-resp">${esc([g.responsavel, g.telefone].filter(Boolean).join(' · '))}</div>`
+                : ''}
+            </div>` : `
+            <div class="et-bloco">
+              <div class="et-rot">Entrega</div>
+              <div class="et-excursao">RETIRA NA LOJA</div>
+            </div>`}
+
+          <div class="et-bloco">
+            <div class="et-rot">Destinatário</div>
+            <div class="et-nome">${esc(p.cliente || 'Cliente')}</div>
+            ${p.cidade ? `<div class="et-cidade">${esc(p.cidade)}</div>` : ''}
+          </div>
+
+          <div class="et-barras">
+            <img id="bc-${esc(p.codigo)}" alt="">
+            <div class="et-barras-txt">${esc(p.codigo)}</div>
+          </div>
+
+          <div class="et-rodape">
+            <span>${p.qtd_itens} ${p.qtd_itens === 1 ? 'peça' : 'peças'}</span>
+            <span>1 volume</span>
+          </div>
+        </div>`;
+    }
+
+    // Código de barras via a rota que já existe pro código de barras de produto.
+    // Se falhar, a etiqueta continua válida — o código está impresso em texto
+    // logo abaixo, e é ele que a pessoa lê na conferência.
+    function desenharBarras(codigo) {
+      const img = document.getElementById('bc-' + codigo);
+      if (!img) return;
+      img.src = `/api/codigo-barras/${encodeURIComponent(codigo)}.png?altura=16`;
+      img.onerror = () => { img.style.display = 'none'; };
+    }
+
+    function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      carregar().catch(e => {
+        document.getElementById('saida').innerHTML =
+          `<div class="vazio">Não consegui carregar. ${esc(e.message || '')}</div>`;
+      });
+    });
+  </script>
+</body>
+</html>

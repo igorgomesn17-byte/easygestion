@@ -36,7 +36,7 @@ const {
   urlFoto, urlAbsoluta, urlProduto, idDoProdutoNaUrl,
   resolverLojaPublica, CHAVES_PUBLICAS,
 } = require('../lib/vitrine-publica');
-const { temFeature } = require('../lib/planos');
+const { temFeature, ehVendavel, planosPublicos } = require('../lib/planos');
 const { SLUGS_RESERVADOS } = require('../lib/helpers');
 
 let falhas = 0;
@@ -141,12 +141,23 @@ ok('sem id devolve null', idDoProdutoNaUrl('vestido-sem-numero') === null);
 ok('nome com acento vira slug limpo', urlProduto('l', { id: 7, nome: 'Calça Jeans Ação' }) === '/l/p/calca-jeans-acao-7');
 
 // ============================================================
-secao('6. Gate de plano — vitrine_site so no interno');
+secao('6. Gate de plano — vitrine_site fora dos planos vendidos');
 
+// Os planos VENDIDOS hoje (starter/growth) nao tem o site: continua sendo o corte
+// que separa "loja online" de "site indexavel com pagina por peca".
 ok('starter NAO tem vitrine_site', temFeature('starter', 'vitrine_site') === false);
 ok('growth NAO tem vitrine_site', temFeature('growth', 'vitrine_site') === false);
-ok('enterprise NAO tem vitrine_site', temFeature('enterprise', 'vitrine_site') === false);
 ok('interno TEM vitrine_site', temFeature('interno', 'vitrine_site') === true);
+
+// O enterprise GANHOU vitrine_site em 28/07/2026 — ele e' onde moram o CRM
+// comercial (`crm_avancado`) e o portal de atacado (`atacado`), e o atacado nao
+// existe sem o site (a pagina por peca e' o catalogo que a lojista navega).
+// Isto NAO afrouxa o gate: o enterprise segue CONGELADO, fora de PLANOS_PUBLICOS.
+// A garantia que importa e' a linha abaixo — invisivel na vitrine e barrado no
+// checkout. Se um dia ele for descongelado, sera decisao explicita de preco.
+ok('enterprise TEM vitrine_site (leva o atacado junto)', temFeature('enterprise', 'vitrine_site') === true);
+ok('mas o enterprise continua NAO vendavel', ehVendavel('enterprise') === false);
+ok('e fora da vitrine publica de planos', !planosPublicos().some((p) => p.id === 'enterprise'));
 
 // A vitrine SIMPLES continua em todos — descer feature nao pode tirar de ninguem
 ok('starter mantem vitrine_publica', temFeature('starter', 'vitrine_publica') === true);

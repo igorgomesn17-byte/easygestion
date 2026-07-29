@@ -47,6 +47,28 @@
       <button class="btn btn-sec" onclick="gerar()">Atualizar lista</button>
     </div>
 
+    <!-- Cadência semanal: nasce desligada de propósito. Ligar sem a lojista pedir
+         mandaria mensagem toda semana pra base inteira — o caminho mais rápido
+         pra virar spam. -->
+    <div class="card" style="padding:14px 16px; margin-bottom:16px; display:flex;
+                             align-items:center; gap:12px; flex-wrap:wrap;">
+      <div style="flex:1; min-width:200px;">
+        <strong style="font-size:0.92rem;">Novidades da semana</strong>
+        <div class="texto-cinza" style="font-size:0.8rem; margin-top:2px;" id="cadTxt">—</div>
+      </div>
+      <select id="cadDia" onchange="salvarCadencia()" style="padding:7px 10px;
+              border-radius:var(--radius-sm); border:1px solid var(--linha);">
+        <option value="0">Desligado</option>
+        <option value="1">Toda segunda</option>
+        <option value="2">Toda terça</option>
+        <option value="3">Toda quarta</option>
+        <option value="4">Toda quinta</option>
+        <option value="5">Toda sexta</option>
+        <option value="6">Todo sábado</option>
+        <option value="7">Todo domingo</option>
+      </select>
+    </div>
+
     <div id="filtros" class="filtros"></div>
     <div id="lista"></div>
   </div>
@@ -54,11 +76,43 @@
   <script src="js/comum.js"></script>
   <script>
     let ACOES = [], FILTRO = 'todas';
+    // A loja conectou o WhatsApp? Muda o que o botão faz (mandar daqui × abrir o
+    // wa.me) e o que ele diz. Vem do servidor a cada carregamento — se a instância
+    // for desconectada, a tela volta sozinha pro comportamento antigo.
+    let TEM_CANAL = false;
+
+    // Cadência da semana. Falhar aqui não pode travar a fila — que é o que a
+    // lojista veio ver.
+    async function carregarCadencia() {
+      try {
+        const d = await api('/relacionamento/cadencia');
+        document.getElementById('cadDia').value = String(d.dia || 0);
+        pintarCadencia(d.dia || 0);
+      } catch (e) { /* segue sem */ }
+    }
+
+    function pintarCadencia(dia) {
+      const nomes = ['', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo'];
+      document.getElementById('cadTxt').textContent = dia
+        ? `Toda ${nomes[dia]}, quem já comprou entra na fila com o convite do catálogo.`
+        : 'Desligado. Ligue para avisar a base toda semana quando chegar coleção nova.';
+    }
+
+    async function salvarCadencia() {
+      const dia = parseInt(document.getElementById('cadDia').value, 10);
+      try {
+        await api('/relacionamento/cadencia', { method: 'POST', body: { dia } });
+        pintarCadencia(dia);
+        toast(dia ? 'Cadência ligada' : 'Cadência desligada');
+      } catch (e) { toast(e.message || 'Erro ao salvar', 'erro'); }
+    }
 
     async function carregar() {
+      carregarCadencia();
       try {
         const d = await api('/relacionamento/acoes');
         ACOES = d.acoes || [];
+        TEM_CANAL = !!d.tem_canal;
         render();
       } catch (e) {
         document.getElementById('lista').innerHTML =
@@ -122,7 +176,7 @@
           <textarea class="acao-msg" id="msg-${a.id}">${esc(a.mensagem)}</textarea>
 
           <div class="acao-btns">
-            <button class="btn btn-zap" onclick="enviar(${a.id})">Enviar no WhatsApp</button>
+            <button class="btn btn-zap" id="btn-env-${a.id}" onclick="enviar(${a.id})">${TEM_CANAL ? 'Enviar' : 'Enviar no WhatsApp'}</button>
             <button class="btn btn-sec" onclick="copiar(${a.id})">Copiar</button>
             <select class="sel-adiar" onchange="adiar(${a.id}, this.value); this.value='';"
                     style="padding:8px 10px; border-radius:var(--radius-sm); border:1px solid var(--linha);">
@@ -159,18 +213,46 @@
         )) return;
       }
 
-      const tel = (a.telefone || '').replace(/\D/g, '');
-      const full = tel.length <= 11 ? '55' + tel : tel;
+      // COM CANAL: o servidor manda. A aba do WhatsApp não abre — é justamente
+      // isso que faz 40 contatos caberem em 20 minutos em vez de uma manhã.
+      // SEM CANAL: continua exatamente como sempre foi (wa.me), pra quem não
+      // conectou nada não perder nada.
+      if (!TEM_CANAL) {
+        const tel = (a.telefone || '').replace(/\D/g, '');
+        const full = tel.length <= 11 ? '55' + tel : tel;
+        // Abre o WhatsApp E marca como enviada no mesmo clique. Se marcássemos só na
+        // volta pra aba, quem fecha o WhatsApp no celular nunca daria baixa — e o card
+        // ficaria pendente pra sempre.
+        window.open(`https://wa.me/${full}?text=${encodeURIComponent(msg)}`, '_blank');
+      }
 
-      // Abre o WhatsApp E marca como enviada no mesmo clique. Se marcássemos só na
-      // volta pra aba, quem fecha o WhatsApp no celular nunca daria baixa — e o card
-      // ficaria pendente pra sempre.
-      window.open(`https://wa.me/${full}?text=${encodeURIComponent(msg)}`, '_blank');
+      const btn = document.getElementById('btn-env-' + id);
+      if (btn) { btn.disabled = true; btn.textContent = TEM_CANAL ? 'Enviando…' : 'Marcando…'; }
+
       try {
-        await api(`/relacionamento/acoes/${id}/enviada`, { method: 'POST', body: { mensagem: msg } });
+        const r = await api(`/relacionamento/acoes/${id}/enviada`, { method: 'POST', body: { mensagem: msg } });
+
+        // O envio pode falhar DEPOIS de a ação já ter sido marcada (a instância caiu,
+        // o número não tem WhatsApp). A ação não volta pra fila — a lojista já decidiu
+        // falar com essa cliente — mas ela precisa saber que a mensagem não saiu, e
+        // ter o wa.me à mão pra resolver na hora.
+        if (TEM_CANAL && !r.enviado) {
+          const tel = (a.telefone || '').replace(/\D/g, '');
+          const full = tel.length <= 11 ? '55' + tel : tel;
+          toast(r.erro_envio ? `Não consegui enviar: ${r.erro_envio}` : 'Não consegui enviar', 'erro');
+          if (confirm(`A mensagem para ${a.nome} não saiu pelo sistema.\n\nAbrir no WhatsApp pra mandar na mão?`)) {
+            window.open(`https://wa.me/${full}?text=${encodeURIComponent(msg)}`, '_blank');
+          }
+        } else if (TEM_CANAL) {
+          toast(`Enviado para ${a.nome}`);
+        }
+
         ACOES = ACOES.filter(x => x.id !== id);
         render();
-      } catch (e) { toast(e.message || 'Erro ao marcar como enviada', 'erro'); }
+      } catch (e) {
+        if (btn) { btn.disabled = false; btn.textContent = TEM_CANAL ? 'Enviar' : 'Enviar no WhatsApp'; }
+        toast(e.message || 'Erro ao marcar como enviada', 'erro');
+      }
     }
 
     async function copiar(id) {

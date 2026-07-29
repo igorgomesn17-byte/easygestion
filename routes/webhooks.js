@@ -88,4 +88,229 @@ router.post('/stripe', verificarAssinaturaStripe, async (req, res) => {
   }
 });
 
+// ============================================================
+// POST /api/webhooks/whatsapp/:token — mensagem que CHEGOU.
+// ------------------------------------------------------------
+// A porta de entrada do Comercial 1. Quem vê o anúncio e escreve chega por aqui —
+// e é o contato mais caro que a loja tem, porque foi pago pra existir. Se cair no
+// vazio, o dinheiro do anúncio virou nada.
+//
+// O token vai na URL, e não num header, porque é a Evolution quem monta a chamada:
+// ela permite configurar a URL do webhook por instância, mas não headers. Cada loja
+// tem o seu (gerado em salvarCredencial), e é ele que diz de QUAL tenant é a
+// mensagem — sem ele, uma mensagem cairia na loja errada.
+//
+// SEMPRE 200. Provedor que recebe erro reenvia em loop; e o que não deu certo aqui
+// não vai dar certo na terceira tentativa — vira log, não retry infinito.
+// ============================================================
+router.post('/whatsapp/:token', (req, res) => {
+  try {
+    const { tenantDoWebhookToken, credencialDe } = require('../lib/whatsapp');
+    const { receberMensagem } = require('../lib/conversas');
+
+    const tenantId = tenantDoWebhookToken(req.params.token);
+    if (!tenantId) {
+      // 404 e não 403: um token inválido não deve revelar que a rota existe nem
+      // que outras lojas têm canal. Mesma postura das rotas exclusivas da vitrine.
+      logger.warn('[Webhook WhatsApp] token desconhecido');
+      return res.status(404).json({ erro: 'Nao encontrado' });
+    }
+
+    const cred = credencialDe(tenantId);
+    if (!cred) return res.status(200).json({ received: true, ignorado: 'sem canal' });
+
+    // Cada provedor tem seu próprio formato — o adaptador traduz pro neutro.
+    // Devolve null pro que não deve virar conversa: eco da nossa própria mensagem,
+    // status de entrega, evento de grupo.
+    const adaptador = require('../lib/whatsapp-evolution');
+    const msg = adaptador.lerWebhook(req.body);
+    if (!msg) return res.status(200).json({ received: true, ignorado: true });
+
+    const r = receberMensagem(tenantId, msg);
+
+    if (r.duplicada) {
+      // O provedor reenvia quando não recebe 200 rápido. Não é erro — é o normal.
+      return res.status(200).json({ received: true, duplicada: true });
+    }
+    if (!r.ok) {
+      logger.warn('[Webhook WhatsApp] nao processou:', r.erro);
+      return res.status(200).json({ received: true, erro: r.erro });
+    }
+
+    logger.info(`[Webhook WhatsApp] tenant ${tenantId} · conversa ${r.conversaId}${r.nova ? ' (NOVA)' : ''}`);
+
+    // ---- o bot atende, se for a vez dele ----
+    // Responde ANTES do 200 sair? Não: o provedor precisa do 200 rápido, senão
+    // reenvia. O envio vai em background e a falha dele nunca vira erro do webhook.
+    res.status(200).json({ received: true, conversa_id: r.conversaId });
+
+    if (require('../lib/conversas').botDeveResponder(tenantId, r.conversaId)) {
+      responderComBot(tenantId, r.conversaId, r.texto, r.clienteId).catch((e) =>
+        logger.warn('[BOT] falhou:', e.message));
+    }
+    return;
+
+  } catch (err) {
+    logger.error('[Webhook WhatsApp] erro:', err.stack || err.message);
+    res.status(200).json({ received: true, error: err.message });
+  }
+});
+
+// ------------------------------------------------------------
+// O bot atende — ou passa pro humano.
+// ------------------------------------------------------------
+// Roda DEPOIS da resposta HTTP, de propósito: o provedor precisa do 200 rápido ou
+// reenvia o webhook. Nada aqui pode derrubar o recebimento da mensagem, que já
+// aconteceu e já está gravado.
+async function responderComBot(tenantId, conversaId, texto, clienteId) {
+  const bot = require('../lib/bot');
+  const conversas = require('../lib/conversas');
+  const whatsapp = require('../lib/whatsapp');
+
+  const d = bot.decidir(tenantId, texto, {});
+
+  // TRANSFERIU: o bot se cala nesta conversa pra sempre. Voltar a falar depois de
+  // ter chamado gente é o comportamento que faz a cliente desistir — ela já foi
+  // avisada que um humano vem.
+  if (d.acao === 'transferir') {
+    conversas.pausarBot(tenantId, conversaId);
+
+    // Pra QUEM: nunca comprou → Comercial 1; já comprou → Comercial 2. A regra
+    // vem do MCC, e é o que faz o card cair na fila certa.
+    const depto = bot.departamentoDe(tenantId, clienteId);
+
+    db.prepare(`
+      UPDATE conversas SET estagio = CASE WHEN estagio = 'novo' THEN 'falei' ELSE estagio END
+       WHERE id = ? AND tenant_id = ?
+    `).run(conversaId, tenantId);
+
+    // A nota interna é a transferência QUENTE: o comercial abre o card e já lê o
+    // motivo, em vez de receber um "cliente aguarda atendimento" sem contexto.
+    const rotulo = {
+      reclamacao: '🔴 Reclamação',
+      irritada: '🔴 Cliente irritada',
+      negociacao: '💬 Pediu desconto/condição',
+      troca: '🔄 Troca ou devolução',
+      pediu_humano: '🙋 Pediu falar com atendente',
+      pedido_nao_encontrado: '❓ Código de pedido não encontrado',
+      duvida_produto: '👗 Dúvida sobre peça',
+      fora_do_escopo: '❓ Fora do que o atendimento automático cobre',
+    }[d.motivo] || d.motivo;
+
+    conversas.registrarNota(tenantId, {
+      conversaId,
+      texto: `${rotulo} — passado para ${depto === 'c1' ? 'Comercial 1 (primeira compra)' : 'Comercial 2 (já é cliente)'}`,
+    });
+
+    logger.info(`[BOT] tenant ${tenantId} · conversa ${conversaId} → ${depto} (${d.motivo})`);
+  }
+
+  // A resposta pode existir nos dois casos: mesmo transferindo, o bot avisa que
+  // chamou alguém. Silêncio deixaria a cliente falando sozinha.
+  let resposta = d.resposta;
+
+  // Fora do horário, avisa quando alguém volta em vez de fingir que tem gente.
+  if (d.acao === 'transferir' && !bot.dentroDoHorario(tenantId)) {
+    resposta = (resposta ? resposta + '\n\n' : '') + bot.avisoForaDoHorario(tenantId);
+  }
+  if (!resposta) return;
+
+  const envio = await whatsapp.enviarTexto(tenantId, telefoneDaConversa(tenantId, conversaId), resposta);
+  if (envio.ok) {
+    conversas.registrarEnviada(tenantId, { conversaId, externalId: envio.externalId, texto: resposta });
+  } else {
+    logger.warn('[BOT] nao consegui responder:', envio.erro);
+  }
+}
+
+function telefoneDaConversa(tenantId, conversaId) {
+  const c = db.prepare('SELECT telefone FROM conversas WHERE id = ? AND tenant_id = ?')
+    .get(conversaId, tenantId);
+  return c?.telefone || '';
+}
+
+// ============================================================
+// POST /api/webhooks/mercadopago — o Pix caiu.
+// ------------------------------------------------------------
+// Este é o momento em que o pedido da vitrine vira venda: estoque baixa, o dinheiro
+// entra no caixa e no DRE, e a compra passa a existir pro CRM. Sem ele, a lojista
+// teria que digitar tudo de novo no PDV.
+//
+// SEMPRE 200, mesmo em erro: o Mercado Pago reenvia até receber 200, e um erro que
+// não vai se resolver sozinho viraria retry infinito. O que falha aqui vira log.
+// ============================================================
+router.post('/mercadopago', async (req, res) => {
+  try {
+    const pix = require('../lib/pix');
+    const pedidoVenda = require('../lib/pedido-venda');
+
+    // O MP manda o id do pagamento em lugares diferentes conforme o tipo de
+    // notificação (IPN antigo × webhook novo). Aceita os dois.
+    const pagamentoId = req.body?.data?.id || req.query['data.id'] || req.body?.id;
+    const tipo = req.body?.type || req.query.type || '';
+    if (!pagamentoId) return res.status(200).json({ received: true, ignorado: 'sem id' });
+    // Só interessa pagamento. `merchant_order` e afins chegam pelo mesmo endpoint.
+    if (tipo && tipo !== 'payment') return res.status(200).json({ received: true, ignorado: tipo });
+
+    // Acha o pedido pelo id do pagamento — é o que diz de QUAL loja é a notificação.
+    // Sem isso não dá pra saber qual credencial usar pra consultar o MP.
+    const pedido = db.prepare(
+      'SELECT id, tenant_id, codigo, venda_id FROM vitrine_pedidos WHERE pagamento_id = ?'
+    ).get(String(pagamentoId));
+
+    if (!pedido) {
+      // Pode ser cobrança de outro sistema na mesma conta MP, ou o webhook chegando
+      // antes de a nossa gravação terminar. Não é erro nosso.
+      logger.info(`[Webhook MP] pagamento ${pagamentoId} não corresponde a nenhum pedido`);
+      return res.status(200).json({ received: true, ignorado: 'pedido nao encontrado' });
+    }
+
+    if (pedido.venda_id) return res.status(200).json({ received: true, jaProcessado: true });
+
+    // IDEMPOTÊNCIA ANTES DE PROCESSAR: o UNIQUE é o lock. Se o INSERT não passa,
+    // outro processo já pegou este evento — e processar de novo daria baixa dobrada
+    // no estoque e venda duplicada no caixa. Mesma lição do webhook do Stripe.
+    const eventoId = `${pagamentoId}:${req.body?.action || tipo || 'payment'}`;
+    if (!pix.reservarEvento(eventoId, pedido.tenant_id)) {
+      return res.status(200).json({ received: true, duplicado: true });
+    }
+
+    // Consulta o MP em vez de confiar no corpo: o webhook diz "algo mudou", não
+    // "está pago". Aceitar o status do corpo permitiria a qualquer um postar aqui
+    // dizendo que pagou.
+    const p = await pix.consultarPagamento(pedido.tenant_id, pagamentoId);
+    if (!p.ok) {
+      logger.warn(`[Webhook MP] não consegui consultar ${pagamentoId}: ${p.erro}`);
+      return res.status(200).json({ received: true, erro: p.erro });
+    }
+
+    db.prepare('UPDATE vitrine_pedidos SET pagamento_status = ? WHERE id = ?').run(p.status, pedido.id);
+
+    if (!p.aprovado) {
+      // Recusado ou expirado: solta a peça na hora, senão ela fica presa até o
+      // prazo da reserva vencer por conta própria.
+      if (p.status === 'rejected' || p.status === 'cancelled') {
+        require('../lib/reserva').liberar(pedido.tenant_id, pedido.id);
+      }
+      return res.status(200).json({ received: true, status: p.status });
+    }
+
+    const r = pedidoVenda.converter(pedido.tenant_id, pedido.id, { forma: 'pix', origem: 'vitrine' });
+    if (!r.ok) {
+      // O caso mais provável é a peça ter sido vendida no balcão enquanto o Pix
+      // estava aberto. O dinheiro ENTROU — isso precisa de olho humano, não de
+      // retry: a lojista resolve na conversa (troca ou devolve).
+      logger.error(`[Webhook MP] pedido ${pedido.codigo} pago mas NÃO virou venda: ${r.erro}`);
+      return res.status(200).json({ received: true, erro: r.erro, revisar: true });
+    }
+
+    logger.info(`[Webhook MP] pedido ${pedido.codigo} pago → venda ${r.vendaId}`);
+    res.status(200).json({ received: true, venda_id: r.vendaId });
+
+  } catch (err) {
+    logger.error('[Webhook MP] erro:', err.stack || err.message);
+    res.status(200).json({ received: true, error: err.message });
+  }
+});
+
 module.exports = router;

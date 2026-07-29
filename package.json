@@ -23,12 +23,16 @@
     "test:vitrine": "node tests/vitrine-ssr.test.js",
     "test:vitrine-pedidos": "node tests/vitrine-pedidos.test.js",
     "test:reescrever": "node tests/reescrever-fila.test.js",
+    "test:whatsapp": "node tests/whatsapp-canal.test.js",
+    "test:canal": "node tests/canal-regua.test.js",
+    "test:atacado": "node tests/atacado.test.js",
     "backup": "node scripts/backup.js",
     "backup-s3": "node scripts/backup-s3.js",
     "test:calculos": "node tests/calculos-tenant.test.js",
     "test:idor": "node tests/idor-trocas.test.js",
     "test:gate-vale": "DB_DIR=./tests/.tmp-gate PORT=3006 node --env-file-if-exists=.env server.js > /dev/null 2>&1 & sleep 3 && DB_DIR=./tests/.tmp-gate node tests/gate-vale-credito.test.js",
-    "test:idor-http": "DB_DIR=./tests/.tmp-idorhttp PORT=3007 node --env-file-if-exists=.env server.js > /dev/null 2>&1 & sleep 3 && DB_DIR=./tests/.tmp-idorhttp node tests/idor-cross-tenant.test.js"
+    "test:idor-http": "DB_DIR=./tests/.tmp-idorhttp PORT=3007 node --env-file-if-exists=.env server.js > /dev/null 2>&1 & sleep 3 && DB_DIR=./tests/.tmp-idorhttp node tests/idor-cross-tenant.test.js",
+    "test:bot": "node tests/bot.test.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1073.0",

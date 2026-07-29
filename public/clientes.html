@@ -65,7 +65,10 @@
               <div class="texto-cinza" style="font-size:0.8rem;">${c.num_compras} compra(s)</div>
             </div>
           </div>
-          <div class="mt"><button class="btn btn-fino btn-escuro" onclick="ver(${c.id})">Ver histórico</button></div>
+          <div class="mt" style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn btn-fino btn-escuro" onclick="ver(${c.id})">Ver histórico</button>
+            <a class="btn btn-fino" href="ficha.html?id=${c.id}">Ficha completa</a>
+          </div>
         </div>`).join('');
     }
 
