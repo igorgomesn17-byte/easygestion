@@ -18,8 +18,19 @@
        Página que rola inteira faria a caixa de resposta sumir da tela toda vez
        que a conversa fosse longa.
        ============================================================ */
-    body { overflow: hidden; }
-    .conteudo { padding: 0 !important; max-width: none !important; height: 100vh; display: flex; flex-direction: column; }
+    /* A página inteira não rola — quem rola é a lista e a conversa, cada uma no
+       seu painel. Sem isto a caixa de resposta desceria junto com a conversa e
+       sumiria da tela toda vez que o histórico ficasse longo. */
+    body.tela-atendimento { overflow: hidden; }
+
+    /* 100vh MENOS a topbar. Usar 100vh cheio empurra o conteúdo pra baixo da
+       altura da janela — e com overflow:hidden no body, a caixa de resposta (que
+       fica no rodapé do painel do meio) fica inalcançável. Foi esse o bug. */
+    body.tela-atendimento .conteudo {
+      padding: 0 !important; max-width: none !important;
+      height: calc(100vh - var(--topbar-h, 58px));
+      display: flex; flex-direction: column; overflow: hidden;
+    }
 
     .at-topo {
       display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
@@ -147,7 +158,7 @@
     .dlg { padding: 22px; }
   </style>
 </head>
-<body data-mob="lista">
+<body class="tela-atendimento" data-mob="lista">
   <div class="conteudo">
     <div class="at-topo">
       <h1>Atendimento</h1>
