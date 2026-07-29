@@ -88,4 +88,62 @@ router.post('/stripe', verificarAssinaturaStripe, async (req, res) => {
   }
 });
 
+// ============================================================
+// POST /api/webhooks/whatsapp/:token — mensagem que CHEGOU.
+// ------------------------------------------------------------
+// A porta de entrada do Comercial 1. Quem vê o anúncio e escreve chega por aqui —
+// e é o contato mais caro que a loja tem, porque foi pago pra existir. Se cair no
+// vazio, o dinheiro do anúncio virou nada.
+//
+// O token vai na URL, e não num header, porque é a Evolution quem monta a chamada:
+// ela permite configurar a URL do webhook por instância, mas não headers. Cada loja
+// tem o seu (gerado em salvarCredencial), e é ele que diz de QUAL tenant é a
+// mensagem — sem ele, uma mensagem cairia na loja errada.
+//
+// SEMPRE 200. Provedor que recebe erro reenvia em loop; e o que não deu certo aqui
+// não vai dar certo na terceira tentativa — vira log, não retry infinito.
+// ============================================================
+router.post('/whatsapp/:token', (req, res) => {
+  try {
+    const { tenantDoWebhookToken, credencialDe } = require('../lib/whatsapp');
+    const { receberMensagem } = require('../lib/conversas');
+
+    const tenantId = tenantDoWebhookToken(req.params.token);
+    if (!tenantId) {
+      // 404 e não 403: um token inválido não deve revelar que a rota existe nem
+      // que outras lojas têm canal. Mesma postura das rotas exclusivas da vitrine.
+      logger.warn('[Webhook WhatsApp] token desconhecido');
+      return res.status(404).json({ erro: 'Nao encontrado' });
+    }
+
+    const cred = credencialDe(tenantId);
+    if (!cred) return res.status(200).json({ received: true, ignorado: 'sem canal' });
+
+    // Cada provedor tem seu próprio formato — o adaptador traduz pro neutro.
+    // Devolve null pro que não deve virar conversa: eco da nossa própria mensagem,
+    // status de entrega, evento de grupo.
+    const adaptador = require('../lib/whatsapp-evolution');
+    const msg = adaptador.lerWebhook(req.body);
+    if (!msg) return res.status(200).json({ received: true, ignorado: true });
+
+    const r = receberMensagem(tenantId, msg);
+
+    if (r.duplicada) {
+      // O provedor reenvia quando não recebe 200 rápido. Não é erro — é o normal.
+      return res.status(200).json({ received: true, duplicada: true });
+    }
+    if (!r.ok) {
+      logger.warn('[Webhook WhatsApp] nao processou:', r.erro);
+      return res.status(200).json({ received: true, erro: r.erro });
+    }
+
+    logger.info(`[Webhook WhatsApp] tenant ${tenantId} · conversa ${r.conversaId}${r.nova ? ' (NOVA)' : ''}`);
+    res.status(200).json({ received: true, conversa_id: r.conversaId });
+
+  } catch (err) {
+    logger.error('[Webhook WhatsApp] erro:', err.stack || err.message);
+    res.status(200).json({ received: true, error: err.message });
+  }
+});
+
 module.exports = router;

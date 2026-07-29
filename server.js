@@ -269,6 +269,11 @@ app.use('/api/webhooks/stripe', express.raw({type: 'application/json'}), (req, r
   req.rawBody = req.body.toString('utf8');
   next();
 });
+// O webhook do WhatsApp precisa do JSON já parseado, e este mount acontece ANTES do
+// express.json global (que só entra depois, na seção de body parsers). Sem um parser
+// próprio aqui, req.body chegaria vazio e toda mensagem recebida seria descartada em
+// silêncio — o pior tipo de falha, porque a tela simplesmente não mostra nada.
+app.use('/api/webhooks/whatsapp', express.json({ limit: '2mb' }));
 app.use('/api/webhooks', require('./routes/webhooks'));
 
 // Não existe webhook de deploy. Deploy é MANUAL via SSH (ver CLAUDE.md): expor

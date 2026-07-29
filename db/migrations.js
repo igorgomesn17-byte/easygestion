@@ -2058,6 +2058,53 @@ function executarMigrations(db) {
         // comprou, entao nao existe ausencia pra lamentar. Mandar "sentimos sua
         // falta" pra quem nunca veio queima o contato que o marketing pagou.
       }
+    },
+
+    {
+      nome: '047_integracoes_canal',
+      hash: 'v47-integracoes-canal',
+      exec: (db) => {
+        // CREDENCIAL DO CANAL DE MENSAGEM (WhatsApp).
+        //
+        // Molde deliberado de `integracoes_pagamento` (lib/mercadopago.js): token
+        // CIFRADO (AES-256-CBC, mesma CERT_CIPHER_KEY), por tenant, com UNIQUE que
+        // faz reconectar virar UPDATE em vez de duplicar.
+        //
+        // `provedor` e' COLUNA, e nao um valor fixo, pelo mesmo motivo que
+        // `adquirente` e' coluna na tabela de pagamento: hoje o canal e' a Evolution
+        // (nao-oficial, com risco de banimento assumido pelo dono); amanha pode ser
+        // a Cloud API oficial da Meta. Trocar de provedor tem que ser trocar de
+        // LINHA, nunca migrar tabela — e as duas coexistem enquanto se migra.
+        //
+        // NAO reusar a tabela `config`: la o token da Focus esta em texto puro. Uma
+        // credencial que fala com a base inteira de clientes nao repete isso.
+        //
+        // Migration SEPARADA da 046 de proposito: a 046 ja poderia estar registrada
+        // como executada num banco (dev, staging) quando esta tabela foi acrescentada
+        // ao plano. Editar uma migration ja aplicada faz o codigo novo esperar uma
+        // estrutura que aquele banco nunca vai criar — e o erro so aparece no primeiro
+        // uso, em runtime ("no such table"). Migration aplicada e' imutavel; o que
+        // vem depois vira migration nova.
+        db.exec(`
+          CREATE TABLE IF NOT EXISTS integracoes_canal (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            tenant_id     INTEGER NOT NULL,
+            provedor      TEXT NOT NULL DEFAULT 'evolution',  -- evolution | meta_cloud
+            base_url      TEXT,                               -- onde a instancia responde
+            instancia     TEXT,                               -- nome da instancia no provedor
+            token         TEXT NOT NULL,                      -- CIFRADO, nunca em claro
+            numero        TEXT,                               -- o numero conectado (so digitos)
+            webhook_token TEXT,                               -- valida quem chama nosso webhook
+            ativo         INTEGER NOT NULL DEFAULT 1,
+            criado_em     TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+            atualizado_em TEXT,
+            UNIQUE (tenant_id, provedor)
+          );
+        `);
+
+        // O webhook busca por este token a cada mensagem que chega.
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_integracoes_canal_webhook ON integracoes_canal(webhook_token);`);
+      }
     }
   ];
 
